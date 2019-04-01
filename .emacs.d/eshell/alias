@@ -1,0 +1,26 @@
+alias ll ls -lh $*
+alias su eshell/su $*
+alias sudo eshell/sudo $*
+alias ... ../.. $*
+alias .... ../../.. $*
+alias df df -h $*
+alias en emacsclient -c --no-wait $*
+alias g git $*
+alias ga git add $*
+alias gc git commit $*
+alias gcm git commit -m $*
+alias glog git log --pretty=format:"%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit $*
+alias gp git push $*
+alias gpl git pull $*
+alias grep grep --color=auto $*
+alias gs git status $*
+alias hide-hidden-files defaults write com.apple.finder AppleShowAllFiles -bool false; and killall Finder $*
+alias ln ln -v $*
+alias mkdir mkdir -p $*
+alias show-hidden-files defaults write com.apple.finder AppleShowAllFiles -bool true; and killall Finder $*
+alias public-ip wget -qO- https://diagnostic.opendns.com/myip && echo
+alias mergepdf /System/Library/Automator/CombinePDFPages.action/Contents/Resources/join.py $*
+alias la ls -Alh $*
+alias l ls $*
+alias lt ls -Alhtr $*
+alias lsd *ls -d *
