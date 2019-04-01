@@ -818,7 +818,7 @@ When using Homebrew, install it using \"brew install trash\"."
   ("M-s-r" . crux-rename-file-and-buffer)
   ("C-c k" . crux-kill-other-buffers)
   ("C-M-X" . crux-indent-defun)
-  ("C-c I" . crux-find-user-init-file)
+  ("C-c I" . (lambda () (interactive (find-file "~/.emacs.d/init.el"))))
   ("C-c S" . crux-find-shell-init-file)
   ("C-<backspace>" . crux-kill-line-backwards))
 
@@ -1563,20 +1563,6 @@ other window."
   ("C-c >" . mc/mark-all-dwim)
   ("C-c C-a"  . mc/mark-all-dwim))
 
-(use-package mc-extras
-  :bind
-  (:map mc/keymap
-        ("C-. M-C-f" . mc/mark-next-sexps)
-        ("C-. M-C-b" . mc/mark-previous-sexps)
-        ("C-. <" . mc/mark-all-above)
-        ("C-. >" . mc/mark-all-below)
-        ("C-. C-d" . mc/remove-current-cursor)
-        ("C-. C-k" . mc/remove-cursors-at-eol)
-        ("C-. d" . mc/remove-duplicated-cursors)
-        ("C-. C-." . mc/freeze-fake-cursors-dwim)
-        ("C-. ." . mc/move-to-column)
-        ("C-. =" . mc/compare-chars)))
-
 (use-package move-text
   :bind
   (:map prog-mode-map
@@ -1811,48 +1797,19 @@ ID, ACTION, CONTEXT."
 (use-package smartparens
   :demand t
   :custom
-  (sp-base-key-bindings 'paredit)
-  ;; smartparens does some weird stuff with bindings so you can't reliably use
-  ;; `use-package/:bind' to set them.
-  (sp-smartparens-bindings '(("C-M-f" . sp-forward-sexp)
-                             ("C-M-b" . sp-backward-sexp)
-                             ("C-M-d" . sp-down-sexp)
-                             ("C-M-a" . beginning-of-defun)
-                             ("C-S-d" . sp-beginning-of-sexp)
-                             ("C-S-a" . sp-end-of-sexp)
-                             ("C-M-e" . end-of-defun)
-                             ("C-M-u" . sp-backward-up-sexp)
-                             ("C-M-n" . sp-next-sexp)
-                             ("C-M-p" . sp-previous-sexp)
-                             ("C-M-k" . sp-kill-sexp)
-                             ("C-M-w" . sp-copy-sexp)
-                             ("M-<delete>" . sp-unwrap-sexp)
-                             ("M-<backspace>" . sp-backward-unwrap-sexp)
-                             ("C-<right>" . sp-forward-slurp-sexp)
-                             ("C-<left>" . sp-forward-barf-sexp)
-                             ("C-M-<left>" . sp-backward-slurp-sexp)
-                             ("C-M-<right>" . sp-backward-barf-sexp)
-                             ("M-D" . sp-splice-sexp)
-                             ("C-M-<delete>" . sp-splice-sexp-killing-forward)
-                             ("C-M-<backspace>" . sp-splice-sexp-killing-backward)
-                             ("C-S-<backspace>" . sp-splice-sexp-killing-around)
-                             ("C-]" . sp-select-next-thing-exchange)
-                             ("C-M-]" . sp-select-next-thing)
-                             ("C-M-SPC" . sp-mark-sexp)
-                             ("M-F" . sp-forward-symbol)
-                             ("M-B" . sp-backward-symbol)
-                             ("C-M-k" . sp-kill-sexp)
-                             ("C-s-<backspace>" . sp-backward-kill-sexp)
-                             ("C-c <backspace>" . sp-backward-kill-sexp)
-                             ("C-M-(" . sp-backward-slurp-into-previous-sexp)
-                             ("C-s-a" . sp-backward-down-sexp)
-                             ("C-s-e" . sp-up-sexp)))
   (sp-hybrid-kill-entire-symbol nil)
   ;; Don't disable autoskip when point moves backwards. (This lets you
   ;; open a sexp, type some things, delete some things, etc., and then
   ;; type over the closing delimiter as long as you didn't leave the
   ;; sexp entirely.)
   (sp-cancel-autoskip-on-backward-movement nil)
+  ;; smartparens does some weird stuff with bindings so you can't reliably use
+  ;; `use-package/:bind' to set them.
+  (sp-override-key-bindings '(("M-<left>" . nil)
+                              ("M-<right>" . nil)
+                              ("C-M-a" . nil)
+                              ("C-M-e" . nil)
+                              ("M-<backspace>" . nil)))
   :config
   (bind-key [remap kill-line] #'sp-kill-hybrid-sexp smartparens-mode-map
             (apply #'derived-mode-p sp-lisp-modes))
@@ -1890,10 +1847,6 @@ ID, ACTION, CONTEXT."
   :hook
   (smartparens-mode . (lambda ()
                         (require 'smartparens-config)
-                        (sp-use-smartparens-bindings)
-                        (sp-use-paredit-bindings)
-                        ;; Don't shadow global binding
-                        (bind-key "M-<backspace>" nil smartparens-mode-map)
                         (turn-on-show-smartparens-mode)))
   ((css-mode emacs-lisp-mode hy-mode sass-mode sh-mode) . turn-on-smartparens-mode)
   (clojure-mode . (lambda () (require 'smartparens-clojure)))
@@ -1935,333 +1888,20 @@ ID, ACTION, CONTEXT."
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Dired
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(require 'dired)
-(require 'dired-x)
-
-;; try to use GNU ls on macOS since BSD ls doesn't explicitly support Emacs
-(setq insert-directory-program (or (executable-find "gls")
-                                   (executable-find "ls"))
-      ;; don't prompt to kill buffers of deleted directories
-      dired-clean-confirm-killing-deleted-buffers nil)
-
-(defun dired-to-default-directory ()
-  "Open directory containing the current file."
-  (interactive)
-  (dired default-directory))
-
-(defun dired-open-file ()
-  "Open file at point in OS default program."
-  (interactive)
-  (let* ((file (dired-get-filename nil t)))
-    (message "Opening %s..." file)
-    (os-open-file file)))
-
-(defvar-local dired-dotfiles-show-p t
-  "If non-nil, show files beginning with `.' in dired.")
-
-(defun dired-dotfiles-toggle ()
-  "Toggle display of dot files."
-  (interactive)
-  (when (equal major-mode 'dired-mode)
-    (if (or (not (boundp 'dired-dotfiles-show-p)) dired-dotfiles-show-p) ; if currently showing
-        (progn
-          (set (make-local-variable 'dired-dotfiles-show-p) nil)
-          (message "h")
-          (dired-mark-files-regexp "^\\\.")
-          (dired-do-kill-lines))
-      (progn (revert-buffer)            ; otherwise just revert to re-show
-             (setq-local dired-dotfiles-show-p t)))))
-
-(use-package dired+)
-
-(use-package wdired
-  :custom
-  (wdired-allow-to-change-permissions t)
-  (wdired-create-parent-directories t))
-
-(setq dired-recursive-deletes 'always
-      dired-recursive-copies 'always
-      dired-listing-switches "-alh"
-      dired-dwim-target t
-      dired-omit-mode t
-      dired-omit-files "\\`[#.].*")
-
-(setq-default dired-omit-files-p t)
-
-(add-hook 'dired-mode-hook (lambda () (dired-hide-details-mode t)))
-
-(add-hook 'dired-load-hook '(lambda () (require 'dired-x)))
-
-(bind-keys
- ("C-x C-d" . dired-to-default-directory)
- ("C-x d" . dired)
- :map dired-mode-map
- ("C-c o" . dired-open-file)
- ("T" . touch)
- ("C-." . dired-omit-mode)
- ("C-c C-p" . wdired-change-to-wdired-mode))
-
-(use-package diredfl
-  :config
-  (diredfl-global-mode))
-
-(use-package dired-subtree
-  :bind
-  (:map dired-mode-map
-        ("I" . dired-subtree-cycle)
-        ("TAB" . dired-subtree-cycle)
-        ("C-, i" . dired-subtree-insert)
-        ("C-, r" . dired-subtree-remove)
-        ("C-, R" . dired-subtree-revert)
-        ("C-, n" . dired-subtree-narrow)
-        ("C-, ^" . dired-subtree-up)
-        ("C-, v" . dired-subtree-down)))
-
-(use-package dired-rsync
-  :bind
-  (:map dired-mode-map
-        ("C-c C-r" . dired-rsync)))
-
-(use-package dired-sidebar
-  :init
-  (add-hook 'dired-sidebar-mode-hook
-            (lambda ()
-              (unless (file-remote-p default-directory)
-                (auto-revert-mode))))
-  :config
-  (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
-  (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
-  :bind
-  (("C-x M-d" . dired-sidebar-toggle-sidebar)))
-
-(use-package disk-usage
-  :straight
-  (:type git :host gitlab :repo "Ambrevar/emacs-disk-usage")
-  :bind
-  (:map dired-mode-map
-        (")" . disk-usage-here)
-        ("C-)" . disk-usage)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Shell, Terminal, SSH, Tramp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(require 'tramp)
+(with-eval-after-load 'dired
+  (require 'm-dired))
 
-(defun tramp-insert-remote-part ()
-  "Insert current tramp prefix at point."
-  (interactive)
-  (if-let* ((remote (file-remote-p default-directory)))
-      (insert remote)))
+(with-eval-after-load 'tramp
+  (require 'm-shell-common))
 
-(bind-key "C-:" #'tramp-insert-remote-part)
+(with-eval-after-load 'shell
+  (require 'm-shell-common))
 
-;; Configure TRAMP to respect the PATH variable on the remote machine (for
-;; remote eshell sessions)
-(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
-
-(defun list-hosts-from-known-hosts ()
-  "Return a list of hosts from `~/.ssh/known_hosts'."
-  (with-temp-buffer
-    (insert-file-contents "~/.ssh/known_hosts")
-    (-remove (lambda (host) (string=  "" host))
-             (mapcar (lambda (line) (replace-regexp-in-string "\\]\\|\\[" "" (car (split-string line "[, :]"))))
-                     (split-string (buffer-string) "\n")))))
-
-(defun list-hosts-from-ssh-config ()
-  "Return a list of hosts from `~/.ssh/config'."
-  (with-temp-buffer
-    (insert-file-contents "~/.ssh/config")
-    (keep-lines "^Host")
-    (-remove (lambda (host) (or (string=  "" host) (string= "*" host)))
-             (mapcar (lambda (line) (replace-regexp-in-string "Host +" "" line))
-                     (split-string (buffer-string) "\n")))))
-
-(defun list-hosts-from-etc-hosts ()
-  "Return a list of hosts from `/etc/hosts'."
-  (with-temp-buffer
-    (insert-file-contents "/etc/hosts")
-    (flush-lines "^#")
-    (flush-lines "^$")
-    (-remove (lambda (host) (or (string= host "localhost")
-                                (string= host "broadcasthost")
-                                (eq host nil)))
-             (mapcar (lambda (line) (cadr (split-string line "[ \t]+")))
-                     (split-string (buffer-string) "\n")))))
-
-(defun list-hosts-from-recentf ()
-  "Return a list of hosts from the `recentf-list'."
-  (-distinct
-   (mapcar (lambda (s)
-             (replace-regexp-in-string
-              ":.*" ""
-              (replace-regexp-in-string "^/sshx\?:" "" s)))
-           (-filter
-            (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
-            recentf-list))))
-
-(defun ssh-choose-host (&optional prompt)
-  "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
-  (completing-read (or prompt "SSH to Host: ")
-                   (-distinct
-                    (append
-                     (list-hosts-from-recentf)
-                     (list-hosts-from-known-hosts)
-                     (list-hosts-from-ssh-config)
-                     (list-hosts-from-etc-hosts)))
-                   nil t))
-
-(defun tramp-dired (host)
-  "Choose an ssh HOST and then open it with dired."
-  (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
-  (find-file
-   (if (tramp-file-name-p host)
-       host
-     (find-file (concat "/ssh:" host ":")))))
-
-(defun tramp-dired-sudo (host)
-  "SSH to HOST, sudo to root, open dired."
-  (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
-  (find-file
-   (if (tramp-file-name-p host)
-       host
-     (concat "/ssh:" host "|sudo:root@" host ":"))))
-
-(eval-after-load 'sh
-  (lambda ()
-    (bind-keys
-     :map sh-mode-map
-     ("s-<ret>" . eshell-send-current-line))))
-
-;; http://whattheemacsd.com/setup-shell.el-01.html
-(defun comint-delchar-or-eof-or-kill-buffer (arg)
-  "`C-d' on an empty line in the shell terminates the process, accepts ARG."
-  (interactive "p")
-  (if (null (get-buffer-process (current-buffer)))
-      (kill-buffer)
-    (comint-delchar-or-maybe-eof arg)))
-
-(add-hook 'shell-mode-hook
-          (lambda ()
-            (bind-keys :map shell-mode-map ("C-d" . comint-delchar-or-eof-or-kill-buffer))
-            (bind-keys :map shell-mode-map ("SPC" . comint-magic-space))))
-
-(defun shell-command-exit-code (program &rest args)
-  "Run PROGRAM with ARGS and return the exit code."
-  (with-temp-buffer
-    (apply 'call-process program nil (current-buffer) nil args)))
-
-;; dtach (https://github.com/crigler/dtach)
-;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
-(defvar explicit-dtach-args
-  '("-A" "/tmp/emacs.dtach" "-z" "bash" "--noediting" "--login")
-  "Args for dtach.")
-
-(defun ssh-dtach (host)
-  "Open SSH connection to HOST and create or attach to dtach session."
-  (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
-  (let ((explicit-shell-file-name "dtach")
-        (default-directory (format  "/sshx:%s:" host))
-        (explicit-dtach-args explicit-dtach-args))
-    (shell (format "*ssh (dtach) %s*" host))))
-
-;; https://www.emacswiki.org/emacs/ShellMode
-(defun term-switch-to-shell-mode ()
-  "Switch a term session to shell."
-  (interactive)
-  (if (or (equal major-mode 'term-mode))
-      (progn
-        (shell-mode)
-        (set-process-filter  (get-buffer-process (current-buffer)) 'comint-output-filter)
-        (local-set-key (kbd "C-M-j") 'term-switch-to-shell-mode)
-        (compilation-shell-minor-mode 1)
-        (comint-send-input))
-    (progn
-      (compilation-shell-minor-mode -1)
-      (font-lock-mode -1)
-      (set-process-filter  (get-buffer-process (current-buffer)) 'term-emulate-terminal)
-      (term-mode)
-      (term-char-mode)
-      (term-send-raw-string (kbd "C-l")))))
-
-;; Apply colors to `shell-command' minibuffer output.
-;; Adapted from https://stackoverflow.com/a/42666026/1588358
-(defun xterm-color-apply-on-minibuffer ()
-  "Apply xterm color filtering on minibuffer output."
-  (let ((bufs (cl-remove-if-not
-               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
-               (buffer-list))))
-    (dolist (buf bufs)
-      (with-current-buffer buf
-        (xterm-color-colorize-buffer)))))
-
-(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
-  "Wrap `xterm-color-apply-on-minibuffer'."
-  (xterm-color-apply-on-minibuffer))
-
-(advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
-
-(ignore-errors
-  (let ((vterm-dir "~/code/emacs-libvterm"))
-    (when (file-exists-p vterm-dir)
-      (add-to-list 'load-path "~/code/emacs-libvterm")
-      (let (vterm-install)
-        (require 'vterm)))))
-
-(use-package term
-  :bind
-  (("C-c t" . vterm)
-   :map term-mode-map
-   ("M-p" . term-send-up)
-   ("M-n" . term-send-down)
-   :map term-raw-map
-   ("M-o" . other-window)
-   ("M-p" . term-send-up)
-   ("M-n" . term-send-down)
-   ("C-M-j" . term-switch-to-shell-mode)))
-
-;; xterm colors
-(use-package xterm-color
-  :custom
-  (comint-output-filter-functions
-   (remove 'ansi-color-process-output comint-output-filter-functions))
-  :config
-  (setenv "TERM" "xterm-256color")
-  :hook
-  (shell-mode . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
-  (compilation-start-hook . (lambda (proc)
-                              ;; We need to differentiate between compilation-mode buffers
-                              ;; and running as part of comint (which at this point we assume
-                              ;; has been configured separately for xterm-color)
-                              (when (eq (process-filter proc) 'compilation-filter)
-                                ;; This is a process associated with a compilation-mode buffer.
-                                ;; We may call `xterm-color-filter' before its own filter function.
-                                (set-process-filter
-                                 proc
-                                 (lambda (proc string)
-                                   (funcall 'compilation-filter proc
-                                            (xterm-color-filter string))))))))
-
-(use-package bash-completion
-  :custom
-  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
-  ;; file name.
-  (bash-completion-nospace t)
-  :hook
-  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
-
-(use-package fish-mode
-  :custom (fish-indent-offset tab-width)
-  :mode "\\.fish\\'")
-
-(use-package fish-completion
-  :custom
-  (fish-completion-fallback-on-bash-p t)
-  :config
-  (global-fish-completion-mode))
+(with-eval-after-load 'term
+  (require 'm-shell-common))
 
 (use-package eshell
   :custom
@@ -2279,6 +1919,7 @@ ID, ACTION, CONTEXT."
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
   :config
+  (require 'm-shell-common)
   (require 'm-eshell)
   :hook
   ((eshell-mode . eshell/init)
@@ -2305,69 +1946,6 @@ ID, ACTION, CONTEXT."
   ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
   (unless (eq system-type 'windows-nt)
     (pinentry-start)))
-
-(defun sudo-toggle--add-sudo (path)
-  "Add sudo to file PATH string."
-  (if (file-remote-p path)
-      (with-parsed-tramp-file-name (expand-file-name path) nil
-        (concat "/" method ":"
-                (when user (concat user "@"))
-                host "|sudo:root@" host ":" localname))
-    (concat "/sudo:root@localhost:" (expand-file-name path))))
-
-(defun sudo-toggle--remove-sudo (path)
-  "Remove sudo from file PATH string."
-  (cond
-   ((string-match-p "/sudo:root@localhost:" path)
-    (replace-regexp-in-string (getenv "HOME") "~" (substring path 21)))
-
-   ((string-match-p "|sudo:root@" path)
-    (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
-
-(defun sudo-toggle ()
-  "Reopen the current file, directory, or shell as root.  For))))
-files and dired buffers, the non-sudo buffer is replaced with a
-sudo buffer.  For shells, a sudo shell is opened but the non-sudo
-shell is left intact."
-  (interactive)
-  (let* ((position (point))
-         (f (expand-file-name (or buffer-file-name default-directory)))
-         (newf (if (string-match-p "sudo:" f)
-                   (sudo-toggle--remove-sudo f)
-                 (sudo-toggle--add-sudo f)))
-         ;; so that you don't get method overrides
-         (tramp-default-proxies-alist nil))
-    (cond ((or buffer-file-name (derived-mode-p 'dired-mode))
-           (find-alternate-file newf)
-           (goto-char position))
-          ((derived-mode-p 'shell-mode)
-           (if (string-match-p "*shell/sudo:root@" (buffer-name))
-               (kill-buffer-and-window)
-             (with-temp-buffer
-               (cd newf)
-               (shell (format "*shell/sudo:root@%s*"
-                              (with-parsed-tramp-file-name newf nil host))))))
-          ((derived-mode-p 'eshell-mode)
-           (eshell-return-to-prompt)
-           (insert (concat "cd '" newf "'"))
-           (eshell-send-input))
-          (t (message "Can't sudo this buffer")))))
-
-;; (defun tramp-disable-file-accesses ()
-;;   "Disable file accesses when visiting buffers accessed via tramp for performance reasons."
-;;   (when (file-remote-p default-directory)
-;;     (setq-local company-backends company-backends-remote)))
-
-;; (use-package tramp
-;;   :hook
-;;   (find-file . tramp-disable-file-accesses))
-
-;; (defun tramp-term--create-vterm (name cmd &rest args)
-;;   "Create a `vterm' with NAME, running CMD with ARGS."
-;;   (vterm)
-;;   (rename-buffer name)
-;;   (insert (mapconcat 'identity (cons cmd args) " "))
-;;   (insert "\n"))
 
 (use-package tramp-term
   :commands
@@ -2404,175 +1982,16 @@ The config is specified in the config file in `~/.mnt/'."
   (mnt-cmd "umnt"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ERC
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; Automate communication with services, such as nicserv
-(require 'erc-services)
-(erc-services-mode 1)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Notes, Journal, and Documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(with-eval-after-load 'org
+  (require 'm-org))
 
 ;; visual-line-mode
 ;; Don't shadow mwim and org-mode bindings
 (bind-key [remap move-beginning-of-line] nil visual-line-mode-map)
 (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
-
-;; Org-mode
-
-;; Install Org from git
-;; https://github.com/raxod502/straight.el#installing-org-with-straightel
-;; (require 'subr-x)
-;; (straight-use-package 'git)
-
-;; (defun org-git-version ()
-;;   "The Git version of org-mode.
-;; Inserted by installing org-mode or when a release is made."
-;;   (require 'git)
-;;   (let ((git-repo (expand-file-name
-;;                    "straight/repos/org/" user-emacs-directory)))
-;;     (string-trim
-;;      (git-run "describe"
-;;               "--match=release\*"
-;;               "--abbrev=6"
-;;               "HEAD"))))
-
-;; (defun org-release ()
-;;   "The release version of org-mode.
-;; Inserted by installing org-mode or when a release is made."
-;;   (require 'git)
-;;   (let ((git-repo (expand-file-name
-;;                    "straight/repos/org/" user-emacs-directory)))
-;;     (string-trim
-;;      (string-remove-prefix
-;;       "release_"
-;;       (git-run "describe"
-;;                "--match=release\*"
-;;                "--abbrev=0"
-;;                "HEAD")))))
-
-;; (provide 'org-version)
-
-(defun search-org-files ()
-  "Search ~/org using `counsel-rg'."
-  (interactive)
-  (counsel-rg nil org-directory))
-
-(defun org-todo-todo ()
-  "Create or update Org todo entry to TODO status."
-  (interactive)
-  (org-todo "TODO"))
-
-(defun org-todo-to-int (todo)
-  "Get the number of the TODO based on its status."
-  (first (-non-nil
-          (mapcar (lambda (keywords)
-                    (let ((todo-seq
-                           (-map (lambda (x) (first (split-string  x "(")))
-                                 (rest keywords))))
-                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
-                  org-todo-keywords))))
-
-(defun org-sort-entries--todo-status-key ()
-  "Sort Org TODO entries by their status."
-  (let* ((todo-max (apply #'max (mapcar #'length org-todo-keywords)))
-         (todo (org-entry-get (point) "TODO"))
-         (todo-int (if todo (org-todo-to-int todo) todo-max))
-         (priority (org-entry-get (point) "PRIORITY"))
-         (priority-int (if priority (string-to-char priority) org-default-priority)))
-    (format "%03d %03d" todo-int priority-int)))
-
-(defun org-sort-entries-by-todo-status ()
-  "Sort Org TODO entries by their status."
-  (interactive)
-  (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
-
-(require 'org)
-
-(setq
- org-directory "~/org"
- ;; Clean view
- org-startup-indented t
- ;; Smart C-a/e
- org-special-ctrl-a/e t
- ;; Smart C-k
- org-special-ctrl-k t
- ;; Insert a row in tables
- org-special-ctrl-o t
- ;; Tab in source blocks should act like in major mode
- org-src-tab-acts-natively t
- ;; Code highlighting in code blocks
- org-src-fontify-natively t
- ;; Customize todo keywords
- ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
- ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
- ;;                           ("NEXT" (:foreground "red" :weight bold))
- ;;                           ("WIP" (:foreground "green" :weight bold))
- ;;                           ("DONE" (:foreground "gray"))))
- org-agenda-files '(org-directory
-                    (expand-file-name "TODO.org" org-directory)))
-
-(bind-keys
- ("C-c l" . org-store-link)
- ("C-c a" . org-agenda)
- ("C-c c" . org-capture)
- ("C-c b" . org-switchb)
- ("C-c s" . search-org-files)
- ("C-c O" . (lambda () (find-file org-directory)))
- :map org-mode-map
- ("s-;" . org-shiftright))
-
-;; Calendar and Journal
-
-(require 'calendar)
-
-(defun calendar-iso8601-date-string (date)
-  "Create an ISO8601 date string from DATE."
-  (destructuring-bind (month day year) date
-    (concat (format "%4i" year)
-            "-"
-            (format "%02i" month)
-            "-"
-            (format "%02i" day))))
-
-(defun calendar-date-add-days (date days)
-  "Add DAYS to DATE."
-  (calendar-gregorian-from-absolute
-   (+ (calendar-absolute-from-gregorian date)
-      days)))
-
-(defun calendar-choose-date ()
-  "Interactively choose DATE and return it as an ISO 8601 string."
-  (let* ((today (calendar-current-date))
-         (day-offsets '(0 -1 -2 -3 -4 -5 -6 -7))
-         (dates (mapcar (apply-partially #'calendar-date-add-days today) day-offsets))
-         (date-strings (mapcar #'calendar-iso8601-date-string dates)))
-    (completing-read "Date: " date-strings nil nil (substring (car date-strings) 0 7))))
-
-(defun calendar-insert-date (date)
-  "Interactively choose a DATE in ISO 8601 format and insert it at point."
-  (interactive (list (calendar-choose-date)))
-  (insert date))
-
-(defun calendar-insert-date-today ()
-  "Insert today's date in ISO 8601 format."
-  (interactive)
-  (insert (calendar-iso8601-date-string (calendar-current-date))))
-
-(defun journal-new-entry ()
-  "Create a new journal entry."
-  (interactive)
-  (let ((date (calendar-choose-date)))
-    (find-file (expand-file-name (concat date ".md") journal-directory))
-    (if (= 0 (buffer-size))
-        (progn
-          (insert "journal")
-          (yas-expand)))))
-
-;; (use-package nov
-;;   :mode ("\\.epub\\'" . nov-mode))
 
 (defvar mode-line-format-backup nil
   "Backup of `mode-line-format'.")
@@ -2599,13 +2018,6 @@ The config is specified in the config file in `~/.mnt/'."
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
-
-;; Doesn't seem to work. Probably API changed?
-;; (use-package org-wunderlist
-;;   :commands
-;;   (org-wunderlist-fetch))
-;; :bind
-;; ("C-c o w" . org-wunderlist-fetch))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Log files
@@ -3350,6 +2762,11 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
                     hostname
                     " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
 
+;; Automate communication with services, such as nicserv
+(with-eval-after-load 'erc
+  (require 'erc-services)
+  (erc-services-mode 1))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Emacs Lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3618,22 +3035,6 @@ of problems in that context."
   (js-indent-level tab-width)
   :hook
   (js2-mode . js2-imenu-extras-mode))
-
-(use-package js2-refactor
-  :hook
-  (js2-mode . js2-refactor-mode)
-  :bind
-  (:map js2-mode-map
-        ("C-k" . js2r-kill)))
-
-(use-package xref-js2
-  :hook
-  (js2-mode . (lambda ()
-                (add-hook 'xref-backend-functions #'xref-js2-xref-backend nil t)))
-  :bind
-  (:map js-mode-map
-        ;; Don't shadow js2-mode-map
-        ("M-." . nil)))
 
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
