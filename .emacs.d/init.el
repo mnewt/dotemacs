@@ -546,6 +546,17 @@ to prevent Emacs from barfing on your screen."
       ;; Show keystrokes right away, don't show the message in the scratch buffer
       echo-keystrokes 0.1)
 
+;; Smoother and nicer scrolling
+(setq scroll-margin 6
+      scroll-step 1
+      scroll-conservatively 10000
+      ;; Reduce scrolling lag
+      ;; https://emacs.stackexchange.com/questions/28736/emacs-pointcursor-movement-lag/28746
+      scroll-preserve-screen-position 1
+      auto-window-vscroll nil
+      mouse-wheel-follow-mouse 't
+      mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+
 (pixel-scroll-mode)
 
 ;; Use the system clipboard
@@ -579,17 +590,6 @@ to prevent Emacs from barfing on your screen."
 (bind-keys
  ("C-S-p" . previous-line-4)
  ("C-S-n" . next-line-4))
-
-;; Smoother and nicer scrolling
-(setq scroll-margin 6
-      scroll-step 1
-      scroll-conservatively 10000
-      ;; Reduce scrolling lag
-      ;; https://emacs.stackexchange.com/questions/28736/emacs-pointcursor-movement-lag/28746
-      scroll-preserve-screen-position 1
-      auto-window-vscroll nil
-      mouse-wheel-follow-mouse 't
-      mouse-wheel-scroll-amount '(1 ((shift) . 1)))
 
 ;; Whenever an external process changes a file underneath emacs, and there
 ;; was no unsaved changes in the corresponding buffer, just revert its
@@ -788,7 +788,9 @@ When using Homebrew, install it using \"brew install trash\"."
 (defun config-windows ()
   "Configure Emacs for Windows."
   (menu-bar-mode -1)
-  (setq w32-lwindow-modifier 'super
+  (setq w32-pass-lwindow-to-system nil
+        w32-lwindow-modifier 'super
+        w32-pass-rwindow-to-system nil
         w32-rwindow-modifier 'super
         os-open-file-executable "explorer")
   (set-face-font 'default "Lucida Console-12")
@@ -1042,7 +1044,7 @@ When using Homebrew, install it using \"brew install trash\"."
               :action #'ivy--switch-buffer-action
               :matcher #'ivy--switch-buffer-matcher
               :preselect (when (eq major-mode mode) (cadr buffers))
-              ;; Use the `ivy-switch-buffer' hydra.
+              ;; Use the `ivy-switch-buffer' actions.
               :caller #'ivy-switch-buffer)))
 
 ;; Quick switch buffers
@@ -1326,6 +1328,10 @@ return them in the Emacs format."
 ;;; Editing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(use-package evil
+  :bind
+  ("s-m" . evil-mode))
+
 (defmacro save-region (body)
   "Save the region, execute BODY, attempt to restore the region."
   `(progn
@@ -1380,10 +1386,6 @@ return them in the Emacs format."
   :bind
   ("C-." . goto-last-change)
   ("C-;" . goto-last-change-reverse))
-
-(use-package evil
-  :bind
-  ("s-m" . evil-mode))
 
 ;; Wrap text.
 (setq-default fill-column 80)
@@ -1684,7 +1686,7 @@ Some modes have special treatment."
 (bind-key "C-M-\\" #'indent-buffer-or-region)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; S-Expressions, Parentheses, Brackets
+;;; Lisp, S-Expressions, Parentheses, Brackets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun sp-sh-post-handler (_id action _context)
@@ -1787,7 +1789,7 @@ ID, ACTION, CONTEXT."
     (sp-forward-slurp-sexp)))
 
 ;; See https://github.com/Fuco1/smartparens/issues/80
-(defun sp-create-newline-and-enter-sexp (&rest _ignored)
+(defun sp-create-newline-and-enter-sexp (&rest _)
   "Open a new brace or bracket expression, with relevant newlines and indent."
   (newline)
   (indent-according-to-mode)
@@ -1805,11 +1807,8 @@ ID, ACTION, CONTEXT."
   (sp-cancel-autoskip-on-backward-movement nil)
   ;; smartparens does some weird stuff with bindings so you can't reliably use
   ;; `use-package/:bind' to set them.
-  (sp-override-key-bindings '(("M-<left>" . nil)
-                              ("M-<right>" . nil)
-                              ("C-M-a" . nil)
-                              ("C-M-e" . nil)
-                              ("M-<backspace>" . nil)))
+  (sp-base-key-bindings 'paredit)
+  (sp-override-key-bindings '())
   :config
   (bind-key [remap kill-line] #'sp-kill-hybrid-sexp smartparens-mode-map
             (apply #'derived-mode-p sp-lisp-modes))
@@ -1847,6 +1846,9 @@ ID, ACTION, CONTEXT."
   :hook
   (smartparens-mode . (lambda ()
                         (require 'smartparens-config)
+                        (sp-use-smartparens-bindings)
+                        (sp-use-paredit-bindings)
+                        (sp--update-override-key-bindings)
                         (turn-on-show-smartparens-mode)))
   ((css-mode emacs-lisp-mode hy-mode sass-mode sh-mode) . turn-on-smartparens-mode)
   (clojure-mode . (lambda () (require 'smartparens-clojure)))
@@ -1859,33 +1861,12 @@ ID, ACTION, CONTEXT."
   (text-mode . (lambda () (require 'smartparens-text)))
   (web-mode . (lambda () (require 'smartparens-html))))
 
-(use-package parinfer
-  :custom
-  (parinfer-extensions
-   '(defaults       ; should be included.
-      pretty-parens ; different paren styles for different modes.
-      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
-      smart-yank))  ; Yank behavior depends on mode.
-  :config
-  (parinfer-strategy-add 'default 'newline-and-indent)
-  :hook
-  ((clojure-mode common-lisp-mode emacs-lisp-mode hy-mode lisp-interaction-mode
-                 lisp-mode scheme-mode) . parinfer-mode)
-  :bind
-  (:map parinfer-mode-map
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)
-        ("C-i" . parinfer--reindent-sexp)
-        ("C-M-i" . parinfer-auto-fix)
-        ("C-," . parinfer-toggle-mode)
-        ;; Don't interfere with smartparens quote handling
-        ("\"" . nil)
-        ;; sp-newline seems to offer a better experience for lisps
-        ("RET" . sp-newline)
-        :map parinfer-region-mode-map
-        ("C-i" . indent-for-tab-command)
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
+;; Emacs lisp
+
+(add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
+
+(with-eval-after-load 'elisp-mode
+  (require 'm-lisp))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Shell, Terminal, SSH, Tramp
@@ -1946,12 +1927,6 @@ ID, ACTION, CONTEXT."
   ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
   (unless (eq system-type 'windows-nt)
     (pinentry-start)))
-
-(use-package tramp-term
-  :commands
-  (tramp-term tramp-term--create-term))
-
-;; (advice-add 'tramp-term--create-term :around #'tramp-term--create-vterm)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Mount
@@ -2077,7 +2052,7 @@ Outline
 
 ^Hide^             ^Show^           ^Move
 ^^^^^^------------------------------------------------------
-_q_ sublevels     _a_ all         _u_ up
+_s_ sublevels     _a_ all         _u_ up
 _t_ body          _e_ entry       _n_ next visible
 _o_ other         _i_ children    _p_ previous visible
 _c_ entry         _k_ branches    _f_ forward same level
@@ -2104,7 +2079,7 @@ _d_ subtree
   ("p" outline-previous-visible-heading)  ; Previous
   ("f" outline-forward-same-level)        ; Forward - same level
   ("b" outline-backward-same-level)       ; Backward - same level
-  ("z" nil "leave"))
+  ("q" nil "leave"))
 
 (defhydra hydra-hs (:color pink :hint nil)
   "
@@ -2160,7 +2135,8 @@ _q_ quit
   ("j" occur-next "Next" :color red)
   ("k" occur-prev "Prev":color red)
   ("h" delete-window "Hide" :color blue)
-  ("r" (reattach-occur) "Re-attach" :color red))
+  ("r" (reattach-occur) "Re-attach" :color red)
+  ("q" nil))
 
 (defhydra hydra-dired (:hint nil :color pink)
   "
@@ -2326,7 +2302,13 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
 (use-package re-builder
   :custom
   ;; string syntax means you don't need to double escape things.
-  (reb-re-syntax 'string))
+  (reb-re-syntax 'string)
+  :bind
+  ("C-c r" . re-builder))
+
+(use-package pcre2el
+  :hook
+  ((emacs-lisp-mode lisp-interaction-mode reb-mode) . rxt-mode))
 
 (use-package wgrep
   :custom
@@ -2336,8 +2318,8 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   (("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
-  ;; :ensure-system-package
-  ;; (rg . ripgrep)
+  :ensure-system-package
+  (rg . ripgrep)
   :requires
   (wgrep-ag)
   :config
@@ -2397,17 +2379,6 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   :hook
   (global-company-mode . company-quickhelp-mode))
 
-(use-package company-shell
-  :config
-  (add-to-list
-   'company-backends
-   `(company-shell company-shell-env
-                   ,(when (executable-find "fish") 'company-fish-shell))))
-
-(use-package pcre2el
-  :hook
-  ((emacs-lisp-mode lisp-interaction-mode reb-mode) . rxt-mode))
-
 (use-package ivy
   :custom
   (enable-recursive-minibuffers t)
@@ -2417,8 +2388,6 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
-        ("s-b" . ivy-switch-buffer)
-        ("s-B" . ivy-switch-buffer-other-window)
         :map ivy-minibuffer-map
         ("C-e" . ivy-partial-or-done)))
 
@@ -2458,7 +2427,7 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
     (ivy--reset-state ivy-last)))
 
 (defun given-file (cmd prompt)
-  "Wrap in a function and call CMD, with interactive PROMPT."
+  "Wrap in a closure and call CMD, with interactive PROMPT."
   (lambda (source)
     (let ((target
            (let ((enable-recursive-minibuffers t))
@@ -2484,13 +2453,14 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
    `(("c" ,(given-file #'copy-file "Copy") "copy")
      ("m" ,(reloading (given-file #'rename-file "Move")) "move")
      ("b" counsel-find-file-cd-bookmark-action "cd bookmark")))
-  (setenv "FZF_DEFAULT_COMMAND" "rg --files")
   :bind
   ("C-h C-k" . counsel-descbinds)
   ("s-F" . counsel-rg)
   ("s-f" . counsel-grep-or-swiper)
   ("M-x" . counsel-M-x)
   ("C-x C-f" . counsel-find-file)
+  ("s-b" . counsel-switch-buffer)
+  ("s-B" . counsel-buffer-other-window)
   ("C-h <tab>" . counsel-info-lookup-symbol)
   ("C-h C-a" . counsel-apropos)
   ("C-c u" . counsel-unicode-char)
@@ -2506,7 +2476,12 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
         ("C-r" . counsel-minibuffer-history)))
 
 (defun counsel-rg-default-directory (f &rest args)
-  "Call F (`counsel-rg') with ARGS from `default-directory'."
+  "Call F (`counsel-rg') with ARGS from `default-directory'.
+
+It seems like `counsel-rg' should call itself from
+`default-directory' without assistance but in my experience it
+looks for a project root directory instead. If we want to search
+from the project root, we can use `counsel-projectile-rg'."
   (let ((initial-input (car args))
         (initial-directory (or (cadr args) default-directory))
         (extra-rg-args (caddr args))
@@ -2768,124 +2743,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (erc-services-mode 1))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Emacs Lisp
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
-
-(with-eval-after-load 'elisp-mode
- (require 'm-emacs-lisp)
- (bind-keys
-  ("C-c C-j" . replace-last-sexp)
-  :map lisp-mode-shared-map
-  ("s-<return>" . eval-last-sexp)
-  ("C-s-<return>" . eval-last-sexp-other-window)
-  ("C-c C-k" . eval-buffer)
-  ("C-x C-r" . eval-region)
-  ("C-x r E" . expression-to-register)
-  ("C-x r e" . eval-register)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Clojure
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(use-package clojure-mode
-  :config
-  (add-to-list 'interpreter-mode-alist '("inlein" . clojure-mode))
-  (progn
-    (define-clojure-indent
-      (defroutes 'defun)
-      (GET 2)
-      (POST 2)
-      (PUT 2)
-      (DELETE 2)
-      (HEAD 2)
-      (ANY 2)
-      (context 2)
-      (let-routes 1))
-
-    (define-clojure-indent
-      (form-to 1))
-
-    (define-clojure-indent
-      (match 1)
-      (are 2)
-      (checking 2)
-      (async 1))
-
-    (define-clojure-indent
-      (select 1)
-      (insert 1)
-      (update 1)
-      (delete 1))
-
-    (define-clojure-indent
-      (run* 1)
-      (fresh 1))
-
-    (define-clojure-indent
-      (extend-freeze 2)
-      (extend-thaw 1))
-
-    (define-clojure-indent
-      (go-loop 1))
-
-    (define-clojure-indent
-      (this-as 1)
-      (specify 1)
-      (specify! 1))
-
-    (define-clojure-indent
-      (s/fdef 1))
-
-    (defun toggle-nrepl-buffer ()
-      "Toggle the nREPL REPL on and off"
-      (interactive)
-      (if (string-match "cider-repl" (buffer-name (current-buffer)))
-          (delete-window)
-        (cider-switch-to-repl-buffer)))
-
-    (defun cider-save-and-refresh ()
-      (interactive)
-      (save-buffer)
-      (call-interactively 'cider-refresh))
-
-    (defun cider-eval-last-sexp-and-append ()
-      (interactive)
-      (cider-eval-last-sexp '(1))))
-  :hook
-  ((clojure-mode clojurescript-mode) . turn-on-eldoc-mode))
-
-(use-package clojure-mode-extra-font-locking
-  :defer 1)
-
-(use-package cider
-  :config
-  (add-hook 'cider-repl-mode-hook (lambda () (company-mode nil)))
-  :bind
-  (:map cider-mode-map
-        ("s-<return>" . cider-eval-last-sexp)))
-
-(defun inf-clojure-start-lumo ()
-  "Start lumo as a subprocess and then connect to it over TCP.
-This is preferable to starting it directly because lumo has lots
-of problems in that context."
-  (interactive)
-  (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-  (inf-clojure-minor-mode)
-  (shell-command "pkill -f 'lumo -d -n 2000'")
-  (async-shell-command "lumo -d -n 2000")
-  (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
-
-(use-package inf-clojure
-  :hook
-  (comint-mode . reinstate-comint-simple-send)
-  :bind
-  (:map inf-clojure-minor-mode-map
-        ("s-<return>" . inf-clojure-eval-last-sexp)
-        ("C-c C-k" . inf-clojure-eval-buffer)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Other File Modes and Formats
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -2893,11 +2750,14 @@ of problems in that context."
   :straight
   (:type git :host github :repo "mnewt/fence-edit.el")
   :config
-  (add-to-list 'fence-edit-blocks '("graphql`" "`" graphql))
+  (add-to-list 'fence-edit-blocks '("graphql[ \t\n]*(?`" "`" graphql))
   (add-to-list 'fence-edit-blocks '("<svg" "</svg>" nxml t))
   (add-to-list 'fence-edit-blocks '("<html" "</html>" web t))
+  (add-to-list 'fence-edit-blocks '("<div" "</div>" web t))
   :bind
-  ("C-c '" . fence-edit-code-at-point))
+  (("C-c '" . fence-edit-code-at-point)
+   :map markdown-mode-map
+   ("C-c '" . nil)))
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
@@ -2916,46 +2776,10 @@ of problems in that context."
 ;;   :commands
 ;;   (quickrun quickrun-region quickrun-shell quickrun-autorun-mode))
 
-;; (use-package sly
-;;   ;; There are some problems building sly with straight.el in Windows
-;;   :unless (eq system-type 'windows-nt)
-;;   :custom
-;;   (inferior-lisp-program (executable-find "sbcl"))
-;;   :bind
-;;   (:map sly-prefix-map
-;;         ("M-h" . sly-documentation-lookup)))
-
-;; (use-package sly-company
-;;   :unless (eq system-type 'windows-nt)
-;;   :hook
-;;   (sly-mode . sly-company-mode)
-;;   :config
-;;   (add-to-list 'company-backends 'sly-company))
-
-;; Configured to use CHICKEN Scheme
-;; (use-package geiser
-;;   :custom
-;;   (geiser-default-implementation 'chicken)
-;;   (geiser-mode-eval-last-sexp-to-buffer t)
-;;   (scheme-program-name "csi -:c")
-;;   :config
-;;   (setq-default geiser-scheme-implementation 'chicken)
-
-;;   ;; Indenting module body code at column 0
-;;   (defun scheme-module-indent (state indent-point normal-indent) 0)
-;;   (put 'module 'scheme-indent-function 'scheme-module-indent)
-;;   (put 'and-let* 'scheme-indent-function 1)
-;;   (put 'parameterize 'scheme-indent-function 1)
-;;   (put 'handle-exceptions 'scheme-indent-function 1)
-;;   (put 'when 'scheme-indent-function 1)
-;;   (put 'unless 'scheme-indenfunction 1)
-;;   (put 'match 'scheme-indent-function 1)
-;;   :commands
-;;   (geiser run-geiser run-chicken))
-
 (use-package markdown-mode
   :mode "\\.md\\|markdown\\'"
   :custom
+  (markdown-list-indent-width tab-width)
   (markdown-command "multimarkdown"))
 
 ;; XML

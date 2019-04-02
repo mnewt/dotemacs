@@ -340,9 +340,7 @@ because I dynamically rename the buffer according to
 (defun eshell-ls-find-file-at-point (point)
   "RET on Eshell's `ls' output to open files."
   (interactive "d")
-  (find-file (buffer-substring-no-properties
-              (previous-single-property-change (point) 'font-lock-face)
-              (next-single-property-change (point) 'font-lock-face))))
+  (find-file (substring-no-properties (thing-at-point 'filename))))
 
 (defvar m-eshell-ls-file-keymap
   (let ((map (make-sparse-keymap)))
@@ -355,6 +353,10 @@ because I dynamically rename the buffer according to
 
 (defun m-eshell-ls-decorated-name (f &rest args)
   "Add more decoration to files in `eshell/ls' output.
+
+* Mark directories with a `/'
+* Mark execurables with a `*'
+* Open files and directories with `RET' or `mouse-1'
 
 Advise `eshell-ls-decorated-name'."
   (let* ((file (car args))
@@ -369,11 +371,13 @@ Advise `eshell-ls-decorated-name'."
                  (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
             "*"))))
     (propertize
-     (unless (string-suffix-p suffix name) (setq name (concat name suffix)))
-     `(keymap ,m-eshell-ls-file-keymap mouse-face highlight))))
+     (if (and suffix (not (string-suffix-p suffix name)))
+         (concat name suffix)
+       name)
+     'keymap m-eshell-ls-file-keymap
+     'mouse-face 'highlight)))
 
 (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
-
 
 (provide 'm-eshell)
 

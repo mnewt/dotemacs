@@ -244,6 +244,13 @@
   :config
   (global-fish-completion-mode))
 
+(use-package company-shell
+  :config
+  (add-to-list
+   'company-backends
+   `(company-shell company-shell-env
+                   ,(when (executable-find "fish") 'company-fish-shell))))
+
 (defun sudo-toggle--add-sudo (path)
   "Add sudo to file PATH string."
   (if (file-remote-p path)
