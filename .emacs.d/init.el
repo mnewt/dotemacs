@@ -2509,7 +2509,7 @@ Look in active project root directory, or if in the case of
 
 https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-settings.el"
   (interactive)
-  (let ((p (expand-file-name (or file "settings.el") (projectile-project-root))))
+  (let ((p (expand-file-name (or file "config.el") (projectile-project-root))))
     (when (file-exists-p p)
       (load p)
       (message "%s" (concat "Loaded project settings from: " p)))))
@@ -2747,12 +2747,13 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :straight
   (:type git :host github :repo "mnewt/fence-edit.el")
   :config
-  (add-to-list 'fence-edit-blocks '("---" "---" yaml))
-  (add-to-list 'fence-edit-blocks '("+++" "+++" toml))
-  (add-to-list 'fence-edit-blocks '("graphql[ \t\n]*(?`" "`" graphql))
-  (add-to-list 'fence-edit-blocks '("<svg" "</svg>" nxml t))
-  (add-to-list 'fence-edit-blocks '("<html" "</html>" web t))
-  (add-to-list 'fence-edit-blocks '("<div" "</div>" web t))
+  (add-multiple-to-list 'fence-edit-blocks
+                        '(("---" "---" yaml)
+                          ("+++" "+++" toml)
+                          ("graphql[ \t\n]*(?`" "`" graphql)
+                          ("<svg" "</svg>" nxml t)
+                          ("<html" "</html>" web t)
+                          ("<div" "</div>" web t)))
   :bind
   (("C-c '" . fence-edit-dwim)
    :map markdown-mode-map
@@ -2771,9 +2772,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;; DNS
 (add-to-list 'auto-mode-alist '("\\.rpz\\'" . dns-mode))
 
-;; (use-package quickrun
-;;   :commands
-;;   (quickrun quickrun-region quickrun-shell quickrun-autorun-mode))
+(setq-default css-indent-offset tab-width)
 
 (use-package markdown-mode
   :mode "\\.md\\|markdown\\'"
@@ -2782,7 +2781,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (markdown-command "multimarkdown"))
 
 ;; XML
-
 (use-package web-mode
   :mode "\\.html\?\\'"
   :init
@@ -2835,12 +2833,11 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (restclient-mode . (lambda ()
                        (add-to-list 'company-backends 'company-restclient))))
 
-;; CSS
-
-(setq-default css-indent-offset tab-width)
-
 (defun toggle-sp-newline ()
-  "Toggle whether `RET' is bound to `newline' or `sp-newline'."
+  "Toggle whether `RET' is bound to `newline' or `sp-newline'.
+
+This is because under certain conditions `sp-newline' can do bad
+things."
   (interactive)
   (let* ((f (key-binding (kbd "RET")))
          (newf (if (eq f 'sp-newline) #'newline #'sp-newline)))
@@ -2848,6 +2845,10 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
     (message "<RET> now invokes to %s" newf)))
 
 (bind-key "C-c C-<return>" #'toggle-sp-newline)
+
+(use-package add-node-modules-path
+  :hook
+  ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
 
 ;; Pulls in `js2-mode' because it is derived from it.
 (use-package rjsx-mode
@@ -2862,17 +2863,15 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
   :custom
-  (tide-format-options '(:indentSize 2 :tabSize 2))
+  (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
   (tide-default-mode "JS")
   :hook
-  ((js2-mode typescript-mode) . (lambda ()
-                                  (tide-setup)
-                                  (setq flycheck-checkers (remove 'jsx-tide flycheck-checkers))))
-  ((js2-mode typescript-mode) . tide-hl-identifier-mode))
-
-(use-package add-node-modules-path
-  :hook
-  ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
+  ((js2-mode typescript-mode) .
+   (lambda ()
+     (tide-setup)
+     (tide-hl-identifier-mode)
+     ;; Because we use prettier.
+     (setq flycheck-checkers (remove 'jsx-tide flycheck-checkers)))))
 
 (use-package prettier-js
   :ensure-system-package
@@ -2933,34 +2932,29 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :mode "\\.toml\\'")
 
 (use-package elpy
-  ;; :ensure-system-package
-  ;; (jedi . "pip install jedi flake8 autopep8 yapf")
+  :ensure-system-package
+  ;; jedi doesn't have an executable and there's not one single path we can look
+  ;; across OS and python versions, so just assume it comes with flake8.
+  ((flake8 . "pip install jedi flake8")
+   (autopep8 . "pip install autopep8")
+   (yapf . "pip install yapf"))
   :interpreter ("python3?" . python-mode)
   :custom
-  ;; (python-shell-interpreter "ipython")
-  ;; (python-shell-interpreter-args "-i --simple-prompt")
   (gud-pdb-command-name "python -m pdb")
   :config
   (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
   :hook
   (python-mode . (lambda ()
-                   (unless (bound-and-true-p elpy-version)
-                     (elpy-enable))))
+                   (unless (bound-and-true-p elpy-version) (elpy-enable))
+                   (add-hook 'before-save-hook #'elpy-autopep8-fix-code nil t)))
+  (python-mode . flycheck-mode)
   :bind
   (:map python-mode-map
         ("s-<return>" . py-execute-expression)))
 
-;; (use-package py-autopep8
-;;   :hook
-;;   ((elpy-mode . py-autopep8-enable-on-save)))
-
-(use-package hy-mode
-  :ensure-system-package
-  (hy . "pip install git+https://github.com/hylang/hy.git")
-  :mode "\\.hy\\'"
-  :bind
-  (:map hy-mode-map
-        ("s-<return>" . hy-shell-eval-last-sexp)))
+(use-package company-jedi
+  :hook
+  (python-mode . (lambda () (set (make-local-variable 'company-backends) '(company-jedi)))))
 
 (use-package enh-ruby-mode
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
@@ -3000,51 +2994,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 
 (use-package ios-config-mode
   :mode "\\.cfg\\'")
-
-;; `eval-in-repl' requires a number of other packages so it's best to load it last
-;; (use-package eval-in-repl
-;;   :bind
-;;   (:map
-;;    emacs-lisp-mode-map
-;;    ("C-<return>" . eir-eval-in-ielm)
-;;    :map
-;;    lisp-interaction-mode-map
-;;    ("C-<return>" . eir-eval-in-ielm)
-;;    :map
-;;    Info-mode-map
-;;    ("s-<return>" . eir-eval-in-ielm)
-;;    :map
-;;    python-mode-map
-;;    ("s-<return>" . eir-eval-in-python)
-;;    :map
-;;    ruby-mode-map
-;;    ("s-<return>" . eir-eval-in-ruby)
-;;    :map
-;;    sh-mode-map
-;;    ("s-<return>" . eir-eval-in-shell)))
-
-;; (use-package polymode
-;;   :config
-;;   (defcustom pm-host/web
-;;     (pm-host-chunkmode :name "web"
-;;                        :mode 'web-mode)
-;;     "Web host chunkmode"
-;;     :group 'poly-hostmodes
-;;     :type 'object)
-;;   (defcustom pm-inner/graphql-fenced-code
-;;     (pm-inner-chunkmode :name "graphql"
-;;                         :head-matcher "graphql`"
-;;                         :tail-matcher "`"
-;;                         :mode 'graphql-mode
-;;                         :head-mode 'host
-;;                         :tail-mode 'host)
-;;     "GraphQL fenced code block"
-;;     :group 'poly-innermodes
-;;     :type 'object)
-;;   (define-polymode poly-web-mode
-;;     :hostmode 'pm-host/web
-;;     :innermodes '(pm-inner/graphql-fenced-code)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Other Packages
