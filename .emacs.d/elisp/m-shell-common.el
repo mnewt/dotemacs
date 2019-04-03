@@ -168,23 +168,7 @@
       (term-char-mode)
       (term-send-raw-string (kbd "C-l")))))
 
-;; Apply colors to `shell-command' minibuffer output.
-;; Adapted from https://stackoverflow.com/a/42666026/1588358
-(defun xterm-color-apply-on-minibuffer ()
-  "Apply xterm color filtering on minibuffer output."
-  (let ((bufs (cl-remove-if-not
-               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
-               (buffer-list))))
-    (dolist (buf bufs)
-      (with-current-buffer buf
-        (xterm-color-colorize-buffer)))))
-
-(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
-  "Wrap `xterm-color-apply-on-minibuffer'."
-  (xterm-color-apply-on-minibuffer))
-
-(advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
-
+;; TODO: Is there some way to check whether module support is compiled in?
 (ignore-errors
   (let ((vterm-dir "~/code/emacs-libvterm"))
     (when (file-exists-p vterm-dir)
@@ -213,7 +197,7 @@
   (setenv "TERM" "xterm-256color")
   :hook
   (shell-mode . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
-  (compilation-start-hook . (lambda (proc)
+  (compilation-start . (lambda (proc)
                               ;; We need to differentiate between compilation-mode buffers
                               ;; and running as part of comint (which at this point we assume
                               ;; has been configured separately for xterm-color)
@@ -225,6 +209,23 @@
                                  (lambda (proc string)
                                    (funcall 'compilation-filter proc
                                             (xterm-color-filter string))))))))
+
+;; Apply colors to `shell-command' minibuffer output.
+;; Adapted from https://stackoverflow.com/a/42666026/1588358
+(defun xterm-color-apply-on-minibuffer ()
+  "Apply xterm color filtering on minibuffer output."
+  (let ((bufs (cl-remove-if-not
+               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
+               (buffer-list))))
+    (dolist (buf bufs)
+      (with-current-buffer buf
+        (xterm-color-colorize-buffer)))))
+
+(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
+  "Wrap `xterm-color-apply-on-minibuffer'."
+  (xterm-color-apply-on-minibuffer))
+
+(advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
 
 (use-package bash-completion
   :custom

@@ -437,6 +437,11 @@ to prevent Emacs from barfing on your screen."
                           (doom-molokai)
                           (doom-tomorrow-day))))
 
+(use-package solarized-theme
+  :config
+  (add-to-list 'a-theme-themes '(solarized-light))
+  (add-to-list 'a-theme-themes '(solarized-dark)))
+
 (use-package powerline
   :custom
   (powerline-default-separator nil)
@@ -942,12 +947,6 @@ When using Homebrew, install it using \"brew install trash\"."
   (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
   (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t))
 
-(use-package info-colors
-  :commands
-  (info-colors-fontify-node)
-  :config
-  (add-hook 'Info-selection-hook 'info-colors-fontify-node))
-
 (use-package define-word
   :bind
   ("C-c W" . define-word)
@@ -976,23 +975,10 @@ When using Homebrew, install it using \"brew install trash\"."
   :custom
   (dash-docs-docsets-path "~/code/docsets")
   (dash-docs-browser-func #'eww)
-  (dash-docs-common-docsets '("Bash"
-                              "CSS"
-                              "ClojureDocs"
-                              "ClojureScript"
-                              "Docker"
-                              "Emacs Lisp"
-                              "Hammerspoon"
-                              "JavaScript"
-                              "Lua"
-                              "NodeJS"
-                              "PouchDB"
-                              "Python 3"
-                              "React"
-                              "SQLite"
-                              "caniuse"
-                              "jsdoc"
-                              "use-package")))
+  (dash-docs-common-docsets
+   (mapcar (lambda (f) (string-trim f nil ".docset"))
+           (seq-filter (apply-partially #'string-suffix-p ".docset")
+                       (directory-files dash-docs-docsets-path)))))
 
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
@@ -1002,6 +988,7 @@ When using Homebrew, install it using \"brew install trash\"."
   (counsel-dash counsel-dash-at-point counsel-dash-install-docset)
   :bind
   ("M-s-l" . counsel-dash)
+  ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1026,9 +1013,15 @@ When using Homebrew, install it using \"brew install trash\"."
 
 (defun list-buffer-major-modes ()
   "Return a list of all major modes currently in use in open buffers."
-  (delete-dups
-   (cl-loop for b in (buffer-list)
-            collect (buffer-local-value 'major-mode b))))
+  (delete-dups (mapcar (lambda (b) (buffer-local-value 'major-mode b))
+                       (buffer-list))))
+
+(defun list-major-modes ()
+  "Return a list of all major modes which are associated with a
+  magic string or file extension."
+  (delete-dups (mapcar #'cdr (append magic-mode-alist
+                                     auto-mode-alist
+                                     magic-fallback-mode-alist))))
 
 (defun switch-to-buffer-by-mode (mode)
   "Interactively choose a major MODE, then choose a buffer of that mode."
@@ -1054,9 +1047,10 @@ When using Homebrew, install it using \"brew install trash\"."
            ("s-{" . previous-buffer)
            ("C-c {" . previous-buffer)
            ("C-s-j" . switch-to-buffer-by-mode)
-           ("C-c M-j" . switch-to-buffer-by-mode))
+           ("C-c M-j" . switch-to-buffer-by-mode)
 
-(bind-keys ("H-a" . windmove-left)
+           ;; windmove
+           ("H-a" . windmove-left)
            ("H-h" . windmove-left)
            ("H-d" . windmove-right)
            ("H-l" . windmove-right)
@@ -1065,189 +1059,13 @@ When using Homebrew, install it using \"brew install trash\"."
            ("H-s" . windmove-down)
            ("H-k" . windmove-down)
            ("M-]" . windmove-right)
-           ("M-[" . windmove-left))
+           ("M-[" . windmove-left)
 
-;; Navigating with mark
-(bind-keys ("M-s-," . pop-to-mark-command)
+           ;; Navigating with mark
+           ("M-s-," . pop-to-mark-command)
            ("C-c ," . pop-to-mark-command)
            ("s-," . pop-global-mark)
            ("C-c C-," . pop-global-mark))
-
-;; scratch
-(setq initial-scratch-message nil
-      initial-major-mode 'lisp-interaction-mode)
-
-(defun new-scratch-buffer ()
-  "Create or go to a scratch buffer in the current mode.
-
-If ARG is provided then prompt for the buffer's mode. Try these
-  things in succession\:
-
-1. Select an existing window containing the scratch buffer.
-2. Switch to an existing scratch buffer.
-3. Create a new scratch buffer and switch to it."
-  (interactive)
-  (let* ((mode (if current-prefix-arg
-                   (intern (ivy-read "New scratch buffer with mode: "
-                                     (list-buffer-major-modes)
-                                     :history 'new-scratch-buffer-history
-                                     :caller 'new-scratch-buffer))
-                 ;; :initial-input (car new-scratch-buffer-history)))
-                 major-mode))
-         (name (format "<%s>" (symbol-name mode)))
-         (win (get-buffer-window name)))
-    (cond
-     (win (select-window win))
-     (t (switch-to-buffer (get-buffer-create name))
-        (setq buffer-file-name name)
-        (funcall mode)))))
-
-(defun new-scratch-buffer-other-window ()
-  "Create or go to a scratch buffer in ther current mode.
-
-For for details see `new-scratch-buffer'."
-  (interactive)
-  (switch-to-buffer-other-window (current-buffer))
-  (new-scratch-buffer))
-
-(bind-keys ("s-n" . new-scratch-buffer)
-           ("s-N" . new-scratch-buffer-other-window)
-           ("C-c C-n" . new-scratch-buffer)
-           ("C-c M-n" . new-scratch-buffer-other-window))
-
-(setq display-buffer-alist
-      `((,(rx bos
-              (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
-              (0+ not-newline))
-         (display-buffer-reuse-mode-window display-buffer-pop-up-window)
-         (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
-
-;; kill buffer and window
-(defun kill-other-buffer-and-window ()
-  "Kill the buffer in the other window."
-  (interactive)
-  (select-window (next-window))
-  (kill-buffer-and-window))
-
-(bind-keys ("M-s-w" . kill-buffer-and-window)
-           ("M-s-W" . kill-other-buffer-and-window))
-
-;; https://www.emacswiki.org/emacs/ToggleWindowSplit
-(defun toggle-window-split ()
-  "Toggle windows between horizontal and vertical split."
-  (interactive)
-  (if (= (count-windows) 2)
-      (let* ((this-win-buffer (window-buffer))
-             (next-win-buffer (window-buffer (next-window)))
-             (this-win-edges (window-edges (selected-window)))
-             (next-win-edges (window-edges (next-window)))
-             (this-win-2nd (not (and (<= (car this-win-edges)
-                                         (car next-win-edges))
-                                     (<= (cadr this-win-edges)
-                                         (cadr next-win-edges)))))
-             (splitter (if (= (car this-win-edges)
-                              (car (window-edges (next-window))))
-                           'split-window-horizontally
-                         'split-window-vertically)))
-        (delete-other-windows)
-        (let ((first-win (selected-window)))
-          (funcall splitter)
-          (if this-win-2nd (other-window 1))
-          (set-window-buffer (selected-window) this-win-buffer)
-          (set-window-buffer (next-window) next-win-buffer)
-          (select-window first-win)
-          (if this-win-2nd (other-window 1))))))
-
-(bind-keys ("M-s-<up>" . shrink-window)
-           ("M-s-<down>" . enlarge-window)
-           ("M-s-<left>" . shrink-window-horizontally)
-           ("M-s-<right>" . enlarge-window-horizontally)
-           :map ctl-x-4-map
-           ("t" . toggle-window-split))
-
-;; Tags
-(bind-keys ("s-R" . xref-find-definitions-other-window)
-           ("C-c M-r" . xref-find-definitions-other-window))
-
-;; Create friendly names for buffers with the same name
-(setq uniquify-buffer-name-style 'forward
-      uniquify-separator "/"
-      uniquify-after-kill-buffer-p t
-      uniquify-ignore-buffers-re "^\\*")
-
-(require 'ffap)
-
-(defun find-file-at-point-with-line (&optional filename)
-  "Open FILENAME at point and move point to line specified next to file name."
-  (interactive)
-  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
-         (line-number
-          (and (or (looking-at ".* line \\(\[0-9\]+\\)")
-                   (looking-at "[^:]*:\\(\[0-9\]+\\)"))
-               (string-to-number (match-string-no-properties 1))))
-         (column-number
-          (or
-           (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
-                (string-to-number (match-string-no-properties 1)))
-           0)))
-    (message "%s --> %s:%s" filename line-number column-number)
-    (cond ((ffap-url-p filename)
-           (let (current-prefix-arg)
-             (funcall ffap-url-fetcher filename)))
-          ((and line-number
-                (file-exists-p filename))
-           (progn (find-file-other-window filename)
-                  (goto-char (point-min))
-                  (forward-line (1- line-number))
-                  (forward-char column-number)))
-          ((and ffap-pass-wildcards-to-dired
-                ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename))
-           (funcall ffap-directory-finder filename))
-          ((and ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename)
-                find-file-wildcards
-                ;; Check if it's find-file that supports wildcards arg
-                (memq ffap-file-finder '(find-file find-alternate-file)))
-           (funcall ffap-file-finder (expand-file-name filename) t))
-          ((or (not ffap-newfile-prompt)
-               (file-exists-p filename)
-               (y-or-n-p "File does not exist, create buffer? "))
-           (funcall ffap-file-finder
-                    ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
-                    (expand-file-name filename)))
-          ;; User does not want to find a non-existent file:
-          ((signal 'file-error (list "Opening file buffer"
-                                     "no such file or directory"
-                                     filename))))))
-
-(bind-key "C-c C-f" #'find-file-at-point-with-line)
-
-(defun parse-colon-notation (filename)
-  "Parse FILENAME in the format expected by `server-visit-files'.
-Modify it so that `filename:line:column' is is reformatted the
-way Emacs expects."
-  (let ((name (car filename)))
-    (if (string-match "^\\(.*?\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?$" name)
-        (cons
-         (match-string 1 name)
-         (cons (string-to-number (match-string 2 name))
-               (string-to-number (or (match-string 3 name) ""))))
-      filename)))
-
-(defun wrap-colon-notation (f &rest args)
-  "Wrap F (`server-visit-files') and modify ARGS to support colon notation.
-Open files with emacsclient with cursors according to colon
-notation. When the file name has line numbers and optionally
-columns specified like `filename:line:column', parse those and
-return them in the Emacs format."
-  (message "%s" args)
-  (apply f (cons (mapcar #'parse-colon-notation (car args)) (cdr args))))
-
-(advice-add 'server-visit-files :around #'wrap-colon-notation)
-
-;; If this variable is t, VC follows the link and visits the real file, telling you about it in the echo area.
-(setq vc-follow-symlinks t)
 
 (use-package winner
   :init
@@ -1323,6 +1141,180 @@ return them in the Emacs format."
   ("C-c C-9" . eyebrowse-switch-to-window-config-9)
   ("H-0" . eyebrowse-switch-to-window-config-0)
   ("C-c C-0" . eyebrowse-switch-to-window-config-0))
+
+;; Create friendly names for buffers with the same name
+(setq uniquify-buffer-name-style 'forward
+      uniquify-separator "/"
+      uniquify-after-kill-buffer-p t
+      uniquify-ignore-buffers-re "^\\*")
+
+;; scratch
+(setq initial-scratch-message nil
+      initial-major-mode 'lisp-interaction-mode)
+
+(defun new-scratch-buffer ()
+  "Create or go to a scratch buffer in the current mode.
+
+If ARG is provided then prompt for the buffer's mode. Try these
+  things in succession\:
+
+1. Select an existing window containing the scratch buffer.
+2. Switch to an existing scratch buffer.
+3. Create a new scratch buffer and switch to it."
+  (interactive)
+  (let* ((mode (if current-prefix-arg
+                   (intern (ivy-read "New scratch buffer with mode: "
+                                     (list-major-modes)
+                                     :history 'new-scratch-buffer-history
+                                     :caller 'new-scratch-buffer))
+                 ;; :initial-input (car new-scratch-buffer-history)))
+                 major-mode))
+         (name (format "<%s>" (symbol-name mode)))
+         (win (get-buffer-window name)))
+    (cond
+     (win (select-window win))
+     (t (switch-to-buffer (get-buffer-create name))
+        (setq buffer-file-name name)
+        (funcall mode)))))
+
+(defun new-scratch-buffer-other-window ()
+  "Create or go to a scratch buffer in ther current mode.
+
+For for details see `new-scratch-buffer'."
+  (interactive)
+  (switch-to-buffer-other-window (current-buffer))
+  (new-scratch-buffer))
+
+(bind-keys ("s-n" . new-scratch-buffer)
+           ("s-N" . new-scratch-buffer-other-window)
+           ("C-c C-n" . new-scratch-buffer)
+           ("C-c M-n" . new-scratch-buffer-other-window))
+
+;; Try to re-use help buffers of different sorts
+(setq display-buffer-alist
+      `((,(rx bos
+              (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
+              (0+ not-newline))
+         (display-buffer-reuse-mode-window display-buffer-pop-up-window)
+         (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
+
+;; kill buffer and window
+(defun kill-other-buffer-and-window ()
+  "Kill the buffer in the other window."
+  (interactive)
+  (select-window (next-window))
+  (kill-buffer-and-window))
+
+(bind-keys ("M-s-w" . kill-buffer-and-window)
+           ("M-s-W" . kill-other-buffer-and-window))
+
+;; https://www.emacswiki.org/emacs/ToggleWindowSplit
+(defun toggle-window-split ()
+  "Toggle windows between horizontal and vertical split."
+  (interactive)
+  (if (= (count-windows) 2)
+      (let* ((this-win-buffer (window-buffer))
+             (next-win-buffer (window-buffer (next-window)))
+             (this-win-edges (window-edges (selected-window)))
+             (next-win-edges (window-edges (next-window)))
+             (this-win-2nd (not (and (<= (car this-win-edges)
+                                         (car next-win-edges))
+                                     (<= (cadr this-win-edges)
+                                         (cadr next-win-edges)))))
+             (splitter (if (= (car this-win-edges)
+                              (car (window-edges (next-window))))
+                           'split-window-horizontally
+                         'split-window-vertically)))
+        (delete-other-windows)
+        (let ((first-win (selected-window)))
+          (funcall splitter)
+          (if this-win-2nd (other-window 1))
+          (set-window-buffer (selected-window) this-win-buffer)
+          (set-window-buffer (next-window) next-win-buffer)
+          (select-window first-win)
+          (if this-win-2nd (other-window 1))))))
+
+(bind-keys ("M-s-<up>" . shrink-window)
+           ("M-s-<down>" . enlarge-window)
+           ("M-s-<left>" . shrink-window-horizontally)
+           ("M-s-<right>" . enlarge-window-horizontally)
+           :map ctl-x-4-map
+           ("t" . toggle-window-split))
+
+;; Tags
+(bind-keys ("s-R" . xref-find-definitions-other-window)
+           ("C-c M-r" . xref-find-definitions-other-window))
+
+(require 'ffap)
+
+(defun find-file-at-point-with-line (&optional filename)
+  "Open FILENAME at point and move point to line specified next to file name."
+  (interactive)
+  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
+         (line-number
+          (and (or (looking-at ".* line \\(\[0-9\]+\\)")
+                   (looking-at "[^:]*:\\(\[0-9\]+\\)"))
+               (string-to-number (match-string-no-properties 1))))
+         (column-number
+          (or
+           (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
+                (string-to-number (match-string-no-properties 1)))
+           0)))
+    (message "%s --> %s:%s" filename line-number column-number)
+    (cond ((ffap-url-p filename)
+           (let (current-prefix-arg)
+             (funcall ffap-url-fetcher filename)))
+          ((and line-number
+                (file-exists-p filename))
+           (progn (find-file-other-window filename)
+                  (goto-char (point-min))
+                  (forward-line (1- line-number))
+                  (forward-char column-number)))
+          ((and ffap-pass-wildcards-to-dired
+                ffap-dired-wildcards
+                (string-match ffap-dired-wildcards filename))
+           (funcall ffap-directory-finder filename))
+          ((and ffap-dired-wildcards
+                (string-match ffap-dired-wildcards filename)
+                find-file-wildcards
+                ;; Check if it's find-file that supports wildcards arg
+                (memq ffap-file-finder '(find-file find-alternate-file)))
+           (funcall ffap-file-finder (expand-file-name filename) t))
+          ((or (not ffap-newfile-prompt)
+               (file-exists-p filename)
+               (y-or-n-p "File does not exist, create buffer? "))
+           (funcall ffap-file-finder
+                    ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
+                    (expand-file-name filename)))
+          ;; User does not want to find a non-existent file:
+          ((signal 'file-error (list "Opening file buffer"
+                                     "no such file or directory"
+                                     filename))))))
+
+(bind-key "C-c C-f" #'find-file-at-point-with-line)
+
+(defun parse-colon-notation (filename)
+  "Parse FILENAME in the format expected by `server-visit-files'.
+Modify it so that `filename:line:column' is is reformatted the
+way Emacs expects."
+  (let ((name (car filename)))
+    (if (string-match "^\\(.*?\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?$" name)
+        (cons
+         (match-string 1 name)
+         (cons (string-to-number (match-string 2 name))
+               (string-to-number (or (match-string 3 name) ""))))
+      filename)))
+
+(defun wrap-colon-notation (f &rest args)
+  "Wrap F (`server-visit-files') and modify ARGS to support colon notation.
+Open files with emacsclient with cursors according to colon
+notation. When the file name has line numbers and optionally
+columns specified like `filename:line:column', parse those and
+return them in the Emacs format."
+  (message "%s" args)
+  (apply f (cons (mapcar #'parse-colon-notation (car args)) (cdr args))))
+
+(advice-add 'server-visit-files :around #'wrap-colon-notation)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Editing
@@ -1454,6 +1446,10 @@ Bring the line below point up to the current line."
     (while (search-forward (string ?\C-m) nil t)
       (replace-match (string ?\C-j) nil t)))
   (set-buffer-file-coding-system 'unix 't))
+
+(use-package symbol-overlay
+  :hook
+  (prog-mode . symbol-overlay-mode))
 
 (use-package string-inflection
   :bind
@@ -1797,7 +1793,6 @@ ID, ACTION, CONTEXT."
   (indent-according-to-mode))
 
 (use-package smartparens
-  :demand t
   :custom
   (sp-hybrid-kill-entire-symbol nil)
   ;; Don't disable autoskip when point moves backwards. (This lets you
@@ -1846,9 +1841,6 @@ ID, ACTION, CONTEXT."
   :hook
   (smartparens-mode . (lambda ()
                         (require 'smartparens-config)
-                        (sp-use-smartparens-bindings)
-                        (sp-use-paredit-bindings)
-                        (sp--update-override-key-bindings)
                         (turn-on-show-smartparens-mode)))
   ((css-mode emacs-lisp-mode hy-mode sass-mode sh-mode) . turn-on-smartparens-mode)
   (clojure-mode . (lambda () (require 'smartparens-clojure)))
@@ -1907,7 +1899,7 @@ ID, ACTION, CONTEXT."
    (eshell-before-prompt . (lambda ()
                              (setq xterm-color-preserve-properties t)
                              (rename-buffer
-                              (format "*Eshell: %s*" default-directory) t))))
+                              (format "*%s*" default-directory) t))))
   :bind
   (("s-e" . eshell-switch-to-buffer)
    ("C-c e" . eshell-switch-to-buffer)
@@ -2369,6 +2361,7 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
         ;; `eshell-mode') is aggravating. Not sure about the solution though.
         ;; ("C-n" . company-select-next) ("C-p" . company-select-previous)
         ("RET" . nil)
+        ("<return>" . nil)
         ("C-e" . company-complete-selection)
         ("M-." . company-show-location)))
 
@@ -2582,6 +2575,10 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 ;;; Version Control
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; VC follows the link and visits the real file, telling you about it in the
+;; echo area.
+(setq vc-follow-symlinks t)
+
 ;; git config files
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
 ;; SSH server config files
@@ -2750,12 +2747,14 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :straight
   (:type git :host github :repo "mnewt/fence-edit.el")
   :config
+  (add-to-list 'fence-edit-blocks '("---" "---" yaml))
+  (add-to-list 'fence-edit-blocks '("+++" "+++" toml))
   (add-to-list 'fence-edit-blocks '("graphql[ \t\n]*(?`" "`" graphql))
   (add-to-list 'fence-edit-blocks '("<svg" "</svg>" nxml t))
   (add-to-list 'fence-edit-blocks '("<html" "</html>" web t))
   (add-to-list 'fence-edit-blocks '("<div" "</div>" web t))
   :bind
-  (("C-c '" . fence-edit-code-at-point)
+  (("C-c '" . fence-edit-dwim)
    :map markdown-mode-map
    ("C-c '" . nil)))
 
@@ -3086,3 +3085,4 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 (provide 'init)
 
 ;;; init.el ends here
+(put 'narrow-to-region 'disabled nil)

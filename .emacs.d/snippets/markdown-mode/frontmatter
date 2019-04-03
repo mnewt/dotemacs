@@ -1,0 +1,20 @@
+# -*- mode: snippet -*-
+# name: frontmatter
+# key: frontmatter
+# --
+---
+title: `
+(mapconcat
+(lambda(s) (concat (upcase (substring s 0 1)) (downcase (substring s 1))))
+(split-string (file-name-base) "-")
+" ")`
+date: `
+(destructuring-bind (month day year) (calendar-current-date)
+  (concat (format "%4i" year)
+          "-"
+          (format "%02i" month)
+          "-"
+          (format "%02i" day)))`
+---
+
+$0
