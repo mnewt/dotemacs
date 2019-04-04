@@ -372,6 +372,7 @@ Example usage
 
 (defun a-theme-activate (theme)
   "Switch the current Emacs theme to THEME.
+
 Handle some housekeeping that comes with switching themes and try
 to prevent Emacs from barfing on your screen."
   (custom-set-variables '(custom-enabled-themes nil))
@@ -414,14 +415,10 @@ to prevent Emacs from barfing on your screen."
 
 (bind-key "M-s-t" #'a-theme-choose)
 
-(setq
- a-theme-current-theme
- (if (bound-and-true-p a-theme-current-theme)
-     a-theme-current-theme
-   'doom-dracula)
-
- a-theme-specs-common
- '((cursor ((t :background "#F60")))))
+(setq a-theme-current-theme (if (bound-and-true-p a-theme-current-theme)
+                                a-theme-current-theme
+                              'doom-dracula)
+      a-theme-specs-common '((cursor ((t :background "#F60")))))
 
 (add-hook 'a-theme-hook #'doom-themes-visual-bell-config)
 (add-hook 'a-theme-hook #'doom-themes-org-config)
@@ -432,15 +429,13 @@ to prevent Emacs from barfing on your screen."
                         '((doom-one)
                           (doom-vibrant)
                           (doom-one-light)
-                          (doom-solarized-light)
                           (doom-dracula)
                           (doom-molokai)
                           (doom-tomorrow-day))))
 
 (use-package solarized-theme
   :config
-  (add-to-list 'a-theme-themes '(solarized-light))
-  (add-to-list 'a-theme-themes '(solarized-dark)))
+  (add-to-list 'a-theme-themes '(solarized-light)))
 
 (use-package powerline
   :custom
@@ -503,7 +498,6 @@ to prevent Emacs from barfing on your screen."
                 (powerline-render rhs))))))
   :init
   (set-face-attribute 'mode-line nil :box nil))
-
 
 (use-package window-highlight
   :if (>= emacs-major-version 27)
@@ -2450,7 +2444,7 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   "Call the command represented by string X after switching to
 the other window."
   (switch-to-buffer-other-window (current-buffer)
-   (call-interactively (intern x))))
+                                 (call-interactively (intern x))))
 
 (use-package counsel
   :custom
@@ -2791,10 +2785,11 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
                           ("<svg" "</svg>" nxml t)
                           ("<html" "</html>" web t)
                           ("<div" "</div>" web t)))
+  :hook
+  ;; Don't shadow the fence-edit binding
+  (markdown-mode . (lambda () (bind-key "C-c '" nil 'markdown-mode-map)))
   :bind
-  (("C-c '" . fence-edit-dwim)
-   :map markdown-mode-map
-   ("C-c '" . nil)))
+  ("C-c '" . fence-edit-dwim))
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
