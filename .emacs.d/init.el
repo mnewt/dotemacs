@@ -1,8 +1,8 @@
 ;;; Init.el --- Emacs init file --- -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Single, monolithic Emacs init file. Uses straight.el for package management
-;; and use-package for as much package configuration as possible.
+;; Single, mostly monolithic Emacs init file. Uses straight.el for package
+;; management and use-package for as much package configuration as possible.
 
 ;;; Code:
 
@@ -11,8 +11,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Give Emacs 1GB of heap and run gc on idle.
-(setq gc-cons-threshold 1073741824)
-(run-with-idle-timer 30 t (lambda () (garbage-collect)))
+;; (setq gc-cons-threøshold 1073741824)
+;; (run-with-idle-timer 30 t (lambda () (garbage-collect)))
 
 (require 'gnutls)
 (require 'nsm)
@@ -825,7 +825,7 @@ When using Homebrew, install it using \"brew install trash\"."
   ("M-s-r" . crux-rename-file-and-buffer)
   ("C-c k" . crux-kill-other-buffers)
   ("C-M-X" . crux-indent-defun)
-  ("C-c I" . (lambda () (interactive (find-file "~/.emacs.d/init.el"))))
+  ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
   ("C-c S" . crux-find-shell-init-file)
   ("C-<backspace>" . crux-kill-line-backwards))
 
@@ -836,7 +836,7 @@ When using Homebrew, install it using \"brew install trash\"."
 ;; savehist
 (require 'savehist)
 (setq savehist-autosave-interval 60
-      history-length t
+      history-length 1000
       history-delete-duplicates t
       savehist-additional-variables '(kill-ring
                                       search-ring
@@ -945,7 +945,9 @@ When using Homebrew, install it using \"brew install trash\"."
   (Man-notify-method 'pushy)
   :config
   (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
-  (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t))
+  (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
+  :bind
+  ("C-h M-m" . man))
 
 (use-package define-word
   :bind
@@ -969,16 +971,24 @@ When using Homebrew, install it using \"brew install trash\"."
   :bind
   ("C-h e" . eg))
 
+(defun dash-docs-installed-docsets ()
+  "Return a list of the currently installed docsets."
+  (mapcar (lambda (f) (string-trim-right f ".docset"))
+          (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
+
 (use-package dash-docs
   :straight
   (:type git :host github :repo "gilbertw1/dash-docs")
   :custom
   (dash-docs-docsets-path "~/code/docsets")
   (dash-docs-browser-func #'eww)
-  (dash-docs-common-docsets
-   (mapcar (lambda (f) (string-trim f nil ".docset"))
-           (seq-filter (apply-partially #'string-suffix-p ".docset")
-                       (directory-files dash-docs-docsets-path)))))
+  (dash-docs-common-docsets (dash-docs-installed-docsets)))
+
+(defun dash-docs-update-all-docsets ()
+  "Update all docsets."
+  (interactive)
+  (seq-do (lambda (d) (when (memq d (dash-docs-official-docsets)) (dash-docs-install-docset)))
+          (dash-docs-installed-docsets)))
 
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
@@ -1401,6 +1411,8 @@ return them in the Emacs format."
 
 ;; sh-mode
 (use-package sh-script
+  :ensure-system-package
+  (shfmt . "brew install shfmt")
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)
@@ -1650,7 +1662,7 @@ other window."
   :config
   (yas-global-mode 1)
   :bind
-  (("C-c C-s" . yas-insert-snippet)))
+  ("C-c C-s" . yas-insert-snippet))
 
 (use-package yasnippet-snippets
   :defer 2)
@@ -1665,7 +1677,9 @@ other window."
 
 (use-package format-all
   :commands
-  (format-all-buffer format-all-mode))
+  (format-all-buffer format-all-mode)
+  :hook
+  ((sh-mode) . format-all-mode))
 
 (defun indent-buffer-or-region ()
   "Indent the region if one is active, otherwise format the buffer.
@@ -1803,7 +1817,7 @@ ID, ACTION, CONTEXT."
   ;; smartparens does some weird stuff with bindings so you can't reliably use
   ;; `use-package/:bind' to set them.
   (sp-base-key-bindings 'paredit)
-  (sp-override-key-bindings '())
+  (sp-override-key-bindings '(("C-M-<backspace>" . sp-splice-sexp-killing-backward)))
   :config
   (bind-key [remap kill-line] #'sp-kill-hybrid-sexp smartparens-mode-map
             (apply #'derived-mode-p sp-lisp-modes))
@@ -1842,14 +1856,14 @@ ID, ACTION, CONTEXT."
   (smartparens-mode . (lambda ()
                         (require 'smartparens-config)
                         (turn-on-show-smartparens-mode)))
-  ((css-mode emacs-lisp-mode hy-mode sass-mode sh-mode) . turn-on-smartparens-mode)
+  (prog-mode . turn-on-smartparens-mode)
   (clojure-mode . (lambda () (require 'smartparens-clojure)))
   ((ruby-mode enh-ruby-mode) . (lambda () (require 'smartparens-ruby)))
-  ((javascript-mode js2-mode json-mode rjsx-mode) . (lambda () (require 'smartparens-javascript)))
+  ((javascript-mode js2-mode json-mode) . (lambda () (require 'smartparens-javascript)))
   (lua-mode . (lambda () (require 'smartparens-lua)))
   (markdown-mode . (lambda () (require 'smartparens-markdown)))
   (org-mode . (lambda () (require 'smartparens-org)))
-  ((python-mode elpy-mode) . (lambda () (require 'smartparens-python)))
+  (python-mode . (lambda () (require 'smartparens-python)))
   (text-mode . (lambda () (require 'smartparens-text)))
   (web-mode . (lambda () (require 'smartparens-html))))
 
@@ -2432,11 +2446,20 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   "Delete FILE with confirmation."
   (dired-delete-file file 'confirm-each-subdirectory))
 
+(defun counsel--call-in-other-window-action (x)
+  "Call the command represented by string X after switching to
+the other window."
+  (switch-to-buffer-other-window (current-buffer)
+   (call-interactively (intern x))))
+
 (use-package counsel
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
   :config
+  (ivy-add-actions
+   'counsel-M-x
+   `(("j" counsel--call-in-other-window-action "other window")))
   (ivy-add-actions
    'counsel-find-file
    `(("c" ,(given-file #'copy-file "Copy") "copy")
@@ -2446,6 +2469,20 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
    `(("c" ,(given-file #'copy-file "Copy") "copy")
      ("m" ,(reloading (given-file #'rename-file "Move")) "move")
      ("b" counsel-find-file-cd-bookmark-action "cd bookmark")))
+  (ivy-add-actions
+   'counsel-switch-buffer
+   '(("f"
+      ivy--find-file-action
+      "find file")
+     ("j"
+      ivy--switch-buffer-other-window-action
+      "other window")
+     ("k"
+      ivy--kill-buffer-action
+      "kill")
+     ("r"
+      ivy--rename-buffer-action
+      "rename")))
   :bind
   ("C-h C-k" . counsel-descbinds)
   ("s-F" . counsel-rg)
