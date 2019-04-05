@@ -303,9 +303,7 @@ https://stackoverflow.com/a/14769115/1588358"
   "Open an ibuffer window and display all Eshell buffers."
   (interactive)
   (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
-           '(((name 64 64 :left)
-              " "
-              (process 0 -1 :right)))))
+           '(((name 64 64 :left) " " (process 0 -1 :right)))))
 
 (defun eshell-create-in-background ()
   "Create a new Eshell buffer but don't display it."
@@ -316,7 +314,7 @@ https://stackoverflow.com/a/14769115/1588358"
   "Get or create an Eshell buffer."
   (interactive)
   (or (when current-prefix-arg (eshell-create-in-background))
-      (some-buffer "*Eshell")
+      (car (filter-buffers-by-mode 'eshell-mode))
       (eshell-create-in-background)))
 
 (defun eshell-switch-to-buffer ()

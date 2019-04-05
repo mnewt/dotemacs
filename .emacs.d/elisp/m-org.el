@@ -99,6 +99,9 @@
  :map org-mode-map
  ("s-;" . org-shiftright))
 
+;; (use-package ox-hugo
+;;   :after ox)
+
 ;; Calendar and Journal
 
 (require 'calendar)

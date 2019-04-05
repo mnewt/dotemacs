@@ -506,7 +506,33 @@ to prevent Emacs from barfing on your screen."
   :config
   (window-highlight-mode 1))
 
-(a-theme-activate a-theme-current-theme)
+(defvar fiat-state 'dark
+  "Whether we let there be light or dark.")
+
+(defun fiat ()
+  "Let there be the opposite of whatever came before."
+  (interactive)
+  (if (eq fiat-state 'dark) (fiat-lux) (fiat-nox)))
+
+(defun fiat-lux ()
+  "Switch Emacs and OS to light mode."
+  (interactive)
+  (a-theme-activate 'solarized-light)
+  (shell-command "osascript -e '
+tell application \"System Events\"
+  tell appearance preferences to set dark mode to false
+end tell'"))
+
+(defun fiat-nox ()
+  "Switch Emacs and OS to dark mode."
+  (interactive)
+  (a-theme-activate 'doom-dracula)
+  (shell-command "osascript -e '
+tell application \"System Events\"
+  tell appearance preferences to set dark mode to true
+end tell'"))
+
+(add-hook 'after-init-hook (lambda () (a-theme-activate a-theme-current-theme)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
@@ -974,7 +1000,7 @@ When using Homebrew, install it using \"brew install trash\"."
   :straight
   (:type git :host github :repo "gilbertw1/dash-docs")
   :custom
-  (dash-docs-docsets-path "~/code/docsets")
+  (dash-docs-docsets-path "~/.config/docsets")
   (dash-docs-browser-func #'eww)
   (dash-docs-common-docsets (dash-docs-installed-docsets)))
 
@@ -1009,11 +1035,6 @@ When using Homebrew, install it using \"brew install trash\"."
   (when (stringp mode) (setq mode (intern mode)))
   (seq-filter (lambda (b) (eq (buffer-local-value 'major-mode b) mode))
               (buffer-list)))
-
-(defun some-buffer (regexp)
-  "Return the first buffer found with a name matching REGEXP, or nil."
-  (cl-some (lambda (b) (when (string-match-p regexp (buffer-name b)) b))
-           (buffer-list)))
 
 (defun list-buffer-major-modes ()
   "Return a list of all major modes currently in use in open buffers."
@@ -2021,6 +2042,8 @@ Tries to find a file at point."
 ;;; Hydra
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(use-package lv)
+
 (use-package hydra)
 
 (defhydra hydra-multiple-cursors (:hint nil)
@@ -2315,7 +2338,10 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   ;; Save changed buffers immediately when exiting wgrep mode
   (wgrep-auto-save-buffer t)
   :bind
-  (("C-c C-p" . wgrep-change-to-wgrep-mode)))
+  (:map grep-mode-map
+        ("C-c C-p" . wgrep-change-to-wgrep-mode)
+        :map occur-mode-map
+        ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
   :ensure-system-package
@@ -2573,6 +2599,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :custom
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
+  (compilation-scroll-output t)
   :config
   (counsel-projectile-mode)
   ;; When switching projects, go straight to dired in the project root.
@@ -2787,7 +2814,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
                           ("<div" "</div>" web t)))
   :hook
   ;; Don't shadow the fence-edit binding
-  (markdown-mode . (lambda () (bind-key "C-c '" nil 'markdown-mode-map)))
+  (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
   :bind
   ("C-c '" . fence-edit-dwim))
 
@@ -2993,7 +3020,8 @@ things."
 
 (use-package inf-ruby
   :hook
-  enh-ruby-mode
+  (enh-ruby-mode . inf-ruby-minor-mode)
+  (compilation-filter . inf-ruby-auto-enter)
   :commands
   (inf-ruby inf-ruby-console-auto)
   :bind
