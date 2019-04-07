@@ -63,18 +63,79 @@
   :config
   (lisp-extra-font-lock-global-mode 1))
 
-(use-package eval-sexp-fu
-  :hook
-  ((emacs-lisp-mode lisp-interaction-mode) . turn-on-eval-sexp-fu-flash-mode))
+(defvar flash-region-ovl nil
+  "The overlay used for flash.")
+(make-variable-buffer-local 'flash-region-ovl)
 
-(use-package lively
-  :commands
-  (lively-shell-command)
-  :bind
-  ("C-c C-l l" . lively)
-  ("C-c C-l r" . lively-region)
-  ("C-c C-l u" . lively-update)
-  ("C-c C-l s" . lively-stop))
+(defvar flash-region-face 'highlight
+  "The face used for flash.")
+
+(defvar flash-region-timeout 0.5
+  "The number of seconds the flash shall last.")
+
+(defun flash-region--remove-ovl (buf)
+  "Remove the flash overlay if it exists in BUF."
+  (with-current-buffer buf
+    (when (overlayp flash-region-ovl)
+      (delete-overlay flash-region-ovl))
+    (setq flash-region-ovl nil)))
+
+(defun flash-region (beg end &optional face timeout)
+  "Show an overlay from BEG to END using FACE to set display
+properties. The overlay automatically vanishes after TIMEOUT
+seconds."
+  (interactive "r")
+  (let ((face (or face flash-region-face))
+        (timeout (or (and (numberp timeout) (< 0 timeout) timeout)
+                     flash-region-timeout)))
+    (flash-region--remove-ovl (current-buffer))
+    (setq flash-region-ovl (make-overlay beg end))
+    (overlay-put flash-region-ovl 'face face)
+    (when (< 0 timeout)
+      (run-with-idle-timer timeout
+                           nil 'flash-region--remove-ovl (current-buffer)))))
+
+(defun flash-last-sexp (_)
+  (flash-region (point) (save-excursion (backward-sexp) (point))))
+
+(defun flash-last-sexp-other-window (_)
+  "Run `eval-last-sexp' with ARG in the other window."
+  (save-window-excursion
+    (other-window 1)
+    (flash-last-sexp nil)))
+
+(defun flash-defun (_)
+  (flash-region (save-excursion (beginning-of-defun) (point))
+                (save-excursion (end-of-defun) (point))))
+
+(advice-add 'eval-region :before #'flash-region)
+(advice-add 'eval-last-sexp :before #'flash-last-sexp)
+(advice-add 'eval-print-last-sexp :before #'flash-last-sexp)
+(advice-add 'eval-defun :before #'flash-defun)
+(with-eval-after-load 'crux
+  (advice-add 'crux-eval-and-replace :before #'flash-last-sexp))
+(with-eval-after-load 'cider
+  (advice-add 'cider-eval-region :before #'flash-region)
+  (advice-add 'cider-eval-last-sexp :before #'flash-last-sexp)
+  (advice-add 'cider-eval-last-sexp-and-append :before #'flash-last-sexp)
+  (advice-add 'cider-eval-last-sexp-in-context :before #'flash-last-sexp)
+  (advice-add 'cider-pprint-eval-last-sexp :before #'flash-defun)
+  (advice-add 'cider-pprint-eval-last-sexp-to-comment :before #'flash-defun)
+  (advice-add 'cider-pprint-eval-last-sexp-to-repl :before #'flash-defun)
+  (advice-add 'cider-eval-defun-at-point :before #'flash-defun)
+  (advice-add 'cider-eval-defun-at-point-in-context #'flash-defun)
+  (advice-add 'cider-eval-defun-to-comment :before #'flash-defun)
+  (advice-add 'cider-pprint-eval-defun-to-comment :before #'flash-defun)
+  (advice-add 'cider-pprint-eval-defun-to-repl :before #'flash-defun))
+
+;; (use-package lively
+;;   :commands
+;;   (lively-shell-command)
+;;   :bind
+;;   ("C-c C-l l" . lively)
+;;   ("C-c C-l r" . lively-region)
+;;   ("C-c C-l u" . lively-update)
+;;   ("C-c C-l s" . lively-stop))
 
 (defun eval-last-sexp-other-window (arg)
   "Run `eval-last-sexp' with ARG in the other window."
@@ -111,13 +172,6 @@ Interactively, reads the register using `register-read-with-preview'."
   (let* ((val (get-register register))
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
-
-(defun replace-last-sexp ()
-  "Eval the preceeding sexp and replace it with the result."
-  (interactive)
-  (let ((value (eval (elisp--preceding-sexp))))
-    (kill-sexp -1)
-    (insert (format "%S" value))))
 
 ;; (use-package sly
 ;;   ;; There are some problems building sly with straight.el in Windows
@@ -156,8 +210,10 @@ Interactively, reads the register using `register-read-with-preview'."
 ;;   :commands
 ;;   (geiser run-geiser run-chicken))
 
+(require 'crux)
+
 (bind-keys
- ("C-c C-j" . replace-last-sexp)
+ ("C-c C-j" . crux-eval-and-replace)
  :map lisp-mode-shared-map
  ("s-<return>" . eval-last-sexp)
  ("C-s-<return>" . eval-last-sexp-other-window)

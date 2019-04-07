@@ -198,354 +198,84 @@ Update environment variables from a shell source file."
   (restart-emacs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Theme
+;;; Persistence
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; We don't set a frame title because Emacs on macOS renders the frame title
-;; face terribly.
-(setq frame-title-format nil)
+;; savehist
+(require 'savehist)
+(setq savehist-autosave-interval 60
+      history-length 1000
+      history-delete-duplicates t
+      savehist-additional-variables '(kill-ring
+                                      search-ring
+                                      regexp-search-ring
+                                      file-name-history
+                                      magit-read-rev-history
+                                      read-expression-history
+                                      command-history
+                                      extended-command-history
+                                      ivy-history))
+(savehist-mode 1)
 
-;; Default frame settings. This is actually maximized, but not full screen.
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-(add-to-list 'default-frame-alist '(cursor-color . "#F60"))
+;; save-place
+(save-place-mode 1)
 
-;; eww uses this as its default font, among others.
-(set-face-font 'variable-pitch "Georgia-18")
+;; recentf
+(require 'recentf)
+(setq recentf-max-saved-items 500
+      recentf-max-menu-items 15
+      ;; Disable recentf-cleanup on Emacs start because it can cause problems
+      ;; with remote files.
+      recentf-auto-cleanup 'never)
 
-;; `a-theme'
-(defface a-theme-active-0
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
+(recentf-mode 1)
 
-(defface a-theme-inactive-0
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
+;; Track directories in the recentf list
+(defun recentd-track-opened-file ()
+  "Insert the name of the directory just opened into the recent list."
+  (and (derived-mode-p 'dired-mode) default-directory
+       (recentf-add-file default-directory))
+  ;; Must return nil because it is run from `write-file-functions'.
+  nil)
+(add-hook 'dired-after-readin-hook #'recentd-track-opened-file)
 
-(defface a-theme-active-1
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
+;; Store all backup and autosave files in their own directory since it is bad to
+;; clutter project directories.
+(setq backup-directory-alist '((".*" . "~/.emacs.d/backup"))
+      ;; Don't clobber symlinks.
+      backup-by-copying t
+      ;; Don't break multiple hardlinks.
+      backup-by-copying-when-linked t
+      ;; Use version numbers for backup files.
+      version-control t
+      ;; Backup even if file is in vc.
+      vc-make-backup-files t
+      ;; Keep all versions forever.
+      delete-old-versions -1
+      auto-save-list-file-prefix "~/.emacs.d/autosave/"
+      auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
+      ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
+      ;; generates too much activity from tools watching for changes during
+      ;; development.
+      create-lockfiles nil)
 
-(defface a-theme-inactive-1
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-active-2
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-inactive-2
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-active-3
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-inactive-3
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-active-4
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defface a-theme-inactive-4
-  '((t (:inherit default)))
-  ""
-  :group 'a-theme)
-
-(defvar a-theme-hook '()
-  "Run whenever a theme is activated.")
-
-(defvar a-theme-themes '()
-  "Alist where car is the theme and cdr can be:
-
-* A function to run after loading the theme.
-* An alist specifying additional arguments. Possible arguments:
-** hook - A function, as above.
-** specs
-** preset
-** mouse-color
-**")
-
-(defvar a-theme-current-theme nil
-  "Defines the currently loaded theme. Use it like this.
-
-\(setq a-theme-current-theme
-      \(if \(bound-and-true-p a-theme-current-theme)
-          a-theme-current-theme
-        'doom-dracula))
-
-\(a-theme a-theme-current-theme)")
-
-(defvar a-theme-specs-common '()
-  "List of default face specs to apply when a theme is activated.
-The attributes specified in `a-theme-themes' overrides these.
-
-For details on face specs see `defface'.")
-
-(defun alist-get-all (key alist &optional default testfn)
-  "Return a list of the elements of ALIST with matching KEY.
-Modeled on `alist-get', which only returns the first match.
-
-DEFAULT returns a default value if nothing matches.
-
-REMOVE is not implemented on account of I don't care and it's
-dumb.
-
-TESTFN is an equality function, *not* an alist function as with
-`alist-get'. Default is `eq'."
-  (let* ((testfn (or testfn #'eq))
-         (matches (seq-filter
-                   (lambda (e) (funcall testfn key (car e)))
-                   alist)))
-    (if matches
-        (car (mapcar #'cadr matches))
-      default)))
-
-(defun maybe-expand-symbol (x)
-  "If X is a symbol, return its value. Else, return X."
-  (if (symbolp x) (symbol-value x) x))
-
-(defun a-theme-get-attr (attribute name)
-  "Get the ATTRIBUTE identified by NAME from the current theme settings.
-
-Example usage
-
-\(plist-get
-  \(face-spec-choose \(a-theme-get-attr 'theme-face 'smerge-lower))
-  \:background)"
-  (let ((name (if (stringp name) (intern name) name)))
-    (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
-                           (cadddr e)))
-             (get (car custom-enabled-themes) 'theme-settings))))
-
-(defun a-theme-get-face (face)
-  "Get the FACE from the current theme. See `a-theme-get-attr'."
-  (a-theme-get-attr 'theme-face face))
-
-(defun a-theme-get-value (value)
-  "Get the VALUE from the current theme. See `a-theme-get-attr'."
-  (a-theme-get-attr 'theme-value value))
-
-(defun a-theme-search-attrs (regexp)
-  "Return the attributes in the current theme which match the REGEXP."
-  (seq-filter (lambda (e) (string-match-p regexp (symbol-name (cadr e))))
-              (get (car custom-enabled-themes) 'theme-settings)))
-
-(defun a-theme-generate-specs (face1 face2 face3 face4)
-  "Automatically generate theme specs the supplied faces."
-  (let* ((face1 (face-spec-choose (a-theme-get-face face1)))
-         (face2 (face-spec-choose (a-theme-get-face face2)))
-         (face3 (face-spec-choose (a-theme-get-face face3)))
-         (face4 (face-spec-choose (a-theme-get-face face4)))
-         (active-bg (plist-get face1 :background))
-         (active-fg (plist-get face1 :foreground))
-         (inactive-bg (doom-blend active-bg active-fg 0.95))
-         (inactive-fg (doom-blend active-bg active-fg 0.4)))
-    `((default ((t :background ,inactive-bg)))
-      (fringe ((t :background ,inactive-bg)))
-      (window-highlight-focused-window ((t :background ,active-bg)))
-      (a-theme-active-0 ((t :background ,inactive-bg
-                            :foreground ,(doom-blend active-fg active-bg 0.9))))
-      (a-theme-active-1 ((t :background ,(doom-blend active-fg active-bg 0.8)
-                            :foreground ,inactive-bg)))
-      (a-theme-active-2 ((t :background ,(plist-get face2 :foreground)
-                            :foreground ,active-bg)))
-      (a-theme-active-3 ((t :background ,(plist-get face3 :foreground)
-                            :foreground ,active-bg)))
-      (a-theme-active-4 ((t :background ,(plist-get face4 :foreground)
-                            :foreground ,active-bg)))
-      (a-theme-inactive-0 ((t :background ,inactive-bg
-                              :foreground ,inactive-fg)))
-      (a-theme-inactive-1 ((t :background ,inactive-bg
-                              :foreground ,inactive-bg))))))
-
-(defun a-theme-activate (theme)
-  "Switch the current Emacs theme to THEME.
-
-Handle some housekeeping that comes with switching themes and try
-to prevent Emacs from barfing on your screen."
-  (custom-set-variables '(custom-enabled-themes nil))
-  (load-theme (if (stringp theme) (intern theme) theme) t)
-  (let* ((opts (alist-get theme a-theme-themes)))
-    ;; Append presets to tail of `opts' alist
-    ;; (setq preset (alist-get 'preset opts))
-
-    ;; Dynamically set up window highlight mode.
-    (when (bound-and-true-p window-highlight-mode)
-      (setq opts (append opts
-                         `((specs ,(a-theme-generate-specs 'default
-                                                           'outline-1
-                                                           'outline-2
-                                                           'outline-3))))))
-
-    ;; Feed face specs to `custom-set-faces' in reverse because last write wins.
-    ;; We do it this way so additional specs can be specified when adding the
-    ;; theme to `a-theme-themes'.
-    (apply #'custom-set-faces
-           (append
-            a-theme-specs-common
-            (reverse (alist-get-all 'specs opts))))
-    (let-alist opts
-      (set-mouse-color
-       (cond
-        ((boundp '.mouse-color) .mouse-color)
-        ((equal 'dark (frame-parameter nil 'background-mode)) "white")
-        (t "black")))
-      (when (boundp '.hook) (mapc #'funcall .hook)))
-    (when (fboundp #'powerline-reset) (powerline-reset))))
-
-(defun a-theme-choose ()
-  "Interactively choose a theme from `a-theme-themes' and activate it."
-  (interactive)
-  (ivy-read "Load custom theme: "
-            (mapcar #'car a-theme-themes)
-            :action #'a-theme-activate
-            :caller #'a-theme-choose))
-
-(bind-key "M-s-t" #'a-theme-choose)
-
-(setq a-theme-current-theme (if (bound-and-true-p a-theme-current-theme)
-                                a-theme-current-theme
-                              'doom-dracula)
-      a-theme-specs-common '((cursor ((t :background "#F60")))))
-
-(add-hook 'a-theme-hook #'doom-themes-visual-bell-config)
-(add-hook 'a-theme-hook #'doom-themes-org-config)
-
-(use-package doom-themes
-  :config
-  (add-multiple-to-list 'a-theme-themes
-                        '((doom-one)
-                          (doom-vibrant)
-                          (doom-one-light)
-                          (doom-dracula)
-                          (doom-molokai)
-                          (doom-tomorrow-day))))
-
-(use-package solarized-theme
-  :config
-  (add-to-list 'a-theme-themes '(solarized-light)))
-
-(use-package powerline
-  :custom
-  (powerline-default-separator nil)
-  (powerline-narrowed-indicator "n")
-  (mode-line-format
-   '("%e"
-     (:eval
-      (let* ((active (powerline-selected-window-active))
-             (mode-line-buffer-id (if active 'mode-line-buffer-id 'mode-line-buffer-id-inactive))
-             (mode-line (if active 'mode-line 'mode-line-inactive))
-             (face0 (if active 'a-theme-active-0 'a-theme-inactive-1))
-             (face1 (if active 'a-theme-active-1 'a-theme-inactive-1))
-             (face2 (if active 'a-theme-active-2 'a-theme-inactive-1))
-             (face3 (if active 'a-theme-active-3 'a-theme-inactive-0))
-             (face4 (if active 'a-theme-active-4 'a-theme-inactive-1))
-             (lhs (when active
-                    (list (powerline-raw " " face1)
-                          (powerline-major-mode face1 'l)
-                          ;; (powerline-vc face1 'r)
-                          (powerline-raw " %* " face1 'l)
-                          (when (eq major-mode 'term-mode)
-                            (powerline-raw
-                             (cond
-                              ((term-in-char-mode) " (char-mode) ")
-                              ((term-in-line-mode) " (line-mode) ")
-                              (t ""))
-                             face1)))))
-             (center (list (when (file-remote-p default-directory)
-                             (powerline-raw
-                              (concat " "
-                                      (tramp-file-name-host
-                                       (tramp-dissect-file-name
-                                        default-directory))
-                                      " ")
-                              face4))
-                           (powerline-raw " " face3)
-                           (powerline-raw (buffer-name) face3 'm)
-                           (powerline-raw " " face3)))
-             (rhs (when active
-                    (list (when (fboundp #'eyebrowse-mode-line-indicator)
-                            (concat (eyebrowse-mode-line-indicator)
-                                    (powerline-raw " " face0)))
-                          (when (bound-and-true-p outline-minor-mode)
-                            (powerline-raw " o" face1))
-                          (when (bound-and-true-p hs-minor-mode)
-                            (powerline-raw " h" face1))
-                          (powerline-narrow face1)
-                          (powerline-raw " " face1)
-                          (powerline-raw global-mode-string face1 'r)
-                          (powerline-raw " " face1)
-                          (powerline-raw "%l" face1 'r)
-                          (powerline-raw ":" face1)
-                          (powerline-raw "%c" face1 'r)
-                          (powerline-hud face3 face3)))))
-        (concat (powerline-render lhs)
-                (powerline-fill-center mode-line (/ (powerline-width center) 2.0))
-                (powerline-render center)
-                (powerline-fill mode-line (powerline-width rhs))
-                (powerline-render rhs))))))
-  :init
-  (set-face-attribute 'mode-line nil :box nil))
-
-(use-package window-highlight
-  :if (>= emacs-major-version 27)
-  :straight
-  (:type git :host github :repo "dcolascione/emacs-window-highlight")
-  :config
-  (window-highlight-mode 1))
-
-(defvar fiat-state 'dark
-  "Whether we let there be light or dark.")
-
-(defun fiat ()
-  "Let there be the opposite of whatever came before."
-  (interactive)
-  (if (eq fiat-state 'dark) (fiat-lux) (fiat-nox)))
-
-(defun fiat-lux ()
-  "Switch Emacs and OS to light mode."
-  (interactive)
-  (a-theme-activate 'solarized-light)
-  (shell-command "osascript -e '
-tell application \"System Events\"
-  tell appearance preferences to set dark mode to false
-end tell'"))
-
-(defun fiat-nox ()
-  "Switch Emacs and OS to dark mode."
-  (interactive)
-  (a-theme-activate 'doom-dracula)
-  (shell-command "osascript -e '
-tell application \"System Events\"
-  tell appearance preferences to set dark mode to true
-end tell'"))
-
-(add-hook 'after-init-hook (lambda () (a-theme-activate a-theme-current-theme)))
+;; Desktop
+(require 'desktop)
+(add-to-list 'desktop-globals-to-save 'kill-ring)
+(add-to-list 'desktop-globals-to-save 'm-theme-current-theme)
+(desktop-save-mode 1)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(require 'm-theme)
+
 ;; Configure the frame
 (when window-system
-  (when (fboundp 'tool-bar-mode)
-    (tool-bar-mode -1))
-  (when (fboundp 'scroll-bar-mode)
-    (scroll-bar-mode -1))
-  (when (fboundp 'horizontal-scroll-bar-mode)
-    (horizontal-scroll-bar-mode -1)))
+  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1)))
 
 (setq frame-resize-pixelwise t
       inhibit-splash-screen t)
@@ -614,7 +344,9 @@ end tell'"))
 
 (bind-keys
  ("C-S-p" . previous-line-4)
- ("C-S-n" . next-line-4))
+ ("C-S-n" . next-line-4)
+ ("H-p" . "\C-u1\M-v")
+ ("H-n" . "\C-u1\C-v"))
 
 ;; Whenever an external process changes a file underneath emacs, and there
 ;; was no unsaved changes in the corresponding buffer, just revert its
@@ -850,74 +582,6 @@ When using Homebrew, install it using \"brew install trash\"."
   ("C-<backspace>" . crux-kill-line-backwards))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Persistence
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; savehist
-(require 'savehist)
-(setq savehist-autosave-interval 60
-      history-length 1000
-      history-delete-duplicates t
-      savehist-additional-variables '(kill-ring
-                                      search-ring
-                                      regexp-search-ring
-                                      file-name-history
-                                      magit-read-rev-history
-                                      read-expression-history
-                                      command-history
-                                      extended-command-history
-                                      ivy-history))
-(savehist-mode 1)
-
-;; save-place
-(save-place-mode 1)
-
-;; recentf
-(require 'recentf)
-(setq recentf-max-saved-items 500
-      recentf-max-menu-items 15
-      ;; Disable recentf-cleanup on Emacs start because it can cause problems
-      ;; with remote files.
-      recentf-auto-cleanup 'never)
-
-(recentf-mode 1)
-
-;; Track directories in the recentf list
-(defun recentd-track-opened-file ()
-  "Insert the name of the directory just opened into the recent list."
-  (and (derived-mode-p 'dired-mode) default-directory
-       (recentf-add-file default-directory))
-  ;; Must return nil because it is run from `write-file-functions'.
-  nil)
-(add-hook 'dired-after-readin-hook #'recentd-track-opened-file)
-
-;; Store all backup and autosave files in their own directory since it is bad to
-;; clutter project directories.
-(setq backup-directory-alist '((".*" . "~/.emacs.d/backup"))
-      ;; Don't clobber symlinks.
-      backup-by-copying t
-      ;; Don't break multiple hardlinks.
-      backup-by-copying-when-linked t
-      ;; Use version numbers for backup files.
-      version-control t
-      ;; Backup even if file is in vc.
-      vc-make-backup-files t
-      ;; Keep all versions forever.
-      delete-old-versions -1
-      auto-save-list-file-prefix "~/.emacs.d/autosave/"
-      auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
-      ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
-      ;; generates too much activity from tools watching for changes during
-      ;; development.
-      create-lockfiles nil)
-
-;; Desktop
-(require 'desktop)
-(add-to-list 'desktop-globals-to-save 'kill-ring)
-(add-to-list 'desktop-globals-to-save 'a-theme-current-theme)
-(desktop-save-mode 1)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Help!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -961,8 +625,8 @@ When using Homebrew, install it using \"brew install trash\"."
 
 (use-package man
   :custom
-  ;; Make the manpage the current buffer in the current window
-  (Man-notify-method 'pushy)
+  ;; Make the manpage the current buffer in the other window
+  (Man-notify-method 'aggressive)
   :config
   (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
   (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
@@ -1110,7 +774,9 @@ When using Homebrew, install it using \"brew install trash\"."
 
 (use-package ace-window
   :bind
-  (("M-o" . ace-window)))
+  ("M-o" . ace-window)
+  ("s-w" . ace-delete-window)
+  ("s-W" . ace-delete-other-windows))
 
 (use-package winum
   :custom
@@ -1347,7 +1013,7 @@ return them in the Emacs format."
 
 (use-package evil
   :bind
-  ("s-m" . evil-mode))
+  ("s-ESC" . evil-mode))
 
 (defmacro save-region (body)
   "Save the region, execute BODY, attempt to restore the region."
@@ -1376,8 +1042,7 @@ return them in the Emacs format."
   (undohist-initialize)
   (advice-add 'undohist-recover-1
               :around
-              (lambda (f) (cl-flet ((yes-or-no-p (_) t)))))
-  :defer 1)
+              (lambda (f) (cl-flet ((yes-or-no-p (_) t))))))
 
 ;; Increase undo limit to 1MB per buffer.
 (setq undo-limit 1048576)
@@ -1497,9 +1162,9 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
                              "touch ")))
   (shell-command cmd))
 
-(use-package editorconfig
-  :config
-  (editorconfig-mode 1))
+;; (use-package editorconfig
+;;   :config
+;;   (editorconfig-mode 1))
 
 ;; Just set up 3 windows, no fancy frames or whatever
 (require 'ediff)
@@ -1626,6 +1291,7 @@ other window."
   :init
   (defvar outline-minor-mode-prefix "\M-#")
   :config
+  (put 'narrow-to-region 'disabled nil)
   ;; Narrowing now works within the headline rather than requiring to be on it
   (advice-add 'outshine-narrow-to-subtree :before
               (lambda (&rest _args) (unless (outline-on-heading-p t)
@@ -1691,15 +1357,14 @@ other window."
   ("C-c ! !" . flycheck-mode))
 
 (use-package format-all
-  :commands
-  (format-all-buffer format-all-mode)
   :hook
-  ((sh-mode) . format-all-mode))
+  ((emacs-lisp-mode enh-ruby-mode sh-mode) . format-all-mode))
 
 (defun indent-buffer-or-region ()
   "Indent the region if one is active, otherwise format the buffer.
 Some modes have special treatment."
   (interactive)
+  (call-interactively #'crux-cleanup-buffer-or-region)
   (if (use-region-p)
       (progn
         (indent-region (region-beginning) (region-end))
@@ -1708,7 +1373,8 @@ Some modes have special treatment."
       (format-all-buffer)
       (message "Buffer formatted."))))
 
-(bind-key "C-M-\\" #'indent-buffer-or-region)
+(bind-keys ("C-M-\\" . indent-buffer-or-region)
+           ("C-\\" . crux-indent-defun))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Lisp, S-Expressions, Parentheses, Brackets
@@ -1881,6 +1547,8 @@ ID, ACTION, CONTEXT."
   (python-mode . (lambda () (require 'smartparens-python)))
   (text-mode . (lambda () (require 'smartparens-text)))
   (web-mode . (lambda () (require 'smartparens-html))))
+
+(require 'm-clojure)
 
 ;; Emacs lisp
 
@@ -2371,12 +2039,6 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
 
 (use-package company
   :custom
-  ;; Eliminate any backends which may touch external files, which can be a drag
-  ;; on performance over ssh.
-  ;; (company-backends-remote
-  ;;  '((company-shell company-shell-env)
-  ;;    company-capf company-css company-elisp company-keywords
-  ;;    company-yasnippet company-dabbrev-code company-dabbrev company-ispell))
   (company-idle-delay 0.1)
   (company-dabbrev-ignore-case t)
   (company-frontends
@@ -2388,6 +2050,7 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   :bind
   (:map prog-mode-map
         ("C-M-/" . company-manual-begin)
+        ("s-TAB" . company-manual-begin)
         ("<tab>" . company-indent-or-complete-common)
         :map company-active-map
         ;; TODO: The inconsistency between C-n and M-n to select company
@@ -2399,12 +2062,12 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
         ("C-e" . company-complete-selection)
         ("M-." . company-show-location)))
 
-(use-package company-quickhelp
-  :bind
-  (:map company-active-map
-        ("C-c h" . company-quickhelp-manual-begin))
-  :hook
-  (global-company-mode . company-quickhelp-mode))
+;; (use-package company-quickhelp
+;;   :bind
+;;   (:map company-active-map
+;;         ("C-c h" . company-quickhelp-manual-begin))
+;;   :hook
+;;   (global-company-mode . company-quickhelp-mode))
 
 (use-package ivy
   :custom
@@ -2642,6 +2305,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 ;; SSH server config files
 (add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
 
+(defun git-add-current-file (file)
+  "Run `git add' on the current buffer file name."
+  (interactive (list (buffer-file-name)))
+  (shell-command (format "git add '%s'" file)))
+
 (defun dired-git-add ()
   "Run `git add' on the selected files in a dired buffer."
   (interactive)
@@ -2649,7 +2317,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
     (message "> git add %s" files)
     (dired-do-shell-command "git add" nil files)))
 
-(bind-key ";" #'dired-git-add dired-mode-map)
+(bind-keys ("C-c ;" . git-add-current-file)
+           :map dired-mode-map
+           (";" . dired-git-add))
 
 ;; Magit dependencies. Unless these are included here, they don't get loaded.
 ;; Haven't investigated why.
@@ -3016,6 +2686,8 @@ things."
   (python-mode . (lambda () (set (make-local-variable 'company-backends) '(company-jedi)))))
 
 (use-package enh-ruby-mode
+  :ensure-system-package
+  (rufo "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
 
 (use-package inf-ruby
@@ -3094,4 +2766,3 @@ things."
 (provide 'init)
 
 ;;; init.el ends here
-(put 'narrow-to-region 'disabled nil)
