@@ -2292,6 +2292,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ("s-<mouse-1>". dumb-jump-go)
   ("s-J" . dumb-jump-quick-look))
 
+(require 'flash-mode)
+(flash-mode 1)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Version Control
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
