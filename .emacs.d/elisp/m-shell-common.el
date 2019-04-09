@@ -49,7 +49,9 @@
   (with-temp-buffer
     (insert-file-contents "~/.ssh/known_hosts")
     (-remove (lambda (host) (string=  "" host))
-             (mapcar (lambda (line) (replace-regexp-in-string "\\]\\|\\[" "" (car (split-string line "[, :]"))))
+             (mapcar (lambda (line)
+                       (replace-regexp-in-string "\\]\\|\\[" ""
+                                                 (car (split-string line "[, :]"))))
                      (split-string (buffer-string) "\n")))))
 
 (defun list-hosts-from-ssh-config ()
@@ -58,7 +60,8 @@
     (insert-file-contents "~/.ssh/config")
     (keep-lines "^Host")
     (-remove (lambda (host) (or (string=  "" host) (string= "*" host)))
-             (mapcar (lambda (line) (replace-regexp-in-string "Host +" "" line))
+             (mapcar (lambda (line)
+                       (replace-regexp-in-string "Host +" "" line))
                      (split-string (buffer-string) "\n")))))
 
 (defun list-hosts-from-etc-hosts ()
@@ -110,12 +113,6 @@
    (if (tramp-file-name-p host)
        host
      (concat "/ssh:" host "|sudo:root@" host ":"))))
-
-(eval-after-load 'sh
-  (lambda ()
-    (bind-keys
-     :map sh-mode-map
-     ("s-<ret>" . eshell-send-current-line))))
 
 ;; http://whattheemacsd.com/setup-shell.el-01.html
 (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -198,17 +195,17 @@
   :hook
   (shell-mode . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
   (compilation-start . (lambda (proc)
-                              ;; We need to differentiate between compilation-mode buffers
-                              ;; and running as part of comint (which at this point we assume
-                              ;; has been configured separately for xterm-color)
-                              (when (eq (process-filter proc) 'compilation-filter)
-                                ;; This is a process associated with a compilation-mode buffer.
-                                ;; We may call `xterm-color-filter' before its own filter function.
-                                (set-process-filter
-                                 proc
-                                 (lambda (proc string)
-                                   (funcall 'compilation-filter proc
-                                            (xterm-color-filter string))))))))
+                         ;; We need to differentiate between compilation-mode buffers
+                         ;; and running as part of comint (which at this point we assume
+                         ;; has been configured separately for xterm-color)
+                         (when (eq (process-filter proc) 'compilation-filter)
+                           ;; This is a process associated with a compilation-mode buffer.
+                           ;; We may call `xterm-color-filter' before its own filter function.
+                           (set-process-filter
+                            proc
+                            (lambda (proc string)
+                              (funcall 'compilation-filter proc
+                                       (xterm-color-filter string))))))))
 
 ;; Apply colors to `shell-command' minibuffer output.
 ;; Adapted from https://stackoverflow.com/a/42666026/1588358

@@ -10,10 +10,6 @@
 ;;; Top Level
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Give Emacs 1GB of heap and run gc on idle.
-;; (setq gc-cons-threøshold 1073741824)
-;; (run-with-idle-timer 30 t (lambda () (garbage-collect)))
-
 (require 'gnutls)
 (require 'nsm)
 (setq gnutls-verify-error t
@@ -94,28 +90,23 @@
 
 (use-package use-package-ensure-system-package)
 
-(use-package benchmark-init
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'after-init-hook 'benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'after-init-hook 'benchmark-init/deactivate))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; cl is assumed to be present in this config and some packages too.
-(require 'cl-lib)
+(require 'cl)
 (require 'seq)
 
 ;; All external packages and many built in ones are configured using use-package.
 (eval-when-compile
   (require 'use-package))
 (require 'bind-key)
-
-;; dash.el is required by many things, firstly the Environment section.
-(use-package dash
-  :config
-  (dash-enable-font-lock))
 
 ;; Packages go here.
 (add-to-list 'load-path "~/.emacs.d/elisp/")
@@ -124,8 +115,401 @@
   "Run `add-to-list' for all ITEMS in the LIST."
   (seq-do (apply-partially #'add-to-list list) items))
 
+(use-package dash)
+
+(use-package s)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Environment
+;;; Appearance
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Configure the frame
+(when window-system
+  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1)))
+
+(setq frame-resize-pixelwise t
+      inhibit-splash-screen t)
+
+(defun display-startup-echo-area-message ()
+  "Run when Emacs has finished starting."
+  (message "Emacs has finished starting up."))
+
+(defun echo-area-visible-bell ()
+  "A more pleasant bell. No sound. Simply flash the echo area."
+  (with-current-buffer (get-buffer " *Echo Area 0*")
+    (setq-local face-remapping-alist '((default highlight))))
+  (run-with-timer 0.15 nil (lambda ()
+                             (with-current-buffer (get-buffer " *Echo Area 0*")
+                               (setq-local face-remapping-alist '((default)))))))
+
+;; Blinking is NOT OK
+(blink-cursor-mode -1)
+
+;; Beeping is REALLY NOT OK
+(setq visible-bell t
+      ring-bell-function 'echo-area-visible-bell
+      ;; Show keystrokes right away, don't show the message in the scratch buffer
+      echo-keystrokes 0.1)
+
+;; Smoother and nicer scrolling
+(setq scroll-margin 6
+      scroll-step 1
+      scroll-conservatively 10000
+      scroll-preserve-screen-position 1
+      auto-window-vscroll nil
+      mouse-wheel-follow-mouse 't
+      mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+
+(pixel-scroll-mode)
+
+(global-hl-line-mode 1)
+
+;; No GUI dialogs
+(setq use-dialog-box nil)
+
+;; We don't set a frame title because Emacs on macOS renders the frame title
+;; face terribly. No rendering is better than terrible rendering.
+(setq frame-title-format nil)
+;; No icon in the titlebar
+(setq ns-use-proxy-icon nil)
+
+;; Default frame settings. This is actually maximized, but not full screen.
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+
+;; eww uses this as its default font, among others.
+(set-face-font 'variable-pitch "Georgia-18")
+
+(use-package doothemes)
+
+(use-package solarized-theme)
+
+(defvar theme-source-faces
+  '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
+  "The faces theme-activate uses to ")
+
+(defvar theme-hook '(doothemes-visual-bell-config
+                     doothemes-org-config)
+  "Run whenever a theme is activated.")
+
+(defvar theme-themes '((doom-vibrant)
+                       (doom-one-light)
+                       (doom-dracula)
+                       (doom-molokai)
+                       (doom-tomorrow-day)
+                       (solarized-light))
+  "Alist where car is the theme and cdr can be:
+
+* A function to run after loading the theme.
+* An alist specifying additional arguments. Possible arguments:
+** hook - A function, as above.
+** specs
+** mouse-color
+**")
+
+(defvar theme-current-theme 'doom-dracula
+  "Defines the currently loaded theme.")
+
+(defvar theme-specs-common
+  '((cursor ((t :background "#F60")))
+    (sp-show-pair-match-face ((t :foreground nil :background nil
+                                 :inherit highlight))))
+  "List of default face specs to apply when a theme is activated.
+The attributes specified in `theme-themes' overrides these.
+
+For details on face specs see `defface'.")
+
+(defvar theme-selected-window (frame-selected-window)
+  "Selected window.")
+
+(defun theme-set-selected-window ()
+  "Set the variable `theme-selected-window' appropriately."
+  (when (not (minibuffer-window-active-p (frame-selected-window)))
+    (setq theme-selected-window (frame-selected-window))
+    (force-mode-line-update)))
+
+(defun theme-unset-selected-window ()
+  "Unset the variable `theme-selected-window' and update the mode line."
+  (setq theme-selected-window nil)
+  (force-mode-line-update))
+
+(add-hook 'window-configuration-change-hook 'theme-set-selected-window)
+
+;; focus-in-hook was introduced in emacs v24.4.
+;; Gets evaluated in the last frame's environment.
+(add-hook 'focus-in-hook 'theme-set-selected-window)
+
+;; focus-out-hook was introduced in emacs v24.4.
+(add-hook 'focus-out-hook 'theme-unset-selected-window)
+
+;; Executes after the window manager requests that the user's events
+;; be directed to a different frame.
+(defadvice handle-switch-frame (after theme-handle-switch-frame activate)
+  "Call `theme-set-selected-window'."
+  (theme-set-selected-window))
+
+(add-hook 'buffer-list-update-hook #'theme-set-selected-window)
+
+(defun theme-window-active-p ()
+  "Return whether the current window is active."
+  (eq theme-selected-window (selected-window)))
+
+(defun alist-get-all (key alist &optional default testfn)
+  "Return a list of the elements of ALIST with matching KEY.
+Modeled on `alist-get', which only returns the first match.
+
+DEFAULT returns a default value if nothing matches.
+
+REMOVE is not implemented on account of I don't care and it's
+dumb.
+
+TESTFN is an equality function, *not* an alist function as with
+`alist-get'. Default is `eq'."
+  (let* ((testfn (or testfn #'eq))
+         (matches (seq-filter
+                   (lambda (e) (funcall testfn key (car e)))
+                   alist)))
+    (if matches
+        (car (mapcar #'cadr matches))
+      default)))
+
+(defun get-attr (propname attribute name)
+  "Get the ATTRIBUTE identified by NAME from PROPNAME."
+  (let ((name (if (stringp name) (intern name) name)))
+    (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
+                           (cadddr e)))
+             (get (car custom-enabled-themes) 'theme-settings))))
+
+(defun theme-get-attr (attribute name)
+  "Get the ATTRIBUTE identified by NAME from the current theme settings.
+
+Example usage
+
+    \(plist-get
+      \(face-spec-choose \(theme-get-attr 'theme-face 'default))
+      \:background)"
+  (get-attr 'theme-settings attribute name))
+
+(defun theme-get-face (face)
+  "Get the FACE from the current theme. See `theme-get-attr'."
+  (theme-get-attr 'theme-face face))
+
+(defun theme-get-value (value)
+  "Get the VALUE from the current theme. See `theme-get-attr'."
+  (theme-get-attr 'theme-value value))
+
+(defun theme-search-attrs (regexp)
+  "Return the attributes in the current theme which match the REGEXP."
+  (seq-filter (lambda (e) (string-match-p regexp (symbol-name (cadr e))))
+              (get (car custom-enabled-themes) 'theme-settings)))
+
+(defun theme-generate-specs ()
+  "Automatically generate theme specs the supplied faces."
+  (let* ((default-spec (face-spec-choose (theme-get-face 'default)))
+         (highlight-spec (face-spec-choose (theme-get-face 'highlight)))
+         (active-bg (plist-get default-spec :background))
+         (active-fg (plist-get default-spec :foreground))
+         (inactive-bg (doom-blend active-bg active-fg 0.9))
+         (inactive-fg (doom-blend active-bg active-fg 0.4)))
+    `((default ((t :inherit default :background ,inactive-bg)))
+      (window-highlight-focused-window ((t :background ,active-bg)))
+      (fringe ((t :inherit fringe :background ,inactive-bg)))
+      (mode-line ((t :box nil :underline nil
+                     :background ,inactive-bg
+                     :foreground ,(doom-blend active-fg active-bg 0.9))))
+      (mode-line-emphasis ((t :background ,(doom-blend active-bg active-fg 0.7)
+                              :foreground ,active-fg)))
+      (mode-line-highlight ((t :inherit highlight)))
+      (mode-line-buffer-id ((t :background ,(doom-blend active-bg active-fg 0.2)
+                               :foreground ,inactive-bg :bold t)))
+      (compilation-mode-line-fail ((t :inherit highlight)))
+      (doom-modeline-error ((t :background nil :foreground nil :inherit highlight)))
+      (mode-line-inactive ((t :box nil :underline nil
+                              :background ,inactive-bg
+                              :foreground ,inactive-fg)))
+      (eyebrowse-mode-line-active ((t :foreground ,(plist-get highlight-spec :background)))))))
+
+(defun theme-activate (theme)
+  "Switch the current Emacs theme to THEME.
+
+Handle some housekeeping that comes with switching themes. Set
+face specs for the mode-line. Having done that try to prevent
+Emacs from barfing fruit salad on the screen."
+  (custom-set-variables '(custom-enabled-themes nil))
+  (load-theme (if (stringp theme) (intern theme) theme) t)
+  (let* ((opts (alist-get theme theme-themes)))
+    (setq opts (append opts `((specs ,(theme-generate-specs)))))
+    ;; Feed face specs to `custom-set-faces' in reverse because last write wins.
+    ;; We do it this way so additional specs can be specified when adding the
+    ;; theme to `theme-themes'.
+    (apply #'custom-set-faces
+           (append theme-specs-common (reverse (alist-get-all 'specs opts))))
+    (let-alist opts
+      (set-mouse-color (cond
+                        ((boundp 'mouse-color) mouse-color)
+                        ((equal 'dark (frame-parameter nil 'background-mode)) "white")
+                        (t "black")))
+      (when (boundp 'hook) (mapc #'funcall hook)))
+    (mapc #'funcall theme-hook)))
+
+(defun theme-choose (theme)
+  "Interactively choose a THEME from `theme-themes' and activate it."
+  (interactive (list (completing-read "Load custom theme: "
+                                      (mapcar #'car theme-themes)
+                                      nil t nil
+                                      'theme-choose-history)))
+  (theme-activate (intern theme)))
+
+(defun theme-render-mode-line (left right)
+  "Return a string string concatenating LEFT and RIGHT.
+
+Insert spaces between the two so that the string is
+`window-total-width' columns wide."
+  (let ((left (apply #'concat left))
+        (right (apply #'concat right)))
+    (concat left
+            ;; ?\s is a space character
+            (make-string (- (window-total-width) (length left) (length right)) ?\s)
+            right)))
+
+(defun theme-ml-concat (strings &optional separator outside)
+  "Concatenate list of STRINGS, optionally with SEPARATOR in the
+  middle."
+  (let* ((separator (or separator " "))
+         (outside (when outside separator))
+         (inside (string-join (cl-remove-if-not (lambda (s) (and s (> (length s) 0)))
+                                                strings)
+                              separator)))
+    (when (> (length inside) 0)
+      (concat outside inside outside))))
+
+(defun theme-ml-remote-hostname ()
+  "Return the remote hostname for the current buffer or `nil' if
+  local."
+  (when (file-remote-p default-directory)
+    (concat " "
+            (tramp-file-name-host (tramp-dissect-file-name default-directory))
+            " ")))
+
+(defun theme-ml-term-mode ()
+  "Return the input mode for the buffer if in `term-mode' or
+`nil' otherwise."
+  (when (eq major-mode 'term-mode)
+    (cond
+     ((term-in-char-mode) " [char] ")
+     ((term-in-line-mode) " [line] ")
+     (t ""))))
+
+(defun theme-ml-evil ()
+  "Return the state of `evil-mode', or `nil' if it's not
+  enabled."
+  (when (bound-and-true-p evil-state)
+    (cl-case evil-state
+      (normal (propertize " NORMAL " 'face
+                          `(:foreground
+                            "black"
+                            :background
+                            ,(aref (theme-get-value 'ansi-color-names-vector) 2))))
+      (insert (propertize " INSERT " 'face
+                          `(:foreground
+                            "white"
+                            :background
+                            ,(aref (theme-get-value 'ansi-color-names-vector) 4))))
+      (t (propertize      "  EVIL  " 'face
+                          `(:foreground
+                            ,(aref (theme-get-value 'ansi-color-names-vector) 0)
+                            :background
+                            ,(aref (theme-get-value 'ansi-color-names-vector) 7)))))))
+
+(defun when-propertize (exp &rest properties)
+  "Propertize the result of body or return `nil'."
+  (when-let ((result exp)) (apply #'propertize result properties)))
+
+(setq-default
+ mode-line-format
+ '((:eval
+    (if (theme-window-active-p)
+        (theme-render-mode-line
+         ;; left
+         (list
+          ""
+          (theme-ml-evil)
+          (when-propertize (theme-ml-remote-hostname) 'face 'highlight)
+          (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
+          (when (buffer-modified-p) " • "))
+         ;; right
+         (list
+          ""
+          (when-propertize (theme-ml-term-mode) 'face 'mode-line-emphasis)
+          (concat " " mode-name " ")
+          (when (fboundp #'eyebrowse-mode-line-indicator)
+            (concat (eyebrowse-mode-line-indicator) " "))
+          (when-propertize
+           (theme-ml-concat
+            (list (when (buffer-narrowed-p) "⒩")
+                  (when (bound-and-true-p hs-minor-mode) "⒣")
+                  (when (bound-and-true-p outline-minor-mode) "⦿"))
+            " "
+            t)
+           'face 'mode-line-emphasis)
+          (propertize (s-pad-left 9 " " (format-mode-line " %l:%c  "))
+                      'face 'mode-line-buffer-id)))
+      (theme-render-mode-line
+       ;; left
+       (list
+        ""
+        (when (bound-and-true-p evil-mode) "        ")
+        " "
+        (buffer-name)
+        " "
+        (when (buffer-modified-p) " • "))
+       ;; right
+       (list ""))))))
+
+(add-hook 'after-init-hook (lambda () (theme-activate theme-current-theme)))
+
+(use-package window-highlight
+  :if (>= emacs-major-version 27)
+  :straight
+  (:type git :host github :repo "dcolascione/emacs-window-highlight")
+  :config
+  (window-highlight-mode 1))
+
+(defvar fiat-state 'nox
+  "Whether we let there be light or dark.")
+
+(defun fiat--set-os-dark-mode (p)
+  (let ((p (if p "true" "false")))
+    (shell-command (format "osascript -e '
+tell application \"System Events\"
+  tell appearance preferences to set dark mode to %s
+end tell'" p))))
+
+(defun fiat ()
+  "Let there be the opposite of whatever came before."
+  (interactive)
+  (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
+
+(defun fiat-lux ()
+  "Switch Emacs and OS to light mode."
+  (interactive)
+  (setq fiat-state 'lux)
+  (theme-activate 'solarized-light)
+  (fiat--set-os-dark-mode nil))
+
+(defun fiat-nox ()
+  "Switch Emacs and OS to dark mode."
+  (interactive)
+  (setq fiat-state 'nox)
+  (theme-activate 'doom-dracula)
+  (fiat--set-os-dark-mode t))
+
+(bind-key "C-c C-t" #'theme-choose)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Environment and Operating System
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Path
@@ -191,11 +575,102 @@ Update environment variables from a shell source file."
 
 (bind-key "C-c C-v" 'expand-environment-variable)
 
-(add-hook 'after-init-hook (lambda () (unless (server-running-p) (server-start))))
+(add-hook 'after-init-hook (lambda ())
+          (require 'server)
+          (unless (server-running-p) (server-start)))
 
 (use-package restart-emacs
   :commands
   (restart-emacs))
+
+(defun dos2unix ()
+  "Convert DOS line endings to Unix ones."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (search-forward (string ?\C-m) nil t)
+      (replace-match (string ?\C-j) nil t)))
+  (set-buffer-file-coding-system 'unix 't))
+
+(defun unix2dos ()
+  "Convert Unix encoded buffer to DOS encoding.
+https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
+  (interactive)
+  (set-buffer-file-coding-system 'dos))
+
+(defun touch (cmd)
+  "Run `touch CMD' in `default-directory'."
+  (interactive
+   (list (read-shell-command "Run touch (like this): "
+                             "touch "
+                             'touch-history
+                             "touch ")))
+  (shell-command cmd))
+
+(defvar os-open-file-executable nil)
+
+(defun os-open-file (file)
+  "Open FILE using the operating system's GUI file opener."
+  (interactive)
+  (message "Opening %s..." file)
+  (call-process os-open-file-executable nil 0 nil file))
+
+(defun config-unix ()
+  "Configure Emacs for common Unix (Linux and macOS) settings."
+  nil)
+
+(defun config-linux ()
+  "Configure Emacs for Linux."
+  (config-unix)
+  (set-face-font 'default "DejaVu Sans-12"))
+
+(defun config-macos ()
+  "Configure Emacs for macOS."
+  (config-unix)
+  (setq ns-alternate-modifier 'meta
+        ns-right-alternate-modifier 'none
+        ns-command-modifier 'super
+        ns-right-command-modifier 'left
+        ns-control-modifier 'control
+        ns-right-control-modifier 'left
+        ns-function-modifier 'hyper
+        ;; Open files from Finder in same frame.
+        ns-pop-up-frames nil
+        os-open-file-executable "open")
+  (when window-system (menu-bar-mode +1))
+  (set-face-font 'default "Monaco-13")
+  ;; Use system trash
+  (setq delete-by-moving-to-trash t
+        trash-directory "~/.Trash")
+
+  (use-package reveal-in-osx-finder
+    :config
+    (defalias 'os-reveal-file #'reveal-in-osx-finder)))
+
+(defun config-windows ()
+  "Configure Emacs for Windows."
+  (menu-bar-mode -1)
+  (setq w32-pass-lwindow-to-system nil
+        w32-lwindow-modifier 'super
+        w32-pass-rwindow-to-system nil
+        w32-rwindow-modifier 'super
+        os-open-file-executable "explorer")
+  (set-face-font 'default "Lucida Console-12")
+
+  (defun reveal-in-windows-explorer (&optional file)
+    "Reveal the current FILE in the operating system's file manager."
+    (interactive)
+    (unless file (setq file buffer-file-name))
+    (os-open-file (concat "/select," (dired-replace-in-string "/" "\\" file))))
+
+  (defalias 'os-reveal-file #'reveal-in-windows-explorer))
+
+;; OS specific configuration
+(pcase system-type
+  ('darwin (config-macos))
+  ('gnu/linux (config-linux))
+  ('windows-nt (config-windows))
+  ('cygwin (config-windows)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Persistence
@@ -222,7 +697,7 @@ Update environment variables from a shell source file."
 
 ;; recentf
 (require 'recentf)
-(setq recentf-max-saved-items 500
+(setq recentf-max-saved-items 100
       recentf-max-menu-items 15
       ;; Disable recentf-cleanup on Emacs start because it can cause problems
       ;; with remote files.
@@ -257,77 +732,44 @@ Update environment variables from a shell source file."
       ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
       ;; generates too much activity from tools watching for changes during
       ;; development.
-      create-lockfiles nil)
+      create-lockfiles nil
+      ;; Increase undo limit to 1MB per buffer.
+      undo-limit 1048576)
+
+;; Whenever an external process changes a file underneath emacs, and there
+;; was no unsaved changes in the corresponding buffer, just revert its
+;; content to reflect what's on disk.
+(require 'autorevert)
+(global-auto-revert-mode 1)
+;; Auto refresh dired
+(setq global-auto-revert-non-file-buffers t
+      ;; Don't print auto revert messages.
+      auto-revert-verbose nil)
 
 ;; Desktop
 (require 'desktop)
 (add-to-list 'desktop-globals-to-save 'kill-ring)
-(add-to-list 'desktop-globals-to-save 'm-theme-current-theme)
+(add-to-list 'desktop-globals-to-save 'theme-current-theme)
 (desktop-save-mode 1)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(require 'm-theme)
+;; Full screen
+(defun fullscreen ()
+  "Toggle fullscreen mode."
+  (interactive)
+  (set-frame-parameter nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
 
-;; Configure the frame
-(when window-system
-  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1)))
+(bind-keys ("C-s-f" . fullscreen))
 
-(setq frame-resize-pixelwise t
-      inhibit-splash-screen t)
+;; Change yes/no prompts to y/n
+(defalias 'yes-or-no-p 'y-or-n-p)
 
-(defun display-startup-echo-area-message ()
-  "Run when Emacs has finished starting."
-  (message "Emacs has finished starting up."))
-
-(defun echo-area-visible-bell ()
-  "A more pleasant bell. No sound. Simply flash the echo area."
-  (with-current-buffer (get-buffer " *Echo Area 0*")
-    (setq-local face-remapping-alist '((default highlight))))
-  (run-with-timer 0.15 nil (lambda ()
-                             (with-current-buffer (get-buffer " *Echo Area 0*")
-                               (setq-local face-remapping-alist '((default)))))))
-
-;; Blinking is NOT OK
-(blink-cursor-mode -1)
-
-;; Beeping is REALLY NOT OK
-(setq visible-bell t
-      ring-bell-function 'echo-area-visible-bell
-      ;; Show keystrokes right away, don't show the message in the scratch buffer
-      echo-keystrokes 0.1)
-
-;; Smoother and nicer scrolling
-(setq scroll-margin 6
-      scroll-step 1
-      scroll-conservatively 10000
-      ;; Reduce scrolling lag
-      ;; https://emacs.stackexchange.com/questions/28736/emacs-pointcursor-movement-lag/28746
-      scroll-preserve-screen-position 1
-      auto-window-vscroll nil
-      mouse-wheel-follow-mouse 't
-      mouse-wheel-scroll-amount '(1 ((shift) . 1)))
-
-(pixel-scroll-mode)
-
-;; Use the system clipboard
-(setq select-enable-clipboard t
-      ;; Save existing system clipboard text into kill ring before replacing it,
-      ;; ensuring it doesn't get irrevocably destroyed.
-      save-interprogram-paste-before-kill t
-      ;; use mouse to kill/yank
-      mouse-yank-at-point t
-      mouse-drag-and-drop-region t
-      mouse-drag-and-drop-region-cut-when-buffers-differ t
-      ;; No GUI dialogs
-      use-dialog-box nil)
-
-;; Highlight current line
-(global-hl-line-mode 1)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Navigation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
@@ -347,111 +789,6 @@ Update environment variables from a shell source file."
  ("C-S-n" . next-line-4)
  ("H-p" . "\C-u1\M-v")
  ("H-n" . "\C-u1\C-v"))
-
-;; Whenever an external process changes a file underneath emacs, and there
-;; was no unsaved changes in the corresponding buffer, just revert its
-;; content to reflect what's on disk.
-(require 'autorevert)
-(global-auto-revert-mode 1)
-;; Auto refresh dired
-(setq global-auto-revert-non-file-buffers t
-      ;; Don't print auto revert messages.
-      auto-revert-verbose nil)
-
-;; Full screen
-(defun fullscreen ()
-  "Toggle fullscreen mode."
-  (interactive)
-  (set-frame-parameter nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
-
-(bind-keys ("C-s-f" . fullscreen))
-
-;; Change yes/no prompts to y/n
-(defalias 'yes-or-no-p 'y-or-n-p)
-
-(defun clipboard-yank-and-indent ()
-  "Yank and then indent the newly formed region according to mode."
-  (interactive)
-  (if (and delete-selection-mode (use-region-p)) (delete-active-region))
-  (clipboard-yank)
-  (call-interactively 'indent-region))
-
-(defun kill-line-or-region ()
-  "Kill the current line or active region.
-
-When `universal-argument' is called first, kill the whole
-buffer (respects `narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn ; not using kill-region because we don't want to include previous kill
-        (kill-new (buffer-string))
-        (delete-region (point-min) (point-max)))
-    (progn (if (use-region-p)
-               (kill-region (region-beginning) (region-end) t)
-             (kill-region (line-beginning-position) (line-beginning-position 2))))))
-
-(defun copy-line-or-region ()
-  "Copy the current line or active region.
-
-When called repeatedly, append copy subsequent lines. When
-`universal-argument' is called first, copy whole buffer (respects
-`narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn
-        (kill-ring-save (point-min) (point-max)))
-    (if (use-region-p)
-        (progn
-          (kill-ring-save (region-beginning) (region-end)))
-      (if (eq last-command this-command)
-          (if (eobp)
-              (progn)
-            (progn
-              (kill-append "\n" nil)
-              (kill-append
-               (buffer-substring-no-properties (line-beginning-position) (line-end-position))
-               nil)
-              (progn
-                (end-of-line)
-                (forward-char))))
-        (if (eobp)
-            (if (eq (char-before) 10)
-                (progn)
-              (progn
-                (kill-ring-save (line-beginning-position) (line-end-position))
-                (end-of-line)))
-          (progn
-            (kill-ring-save (line-beginning-position) (line-end-position))
-            (end-of-line)
-            (forward-char)))))))
-
-(defun comment-toggle ()
-  "Toggle comments for the region.
-If no region is selected, toggles comments for the line."
-  (interactive)
-  (let ((start (line-beginning-position))
-        (end (line-end-position)))
-    (when (or (not transient-mark-mode) (region-active-p))
-      (setq start (save-excursion
-                    (goto-char (region-beginning))
-                    (beginning-of-line)
-                    (point))
-            end (save-excursion
-                  (goto-char (region-end))
-                  (end-of-line)
-                  (point))))
-    (comment-or-uncomment-region start end))
-  (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
-
-(defun select-current-line ()
-  "Select the current line."
-  (interactive)
-  (beginning-of-line)
-  (set-mark (line-end-position)))
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -475,6 +812,9 @@ If no region is selected, toggles comments for the line."
  ("C-S-s" . isearch-forward-symbol-at-point)
  ("s-l" . select-current-line)
  ("C-S-L" . select-current-line)
+ ("M-o" . other-window)
+ ("s-b" . switch-to-buffer)
+ ("s-B" . switch-to-buffer-other-window)
  ("s-\`" . other-frame)
  ("C-\`" . other-frame)
  ("s-w" . delete-window)
@@ -484,210 +824,9 @@ If no region is selected, toggles comments for the line."
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
  ("s-i" . os-reveal-file)
- ("C-c i" . os-reveal-file))
-
-(use-package goto-addr
-  :hook
-  ((compilation-mode text-mode eshell-mode shell-mode) . goto-address-mode)
-  (prog-mode . goto-address-prog-mode)
-  :bind
-  (:map goto-address-highlight-keymap
-        ("C-c C-o" . goto-address-at-point)))
-
-(defvar os-open-file-executable nil)
-
-(defun os-open-file (file)
-  "Open FILE using the operating system's GUI file opener."
-  (interactive)
-  (message "Opening %s..." file)
-  (call-process os-open-file-executable nil 0 nil file))
-
-(defun config-unix ()
-  "Configure Emacs for common Unix (Linux and macOS) settings."
-  nil)
-
-(defun config-linux ()
-  "Configure Emacs for Linux."
-  (config-unix))
-
-(defun config-macos ()
-  "Configure Emacs for macOS."
-  (config-unix)
-  (setq ns-alternate-modifier 'meta
-        ns-right-alternate-modifier 'none
-        ns-command-modifier 'super
-        ns-right-command-modifier 'left
-        ns-control-modifier 'control
-        ns-right-control-modifier 'left
-        ns-function-modifier 'hyper
-        ;; Open files from Finder in same frame.
-        ns-pop-up-frames nil
-        os-open-file-executable "open")
-  (when window-system (menu-bar-mode +1))
-  (set-face-font 'default "Monaco-13")
-  (set-face-attribute 'default nil
-                      :weight 'light)
-  ;; Use system trash
-  (setq delete-by-moving-to-trash t
-        trash-directory "~/.Trash")
-
-  (defun system-move-file-to-trash (file)
-    "Use \"trash\" to move FILE to the system trash.
-When using Homebrew, install it using \"brew install trash\"."
-    (call-process (or (executable-find "trash") (executable-find "rm"))
-                  nil 0 nil
-                  file))
-
-  (use-package reveal-in-osx-finder
-    :config
-    (defalias 'os-reveal-file #'reveal-in-osx-finder)))
-
-(defun config-windows ()
-  "Configure Emacs for Windows."
-  (menu-bar-mode -1)
-  (setq w32-pass-lwindow-to-system nil
-        w32-lwindow-modifier 'super
-        w32-pass-rwindow-to-system nil
-        w32-rwindow-modifier 'super
-        os-open-file-executable "explorer")
-  (set-face-font 'default "Lucida Console-12")
-
-  (defun reveal-in-windows-explorer (&optional file)
-    "Reveal the current FILE in the operating system's file manager."
-    (interactive)
-    (unless file (setq file buffer-file-name))
-    (os-open-file (concat "/select," (dired-replace-in-string "/" "\\" file))))
-
-  (defalias 'os-reveal-file #'reveal-in-windows-explorer))
-
-
-;; OS specific configuration
-(pcase system-type
-  ('darwin (config-macos))
-  ('gnu/linux (config-linux))
-  ('windows-nt (config-windows))
-  ('cygwin (config-windows)))
-
-(use-package crux
-  :bind
-  ("C-x f" . crux-recentf-find-file)
-  ("C-c D" . crux-delete-file-and-buffer)
-  ("C-c d" . crux-duplicate-current-line-or-region)
-  ("C-c R" . crux-rename-file-and-buffer)
-  ("M-s-r" . crux-rename-file-and-buffer)
-  ("C-c k" . crux-kill-other-buffers)
-  ("C-M-X" . crux-indent-defun)
-  ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
-  ("C-c S" . crux-find-shell-init-file)
-  ("C-<backspace>" . crux-kill-line-backwards))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Help!
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(setq suggest-key-bindings 5
-      ;; Select help window so it's easy to quit it with `q'
-      help-window-select t)
-
-(use-package help-fns+)
-
-(use-package helpful
-  :bind
-  ("C-h ." . helpful-at-point)
-  ("C-h f" . helpful-callable)
-  ("C-h c" . helpful-command)
-  ("C-h F" . helpful-function)
-  ("C-h k" . helpful-key)
-  ("C-h M" . helpful-macro)
-  ("C-h M-s" . helpful-symbol)
-  ("C-h v" . helpful-variable))
-
-(bind-keys
- ("C-h C-i" . #'elisp-index-search)
- ("C-h M-i" . #'info-apropos))
-
-;; ELDoc
-(seq-do (lambda (m) (add-hook m #'turn-on-eldoc-mode))
-        '(emacs-lisp-mode-hook
-          lisp-interaction-mode-hook
-          ielm-mode-hook))
-
-;; Whenever the listed commands are used, ElDoc will automatically refresh the
-;; minibuffer.
-(eldoc-add-command 'paredit-backward-delete 'paredit-close-round)
-
-(use-package which-key
-  :demand t
-  :config
-  (which-key-mode t)
-  :bind
-  ("M-s-h" . which-key-show-top-level))
-
-(use-package man
-  :custom
-  ;; Make the manpage the current buffer in the other window
-  (Man-notify-method 'aggressive)
-  :config
-  (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
-  (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
-  :bind
-  ("C-h M-m" . man))
-
-(use-package define-word
-  :bind
-  ("C-c W" . define-word)
-  ("C-c w" . define-word-at-point))
-
-(use-package tldr
-  :init
-  (unbind-key "C-h t")
-  :custom
-  (tldr-enabled-categories '("common" "linux" "osx"))
-  :bind
-  ("C-h t t" . tldr)
-  ("C-h t u" . tldr-update-docs))
-
-(use-package eg
-  :ensure-system-package
-  (eg . "pip install eg")
-  :straight
-  (:type git :host github :repo "mnewt/eg.el")
-  :bind
-  ("C-h e" . eg))
-
-(defun dash-docs-installed-docsets ()
-  "Return a list of the currently installed docsets."
-  (mapcar (lambda (f) (string-trim-right f ".docset"))
-          (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
-
-(use-package dash-docs
-  :straight
-  (:type git :host github :repo "gilbertw1/dash-docs")
-  :custom
-  (dash-docs-docsets-path "~/.config/docsets")
-  (dash-docs-browser-func #'eww)
-  (dash-docs-common-docsets (dash-docs-installed-docsets)))
-
-(defun dash-docs-update-all-docsets ()
-  "Update all docsets."
-  (interactive)
-  (seq-do (lambda (d) (when (memq d (dash-docs-official-docsets)) (dash-docs-install-docset)))
-          (dash-docs-installed-docsets)))
-
-(use-package counsel-dash
-  ;; :ensure-system-package sqlite3
-  :straight
-  (:type git :host github :repo "gilbertw1/counsel-dash")
-  :commands
-  (counsel-dash counsel-dash-at-point counsel-dash-install-docset)
-  :bind
-  ("M-s-l" . counsel-dash)
-  ("C-h C-d" . counsel-dash)
-  ("M-s-." . counsel-dash-at-point))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Buffer Navigation and Management
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ("C-c i" . os-reveal-file)
+ ("s-<return>" . eval-last-sexp)
+ ("s-RET" . eval-last-sexp))
 
 (defun filter-buffers-by-name (regexp)
   "Return a list of buffers whose names match REGEXP."
@@ -1007,179 +1146,9 @@ return them in the Emacs format."
 
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Editing
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(use-package evil
-  :bind
-  ("s-ESC" . evil-mode))
-
-(defmacro save-region (body)
-  "Save the region, execute BODY, attempt to restore the region."
-  `(progn
-     (if (use-region-p)
-         (let ((m (set-marker (make-marker) (mark)))
-               (p (set-marker (make-marker) (point))))
-           ,body
-           (goto-char p)
-           (set-mark m)
-           (set-marker p nil)
-           (set-marker m nil))
-       ,body)))
-
-(use-package redo+
-  :straight
-  (:type git :host github :repo "clemera/undo-redo")
-  :bind
-  ("s-z" . undo-modern)
-  ("C-z" . undo-modern)
-  ("s-Z" . redo)
-  ("s-y" . redo))
-
-(use-package undohist
-  :config
-  (undohist-initialize)
-  (advice-add 'undohist-recover-1
-              :around
-              (lambda (f) (cl-flet ((yes-or-no-p (_) t))))))
-
-;; Increase undo limit to 1MB per buffer.
-(setq undo-limit 1048576)
-
-(use-package undo-propose
-  :straight
-  (:type git :host github :repo "jackkamm/undo-propose-el")
-  :bind
-  (("C-s-z" . undo-propose)
-   :map undo-propose-mode-map
-   ([remap undo-modern] . undo-propose-undo)
-   ([remap redo] . undo-propose-undo)))
-
-(use-package volatile-highlights
-  :config
-  (vhl/define-extension 'undo 'redo 'undo-modern)
-  (vhl/define-extension 'evil 'evil-paste-after 'evil-paste-before
-                        'evil-paste-pop 'evil-move)
-  (vhl/install-extension 'evil)
-  (volatile-highlights-mode t))
-
-(use-package goto-chg
-  :bind
-  ("C-." . goto-last-change)
-  ("C-;" . goto-last-change-reverse))
-
-;; Wrap text.
-(setq-default fill-column 80)
-
-;; Newline at end of file.
-(setq require-final-newline t
-      ;; Sentences end with one space.
-      sentence-end-double-space nil)
-
-
-;; Delete selection on insert or yank
-(delete-selection-mode 1)
-
-;; Tabs
-(setq-default indent-tabs-mode nil
-              tab-width 2
-              tab-stop-list (number-sequence tab-width 120 tab-width))
-
-;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
-(bind-key "M-\\" #'cycle-spacing)
-
-;; sh-mode
-(use-package sh-script
-  :ensure-system-package
-  (shfmt . "brew install shfmt")
-  :custom
-  (sh-basic-offset tab-width)
-  (sh-indentation tab-width)
-  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t))
-
-;; Make a shell script executable automatically on save
-(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
-
-(defun maybe-reset-major-mode ()
-  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time.
-https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
-  (when (and
-         ;; The buffer's visited file does not exist.
-         (eq (file-exists-p (buffer-file-name)) nil)
-         (eq major-mode 'fundamental-mode))
-    (normal-mode)))
-
-(add-hook 'before-save-hook #'maybe-reset-major-mode)
-
-;; dw (https://gitlab.com/mnewt/dw)
-(add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
-
-;; Automatically indent after RET
-(electric-indent-mode +1)
-
-;; http://whattheemacsd.com/key-bindings.el-03.html
-(defun join-line-previous ()
-  "Like `delete-indentation', but in the opposite direction.
-Bring the line below point up to the current line."
-  (interactive)
-  (join-line -1))
-
-(bind-key "C-^" #'join-line-previous)
-
-(defun dos2unix ()
-  "Convert DOS line endings to Unix ones."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (search-forward (string ?\C-m) nil t)
-      (replace-match (string ?\C-j) nil t)))
-  (set-buffer-file-coding-system 'unix 't))
-
-(use-package symbol-overlay
-  :hook
-  (prog-mode . symbol-overlay-mode))
-
-(use-package string-inflection
-  :bind
-  ("C-c C-u" . string-inflection-all-cycle))
-
-(defun unix2dos ()
-  "Convert Unix encoded buffer to DOS encoding.
-https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
-  (interactive)
-  (set-buffer-file-coding-system 'dos))
-
-(defun touch (cmd)
-  "Run `touch CMD' in `default-directory'."
-  (interactive
-   (list (read-shell-command "Run touch (like this): "
-                             "touch "
-                             'touch-history
-                             "touch ")))
-  (shell-command cmd))
-
-;; (use-package editorconfig
-;;   :config
-;;   (editorconfig-mode 1))
-
 ;; Just set up 3 windows, no fancy frames or whatever
 (require 'ediff)
 (setq ediff-window-setup-function #'ediff-setup-windows-plain)
-
-;; Continue comment on next line (default binding is "C-M-j")
-(bind-key "M-RET" #'indent-new-comment-line)
-
-(defun configure-auto-fill-mode ()
-  "Automatically fill comments.
-Wraps on `fill-column' columns."
-  (set (make-local-variable 'comment-auto-fill-only-comments) t)
-  (auto-fill-mode t))
-
-(add-hook 'prog-mode-hook #'configure-auto-fill-mode)
 
 (defun goto-line-with-feedback ()
   "Show line numbers temporarily, while prompting for line number N."
@@ -1195,69 +1164,17 @@ Wraps on `fill-column' columns."
 
 (bind-key [remap goto-line] #'goto-line-with-feedback)
 
-(defun move-line-or-region-to-other-window ()
-  "Kill region (if active) or the current line then yank at point
-in the other window."
-  (interactive)
-  (kill-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
-(defun copy-line-or-region-to-other-window ()
-  "Copy region (if active) or the current line to point in the
-other window."
-  (interactive)
-  (copy-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
-(bind-keys ("s-C" . copy-line-or-region-to-other-window)
-           ("s-X" . move-line-or-region-to-other-window))
-
-(use-package easy-kill
+(use-package evil
   :bind
-  (([remap kill-ring-save] . easy-kill)
-   ([remap mark-sexp] . easy-mark)))
+  ("s-ESC" . evil-mode))
 
-(use-package ace-jump-zap
+(use-package goto-addr
+  :hook
+  ((compilation-mode text-mode eshell-mode shell-mode) . goto-address-mode)
+  (prog-mode . goto-address-prog-mode)
   :bind
-  ("M-z" . ace-jump-zap-up-to-char-dwim)
-  ("C-M-z" . ace-jump-zap-to-char-dwim))
-
-(use-package mwim
-  :bind
-  ([remap move-beginning-of-line] . mwim-beginning-of-code-or-line)
-  ([remap move-end-of-line] . mwim-end-of-code-or-line))
-
-(use-package expand-region
-  :custom
-  (expand-region-fast-keys-enabled nil)
-  :bind
-  ("s-d" . er/expand-region)
-  ("C-=" . er/expand-region)
-  ("s-D" . er/contract-region)
-  ("C-M-=" . er/contract-region))
-
-(use-package multiple-cursors
-  :bind
-  ("C-S-c C-S-c" . mc/edit-lines)
-  ("M-s-m" . mc/edit-lines)
-  ("C->" . mc/mark-next-like-this)
-  ("C-<" . mc/unmark-next-like-this)
-  ("C-M-<" . mc/mark-previous-like-this)
-  ("C-M->" . mc/unmark-previous-like-this)
-  ("C-c >" . mc/mark-all-dwim)
-  ("C-c C-a"  . mc/mark-all-dwim))
-
-(use-package move-text
-  :bind
-  (:map prog-mode-map
-        ("M-S-<up>" . move-text-up)
-        ("M-S-<down>" . move-text-down)))
+  (:map goto-address-highlight-keymap
+        ("C-c C-o" . goto-address-at-point)))
 
 (defun outline-show-current-sublevel ()
   "Show only the current top level section."
@@ -1316,25 +1233,393 @@ other window."
   :hook
   (hs-minor-mode . hs-hide-all))
 
-(use-package unfill
-  :bind
-  ("M-q" . unfill-toggle))
-
-;; (use-package visual-regexp-steroids
-;;   :bind
-;;   (("C-c r" . vr/replace)
-;;    ("C-c q" . vr/query-replace)
-;;    ("C-c m" . vr/mc-mark)))
+(use-package symbol-overlay
+  :hook
+  (prog-mode . symbol-overlay-mode))
 
 (use-package rainbow-mode
   :hook
   ((css-mode emacs-lisp-mode sass-mode) . rainbow-mode))
 
-;; (use-package hl-todo
-;;   :commands
-;;   (global-hl-todo-mode)
-;;   :config
-;;   (global-hl-todo-mode))
+(use-package crux
+  :bind
+  ("C-c C-j" . crux-eval-and-replace)
+  ("C-x f" . crux-recentf-find-file)
+  ("C-c D" . crux-delete-file-and-buffer)
+  ("C-c d" . crux-duplicate-current-line-or-region)
+  ("C-c R" . crux-rename-file-and-buffer)
+  ("M-s-r" . crux-rename-file-and-buffer)
+  ("C-c k" . crux-kill-other-buffers)
+  ("C-M-X" . crux-indent-defun)
+  ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
+  ("C-c S" . crux-find-shell-init-file)
+  ("C-<backspace>" . crux-kill-line-backwards))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Help and Documentation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setq suggest-key-bindings 5
+      ;; Select help window so it's easy to quit it with `q'
+      help-window-select t)
+
+(use-package help-at-pt
+  :custom
+  (help-at-pt-display-when-idle t)
+  :config
+  (help-at-pt-set-timer))
+
+(use-package help-fns+)
+
+(use-package helpful
+  :bind
+  ("C-h ." . helpful-at-point)
+  ("C-h f" . helpful-callable)
+  ("C-h c" . helpful-command)
+  ("C-h F" . helpful-function)
+  ("C-h k" . helpful-key)
+  ("C-h M" . helpful-macro)
+  ("C-h M-s" . helpful-symbol)
+  ("C-h v" . helpful-variable))
+
+(bind-keys
+ ("C-h C-i" . #'elisp-index-search)
+ ("C-h M-i" . #'info-apropos))
+
+(global-eldoc-mode)
+
+(use-package man
+  :custom
+  ;; Make the manpage the current buffer in the other window
+  (Man-notify-method 'aggressive)
+  :config
+  (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
+  (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
+  :bind
+  ("C-h M-m" . man))
+
+(use-package tldr
+  :init
+  (unbind-key "C-h t")
+  :custom
+  (tldr-enabled-categories '("common" "linux" "osx"))
+  :bind
+  ("C-h t t" . tldr)
+  ("C-h t u" . tldr-update-docs))
+
+(use-package eg
+  :ensure-system-package
+  (eg . "pip install eg")
+  :straight
+  (:type git :host github :repo "mnewt/eg.el")
+  :bind
+  ("C-h e" . eg))
+
+(defun dash-docs-installed-docsets ()
+  "Return a list of the currently installed docsets."
+  (mapcar (lambda (f) (string-trim-right f ".docset"))
+          (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
+
+(defun dash-docs-update-all-docsets ()
+  "Update all docsets."
+  (interactive)
+  (seq-do (lambda (d) (when (memq d (dash-docs-official-docsets)) (dash-docs-install-docset)))
+          (dash-docs-installed-docsets)))
+
+(use-package dash-docs
+  :straight
+  (:type git :host github :repo "gilbertw1/dash-docs")
+  :custom
+  (dash-docs-docsets-path "~/.config/docsets")
+  (dash-docs-browser-func #'eww)
+  (dash-docs-common-docsets (dash-docs-installed-docsets)))
+
+(use-package counsel-dash
+  ;; :ensure-system-package sqlite3
+  :straight
+  (:type git :host github :repo "gilbertw1/counsel-dash")
+  :commands
+  (counsel-dash counsel-dash-at-point counsel-dash-install-docset)
+  :bind
+  ("M-s-l" . counsel-dash)
+  ("C-h C-d" . counsel-dash)
+  ("M-s-." . counsel-dash-at-point))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Editing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Use the system clipboard
+(setq select-enable-clipboard t
+      ;; Save existing system clipboard text into kill ring before replacing it,
+      ;; ensuring it doesn't get irrevocably destroyed.
+      save-interprogram-paste-before-kill t
+      ;; use mouse to kill/yank
+      mouse-yank-at-point t
+      mouse-drag-and-drop-region t
+      mouse-drag-and-drop-region-cut-when-buffers-differ t)
+
+(defun clipboard-yank-and-indent ()
+  "Yank and then indent the newly formed region according to mode."
+  (interactive)
+  (if (and delete-selection-mode (use-region-p)) (delete-active-region))
+  (clipboard-yank)
+  (call-interactively 'indent-region))
+
+(defun kill-line-or-region ()
+  "Kill the current line or active region.
+
+When `universal-argument' is called first, kill the whole
+buffer (respects `narrow-to-region').
+
+Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
+  (interactive)
+  (if current-prefix-arg
+      (progn ; not using kill-region because we don't want to include previous kill
+        (kill-new (buffer-string))
+        (delete-region (point-min) (point-max)))
+    (progn (if (use-region-p)
+               (kill-region (region-beginning) (region-end) t)
+             (kill-region (line-beginning-position) (line-beginning-position 2))))))
+
+(defun copy-line-or-region ()
+  "Copy the current line or active region.
+
+When called repeatedly, append copy subsequent lines. When
+`universal-argument' is called first, copy whole
+buffer (respects`narrow-to-region').
+
+Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
+  (interactive)
+  (if current-prefix-arg
+      (progn
+        (kill-ring-save (point-min) (point-max)))
+    (if (use-region-p)
+        (progn
+          (kill-ring-save (region-beginning) (region-end)))
+      (if (eq last-command this-command)
+          (if (eobp)
+              (progn)
+            (progn
+              (kill-append "\n" nil)
+              (kill-append
+               (buffer-substring-no-properties (line-beginning-position) (line-end-position))
+               nil)
+              (progn
+                (end-of-line)
+                (forward-char))))
+        (if (eobp)
+            (if (eq (char-before) 10)
+                (progn)
+              (progn
+                (kill-ring-save (line-beginning-position) (line-end-position))
+                (end-of-line)))
+          (progn
+            (kill-ring-save (line-beginning-position) (line-end-position))
+            (end-of-line)
+            (forward-char)))))))
+
+(defun comment-toggle ()
+  "Toggle comments for the region.
+If no region is selected, toggles comments for the line."
+  (interactive)
+  (let ((start (line-beginning-position))
+        (end (line-end-position)))
+    (when (or (not transient-mark-mode) (region-active-p))
+      (setq start (save-excursion
+                    (goto-char (region-beginning))
+                    (beginning-of-line)
+                    (point))
+            end (save-excursion
+                  (goto-char (region-end))
+                  (end-of-line)
+                  (point))))
+    (comment-or-uncomment-region start end))
+  (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
+
+(defun select-current-line ()
+  "Select the current line."
+  (interactive)
+  (beginning-of-line)
+  (set-mark (line-end-position)))
+
+;; Wrap text.
+(setq-default fill-column 80)
+
+;; Newline at end of file.
+(setq require-final-newline t
+      ;; Sentences end with one space.
+      sentence-end-double-space nil)
+
+
+;; Delete selection on insert or yank
+(delete-selection-mode 1)
+
+;; Tabs
+(setq-default indent-tabs-mode nil
+              tab-width 2
+              tab-stop-list (number-sequence tab-width 120 tab-width))
+
+;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
+(bind-key "M-\\" #'cycle-spacing)
+
+;; Continue comment on next line (default binding is "C-M-j")
+(bind-key "M-RET" #'indent-new-comment-line)
+
+(defun configure-auto-fill-mode ()
+  "Automatically fill comments.
+Wraps on `fill-column' columns."
+  (set (make-local-variable 'comment-auto-fill-only-comments) t)
+  (auto-fill-mode t))
+
+(add-hook 'prog-mode-hook #'configure-auto-fill-mode)
+
+(defun move-line-or-region-to-other-window ()
+  "Kill region (if active) or the current line then yank at point
+in the other window."
+  (interactive)
+  (kill-line-or-region)
+  (other-window 1)
+  (yank)
+  (newline)
+  (other-window -1))
+
+(defun copy-line-or-region-to-other-window ()
+  "Copy region (if active) or the current line to point in the
+other window."
+  (interactive)
+  (copy-line-or-region)
+  (other-window 1)
+  (yank)
+  (newline)
+  (other-window -1))
+
+(bind-keys ("s-C" . copy-line-or-region-to-other-window)
+           ("s-X" . move-line-or-region-to-other-window))
+
+;; sh-mode
+(use-package sh-script
+  :ensure-system-package
+  (shfmt . "brew install shfmt")
+  :custom
+  (sh-basic-offset tab-width)
+  (sh-indentation tab-width)
+  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
+  (executable-prefix-env t))
+
+;; Make a shell script executable automatically on save
+(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
+
+(defun maybe-reset-major-mode ()
+  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+Mostly useful as a `before-save-hook', to guess mode when saving a
+new file for the first time.
+https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
+  (when (and
+         ;; The buffer's visited file does not exist.
+         (eq (file-exists-p (buffer-file-name)) nil)
+         (eq major-mode 'fundamental-mode))
+    (normal-mode)))
+
+(add-hook 'before-save-hook #'maybe-reset-major-mode)
+
+;; dw (https://gitlab.com/mnewt/dw)
+(add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
+
+;; Automatically indent after RET
+(electric-indent-mode +1)
+
+;; http://whattheemacsd.com/key-bindings.el-03.html
+(defun join-line-previous ()
+  "Like `delete-indentation', but in the opposite direction.
+Bring the line below point up to the current line."
+  (interactive)
+  (join-line -1))
+
+(bind-key "C-^" #'join-line-previous)
+
+(use-package redo+
+  :straight
+  (:type git :host github :repo "clemera/undo-redo")
+  :bind
+  ("s-z" . undo-modern)
+  ("C-z" . undo-modern)
+  ("s-Z" . redo)
+  ("s-y" . redo))
+
+(use-package undohist
+  :config
+  (undohist-initialize)
+  (advice-add 'undohist-recover-1
+              :around
+              (lambda (f) (cl-flet ((yes-or-no-p (_) t))))))
+
+(use-package undo-propose
+  :straight
+  (:type git :host github :repo "jackkamm/undo-propose-el")
+  :bind
+  (("C-s-z" . undo-propose)
+   :map undo-propose-mode-map
+   ([remap undo-modern] . undo-propose-undo)
+   ([remap redo] . undo-propose-undo)))
+
+(use-package volatile-highlights
+  :config
+  (vhl/define-extension 'undo 'redo 'undo-modern)
+  (vhl/define-extension 'evil 'evil-paste-after 'evil-paste-before
+                        'evil-paste-pop 'evil-move)
+  (vhl/install-extension 'evil)
+  (volatile-highlights-mode t))
+
+(use-package goto-chg
+  :bind
+  ("C-." . goto-last-change)
+  ("C-;" . goto-last-change-reverse))
+
+(use-package easy-kill
+  :bind
+  (([remap kill-ring-save] . easy-kill)
+   ([remap mark-sexp] . easy-mark)))
+
+(use-package ace-jump-zap
+  :bind
+  ("M-z" . ace-jump-zap-up-to-char-dwim)
+  ("C-M-z" . ace-jump-zap-to-char-dwim))
+
+(use-package mwim
+  :bind
+  ([remap move-beginning-of-line] . mwim-beginning-of-code-or-line)
+  ([remap move-end-of-line] . mwim-end-of-code-or-line))
+
+(use-package expand-region
+  :custom
+  (expand-region-fast-keys-enabled nil)
+  :bind
+  ("s-d" . er/expand-region)
+  ("C-=" . er/expand-region)
+  ("s-D" . er/contract-region)
+  ("C-M-=" . er/contract-region))
+
+(use-package multiple-cursors
+  :bind
+  ("C-S-c C-S-c" . mc/edit-lines)
+  ("M-s-m" . mc/edit-lines)
+  ("C->" . mc/mark-next-like-this)
+  ("C-<" . mc/unmark-next-like-this)
+  ("C-M-<" . mc/mark-previous-like-this)
+  ("C-M->" . mc/unmark-previous-like-this)
+  ("C-c >" . mc/mark-all-dwim)
+  ("C-c C-a"  . mc/mark-all-dwim))
+
+(use-package move-text
+  :bind
+  (:map prog-mode-map
+        ("M-S-<up>" . move-text-up)
+        ("M-S-<down>" . move-text-down)))
+
+(use-package string-inflection
+  :bind
+  ("C-c C-u" . string-inflection-all-cycle))
 
 (use-package yasnippet
   :defer 2
@@ -1393,12 +1678,12 @@ Some modes have special treatment."
 
     (when (equal action 'barf-forward)
       (sp-get enc
-        (let ((beg-line (line-number-at-pos :beg-in)))
-          (sp-forward-sexp arg)
-          (sp-ruby-maybe-one-space)
-          (when (not (= (line-number-at-pos) beg-line))
-            (sp-ruby-delete-indentation -1))
-          (indent-according-to-mode))))))
+        (let ((beg-line (line-number-at-pos :beg-in))))))
+    (sp-forward-sexp arg)
+    (sp-ruby-maybe-one-space)
+    (when (not (= (line-number-at-pos) beg-line))
+      (sp-ruby-delete-indentation -1))
+    (indent-according-to-mode)))
 
 (defun sp-sh-block-post-handler (id action context)
   "Handler for bash block insertions.
@@ -1415,61 +1700,61 @@ ID, ACTION, CONTEXT."
 ID, ACTION, CONTEXT."
   (let ((enc (plist-get sp-handler-context :enc)))
     (sp-get enc
-      (let ((beg-line (line-number-at-pos :beg-in))
-            (end-line (line-number-at-pos :end-in)))
+      (let ((beg-line (line-number-at-pos :beg-in))))
+      (end-line (line-number-at-pos :end-in)
 
-        (when (equal action 'slurp-backward)
-          (save-excursion
-            (sp-forward-sexp)
-            (when (looking-at-p ";") (forward-char))
-            (sp-ruby-maybe-one-space)
-            (when (not (= (line-number-at-pos) end-line))
-              (sp-ruby-delete-indentation -1)))
-          (while (thing-at-point-looking-at "\\.[[:blank:]\n]*")
-            (sp-backward-sexp))
-          (when (looking-back "[@$:&?!]")
-            (backward-char)
-            (when (looking-back "[@&:]")
-              (backward-char)))
-          (just-one-space)
-          (save-excursion
-            (if (= (line-number-at-pos) end-line)
-                (insert " ")
-              (newline))))
+                (when (equal action 'slurp-backward))))
+    (save-excursion
+      (sp-forward-sexp)
+      (when (looking-at-p ";") (forward-char))
+      (sp-ruby-maybe-one-space)
+      (when (not (= (line-number-at-pos) end-line))
+        (sp-ruby-delete-indentation -1)))
+    (while (thing-at-point-looking-at "\\.[[:blank:]\n]*")
+      (sp-backward-sexp))
+    (when (looking-back "[@$:&?!]")
+      (backward-char)
+      (when (looking-back "[@&:]")
+        (backward-char)))
+    (just-one-space)
+    (save-excursion
+      (if (= (line-number-at-pos) end-line
+             (insert " "))
+          (newline
 
-        (when (equal action 'barf-backward)
-          ;; Barf whole method chains
-          (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
-            (sp-forward-sexp))
-          (if (looking-at-p " *$")
-              (newline)
-            (save-excursion (newline))))
+           (when (equal action 'barf-backward)))))
+    ;; Barf whole method chains
+    (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
+      (sp-forward-sexp))
+    (if (looking-at-p " *$")
+        (newline)
+      (save-excursion (newline)
 
-        (when (equal action 'slurp-forward)
-          (save-excursion
-            (sp-backward-sexp)
-            (when (looking-back "\." nil) (backward-char))
-            (sp-ruby-maybe-one-space)
-            (when (not (= (line-number-at-pos) beg-line))
-              (if (thing-at-point-looking-at "\\.[[:blank:]\n]*")
-                  (progn
-                    (forward-symbol -1)
-                    (sp-ruby-delete-indentation -1))
-                (sp-ruby-delete-indentation))))
-          (while (looking-at-p "::") (sp-forward-symbol))
-          (when (looking-at-p "[?!;]") (forward-char))
-          (if (= (line-number-at-pos) beg-line)
-              (insert " ")
-            (newline)))
+                      (when (equal action 'slurp-forward))))
+    (save-excursion
+      (sp-backward-sexp)
+      (when (looking-back "\." nil) (backward-char))
+      (sp-ruby-maybe-one-space)
+      (when (not (= (line-number-at-pos) beg-line))
+        (if (thing-at-point-looking-at "\\.[[:blank:]\n]*")))
+      (progn
+        (forward-symbol -1)
+        (sp-ruby-delete-indentation -1
+                                    (sp-ruby-delete-indentation))))
+    (while (looking-at-p "::") (sp-forward-symbol))
+    (when (looking-at-p "[?!;]") (forward-char))
+    (if (= (line-number-at-pos) beg-line)
+        (insert " ")
+      (newline
 
-        (when (equal action 'barf-forward)
-          (when (looking-back "\\." nil) (backward-char))
-          (while (looking-back "::" nil) (sp-backward-symbol))
-          (if (= (line-number-at-pos) end-line)
-              (insert " ")
-            (if (looking-back "^[[:blank:]]*" nil)
-                (save-excursion (newline))
-              (newline))))))))
+       (when (equal action 'barf-forward))))
+    (when (looking-back "\\." nil) (backward-char))
+    (while (looking-back "::" nil) (sp-backward-symbol))
+    (if (= (line-number-at-pos) end-line)
+        (insert " ")
+      (if (looking-back "^[[:blank:]]*" nil
+                        (save-excursion (newline)))
+          (newline)))))
 
 (defun sp-backward-slurp-into-previous-sexp ()
   "Add the sexp at point into the preceeding list."
@@ -1548,10 +1833,6 @@ ID, ACTION, CONTEXT."
   (text-mode . (lambda () (require 'smartparens-text)))
   (web-mode . (lambda () (require 'smartparens-html))))
 
-(require 'm-clojure)
-
-;; Emacs lisp
-
 (add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
 
 (with-eval-after-load 'elisp-mode
@@ -1573,6 +1854,10 @@ ID, ACTION, CONTEXT."
 (with-eval-after-load 'term
   (require 'm-shell-common))
 
+(with-eval-after-load 'sh
+  (bind-keys :map sh-mode-map
+             ("s-<ret>" . eshell-send-current-line)))
+
 (use-package eshell
   :custom
   (eshell-banner-message "")
@@ -1589,7 +1874,6 @@ ID, ACTION, CONTEXT."
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
   :config
-  (require 'm-shell-common)
   (require 'm-eshell)
   :hook
   ((eshell-mode . eshell/init)
@@ -1707,288 +1991,11 @@ Tries to find a file at point."
 (bind-key "F" #'tail-file dired-mode-map)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Hydra
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(use-package lv)
-
-(use-package hydra)
-
-(defhydra hydra-multiple-cursors (:hint nil)
-  "
-     ^Up^            ^Down^        ^Other^
-----------------------------------------------
-[_p_]   Next    [_n_]   Next    [_l_] Edit lines
-[_P_]   Skip    [_N_]   Skip    [_a_] Mark all
-[_M-p_] Unmark  [_M-n_] Unmark  [_r_] Mark by regexp
-^ ^             ^ ^             [_q_] Quit
-"
-  ("l" mc/edit-lines :exit t)
-  ("a" mc/mark-all-like-this :exit t)
-  ("n" mc/mark-next-like-this)
-  ("N" mc/skip-to-next-like-this)
-  ("M-n" mc/unmark-next-like-this)
-  ("p" mc/mark-previous-like-this)
-  ("P" mc/skip-to-previous-like-this)
-  ("M-p" mc/unmark-previous-like-this)
-  ("r" mc/mark-all-in-region-regexp :exit t)
-  ("q" nil)
-  ("<mouse-1>" mc/add-cursor-on-click)
-  ("<down-mouse-1>" ignore)
-  ("<drag-mouse-1>" ignore))
-
-(defhydra hydra-outline (:color pink :hint nil)
-  "
-Outline
-
-^Hide^             ^Show^           ^Move
-^^^^^^------------------------------------------------------
-_s_ sublevels     _a_ all         _u_ up
-_t_ body          _e_ entry       _n_ next visible
-_o_ other         _i_ children    _p_ previous visible
-_c_ entry         _k_ branches    _f_ forward same level
-_l_ leaves        _s_ subtree     _b_ backward same level
-_d_ subtree
-
-"
-  ;; Hide
-  ("q" outline-hide-sublevels)    ; Hide everything but the top-level headings
-  ("t" outline-hide-body)         ; Hide everything but headings (all body lines)
-  ("o" outline-hide-other)        ; Hide other branches
-  ("c" outline-hide-entry)        ; Hide this entry's body
-  ("l" outline-hide-leaves)       ; Hide body lines in this entry and sub-entries
-  ("d" outline-hide-subtree)      ; Hide everything in this entry and sub-entries
-  ;; Show
-  ("a" outline-show-all)          ; Show (expand) everything
-  ("e" outline-show-entry)        ; Show this heading's body
-  ("i" outline-show-children)     ; Show this heading's immediate child sub-headings
-  ("k" outline-show-branches)     ; Show all sub-headings under this heading
-  ("s" outline-show-subtree)      ; Show (expand) everything in this heading & below
-  ;; Move
-  ("u" outline-up-heading)                ; Up
-  ("n" outline-next-visible-heading)      ; Next
-  ("p" outline-previous-visible-heading)  ; Previous
-  ("f" outline-forward-same-level)        ; Forward - same level
-  ("b" outline-backward-same-level)       ; Backward - same level
-  ("q" nil "leave"))
-
-(defhydra hydra-hs (:color pink :hint nil)
-  "
-Hideshow
-
-Hide^^            ^Show^            ^Toggle^    ^Navigation^
-----------------------------------------------------------------
-_h_ hide all      _s_ show all      _t_ toggle    _n_ next line
-_d_ hide block    _a_ show block                _p_ previous line
-_l_ hide level
-
-_q_ quit
-"
-  ("s" hs-show-all)
-  ("h" hs-hide-all)
-  ("a" hs-show-block)
-  ("d" hs-hide-block)
-  ("t" hs-toggle-hiding)
-  ("l" hs-hide-level)
-  ("n" forward-line)
-  ("p" (forward-line -1))
-  ("q" nil))
-
-(defun occur-dwim ()
-  "Call `occur' with a sane default, chosen as the thing under point or selected region."
-  (interactive)
-  (push (if (region-active-p)
-            (buffer-substring-no-properties
-             (region-beginning)
-             (region-end))
-          (let ((sym (thing-at-point 'symbol)))
-            (when (stringp sym)
-              (regexp-quote sym))))
-        regexp-history)
-  (call-interactively 'occur))
-
-;; (advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
-
-;; Focus on *Occur* window right away.
-(add-hook 'occur-hook (lambda () (other-window 1)))
-
-(defun reattach-occur ()
-  "Switch to Occur buffer and launch the hydra."
-  (if (get-buffer "*Occur*")
-      (switch-to-buffer-other-window "*Occur*")
-    (hydra-occur-dwim/body)))
-
-;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
-;; focus on the *Occur* window and hides upon request in case needed later.
-(defhydra hydra-occur-dwim ()
-  "Occur mode"
-  ("o" occur-dwim "Start occur-dwim" :color red)
-  ("j" occur-next "Next" :color red)
-  ("k" occur-prev "Prev":color red)
-  ("h" delete-window "Hide" :color blue)
-  ("r" (reattach-occur) "Re-attach" :color red)
-  ("q" nil))
-
-(defhydra hydra-dired (:hint nil :color pink)
-  "
-_+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir  _W_  wdired
-_C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _$_ hide-subdir    C-x C-q : edit
-_D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir    C-c C-c : commit
-_R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff          C-c ESC : abort
-_Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _=_ pdiff
-_S_ symlink        ^ ^              _F_ find marked      _._ toggle hydra   \\ flyspell
-_r_ rsync          ^ ^              ^ ^                  ^ ^                _?_ summary
-_z_ compress-file  _A_ find regexp
-_Z_ compress       _Q_ repl regexp
-
-_q_ quit
-"
-  ("(" dired-hide-details-mode)
-  (")" dired-omit-mode)
-  ("+" dired-create-directory)
-  ("=" diredp-ediff)         ;; smart diff
-  ("?" dired-summary)
-  ("$" diredp-hide-subdir-nomove)
-  ("A" dired-do-find-regexp)
-  ("C" dired-do-copy)        ;; Copy all marked files
-  ("D" dired-do-delete)
-  ("E" dired-mark-extension)
-  ("e" dired-ediff-files)
-  ("F" dired-do-find-marked-files)
-  ("G" dired-do-chgrp)
-  ("g" revert-buffer)        ;; read all directories again (refresh)
-  ("i" dired-maybe-insert-subdir)
-  ("l" dired-do-redisplay)   ;; relist the marked or single directory
-  ("M" dired-do-chmod)
-  ("m" dired-mark)
-  ("O" dired-display-file)
-  ("o" dired-find-file-other-window)
-  ("Q" dired-do-find-regexp-and-replace)
-  ("R" dired-do-rename)
-  ("r" dired-rsync)
-  ("S" dired-do-symlink)
-  ("s" dired-sort-toggle-or-edit)
-  ("t" dired-toggle-marks)
-  ("U" dired-unmark-all-marks)
-  ("u" dired-unmark)
-  ("v" dired-view-file)      ;; q to exit, s to search, = gets line #
-  ("w" dired-kill-subdir)
-  ("W" wdired-change-to-wdired-mode)
-  ("Y" dired-do-relsymlink)
-  ("z" diredp-compress-this-file)
-  ("Z" dired-do-compress)
-  ("q" nil)
-  ("." nil :color blue))
-
-(defhydra hydra-ibuffer-main (:color pink :hint nil)
-  "
-^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
-_m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
-_u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
-_*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
-_t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
-"
-  ("m" ibuffer-mark-forward)
-  ("u" ibuffer-unmark-forward)
-  ("*" hydra-ibuffer-mark/body :color blue)
-  ("t" ibuffer-toggle-marks)
-
-  ("D" ibuffer-do-delete)
-  ("s" ibuffer-do-save)
-  ("a" hydra-ibuffer-action/body :color blue)
-
-  ("g" ibuffer-update)
-  ("S" hydra-ibuffer-sort/body :color blue)
-  ("/" hydra-ibuffer-filter/body :color blue)
-  ("H" describe-mode :color blue)
-
-  ("h" ibuffer-backward-filter-group)
-  ("k" ibuffer-backward-line)
-  ("l" ibuffer-forward-filter-group)
-  ("j" ibuffer-forward-line)
-  ("RET" ibuffer-visit-buffer :color blue)
-
-  ("TAB" ibuffer-toggle-filter-group)
-
-  ("o" ibuffer-visit-buffer-other-window :color blue)
-  ("q" quit-window :color blue)
-  ("." nil :color blue))
-
-(defhydra hydra-ibuffer-mark (:color teal :columns 5
-                                     :after-exit (hydra-ibuffer-main/body))
-  "Mark"
-  ("*" ibuffer-unmark-all "unmark all")
-  ("M" ibuffer-mark-by-mode "mode")
-  ("m" ibuffer-mark-modified-buffers "modified")
-  ("u" ibuffer-mark-unsaved-buffers "unsaved")
-  ("s" ibuffer-mark-special-buffers "special")
-  ("r" ibuffer-mark-read-only-buffers "read-only")
-  ("/" ibuffer-mark-dired-buffers "dired")
-  ("e" ibuffer-mark-dissociated-buffers "dissociated")
-  ("h" ibuffer-mark-help-buffers "help")
-  ("z" ibuffer-mark-compressed-file-buffers "compressed")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
-
-(defhydra hydra-ibuffer-action (:color teal :columns 4
-                                       :after-exit
-                                       (if (eq major-mode 'ibuffer-mode)
-                                           (hydra-ibuffer-main/body)))
-  "Action"
-  ("A" ibuffer-do-view "view")
-  ("E" ibuffer-do-eval "eval")
-  ("F" ibuffer-do-shell-command-file "shell-command-file")
-  ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
-  ("H" ibuffer-do-view-other-frame "view-other-frame")
-  ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
-  ("M" ibuffer-do-toggle-modified "toggle-modified")
-  ("O" ibuffer-do-occur "occur")
-  ("P" ibuffer-do-print "print")
-  ("Q" ibuffer-do-query-replace "query-replace")
-  ("R" ibuffer-do-rename-uniquely "rename-uniquely")
-  ("T" ibuffer-do-toggle-read-only "toggle-read-only")
-  ("U" ibuffer-do-replace-regexp "replace-regexp")
-  ("V" ibuffer-do-revert "revert")
-  ("W" ibuffer-do-view-and-eval "view-and-eval")
-  ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
-  ("b" nil "back"))
-
-(defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
-  "Sort"
-  ("i" ibuffer-invert-sorting "invert")
-  ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
-  ("v" ibuffer-do-sort-by-recency "recently used")
-  ("s" ibuffer-do-sort-by-size "size")
-  ("f" ibuffer-do-sort-by-filename/process "filename")
-  ("m" ibuffer-do-sort-by-major-mode "mode")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
-
-(defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
-  "Filter"
-  ("m" ibuffer-filter-by-used-mode "mode")
-  ("M" ibuffer-filter-by-derived-mode "derived mode")
-  ("n" ibuffer-filter-by-name "name")
-  ("c" ibuffer-filter-by-content "content")
-  ("e" ibuffer-filter-by-predicate "predicate")
-  ("f" ibuffer-filter-by-filename "filename")
-  (">" ibuffer-filter-by-size-gt "size")
-  ("<" ibuffer-filter-by-size-lt "size")
-  ("/" ibuffer-filter-disable "disable")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
-
-(require 'ibuffer)
-
-(bind-keys ("C-c C-m" . hydra-multiple-cursors/body)
-           ("C-c #" . hydra-outline/body)
-           ("C-c @" . hydra-hs/body)
-           ("C-c C-o" . hydra-occur-dwim/body)
-           :map dired-mode-map
-           ("." . hydra-dired/body)
-           :map ibuffer-mode-map
-           ("." . hydra-ibuffer-main/body))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Search, Completion, Symbols, Project Management
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Show line in the original buffer from occur mode
+(setq list-matching-lines-jump-to-current-line t)
 
 (use-package re-builder
   :custom
@@ -2039,19 +2046,12 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
 
 (use-package company
   :custom
-  (company-idle-delay 0.1)
   (company-dabbrev-ignore-case t)
-  (company-frontends
-   '(company-pseudo-tooltip-unless-just-one-frontend
-     company-echo-metadata-frontend
-     company-preview-frontend))
   :hook
   (after-init . global-company-mode)
   :bind
   (:map prog-mode-map
-        ("C-M-/" . company-manual-begin)
-        ("s-TAB" . company-manual-begin)
-        ("<tab>" . company-indent-or-complete-common)
+        ("M-/" . company-complete)
         :map company-active-map
         ;; TODO: The inconsistency between C-n and M-n to select company
         ;; completion in different contexts (e.g `emacs-lisp-mode' and
@@ -2061,13 +2061,6 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
         ("<return>" . nil)
         ("C-e" . company-complete-selection)
         ("M-." . company-show-location)))
-
-;; (use-package company-quickhelp
-;;   :bind
-;;   (:map company-active-map
-;;         ("C-c h" . company-quickhelp-manual-begin))
-;;   :hook
-;;   (global-company-mode . company-quickhelp-mode))
 
 (use-package ivy
   :custom
@@ -2082,6 +2075,7 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
         ("C-e" . ivy-partial-or-done)))
 
 (use-package ivy-hydra
+  :after lv
   :defer 1)
 
 (defun replace-regexp-entire-buffer (pattern replacement)
@@ -2324,14 +2318,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
            :map dired-mode-map
            (";" . dired-git-add))
 
-;; Magit dependencies. Unless these are included here, they don't get loaded.
-;; Haven't investigated why.
-;; (use-package graphql)
-;; (use-package treepy)
-
 (use-package magit
-  ;; :requires
-  ;; (graphql treepy)
   :custom
   (magit-completing-read-function 'ivy-completing-read)
   :commands

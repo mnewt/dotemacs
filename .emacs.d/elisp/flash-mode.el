@@ -47,7 +47,7 @@
   :group 'flash-mode
   :type 'symbol)
 
-(defcustom flash-timeout 0.5
+(defcustom flash-timeout 0.4
   "The number of seconds the flash shall last."
   :group 'flash-mode
   :type 'number)
@@ -59,6 +59,7 @@
      (eval-last-sexp . flash-last-sexp)
      (eval-print-last-sexp . flash-last-sexp)
      (eval-defun . flash-defun)
+     (edebug-eval-defun . flash-defun)
      (crux-eval-and-replace . flash-last-sexp))
 
     (cider
@@ -119,8 +120,9 @@ seconds."
     (setq flash-region-overlay (make-overlay beg end))
     (overlay-put flash-region-overlay 'face face)
     (when (< 0 timeout)
-      (run-with-idle-timer timeout
-                           nil 'flash-region--remove-overlay (current-buffer)))))
+      (run-with-idle-timer timeout nil
+                           #'flash-region--remove-overlay
+                           (current-buffer)))))
 
 (defun flash-last-sexp (&rest _)
   "Flash the S-expression before point."

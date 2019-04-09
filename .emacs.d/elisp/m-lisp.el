@@ -59,10 +59,6 @@
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
-(use-package lisp-extra-font-lock
-  :config
-  (lisp-extra-font-lock-global-mode 1))
-
 ;; (use-package lively
 ;;   :commands
 ;;   (lively-shell-command)
@@ -145,10 +141,7 @@ Interactively, reads the register using `register-read-with-preview'."
 ;;   :commands
 ;;   (geiser run-geiser run-chicken))
 
-(require 'crux)
-
 (bind-keys
- ("C-c C-j" . crux-eval-and-replace)
  :map lisp-mode-shared-map
  ("s-<return>" . eval-last-sexp)
  ("C-s-<return>" . eval-last-sexp-other-window)
