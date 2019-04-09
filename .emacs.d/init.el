@@ -182,7 +182,7 @@
 ;; eww uses this as its default font, among others.
 (set-face-font 'variable-pitch "Georgia-18")
 
-(use-package doothemes)
+(use-package doom-themes)
 
 (use-package solarized-theme)
 
@@ -190,8 +190,8 @@
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
   "The faces theme-activate uses to ")
 
-(defvar theme-hook '(doothemes-visual-bell-config
-                     doothemes-org-config)
+(defvar theme-hook '(doom-themes-visual-bell-config
+                     doom-themes-org-config)
   "Run whenever a theme is activated.")
 
 (defvar theme-themes '((doom-vibrant)
