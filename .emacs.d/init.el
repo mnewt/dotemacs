@@ -10,11 +10,29 @@
 ;;; Top Level
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(require 'gnutls)
-(require 'nsm)
-(setq gnutls-verify-error t
-      network-security-level 'high
-      load-prefer-newer t)
+;; Set Garbage Collection threshold to 1GB, run GC on idle.
+(setq gc-cons-threshold 1073741824)
+(run-with-idle-timer 20 t (lambda () (garbage-collect)))
+
+;; Stolen from
+;; https://www.reddit.com/r/emacs/comments/3kqt6e/2_easy_little_known_steps_to_speed_up_emacs_start/
+(setq file-name-handler-alist-original file-name-handler-alist)
+(setq file-name-handler-alist nil)
+
+(run-with-idle-timer
+ 5 nil
+ (lambda ()
+   (nconc file-name-handler-alist file-name-handler-alist-original)
+   (makunbound 'file-name-handler-alist-original)
+   (message "file-name-handler-alist restored")))
+
+(setq load-prefer-newer t)
+
+(with-eval-after-load 'gnutls
+  (setq gnutls-verify-error t))
+
+(with-eval-after-load 'nsm
+  (setq network-security-level 'high))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Package Management
@@ -213,9 +231,7 @@
   "Defines the currently loaded theme.")
 
 (defvar theme-specs-common
-  '((cursor ((t :background "#F60")))
-    (sp-show-pair-match-face ((t :foreground nil :background nil
-                                 :inherit highlight))))
+  '((cursor ((t :background "#F60"))))
   "List of default face specs to apply when a theme is activated.
 The attributes specified in `theme-themes' overrides these.
 
@@ -306,22 +322,29 @@ Example usage
               (get (car custom-enabled-themes) 'theme-settings)))
 
 (defun theme-generate-specs ()
-  "Automatically generate theme specs the supplied faces."
+  "Automatically generate theme specs the supplied faces.
+
+See also `theme-specs-common'. Advise or override this function
+to customize furter."
   (let* ((default-spec (face-spec-choose (theme-get-face 'default)))
          (highlight-spec (face-spec-choose (theme-get-face 'highlight)))
+         (outline-1-spec (face-spec-choose (theme-get-face 'outline-1)))
          (active-bg (plist-get default-spec :background))
          (active-fg (plist-get default-spec :foreground))
          (inactive-bg (doom-blend active-bg active-fg 0.9))
-         (inactive-fg (doom-blend active-bg active-fg 0.4)))
-    `((default ((t :inherit default :background ,inactive-bg)))
+         (inactive-fg (doom-blend active-bg active-fg 0.4))
+         (highlight-fg (plist-get outline-1-spec :foreground)))
+    `((default ((t :background ,inactive-bg)))
       (window-highlight-focused-window ((t :background ,active-bg)))
-      (fringe ((t :inherit fringe :background ,inactive-bg)))
+      (fringe ((t :background ,inactive-bg)))
+      (vertical-border ((t :foreground ,inactive-bg)))
       (mode-line ((t :box nil :underline nil
                      :background ,inactive-bg
                      :foreground ,(doom-blend active-fg active-bg 0.9))))
       (mode-line-emphasis ((t :background ,(doom-blend active-bg active-fg 0.7)
                               :foreground ,active-fg)))
-      (mode-line-highlight ((t :inherit highlight)))
+      (mode-line-highlight ((t :background ,highlight-fg
+                               :foreground ,active-bg)))
       (mode-line-buffer-id ((t :background ,(doom-blend active-bg active-fg 0.2)
                                :foreground ,inactive-bg :bold t)))
       (compilation-mode-line-fail ((t :inherit highlight)))
@@ -329,7 +352,9 @@ Example usage
       (mode-line-inactive ((t :box nil :underline nil
                               :background ,inactive-bg
                               :foreground ,inactive-fg)))
-      (eyebrowse-mode-line-active ((t :foreground ,(plist-get highlight-spec :background)))))))
+      (eyebrowse-mode-line-active ((t :foreground ,highlight-fg)))
+      (sp-show-pair-match-face ((t :foreground nil :background nil
+                                   :inherit highlight))))))
 
 (defun theme-activate (theme)
   "Switch the current Emacs theme to THEME.
@@ -369,7 +394,8 @@ Insert spaces between the two so that the string is
 `window-total-width' columns wide."
   (let ((left (apply #'concat left))
         (right (apply #'concat right)))
-    (concat left
+    (concat ""
+            left
             ;; ?\s is a space character
             (make-string (- (window-total-width) (length left) (length right)) ?\s)
             right)))
@@ -434,14 +460,12 @@ Insert spaces between the two so that the string is
         (theme-render-mode-line
          ;; left
          (list
-          ""
           (theme-ml-evil)
-          (when-propertize (theme-ml-remote-hostname) 'face 'highlight)
+          (when-propertize (theme-ml-remote-hostname) 'face 'mode-line-highlight)
           (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
           (when (buffer-modified-p) " • "))
          ;; right
          (list
-          ""
           (when-propertize (theme-ml-term-mode) 'face 'mode-line-emphasis)
           (concat " " mode-name " ")
           (when (fboundp #'eyebrowse-mode-line-indicator)
@@ -454,7 +478,7 @@ Insert spaces between the two so that the string is
             " "
             t)
            'face 'mode-line-emphasis)
-          (propertize (s-pad-left 9 " " (format-mode-line " %l:%c  "))
+          (propertize (s-pad-left 8 " " (format-mode-line " %l:%c  "))
                       'face 'mode-line-buffer-id)))
       (theme-render-mode-line
        ;; left
@@ -677,9 +701,9 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; savehist
-(require 'savehist)
+(savehist-mode 1)
 (setq savehist-autosave-interval 60
-      history-length 1000
+      history-length 200
       history-delete-duplicates t
       savehist-additional-variables '(kill-ring
                                       search-ring
@@ -690,20 +714,18 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
                                       command-history
                                       extended-command-history
                                       ivy-history))
-(savehist-mode 1)
 
-;; save-place
+;; Restore point location in file when opening it.
 (save-place-mode 1)
 
-;; recentf
-(require 'recentf)
+;; Recent files.
+(recentf-mode 1)
 (setq recentf-max-saved-items 100
       recentf-max-menu-items 15
       ;; Disable recentf-cleanup on Emacs start because it can cause problems
-      ;; with remote files.
-      recentf-auto-cleanup 'never)
+      ;; with remote files. Clean up on idle for 60 seconds.
+      recentf-auto-cleanup 60)
 
-(recentf-mode 1)
 
 ;; Track directories in the recentf list
 (defun recentd-track-opened-file ()
@@ -726,20 +748,19 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
       ;; Backup even if file is in vc.
       vc-make-backup-files t
       ;; Keep all versions forever.
-      delete-old-versions -1
+      ;; delete-old-versions -1
       auto-save-list-file-prefix "~/.emacs.d/autosave/"
       auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
       ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
       ;; generates too much activity from tools watching for changes during
       ;; development.
       create-lockfiles nil
-      ;; Increase undo limit to 1MB per buffer.
-      undo-limit 1048576)
+      ;; Increase undo limit to 3MB per buffer.
+      undo-limit 3145728)
 
 ;; Whenever an external process changes a file underneath emacs, and there
 ;; was no unsaved changes in the corresponding buffer, just revert its
 ;; content to reflect what's on disk.
-(require 'autorevert)
 (global-auto-revert-mode 1)
 ;; Auto refresh dired
 (setq global-auto-revert-non-file-buffers t
@@ -747,10 +768,9 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
       auto-revert-verbose nil)
 
 ;; Desktop
-(require 'desktop)
+(desktop-save-mode 1)
 (add-to-list 'desktop-globals-to-save 'kill-ring)
 (add-to-list 'desktop-globals-to-save 'theme-current-theme)
-(desktop-save-mode 1)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
@@ -1075,8 +1095,6 @@ For for details see `new-scratch-buffer'."
 (bind-keys ("s-R" . xref-find-definitions-other-window)
            ("C-c M-r" . xref-find-definitions-other-window))
 
-(require 'ffap)
-
 (defun find-file-at-point-with-line (&optional filename)
   "Open FILENAME at point and move point to line specified next to file name."
   (interactive)
@@ -1147,8 +1165,8 @@ return them in the Emacs format."
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
 ;; Just set up 3 windows, no fancy frames or whatever
-(require 'ediff)
-(setq ediff-window-setup-function #'ediff-setup-windows-plain)
+(with-eval-after-load 'ediff
+  (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
 (defun goto-line-with-feedback ()
   "Show line numbers temporarily, while prompting for line number N."
@@ -1530,13 +1548,13 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
 (electric-indent-mode +1)
 
 ;; http://whattheemacsd.com/key-bindings.el-03.html
-(defun join-line-previous ()
+(defun delete-indentation-forward ()
   "Like `delete-indentation', but in the opposite direction.
 Bring the line below point up to the current line."
   (interactive)
   (join-line -1))
 
-(bind-key "C-^" #'join-line-previous)
+(bind-key "C-^" #'delete-indentation-forward)
 
 (use-package redo+
   :straight
@@ -1598,7 +1616,7 @@ Bring the line below point up to the current line."
   ("s-d" . er/expand-region)
   ("C-=" . er/expand-region)
   ("s-D" . er/contract-region)
-  ("C-M-=" . er/contract-region))
+  ("C-+" . er/contract-region))
 
 (use-package multiple-cursors
   :bind
@@ -1835,28 +1853,19 @@ ID, ACTION, CONTEXT."
 
 (add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
 
-(with-eval-after-load 'elisp-mode
-  (require 'm-lisp))
+(with-eval-after-load 'elisp-mode (require 'm-lisp))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Shell, Terminal, SSH, Tramp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(with-eval-after-load 'dired
-  (require 'm-dired))
+(with-eval-after-load 'dired (require 'm-dired))
 
-(with-eval-after-load 'tramp
-  (require 'm-shell-common))
+(with-eval-after-load 'tramp (require 'm-shell-common))
 
-(with-eval-after-load 'shell
-  (require 'm-shell-common))
+(with-eval-after-load 'shell (require 'm-shell-common))
 
-(with-eval-after-load 'term
-  (require 'm-shell-common))
-
-(with-eval-after-load 'sh
-  (bind-keys :map sh-mode-map
-             ("s-<ret>" . eshell-send-current-line)))
+(with-eval-after-load 'term (require 'm-shell-common))
 
 (use-package eshell
   :custom
@@ -1874,6 +1883,9 @@ ID, ACTION, CONTEXT."
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
   :config
+  (with-eval-after-load 'sh
+    (bind-keys :map sh-mode-map
+               ("s-<ret>" . eshell-send-current-line)))
   (require 'm-eshell)
   :hook
   ((eshell-mode . eshell/init)
@@ -1933,8 +1945,7 @@ The config is specified in the config file in `~/.mnt/'."
 ;;; Notes, Journal, and Documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(with-eval-after-load 'org
-  (require 'm-org))
+(with-eval-after-load 'org (require 'm-org))
 
 ;; visual-line-mode
 ;; Don't shadow mwim and org-mode bindings
@@ -2021,7 +2032,7 @@ Tries to find a file at point."
 (use-package rg
   :ensure-system-package
   (rg . ripgrep)
-  :requires
+  :after
   (wgrep-ag)
   :config
   (rg-enable-default-bindings (kbd "C-r"))
@@ -2419,14 +2430,19 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;;; Network and System Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(use-package eww
-  :commands
-  (eww))
+;; (use-package eww
+;;   :commands
+;;   (eww))
 
 (use-package shr-tag-pre-highlight
-  :after shr
   :config
-  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight)))
+  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))
+  :commands
+  (shr-tag-pre-highlight))
+
+(use-package w3m
+  :commands
+  (w3m w3m-weather))
 
 (defun public-ip ()
   "Display the local host's apparent public IP address."
