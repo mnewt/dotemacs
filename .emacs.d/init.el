@@ -23,8 +23,7 @@
  5 nil
  (lambda ()
    (nconc file-name-handler-alist file-name-handler-alist-original)
-   (makunbound 'file-name-handler-alist-original)
-   (message "file-name-handler-alist restored")))
+   (makunbound 'file-name-handler-alist-original)))
 
 (setq load-prefer-newer t)
 
@@ -154,20 +153,11 @@
   "Run when Emacs has finished starting."
   (message "Emacs has finished starting up."))
 
-(defun echo-area-visible-bell ()
-  "A more pleasant bell. No sound. Simply flash the echo area."
-  (with-current-buffer (get-buffer " *Echo Area 0*")
-    (setq-local face-remapping-alist '((default highlight))))
-  (run-with-timer 0.15 nil (lambda ()
-                             (with-current-buffer (get-buffer " *Echo Area 0*")
-                               (setq-local face-remapping-alist '((default)))))))
-
 ;; Blinking is NOT OK
 (blink-cursor-mode -1)
 
 ;; Beeping is REALLY NOT OK
 (setq visible-bell t
-      ring-bell-function 'echo-area-visible-bell
       ;; Show keystrokes right away, don't show the message in the scratch buffer
       echo-keystrokes 0.1)
 
@@ -377,6 +367,7 @@ Emacs from barfing fruit salad on the screen."
                         ((equal 'dark (frame-parameter nil 'background-mode)) "white")
                         (t "black")))
       (when (boundp 'hook) (mapc #'funcall hook)))
+    (setq theme-current-theme theme)
     (mapc #'funcall theme-hook)))
 
 (defun theme-choose (theme)
@@ -394,6 +385,7 @@ Insert spaces between the two so that the string is
 `window-total-width' columns wide."
   (let ((left (apply #'concat left))
         (right (apply #'concat right)))
+    ;; Start with a string so left can start with nil without breaking things.
     (concat ""
             left
             ;; ?\s is a space character
@@ -451,7 +443,7 @@ Insert spaces between the two so that the string is
 
 (defun when-propertize (exp &rest properties)
   "Propertize the result of body or return `nil'."
-  (when-let ((result exp)) (apply #'propertize result properties)))
+  (when exp (apply #'propertize exp properties)))
 
 (setq-default
  mode-line-format
@@ -460,14 +452,16 @@ Insert spaces between the two so that the string is
         (theme-render-mode-line
          ;; left
          (list
-          (theme-ml-evil)
           (when-propertize (theme-ml-remote-hostname) 'face 'mode-line-highlight)
           (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
-          (when (buffer-modified-p) " • "))
+          (when (buffer-modified-p) " • ")
+          (theme-ml-evil))
          ;; right
          (list
           (when-propertize (theme-ml-term-mode) 'face 'mode-line-emphasis)
-          (concat " " mode-name " ")
+          ;; Some modes, e.g. `dired+', set `mode-name' to something fancy that
+          ;; must be evaluated with `format-mode-line'.
+          (concat " "(format-mode-line mode-name) " ")
           (when (fboundp #'eyebrowse-mode-line-indicator)
             (concat (eyebrowse-mode-line-indicator) " "))
           (when-propertize
@@ -483,8 +477,6 @@ Insert spaces between the two so that the string is
       (theme-render-mode-line
        ;; left
        (list
-        ""
-        (when (bound-and-true-p evil-mode) "        ")
         " "
         (buffer-name)
         " "
@@ -726,7 +718,6 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
       ;; with remote files. Clean up on idle for 60 seconds.
       recentf-auto-cleanup 60)
 
-
 ;; Track directories in the recentf list
 (defun recentd-track-opened-file ()
   "Insert the name of the directory just opened into the recent list."
@@ -739,6 +730,10 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 ;; Store all backup and autosave files in their own directory since it is bad to
 ;; clutter project directories.
 (setq backup-directory-alist '((".*" . "~/.emacs.d/backup"))
+      ;; Automatic backup file housekeeping.
+      kept-new-versions 10
+      kept-old-versions 4
+      delete-old-versions t
       ;; Don't clobber symlinks.
       backup-by-copying t
       ;; Don't break multiple hardlinks.
@@ -747,8 +742,6 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
       version-control t
       ;; Backup even if file is in vc.
       vc-make-backup-files t
-      ;; Keep all versions forever.
-      ;; delete-old-versions -1
       auto-save-list-file-prefix "~/.emacs.d/autosave/"
       auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
       ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
@@ -772,6 +765,21 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 (add-to-list 'desktop-globals-to-save 'kill-ring)
 (add-to-list 'desktop-globals-to-save 'theme-current-theme)
 
+(defun psync-maybe-sync ()
+  "If we find a `psync_config' file then run `psync'."
+  (interactive)
+  (let ((default-directory (or (and (fboundp 'projectile-project-root)
+                                    (projectile-project-root))
+                               default-directory)))
+    (when (and (executable-find "psync")
+               (file-exists-p (expand-file-name "psync_config")))
+      (unless (= 0 (shell-command-exit-code "psync"))
+        (message "psync in directory %s failed." default-directory)))))
+
+(add-hook 'after-save-hook #'psync-maybe-sync)
+
+(bind-key "C-x M-s" #'psync-maybe-sync)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -786,6 +794,9 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 
 ;; Change yes/no prompts to y/n
 (defalias 'yes-or-no-p 'y-or-n-p)
+
+;; Enable all commands
+(setq disabled-command-function nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Navigation
@@ -1262,11 +1273,9 @@ return them in the Emacs format."
 (use-package crux
   :bind
   ("C-c C-j" . crux-eval-and-replace)
-  ("C-x f" . crux-recentf-find-file)
   ("C-c D" . crux-delete-file-and-buffer)
   ("C-c d" . crux-duplicate-current-line-or-region)
   ("C-c R" . crux-rename-file-and-buffer)
-  ("M-s-r" . crux-rename-file-and-buffer)
   ("C-c k" . crux-kill-other-buffers)
   ("C-M-X" . crux-indent-defun)
   ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
@@ -1305,6 +1314,19 @@ return them in the Emacs format."
  ("C-h M-i" . #'info-apropos))
 
 (global-eldoc-mode)
+
+;; ELDoc
+(seq-do (lambda (m) (add-hook m #'turn-on-eldoc-mode))
+        '(emacs-lisp-mode-hook
+          lisp-interaction-mode-hook
+          ielm-mode-hook))
+
+(use-package which-key
+  :demand t
+  :config
+  (which-key-mode t)
+  :bind
+  ("M-s-h" . which-key-show-top-level))
 
 (use-package man
   :custom
@@ -1661,12 +1683,25 @@ Bring the line below point up to the current line."
 
 (use-package format-all
   :hook
-  ((emacs-lisp-mode enh-ruby-mode sh-mode) . format-all-mode))
+  ((css-mode
+    dockerfile-mode
+    emacs-lisp-mode
+    enh-ruby-mode
+    go-mode
+    lua-mode
+    php-mode
+    ruby-mode
+    sh-mode
+    toml-mode
+    web-mode
+    yaml-mode) . format-all-mode))
 
-(defun indent-buffer-or-region ()
+(defun indent-buffer-or-region (&optional arg)
   "Indent the region if one is active, otherwise format the buffer.
 Some modes have special treatment."
-  (interactive)
+  (interactive "P")
+  (when (sp-point-in-string-or-comment)
+    (fill-paragraph arg))
   (call-interactively #'crux-cleanup-buffer-or-region)
   (if (use-region-p)
       (progn
@@ -1676,8 +1711,15 @@ Some modes have special treatment."
       (format-all-buffer)
       (message "Buffer formatted."))))
 
+(defun indent-defun ()
+  "Indent the current defun."
+  (interactive)
+  (save-excursion
+    (mark-defun)
+    (indent-buffer-or-region (region-beginning) (region-end))))
+
 (bind-keys ("C-M-\\" . indent-buffer-or-region)
-           ("C-\\" . crux-indent-defun))
+           ("C-\\" . indent-defun))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Lisp, S-Expressions, Parentheses, Brackets
@@ -2085,6 +2127,8 @@ Tries to find a file at point."
         :map ivy-minibuffer-map
         ("C-e" . ivy-partial-or-done)))
 
+(use-package lv)
+
 (use-package ivy-hydra
   :after lv
   :defer 1)
@@ -2113,6 +2157,7 @@ Tries to find a file at point."
   :bind
   (("s-5" . replace-regexp-entire-buffer)
    :map ivy-minibuffer-map
+   ("C-c C-c" . ivy-toggle-calling)
    ("s-5" . ivy--replace-regexp-entire-buffer)))
 
 (defun reloading (cmd)
@@ -2145,6 +2190,7 @@ the other window."
   (counsel-find-file-at-point t)
   (counsel-grep-base-command "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
   :config
+  (counsel-mode)
   (ivy-add-actions
    'counsel-M-x
    `(("j" counsel--call-in-other-window-action "other window")))
@@ -2172,22 +2218,25 @@ the other window."
       ivy--rename-buffer-action
       "rename")))
   :bind
-  ("C-h C-k" . counsel-descbinds)
-  ("s-F" . counsel-rg)
-  ("s-f" . counsel-grep-or-swiper)
-  ("M-x" . counsel-M-x)
-  ("C-x C-f" . counsel-find-file)
-  ("s-b" . counsel-switch-buffer)
-  ("s-B" . counsel-buffer-other-window)
-  ("C-h <tab>" . counsel-info-lookup-symbol)
-  ("C-h C-a" . counsel-apropos)
-  ("C-c u" . counsel-unicode-char)
-  ("C-c g" . counsel-git)
-  ("C-c j" . counsel-git-grep)
-  ("C-c o" . counsel-outline)
-  ("M-s-v" . counsel-yank-pop)
-  ("M-Y" . counsel-yank-pop)
-  ([remap find-file] . counsel-find-file)
+  (:map counsel-mode-map
+        ("C-h C-k" . counsel-descbinds)
+        ("s-F" . counsel-rg)
+        ("s-f" . counsel-grep-or-swiper)
+        ("M-x" . counsel-M-x)
+        ("C-x C-f" . counsel-find-file)
+        ("C-x f" . counsel-recentf)
+        ("C-x j" . counsel-file-jump)
+        ("s-b" . counsel-switch-buffer)
+        ("s-B" . counsel-buffer-other-window)
+        ("C-h <tab>" . counsel-info-lookup-symbol)
+        ("C-h C-a" . counsel-apropos)
+        ("C-c u" . counsel-unicode-char)
+        ("C-c g" . counsel-git)
+        ("C-c j" . counsel-git-grep)
+        ("C-c o" . counsel-outline)
+        ("M-s-v" . counsel-yank-pop)
+        ("M-Y" . counsel-yank-pop)
+        ([remap find-file] . counsel-find-file))
   (:map ivy-minibuffer-map
         ("M-y" . ivy-next-line-and-call))
   (:map minibuffer-local-map
@@ -2249,11 +2298,12 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (projectile-project-search-path (list code-directory))
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
-  ;; Exclude untracked files because we use git workdirs in $HOME. Listing all
-  ;; files takes too long.
-  ;; (projectile-git-command "git ls-files -zc --exclude-standard")
   :config
   (projectile-mode +1)
+  (projectile-register-project-type 'npm '("package.json")
+                                    :compile "npm start"
+                                    :test "npm test"
+                                    :test-suffix ".test")
   :hook
   (projectile-after-switch-project . projectile-load-settings)
   :bind
@@ -2276,12 +2326,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ("M-s-p" . counsel-projectile-switch-to-buffer)
   ("s-p" . counsel-projectile)
   ("s-P" . counsel-projectile-switch-project)
-  ("s-t" . counsel-imenu)
+  ("s-r" . counsel-imenu)
   ("M-s-f" . counsel-projectile-rg))
-
-(use-package imenu-anywhere
-  :bind
-  ("s-r" . ivy-imenu-anywhere))
 
 (use-package dumb-jump
   :custom
@@ -2292,13 +2338,16 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
   (eshell-mode . (lambda () (dumb-jump-mode -1)))
   :bind
-  ("s-j" . dumb-jump-go-prompt)
-  ("s-." . dumb-jump-go)
-  ("s-<mouse-1>". dumb-jump-go)
-  ("s-J" . dumb-jump-quick-look))
+  (:map dumb-jump-mode-map
+        ("s-j" . dumb-jump-go-prompt)
+        ("s-." . dumb-jump-go)
+        ("s-J" . dumb-jump-quick-look)))
 
-(require 'flash-mode)
-(flash-mode 1)
+(use-package flash-thing
+  :straight
+  (:type git :host github :repo "mnewt/flash-thing")
+  :hook
+  (after-init . flash-thing-mode))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Version Control
@@ -2477,23 +2526,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;;; Other File Modes and Formats
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(use-package fence-edit
-  :straight
-  (:type git :host github :repo "mnewt/fence-edit.el")
-  :config
-  (add-multiple-to-list 'fence-edit-blocks
-                        '(("---" "---" yaml)
-                          ("+++" "+++" toml)
-                          ("graphql[ \t\n]*(?`" "`" graphql)
-                          ("<svg" "</svg>" nxml t)
-                          ("<html" "</html>" web t)
-                          ("<div" "</div>" web t)))
-  :hook
-  ;; Don't shadow the fence-edit binding
-  (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
-  :bind
-  ("C-c '" . fence-edit-dwim))
-
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
@@ -2612,7 +2644,7 @@ things."
   :ensure-system-package
   (prettier . "npm i -g prettier")
   :hook
-  ((js-mode js2-mode web-mode)  . prettier-js-mode))
+  ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
 
 (use-package indium
   :ensure-system-package
@@ -2631,14 +2663,14 @@ things."
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
 
-(use-package genrnc
-  :custom
-  (genrnc-user-schemas-directory "~/.emacs.d/schema")
-  :commands
-  (genrnc-regist-file))
+;; (use-package genrnc
+;;   :custom
+;;   (genrnc-user-schemas-directory "~/.emacs.d/schema")
+;;   :commands
+;;   (genrnc-regist-file))
 
-(use-package rnc-mode
-  :mode "\\.rnc\\'")
+;; (use-package rnc-mode
+;;   :mode "\\.rnc\\'")
 
 (use-package dockerfile-mode
   :mode "Dockerfile\\'")
@@ -2732,6 +2764,45 @@ things."
 
 (use-package ios-config-mode
   :mode "\\.cfg\\'")
+
+(use-package polymode
+  :config
+  (define-hostmode poly-web-hostmode
+    :mode 'web-mode)
+  (define-innermode poly-web-graphql-innermode
+    :mode 'graphql-mode
+    :head-matcher "graphql[ \t\n]*(?`"
+    :tail-matcher "`"
+    :head-mode 'host
+    :tail-mode 'host)
+  (define-innermode poly-web-svg-innermode
+    :mode 'nxml-mode
+    :head-matcher "<svg"
+    :tail-matcher "</svg>"
+    :head-mode 'inner
+    :tail-mode 'inner)
+  (define-polymode poly-web-mode
+    :hostmode 'poly-web-hostmode
+    :innermodes '(poly-web-graphql-innermode poly-web-svg-innermode)))
+
+(use-package poly-markdown)
+
+(use-package fence-edit
+  :straight
+  (:type git :host github :repo "mnewt/fence-edit.el")
+  :config
+  (add-multiple-to-list 'fence-edit-blocks
+                        '(("---" "---" yaml)
+                          ("+++" "+++" toml)
+                          ("graphql[ \t\n]*(?`" "`" graphql)
+                          ("<svg" "</svg>" nxml t)
+                          ("<html" "</html>" web t)
+                          ("<div" "</div>" web t)))
+  :hook
+  ;; Don't shadow the fence-edit binding
+  (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
+  :bind
+  ("C-c '" . fence-edit-dwim))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Other Packages

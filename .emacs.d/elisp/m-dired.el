@@ -30,34 +30,29 @@
 
 ;;; Code:
 
-(require 'dired)
 (require 'dired-x)
-
-;; try to use GNU ls on macOS since BSD ls doesn't explicitly support Emacs
-(setq insert-directory-program (or (executable-find "gls")
-                                   (executable-find "ls"))
-      ;; don't prompt to kill buffers of deleted directories
-      dired-clean-confirm-killing-deleted-buffers nil)
-
 (use-package dired+)
+
+(add-hook 'dired-mode-hook #'dired-hide-details-mode)
+
+(setq dired-listing-switches "-alh"
+      dired-recursive-deletes 'always
+      dired-recursive-copies 'always
+      dired-dwim-target t
+      dired-omit-mode t
+      dired-omit-files "\\`[#.].*"
+      ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
+      ;; Emacs and can run into issues with certain characters in the file name.
+      insert-directory-program (or (executable-find "gls")
+                                   (executable-find "ls"))
+      ;; Don't prompt to kill buffers of deleted directories.
+      dired-clean-confirm-killing-deleted-buffers nil
+      find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
 
 (use-package wdired
   :custom
   (wdired-allow-to-change-permissions t)
   (wdired-create-parent-directories t))
-
-(setq dired-recursive-deletes 'always
-      dired-recursive-copies 'always
-      dired-listing-switches "-alh"
-      dired-dwim-target t
-      dired-omit-mode t
-      dired-omit-files "\\`[#.].*")
-
-(setq-default dired-omit-files-p t)
-
-(add-hook 'dired-mode-hook (lambda () (dired-hide-details-mode t)))
-
-(add-hook 'dired-load-hook '(lambda () (require 'dired-x)))
 
 (use-package diredfl
   :config
@@ -90,7 +85,7 @@
   (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
   (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
   :bind
-  (("C-x M-d" . dired-sidebar-toggle-sidebar)))
+  (("C-x d" . dired-sidebar-toggle-sidebar)))
 
 (use-package disk-usage
   :straight
@@ -107,31 +102,23 @@
     (message "Opening %s..." file)
     (os-open-file file)))
 
-(defvar-local dired-dotfiles-show-p t
-  "If non-nil, show files beginning with `.' in dired.")
+(defun dired-make-available-human-readable ()
+  (unless diredp-hide-details-last-state
+    (save-excursion
+      (goto-char (point-min))
+      (let ((buffer-read-only nil)
+            (avail (string-trim (replace-regexp-in-string
+                                 "Avail" ""
+                                 (shell-command-to-string "df --output=avail -h .")
+                                 t t))))
+        (when (re-search-forward
+               "^\\s-*total used in directory [0-9BGKM]+ available \\([0-9]+\\)"
+               nil t)
+          (replace-match avail t nil nil 1))))))
 
-(defun dired-dotfiles-toggle ()
-  "Toggle display of dot files."
-  (interactive)
-  (when (equal major-mode 'dired-mode)
-    (if (or (not (boundp 'dired-dotfiles-show-p)) dired-dotfiles-show-p) ; if currently showing
-        (progn
-          (set (make-local-variable 'dired-dotfiles-show-p) nil)
-          (message "h")
-          (dired-mark-files-regexp "^\\\.")
-          (dired-do-kill-lines))
-      (progn (revert-buffer)            ; otherwise just revert to re-show
-             (setq-local dired-dotfiles-show-p t)))))
-
-;;;###autoload
-(defun dired-to-default-directory ()
-  "Open directory containing the current file."
-  (interactive)
-  (dired default-directory))
+(add-hook 'dired-after-readin-hook #'dired-make-available-human-readable)
 
 (bind-keys
- ("C-x C-d" . dired-to-default-directory)
- ("C-x d" . dired)
  :map dired-mode-map
  ("C-c o" . dired-open-file)
  ("T" . touch)
