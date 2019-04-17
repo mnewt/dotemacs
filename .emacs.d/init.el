@@ -10,6 +10,9 @@
 ;;; Top Level
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; These are good notes on optimizing startup performance:
+;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
+
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824)
 (run-with-idle-timer 20 t (lambda () (garbage-collect)))
@@ -37,11 +40,11 @@
 ;;; Package Management
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Added by Package.el.  This must come before configurations of
-;; installed packages.  Don't delete this line.  If you don't want it,
-;; just comment it out by adding a semicolon to the start of the line.
-;; You may delete these explanatory comments.
-;; (package-initialize)
+;; Disable package.el initialization.
+(setq package-enable-at-startup nil ; don't auto-initialize!
+      ;; don't add that `custom-set-variables' block to my initl!
+      package--init-file-ensured t)
+
 
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
@@ -64,16 +67,6 @@
 ;; https://github.com/raxod502/straight.el/issues/41
 (defvar straight-check-for-modifications)
 (setq straight-check-for-modifications 'live)
-
-;; Try to get package.el to work better with straight.el
-;; https://github.com/raxod502/straight.el/issues/128
-(defvar straight--recipe-cache)
-(defun straight--advice-package-installed-p (f &rest args)
-  "Call F with ARGS. Return t if package is installed via `straight' package manager."
-  (or (gethash (symbol-name (car args)) straight--recipe-cache)
-      (apply f args)))
-
-(advice-add 'package-installed-p :around 'straight--advice-package-installed-p)
 
 ;; (defun m-straight-merge-all (&optional from-upstream)
 ;;   "Try to merge all packages from their primary remotes.
@@ -183,7 +176,7 @@
 ;; No icon in the titlebar
 (setq ns-use-proxy-icon nil)
 
-;; Default frame settings. This is actually maximized, but not full screen.
+;; Default frame settings. This is actually maximized, not full screen.
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 
@@ -214,8 +207,7 @@
 * An alist specifying additional arguments. Possible arguments:
 ** hook - A function, as above.
 ** specs
-** mouse-color
-**")
+** mouse-color")
 
 (defvar theme-current-theme 'doom-dracula
   "Defines the currently loaded theme.")
@@ -223,7 +215,11 @@
 (defvar theme-specs-common
   '((cursor ((t :background "#F60"))))
   "List of default face specs to apply when a theme is activated.
-The attributes specified in `theme-themes' overrides these.
+This list is for specs that are common to all themes and do not
+require any kind of dynamic evaluation (e.g. configuring one face
+to inherit from another). For dynamic configurations, add an
+alist as the cdr of the alist entry in `theme-themes'. The
+attributes specified in `theme-themes' overrides these.
 
 For details on face specs see `defface'.")
 
@@ -497,7 +493,9 @@ Insert spaces between the two so that the string is
   "Whether we let there be light or dark.")
 
 (defun fiat--set-os-dark-mode (p)
-  (let ((p (if p "true" "false")))
+  ;; Change directory in case we are in a tramp session.
+  (let ((default-directory "~")
+        (p (if p "true" "false")))
     (shell-command (format "osascript -e '
 tell application \"System Events\"
   tell appearance preferences to set dark mode to %s
@@ -1721,6 +1719,12 @@ Some modes have special treatment."
 (bind-keys ("C-M-\\" . indent-buffer-or-region)
            ("C-\\" . indent-defun))
 
+(use-package darkroom
+  :bind
+  ("C-c C-d" . darkroom-mode)
+  :commands
+  (darkroom-mode darkroom-tentative-mode))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Lisp, S-Expressions, Parentheses, Brackets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1902,6 +1906,8 @@ ID, ACTION, CONTEXT."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (with-eval-after-load 'dired (require 'm-dired))
+
+(add-hook 'dired-mode-hook #'dired-hide-details-mode)
 
 (with-eval-after-load 'tramp (require 'm-shell-common))
 
@@ -2349,6 +2355,12 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :hook
   (after-init . flash-thing-mode))
 
+(use-package spotlight
+  :straight
+  (:type git :host github :repo "cjp/spotlight.el")
+  :commands
+  (spotlight spotlight-fast))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Version Control
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2380,6 +2392,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 
 (use-package magit
   :custom
+  (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
   :commands
   (magit-call-git)
@@ -2767,14 +2780,19 @@ things."
 
 (use-package polymode
   :config
-  (define-hostmode poly-web-hostmode
-    :mode 'web-mode)
-  (define-innermode poly-web-graphql-innermode
+  (define-hostmode poly-rjsx-hostmode
+    :mode 'rjsx-mode)
+  (define-innermode poly-rjsx-graphql-innermode
     :mode 'graphql-mode
     :head-matcher "graphql[ \t\n]*(?`"
     :tail-matcher "`"
     :head-mode 'host
     :tail-mode 'host)
+  (define-polymode poly-rjsx-mode
+    :hostmode 'poly-web-hostmode
+    :innermodes '(poly-rjsx-graphql-innermode))
+  (define-hostmode poly-web-hostmode
+    :mode 'web-mode)
   (define-innermode poly-web-svg-innermode
     :mode 'nxml-mode
     :head-matcher "<svg"
@@ -2783,7 +2801,7 @@ things."
     :tail-mode 'inner)
   (define-polymode poly-web-mode
     :hostmode 'poly-web-hostmode
-    :innermodes '(poly-web-graphql-innermode poly-web-svg-innermode)))
+    :innermodes '(poly-web-svg-innermode)))
 
 (use-package poly-markdown)
 

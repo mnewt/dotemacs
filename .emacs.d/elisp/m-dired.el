@@ -31,9 +31,10 @@
 ;;; Code:
 
 (require 'dired-x)
+
 (use-package dired+)
 
-(add-hook 'dired-mode-hook #'dired-hide-details-mode)
+(use-package find-dired+)
 
 (setq dired-listing-switches "-alh"
       dired-recursive-deletes 'always
