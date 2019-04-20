@@ -36,6 +36,13 @@
 
 (use-package find-dired+)
 
+(use-package ivy-dired-history
+  :config
+  (add-to-list 'savehist-additional-variables 'ivy-dired-history-variable)
+  :bind
+  (:map dired-mode-map
+        ("," . dired)))
+
 (setq dired-listing-switches "-alh"
       dired-recursive-deletes 'always
       dired-recursive-copies 'always

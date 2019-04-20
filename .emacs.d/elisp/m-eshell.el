@@ -252,6 +252,7 @@ https://stackoverflow.com/a/14769115/1588358"
   (shell-command ". ~/.env && . ~/.aliases && alias | sed -E \"s/^alias ([^=]+)='(.*)'$/alias \\1 \\2 \\$*/g; s/'\\\\''/'/g;\""
                  "*bash aliases*"))
 
+;;;###autoload
 (defun eshell/init ()
   "Initialize the Eshell environment."
   (source-sh "~/.env")
@@ -299,6 +300,7 @@ https://stackoverflow.com/a/14769115/1588358"
   (require 'em-tramp)
   (add-to-list 'eshell-modules-list 'eshell-tramp))
 
+;;;###autoload
 (defun ibuffer-show-eshell-buffers ()
   "Open an ibuffer window and display all Eshell buffers."
   (interactive)
@@ -317,6 +319,7 @@ https://stackoverflow.com/a/14769115/1588358"
       (car (filter-buffers-by-mode 'eshell-mode))
       (eshell-create-in-background)))
 
+;;;###autoload
 (defun eshell-switch-to-buffer ()
   "Switch to the most recent Eshell buffer or create a new one.)))
 This is different than the normal `eshell' command in my setup
@@ -349,6 +352,7 @@ because I dynamically rename the buffer according to
   "Keys in effect when point is over a file in `eshell/ls'
   output.")
 
+;;;###autoload
 (defun m-eshell-ls-decorated-name (f &rest args)
   "Add more decoration to files in `eshell/ls' output.
 
@@ -374,8 +378,6 @@ Advise `eshell-ls-decorated-name'."
        name)
      'keymap m-eshell-ls-file-keymap
      'mouse-face 'highlight)))
-
-(advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
 
 (provide 'm-eshell)
 

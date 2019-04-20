@@ -30,44 +30,7 @@
 
 ;;; Code:
 
-(use-package parinfer
-  :custom
-  (parinfer-extensions
-   '(defaults       ; should be included.
-      pretty-parens ; different paren styles for different modes.
-      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
-      smart-yank))  ; Yank behavior depends on mode.
-  :config
-  (parinfer-strategy-add 'default 'newline-and-indent)
-  :hook
-  ((clojure-mode common-lisp-mode emacs-lisp-mode hy-mode lisp-interaction-mode
-                 lisp-mode scheme-mode) . parinfer-mode)
-  :bind
-  (:map parinfer-mode-map
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)
-        ("C-i" . parinfer--reindent-sexp)
-        ("C-M-i" . parinfer-auto-fix)
-        ("C-," . parinfer-toggle-mode)
-        ;; Don't interfere with smartparens quote handling
-        ("\"" . nil)
-        ;; sp-newline seems to offer a better experience for lisps
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline)
-        :map parinfer-region-mode-map
-        ("C-i" . indent-for-tab-command)
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
-
-;; (use-package lively
-;;   :commands
-;;   (lively-shell-command)
-;;   :bind
-;;   ("C-c C-l l" . lively)
-;;   ("C-c C-l r" . lively-region)
-;;   ("C-c C-l u" . lively-update)
-;;   ("C-c C-l s" . lively-stop))
-
+;;;###autoload
 (defun eval-last-sexp-other-window (arg)
   "Run `eval-last-sexp' with ARG in the other window."
   (interactive "P")
@@ -75,6 +38,7 @@
     (other-window 1)
     (eval-last-sexp arg)))
 
+;;;###autoload
 (defun expression-to-register (register)
   "Interactively store an Emacs Lisp expression in a REGISTER.
 If region is active, store that. Otherwise, store the sexp at
@@ -88,6 +52,7 @@ If region is active, store that. Otherwise, store the sexp at
   (setq deactivate-mark t)
   (when (called-interactively-p 'interactive) (indicate-copied-region)))
 
+;;;###autoload
 (defun eval-register (register)
   "Evaluate contents of register REGISTER as an Emacs Lisp expression.
 REGISTER is a character and its contents are a string.
@@ -104,51 +69,117 @@ Interactively, reads the register using `register-read-with-preview'."
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
 
-;; (use-package sly
-;;   ;; There are some problems building sly with straight.el in Windows
-;;   :unless (eq system-type 'windows-nt)
-;;   :custom
-;;   (inferior-lisp-program (executable-find "sbcl"))
-;;   :bind
-;;   (:map sly-prefix-map
-;;         ("M-h" . sly-documentation-lookup)))
+;;;###autoload
+(defun sp-sh-post-handler (_id action _context)
+  "Bash post handler ID, ACTION, CONTEXT."
+  (-let (((&plist :arg arg :enc enc) sp-handler-context))
+    (when (equal action 'barf-backward)
+      (sp-ruby-delete-indentation 1)
+      (indent-according-to-mode)
+      (save-excursion
+        (sp-backward-sexp)              ; move to begining of current sexp
+        (sp-backward-sexp arg)
+        (sp-ruby-maybe-one-space)))
 
-;; (use-package sly-company
-;;   :unless (eq system-type 'windows-nt)
-;;   :hook
-;;   (sly-mode . sly-company-mode)
-;;   :config
-;;   (add-to-list 'company-backends 'sly-company))
+    (when (equal action 'barf-forward)
+      (sp-get enc
+        (let ((beg-line (line-number-at-pos :beg-in))))))
+    (sp-forward-sexp arg)
+    (sp-ruby-maybe-one-space)
+    (when (not (= (line-number-at-pos) beg-line))
+      (sp-ruby-delete-indentation -1))
+    (indent-according-to-mode)))
 
-;; Configured to use CHICKEN Scheme
-;; (use-package geiser
-;;   :custom
-;;   (geiser-default-implementation 'chicken)
-;;   (geiser-mode-eval-last-sexp-to-buffer t)
-;;   (scheme-program-name "csi -:c")
-;;   :config
-;;   (setq-default geiser-scheme-implementation 'chicken)
+;;;###autoload
+(defun sp-sh-block-post-handler (id action context)
+  "Handler for bash block insertions.
+ID, ACTION, CONTEXT."
+  (when (equal action 'insert)
+    (save-excursion
+      (newline)
+      (indent-according-to-mode))
+    (indent-according-to-mode))
+  (sp-sh-post-handler id action context))
 
-;;   ;; Indenting module body code at column 0
-;;   (defun scheme-module-indent (state indent-point normal-indent) 0)
-;;   (put 'module 'scheme-indent-function 'scheme-module-indent)
-;;   (put 'and-let* 'scheme-indent-function 1)
-;;   (put 'parameterize 'scheme-indent-function 1)
-;;   (put 'handle-exceptions 'scheme-indent-function 1)
-;;   (put 'when 'scheme-indent-function 1)
-;;   (put 'unless 'scheme-indenfunction 1)
-;;   (put 'match 'scheme-indent-function 1)
-;;   :commands
-;;   (geiser run-geiser run-chicken))
+;;;###autoload
+(defun sp-sh-pre-handler (_id action _context)
+  "Handler for bash slurp and barf.
+ID, ACTION, CONTEXT."
+  (let ((enc (plist-get sp-handler-context :enc)))
+    (sp-get enc
+      (let ((beg-line (line-number-at-pos :beg-in))))
+      (end-line (line-number-at-pos :end-in)
 
-(bind-keys
- :map lisp-mode-shared-map
- ("s-<return>" . eval-last-sexp)
- ("C-s-<return>" . eval-last-sexp-other-window)
- ("C-c C-k" . eval-buffer)
- ("C-x C-r" . eval-region)
- ("C-x r E" . expression-to-register)
- ("C-x r e" . eval-register))
+                (when (equal action 'slurp-backward))))
+    (save-excursion
+      (sp-forward-sexp)
+      (when (looking-at-p ";") (forward-char))
+      (sp-ruby-maybe-one-space)
+      (when (not (= (line-number-at-pos) end-line))
+        (sp-ruby-delete-indentation -1)))
+    (while (thing-at-point-looking-at "\\.[[:blank:]\n]*")
+      (sp-backward-sexp))
+    (when (looking-back "[@$:&?!]")
+      (backward-char)
+      (when (looking-back "[@&:]")
+        (backward-char)))
+    (just-one-space)
+    (save-excursion
+      (if (= (line-number-at-pos) end-line
+             (insert " "))
+          (newline
+
+           (when (equal action 'barf-backward)))))
+    ;; Barf whole method chains
+    (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
+      (sp-forward-sexp))
+    (if (looking-at-p " *$")
+        (newline)
+      (save-excursion (newline)
+
+                      (when (equal action 'slurp-forward))))
+    (save-excursion
+      (sp-backward-sexp)
+      (when (looking-back "\." nil) (backward-char))
+      (sp-ruby-maybe-one-space)
+      (when (not (= (line-number-at-pos) beg-line))
+        (if (thing-at-point-looking-at "\\.[[:blank:]\n]*")))
+      (progn
+        (forward-symbol -1)
+        (sp-ruby-delete-indentation -1
+                                    (sp-ruby-delete-indentation))))
+    (while (looking-at-p "::") (sp-forward-symbol))
+    (when (looking-at-p "[?!;]") (forward-char))
+    (if (= (line-number-at-pos) beg-line)
+        (insert " ")
+      (newline
+
+       (when (equal action 'barf-forward))))
+    (when (looking-back "\\." nil) (backward-char))
+    (while (looking-back "::" nil) (sp-backward-symbol))
+    (if (= (line-number-at-pos) end-line)
+        (insert " ")
+      (if (looking-back "^[[:blank:]]*" nil
+                        (save-excursion (newline)))
+          (newline)))))
+
+;;;###autoload
+(defun sp-backward-slurp-into-previous-sexp ()
+  "Add the sexp at point into the preceeding list."
+  (interactive)
+  (save-excursion
+    (sp-down-sexp)
+    (sp-backward-symbol)
+    (sp-forward-slurp-sexp)))
+
+;; See https://github.com/Fuco1/smartparens/issues/80
+;;;###autoload
+(defun sp-create-newline-and-enter-sexp (&rest _)
+  "Open a new brace or bracket expression, with relevant newlines and indent."
+  (newline)
+  (indent-according-to-mode)
+  (forward-line -1)
+  (indent-according-to-mode))
 
 (provide 'm-lisp)
 

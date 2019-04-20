@@ -32,11 +32,13 @@
 
 (require 'org)
 
+;;;###autoload
 (defun search-org-files ()
   "Search ~/org using `counsel-rg'."
   (interactive)
   (counsel-rg nil org-directory))
 
+;;;###autoload
 (defun org-todo-todo ()
   "Create or update Org todo entry to TODO status."
   (interactive)
@@ -61,6 +63,7 @@
          (priority-int (if priority (string-to-char priority) org-default-priority)))
     (format "%03d %03d" todo-int priority-int)))
 
+;;;###autoload
 (defun org-sort-entries-by-todo-status ()
   "Sort Org TODO entries by their status."
   (interactive)
@@ -88,16 +91,6 @@
  ;;                           ("DONE" (:foreground "gray"))))
  org-agenda-files '(org-directory
                     (expand-file-name "TODO.org" org-directory)))
-
-(bind-keys
- ("C-c l" . org-store-link)
- ("C-c a" . org-agenda)
- ("C-c c" . org-capture)
- ("C-c b" . org-switchb)
- ("C-c s" . search-org-files)
- ("C-c O" . (lambda () (interactive) (find-file org-directory)))
- :map org-mode-map
- ("s-;" . org-shiftright))
 
 ;; (use-package ox-hugo
 ;;   :after ox)

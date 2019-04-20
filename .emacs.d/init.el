@@ -1,8 +1,8 @@
 ;;; Init.el --- Emacs init file --- -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Single, mostly monolithic Emacs init file. Uses straight.el for package
-;; management and use-package for as much package configuration as possible.
+;; It's an Emacs init file. Uses `straight.el' for package management and
+;; use-package for as much package configuration as possible.
 
 ;;; Code:
 
@@ -15,18 +15,18 @@
 
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824)
-(run-with-idle-timer 20 t (lambda () (garbage-collect)))
 
 ;; Stolen from
 ;; https://www.reddit.com/r/emacs/comments/3kqt6e/2_easy_little_known_steps_to_speed_up_emacs_start/
-(setq file-name-handler-alist-original file-name-handler-alist)
+(defvar file-name-handler-alist-original file-name-handler-alist)
 (setq file-name-handler-alist nil)
 
 (run-with-idle-timer
  5 nil
  (lambda ()
    (nconc file-name-handler-alist file-name-handler-alist-original)
-   (makunbound 'file-name-handler-alist-original)))
+   (makunbound 'file-name-handler-alist-original)
+   (run-with-idle-timer 20 t (lambda () (garbage-collect)))))
 
 (setq load-prefer-newer t)
 
@@ -36,15 +36,29 @@
 (with-eval-after-load 'nsm
   (setq network-security-level 'high))
 
+(setq elisp-directory "~/.emacs.d/elisp"
+      generated-autoload-file (expand-file-name "loaddefs.el" elisp-directory))
+
+(add-to-list 'load-path elisp-directory)
+
+(load "loaddefs" t)
+
+(defun update-elisp ()
+  "Call `update-autoloads-from-directories' on the local lisp directory."
+  (interactive)
+  (require 'autoload)
+  (update-directory-autoloads elisp-directory)
+  (mapc #'byte-compile-file (directory-files elisp-directory t "[^.]+"))
+  (byte-compile-file "~/.emacs.d/init.el"))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Package Management
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Disable package.el initialization.
-(setq package-enable-at-startup nil ; don't auto-initialize!
+(setq package-enable-at-startup nil     ; don't auto-initialize!
       ;; don't add that `custom-set-variables' block to my initl!
       package--init-file-ensured t)
-
 
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
@@ -118,12 +132,11 @@
   (require 'use-package))
 (require 'bind-key)
 
-;; Packages go here.
-(add-to-list 'load-path "~/.emacs.d/elisp/")
-
 (defun add-multiple-to-list (list items)
   "Run `add-to-list' for all ITEMS in the LIST."
   (seq-do (apply-partially #'add-to-list list) items))
+
+;; These packages are used by many things so they are on the critical path.
 
 (use-package dash)
 
@@ -223,35 +236,47 @@ attributes specified in `theme-themes' overrides these.
 
 For details on face specs see `defface'.")
 
+;; List of current remapping cookies used for face remapping/unmapping.
+;; (defvar theme-highlight-window-remapping nil)
+;; (make-variable-buffer-local 'theme-highlight-window-remapping)
+
+;; (defface theme-selected-window-face '((t :inherit default))
+;;   "The face used for the selected window.")
+
+;; (defun theme-highlight-selected-window ()
+;;   "Highlight the selected window with a different background color."
+;;   ;; Keep the previous buffer highlighted if the current one is the minibuffer.
+;;   (unless (window-minibuffer-p)
+;;     (dolist (window (cdr (window-list)))
+;;       (with-current-buffer (window-buffer window)
+;;         (mapc #'face-remap-remove-relative theme-highlight-window-remapping)
+;;         (setq theme-highlight-window-remapping nil))))
+;;   (setq theme-highlight-window-remapping
+;;         (cl-loop for face in '(default fringe)
+;;                  collect (face-remap-add-relative face 'theme-selected-window-face))))
+
+;; (add-hook 'window-configuration-change-hook #'theme-highlight-selected-window)
+;; (add-hook 'buffer-list-update-hook #'theme-highlight-selected-window)
+;; ;; (remove-hook 'buffer-list-update-hook #'theme-highlight-selected-window)
+
 (defvar theme-selected-window (frame-selected-window)
   "Selected window.")
 
 (defun theme-set-selected-window ()
-  "Set the variable `theme-selected-window' appropriately."
-  (when (not (minibuffer-window-active-p (frame-selected-window)))
+  "Set the variable `theme-selected-window' appropriately.
+This is used to determine whether the current window is active."
+  (unless (minibuffer-window-active-p (frame-selected-window))
     (setq theme-selected-window (frame-selected-window))
     (force-mode-line-update)))
 
-(defun theme-unset-selected-window ()
-  "Unset the variable `theme-selected-window' and update the mode line."
-  (setq theme-selected-window nil)
-  (force-mode-line-update))
-
-(add-hook 'window-configuration-change-hook 'theme-set-selected-window)
-
-;; focus-in-hook was introduced in emacs v24.4.
-;; Gets evaluated in the last frame's environment.
-(add-hook 'focus-in-hook 'theme-set-selected-window)
-
-;; focus-out-hook was introduced in emacs v24.4.
-(add-hook 'focus-out-hook 'theme-unset-selected-window)
+;; Executes after a window (not a buffer) has been created, deleted, or moved.
+(add-hook 'window-configuration-change-hook #'theme-set-selected-window)
 
 ;; Executes after the window manager requests that the user's events
 ;; be directed to a different frame.
-(defadvice handle-switch-frame (after theme-handle-switch-frame activate)
-  "Call `theme-set-selected-window'."
-  (theme-set-selected-window))
+(advice-add 'handle-switch-frame :after #'theme-set-selected-window)
 
+;; Executes after the `buffer-list' changes.
 (add-hook 'buffer-list-update-hook #'theme-set-selected-window)
 
 (defun theme-window-active-p ()
@@ -317,10 +342,11 @@ to customize furter."
          (outline-1-spec (face-spec-choose (theme-get-face 'outline-1)))
          (active-bg (plist-get default-spec :background))
          (active-fg (plist-get default-spec :foreground))
-         (inactive-bg (doom-blend active-bg active-fg 0.9))
+         (inactive-bg (doom-blend active-bg active-fg 0.95))
          (inactive-fg (doom-blend active-bg active-fg 0.4))
          (highlight-fg (plist-get outline-1-spec :foreground)))
     `((default ((t :background ,inactive-bg)))
+      ;; (theme-selected-window-face ((t :background ,active-bg)))
       (window-highlight-focused-window ((t :background ,active-bg)))
       (fringe ((t :background ,inactive-bg)))
       (vertical-border ((t :foreground ,inactive-bg)))
@@ -489,37 +515,6 @@ Insert spaces between the two so that the string is
   :config
   (window-highlight-mode 1))
 
-(defvar fiat-state 'nox
-  "Whether we let there be light or dark.")
-
-(defun fiat--set-os-dark-mode (p)
-  ;; Change directory in case we are in a tramp session.
-  (let ((default-directory "~")
-        (p (if p "true" "false")))
-    (shell-command (format "osascript -e '
-tell application \"System Events\"
-  tell appearance preferences to set dark mode to %s
-end tell'" p))))
-
-(defun fiat ()
-  "Let there be the opposite of whatever came before."
-  (interactive)
-  (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
-
-(defun fiat-lux ()
-  "Switch Emacs and OS to light mode."
-  (interactive)
-  (setq fiat-state 'lux)
-  (theme-activate 'solarized-light)
-  (fiat--set-os-dark-mode nil))
-
-(defun fiat-nox ()
-  "Switch Emacs and OS to dark mode."
-  (interactive)
-  (setq fiat-state 'nox)
-  (theme-activate 'doom-dracula)
-  (fiat--set-os-dark-mode t))
-
 (bind-key "C-c C-t" #'theme-choose)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -582,13 +577,6 @@ Update environment variables from a shell source file."
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
 
-(defun expand-environment-variable ()
-  "Insert contents of an envionment variable at point."
-  (interactive)
-  (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
-
-(bind-key "C-c C-v" 'expand-environment-variable)
-
 (add-hook 'after-init-hook (lambda ())
           (require 'server)
           (unless (server-running-p) (server-start)))
@@ -596,38 +584,6 @@ Update environment variables from a shell source file."
 (use-package restart-emacs
   :commands
   (restart-emacs))
-
-(defun dos2unix ()
-  "Convert DOS line endings to Unix ones."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (search-forward (string ?\C-m) nil t)
-      (replace-match (string ?\C-j) nil t)))
-  (set-buffer-file-coding-system 'unix 't))
-
-(defun unix2dos ()
-  "Convert Unix encoded buffer to DOS encoding.
-https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
-  (interactive)
-  (set-buffer-file-coding-system 'dos))
-
-(defun touch (cmd)
-  "Run `touch CMD' in `default-directory'."
-  (interactive
-   (list (read-shell-command "Run touch (like this): "
-                             "touch "
-                             'touch-history
-                             "touch ")))
-  (shell-command cmd))
-
-(defvar os-open-file-executable nil)
-
-(defun os-open-file (file)
-  "Open FILE using the operating system's GUI file opener."
-  (interactive)
-  (message "Opening %s..." file)
-  (call-process os-open-file-executable nil 0 nil file))
 
 (defun config-unix ()
   "Configure Emacs for common Unix (Linux and macOS) settings."
@@ -655,11 +611,7 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
   (set-face-font 'default "Monaco-13")
   ;; Use system trash
   (setq delete-by-moving-to-trash t
-        trash-directory "~/.Trash")
-
-  (use-package reveal-in-osx-finder
-    :config
-    (defalias 'os-reveal-file #'reveal-in-osx-finder)))
+        trash-directory "~/.Trash"))
 
 (defun config-windows ()
   "Configure Emacs for Windows."
@@ -669,15 +621,7 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
         w32-pass-rwindow-to-system nil
         w32-rwindow-modifier 'super
         os-open-file-executable "explorer")
-  (set-face-font 'default "Lucida Console-12")
-
-  (defun reveal-in-windows-explorer (&optional file)
-    "Reveal the current FILE in the operating system's file manager."
-    (interactive)
-    (unless file (setq file buffer-file-name))
-    (os-open-file (concat "/select," (dired-replace-in-string "/" "\\" file))))
-
-  (defalias 'os-reveal-file #'reveal-in-windows-explorer))
+  (set-face-font 'default "Lucida Console-12"))
 
 ;; OS specific configuration
 (pcase system-type
@@ -796,133 +740,17 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 ;; Enable all commands
 (setq disabled-command-function nil)
 
+(use-package evil
+  :bind
+  ("s-ESC" . evil-mode)
+  ("s-<escape>" . evil-mode))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Navigation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
-
-(defun next-line-4 ()
-  "Scroll 4 lines down."
-  (interactive)
-  (forward-line 4))
-
-(defun previous-line-4 ()
-  "Scroll 4 lines up."
-  (interactive)
-  (forward-line -4))
-
-(bind-keys
- ("C-S-p" . previous-line-4)
- ("C-S-n" . next-line-4)
- ("H-p" . "\C-u1\M-v")
- ("H-n" . "\C-u1\C-v"))
-
-;; Key bindings to make moving between Emacs and other appliations a bit less
-;; jarring. These are mostly based on macOS defaults but an effor has been made
-;; to work on Windows and Linux. That is why there are multiple bindings for
-;; many commands. They can be overridden by the OS specific configurations
-;; below.
-(bind-keys
- ("s-o" . find-file)
- ("s-O" . find-file-other-window)
- ("s-s" . save-buffer)
- ("s-S" . write-file)
- ("s-q" . save-buffers-kill-emacs)
- ("s-z" . undo)
- ("C-z" . undo)
- ("s-x" . kill-line-or-region)
- ("s-c" . copy-line-or-region)
- ("s-v" . clipboard-yank-and-indent)
- ("s-a" . mark-whole-buffer)
- ("s-g" . isearch-repeat-forward)
- ("s-G" . isearch-repeat-backward)
- ("C-S-s" . isearch-forward-symbol-at-point)
- ("s-l" . select-current-line)
- ("C-S-L" . select-current-line)
- ("M-o" . other-window)
- ("s-b" . switch-to-buffer)
- ("s-B" . switch-to-buffer-other-window)
- ("s-\`" . other-frame)
- ("C-\`" . other-frame)
- ("s-w" . delete-window)
- ("s-W" . delete-other-windows)
- ("s-C-w" . delete-frame)
- ("s-/" . comment-toggle)
- ("s-h" . ns-do-hide-emacs)
- ("s-H" . ns-do-hide-others)
- ("s-i" . os-reveal-file)
- ("C-c i" . os-reveal-file)
- ("s-<return>" . eval-last-sexp)
- ("s-RET" . eval-last-sexp))
-
-(defun filter-buffers-by-name (regexp)
-  "Return a list of buffers whose names match REGEXP."
-  (seq-filter (lambda (b) (string-match-p regexp (buffer-name b)))
-              (buffer-list)))
-
-(defun filter-buffers-by-mode (mode)
-  "Return a list of buffers whose major mode is MODE."
-  (when (stringp mode) (setq mode (intern mode)))
-  (seq-filter (lambda (b) (eq (buffer-local-value 'major-mode b) mode))
-              (buffer-list)))
-
-(defun list-buffer-major-modes ()
-  "Return a list of all major modes currently in use in open buffers."
-  (delete-dups (mapcar (lambda (b) (buffer-local-value 'major-mode b))
-                       (buffer-list))))
-
-(defun list-major-modes ()
-  "Return a list of all major modes which are associated with a
-  magic string or file extension."
-  (delete-dups (mapcar #'cdr (append magic-mode-alist
-                                     auto-mode-alist
-                                     magic-fallback-mode-alist))))
-
-(defun switch-to-buffer-by-mode (mode)
-  "Interactively choose a major MODE, then choose a buffer of that mode."
-  (interactive
-   (list (ivy-read "Choose buffers for major mode: "
-                   (list-buffer-major-modes)
-                   :history 'switch-to-buffer-by-mode-history
-                   :action 'switch-to-buffer-by-mode)))
-  (when (stringp mode) (setq mode (intern mode)))
-  (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
-    (ivy-read (format "%s buffers: " mode) buffers
-              :keymap ivy-switch-buffer-map
-              :action #'ivy--switch-buffer-action
-              :matcher #'ivy--switch-buffer-matcher
-              :preselect (when (eq major-mode mode) (cadr buffers))
-              ;; Use the `ivy-switch-buffer' actions.
-              :caller #'ivy-switch-buffer)))
-
-;; Quick switch buffers
-(bind-keys ("C-x C-b" . ibuffer)
-           ("s-}" . next-buffer)
-           ("C-c }" . next-buffer)
-           ("s-{" . previous-buffer)
-           ("C-c {" . previous-buffer)
-           ("C-s-j" . switch-to-buffer-by-mode)
-           ("C-c M-j" . switch-to-buffer-by-mode)
-
-           ;; windmove
-           ("H-a" . windmove-left)
-           ("H-h" . windmove-left)
-           ("H-d" . windmove-right)
-           ("H-l" . windmove-right)
-           ("H-w" . windmove-up)
-           ("H-j" . windmove-up)
-           ("H-s" . windmove-down)
-           ("H-k" . windmove-down)
-           ("M-]" . windmove-right)
-           ("M-[" . windmove-left)
-
-           ;; Navigating with mark
-           ("M-s-," . pop-to-mark-command)
-           ("C-c ," . pop-to-mark-command)
-           ("s-," . pop-global-mark)
-           ("C-c C-," . pop-global-mark))
 
 (use-package winner
   :init
@@ -1011,44 +839,6 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 (setq initial-scratch-message nil
       initial-major-mode 'lisp-interaction-mode)
 
-(defun new-scratch-buffer ()
-  "Create or go to a scratch buffer in the current mode.
-
-If ARG is provided then prompt for the buffer's mode. Try these
-  things in succession\:
-
-1. Select an existing window containing the scratch buffer.
-2. Switch to an existing scratch buffer.
-3. Create a new scratch buffer and switch to it."
-  (interactive)
-  (let* ((mode (if current-prefix-arg
-                   (intern (ivy-read "New scratch buffer with mode: "
-                                     (list-major-modes)
-                                     :history 'new-scratch-buffer-history
-                                     :caller 'new-scratch-buffer))
-                 ;; :initial-input (car new-scratch-buffer-history)))
-                 major-mode))
-         (name (format "<%s>" (symbol-name mode)))
-         (win (get-buffer-window name)))
-    (cond
-     (win (select-window win))
-     (t (switch-to-buffer (get-buffer-create name))
-        (setq buffer-file-name name)
-        (funcall mode)))))
-
-(defun new-scratch-buffer-other-window ()
-  "Create or go to a scratch buffer in ther current mode.
-
-For for details see `new-scratch-buffer'."
-  (interactive)
-  (switch-to-buffer-other-window (current-buffer))
-  (new-scratch-buffer))
-
-(bind-keys ("s-n" . new-scratch-buffer)
-           ("s-N" . new-scratch-buffer-other-window)
-           ("C-c C-n" . new-scratch-buffer)
-           ("C-c M-n" . new-scratch-buffer-other-window))
-
 ;; Try to re-use help buffers of different sorts
 (setq display-buffer-alist
       `((,(rx bos
@@ -1057,143 +847,12 @@ For for details see `new-scratch-buffer'."
          (display-buffer-reuse-mode-window display-buffer-pop-up-window)
          (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
 
-;; kill buffer and window
-(defun kill-other-buffer-and-window ()
-  "Kill the buffer in the other window."
-  (interactive)
-  (select-window (next-window))
-  (kill-buffer-and-window))
-
-(bind-keys ("M-s-w" . kill-buffer-and-window)
-           ("M-s-W" . kill-other-buffer-and-window))
-
-;; https://www.emacswiki.org/emacs/ToggleWindowSplit
-(defun toggle-window-split ()
-  "Toggle windows between horizontal and vertical split."
-  (interactive)
-  (if (= (count-windows) 2)
-      (let* ((this-win-buffer (window-buffer))
-             (next-win-buffer (window-buffer (next-window)))
-             (this-win-edges (window-edges (selected-window)))
-             (next-win-edges (window-edges (next-window)))
-             (this-win-2nd (not (and (<= (car this-win-edges)
-                                         (car next-win-edges))
-                                     (<= (cadr this-win-edges)
-                                         (cadr next-win-edges)))))
-             (splitter (if (= (car this-win-edges)
-                              (car (window-edges (next-window))))
-                           'split-window-horizontally
-                         'split-window-vertically)))
-        (delete-other-windows)
-        (let ((first-win (selected-window)))
-          (funcall splitter)
-          (if this-win-2nd (other-window 1))
-          (set-window-buffer (selected-window) this-win-buffer)
-          (set-window-buffer (next-window) next-win-buffer)
-          (select-window first-win)
-          (if this-win-2nd (other-window 1))))))
-
-(bind-keys ("M-s-<up>" . shrink-window)
-           ("M-s-<down>" . enlarge-window)
-           ("M-s-<left>" . shrink-window-horizontally)
-           ("M-s-<right>" . enlarge-window-horizontally)
-           :map ctl-x-4-map
-           ("t" . toggle-window-split))
-
-;; Tags
-(bind-keys ("s-R" . xref-find-definitions-other-window)
-           ("C-c M-r" . xref-find-definitions-other-window))
-
-(defun find-file-at-point-with-line (&optional filename)
-  "Open FILENAME at point and move point to line specified next to file name."
-  (interactive)
-  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
-         (line-number
-          (and (or (looking-at ".* line \\(\[0-9\]+\\)")
-                   (looking-at "[^:]*:\\(\[0-9\]+\\)"))
-               (string-to-number (match-string-no-properties 1))))
-         (column-number
-          (or
-           (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
-                (string-to-number (match-string-no-properties 1)))
-           0)))
-    (message "%s --> %s:%s" filename line-number column-number)
-    (cond ((ffap-url-p filename)
-           (let (current-prefix-arg)
-             (funcall ffap-url-fetcher filename)))
-          ((and line-number
-                (file-exists-p filename))
-           (progn (find-file-other-window filename)
-                  (goto-char (point-min))
-                  (forward-line (1- line-number))
-                  (forward-char column-number)))
-          ((and ffap-pass-wildcards-to-dired
-                ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename))
-           (funcall ffap-directory-finder filename))
-          ((and ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename)
-                find-file-wildcards
-                ;; Check if it's find-file that supports wildcards arg
-                (memq ffap-file-finder '(find-file find-alternate-file)))
-           (funcall ffap-file-finder (expand-file-name filename) t))
-          ((or (not ffap-newfile-prompt)
-               (file-exists-p filename)
-               (y-or-n-p "File does not exist, create buffer? "))
-           (funcall ffap-file-finder
-                    ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
-                    (expand-file-name filename)))
-          ;; User does not want to find a non-existent file:
-          ((signal 'file-error (list "Opening file buffer"
-                                     "no such file or directory"
-                                     filename))))))
-
-(bind-key "C-c C-f" #'find-file-at-point-with-line)
-
-(defun parse-colon-notation (filename)
-  "Parse FILENAME in the format expected by `server-visit-files'.
-Modify it so that `filename:line:column' is is reformatted the
-way Emacs expects."
-  (let ((name (car filename)))
-    (if (string-match "^\\(.*?\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?$" name)
-        (cons
-         (match-string 1 name)
-         (cons (string-to-number (match-string 2 name))
-               (string-to-number (or (match-string 3 name) ""))))
-      filename)))
-
-(defun wrap-colon-notation (f &rest args)
-  "Wrap F (`server-visit-files') and modify ARGS to support colon notation.
-Open files with emacsclient with cursors according to colon
-notation. When the file name has line numbers and optionally
-columns specified like `filename:line:column', parse those and
-return them in the Emacs format."
-  (message "%s" args)
-  (apply f (cons (mapcar #'parse-colon-notation (car args)) (cdr args))))
-
+;; Make `emacsclient' support solon notation of line:column
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
 ;; Just set up 3 windows, no fancy frames or whatever
 (with-eval-after-load 'ediff
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
-
-(defun goto-line-with-feedback ()
-  "Show line numbers temporarily, while prompting for line number N."
-  (interactive)
-  (unwind-protect
-      (progn
-        (linum-mode 1)
-        (forward-line)
-        (let ((n (1- (read-number "Go to line: "))))
-          (goto-char (point-min))
-          (forward-line n)))
-    (linum-mode -1)))
-
-(bind-key [remap goto-line] #'goto-line-with-feedback)
-
-(use-package evil
-  :bind
-  ("s-ESC" . evil-mode))
 
 (use-package goto-addr
   :hook
@@ -1202,32 +861,6 @@ return them in the Emacs format."
   :bind
   (:map goto-address-highlight-keymap
         ("C-c C-o" . goto-address-at-point)))
-
-(defun outline-show-current-sublevel ()
-  "Show only the current top level section."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-previous ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-previous-visible-heading 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-next ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-next-visible-heading 1)
-  (outline-show-subtree))
 
 ;; outline-mode extension for navigating by sections. in Emacs Lisp that is defined by
 ;; `;;; ', `;;;; ', etc. Everywhere else it is like `;; * ' `;; ** ', and so on.
@@ -1279,6 +912,99 @@ return them in the Emacs format."
   ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
   ("C-c S" . crux-find-shell-init-file)
   ("C-<backspace>" . crux-kill-line-backwards))
+
+;; Key bindings to make moving between Emacs and other appliations a bit less
+;; jarring. These are mostly based on macOS defaults but an effor has been made
+;; to work on Windows and Linux. That is why there are multiple bindings for
+;; many commands. They can be overridden by the OS specific configurations
+;; below.
+(bind-keys
+ ("s-o" . find-file)
+ ("s-O" . find-file-other-window)
+ ("s-s" . save-buffer)
+ ("s-S" . write-file)
+ ("s-q" . save-buffers-kill-emacs)
+ ("s-z" . undo)
+ ("C-z" . undo)
+ ("s-x" . kill-line-or-region)
+ ("s-c" . copy-line-or-region)
+ ("s-v" . clipboard-yank-and-indent)
+ ("s-a" . mark-whole-buffer)
+ ("s-g" . isearch-repeat-forward)
+ ("s-G" . isearch-repeat-backward)
+ ("C-S-s" . isearch-forward-symbol-at-point)
+ ("s-l" . select-current-line)
+ ("C-S-L" . select-current-line)
+ ("M-o" . other-window)
+ ("s-b" . switch-to-buffer)
+ ("s-B" . switch-to-buffer-other-window)
+ ("s-\`" . other-frame)
+ ("C-\`" . other-frame)
+ ("s-w" . delete-window)
+ ("s-W" . delete-other-windows)
+ ("s-C-w" . delete-frame)
+ ("s-/" . comment-toggle)
+ ("s-h" . ns-do-hide-emacs)
+ ("s-H" . ns-do-hide-others)
+
+ ("s-i" . os-reveal-file)
+ ("C-c i" . os-reveal-file)
+ ("s-<return>" . eval-last-sexp)
+ ("s-RET" . eval-last-sexp)
+ ("s-n" . new-scratch-buffer)
+ ("s-N" . new-scratch-buffer-other-window)
+ ("C-c C-n" . new-scratch-buffer)
+ ("C-c M-n" . new-scratch-buffer-other-window)
+ ("C-S-p" . previous-line-4)
+ ("C-S-n" . next-line-4)
+ ("H-p" . "\C-u1\M-v")
+ ("H-n" . "\C-u1\C-v")
+
+ ;; Quick switch buffers
+ ("C-x C-b" . ibuffer)
+ ("s-}" . next-buffer)
+ ("C-c }" . next-buffer)
+ ("s-{" . previous-buffer)
+ ("C-c {" . previous-buffer)
+ ("C-s-j" . switch-to-buffer-by-mode)
+ ("C-c M-j" . switch-to-buffer-by-mode)
+
+ ;; windmove
+ ("H-a" . windmove-left)
+ ("H-h" . windmove-left)
+ ("H-d" . windmove-right)
+ ("H-l" . windmove-right)
+ ("H-w" . windmove-up)
+ ("H-j" . windmove-up)
+ ("H-s" . windmove-down)
+ ("H-k" . windmove-down)
+ ("M-]" . windmove-right)
+ ("M-[" . windmove-left)
+
+ ;; Resize windows
+ ("M-s-<up>" . shrink-window)
+ ("M-s-<down>" . enlarge-window)
+ ("M-s-<left>" . shrink-window-horizontally)
+ ("M-s-<right>" . enlarge-window-horizontally)
+
+ ;; Navigate with mark
+ ("M-s-," . pop-to-mark-command)
+ ("C-c ," . pop-to-mark-command)
+ ("s-," . pop-global-mark)
+ ("C-c C-," . pop-global-mark)
+
+ ;; Kill buffer and window at the same time.
+ ("M-s-w" . kill-buffer-and-window)
+ ("M-s-W" . kill-other-buffer-and-window)
+
+ ;; Tags
+ ("s-R" . xref-find-definitions-other-window)
+ ("C-c M-r" . xref-find-definitions-other-window)
+
+ ("C-c C-f" . find-file-at-point-with-line)
+
+ :map ctl-x-4-map
+ ("t" . toggle-window-split))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Help and Documentation
@@ -1358,12 +1084,6 @@ return them in the Emacs format."
   (mapcar (lambda (f) (string-trim-right f ".docset"))
           (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
 
-(defun dash-docs-update-all-docsets ()
-  "Update all docsets."
-  (interactive)
-  (seq-do (lambda (d) (when (memq d (dash-docs-official-docsets)) (dash-docs-install-docset)))
-          (dash-docs-installed-docsets)))
-
 (use-package dash-docs
   :straight
   (:type git :host github :repo "gilbertw1/dash-docs")
@@ -1397,90 +1117,6 @@ return them in the Emacs format."
       mouse-drag-and-drop-region t
       mouse-drag-and-drop-region-cut-when-buffers-differ t)
 
-(defun clipboard-yank-and-indent ()
-  "Yank and then indent the newly formed region according to mode."
-  (interactive)
-  (if (and delete-selection-mode (use-region-p)) (delete-active-region))
-  (clipboard-yank)
-  (call-interactively 'indent-region))
-
-(defun kill-line-or-region ()
-  "Kill the current line or active region.
-
-When `universal-argument' is called first, kill the whole
-buffer (respects `narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn ; not using kill-region because we don't want to include previous kill
-        (kill-new (buffer-string))
-        (delete-region (point-min) (point-max)))
-    (progn (if (use-region-p)
-               (kill-region (region-beginning) (region-end) t)
-             (kill-region (line-beginning-position) (line-beginning-position 2))))))
-
-(defun copy-line-or-region ()
-  "Copy the current line or active region.
-
-When called repeatedly, append copy subsequent lines. When
-`universal-argument' is called first, copy whole
-buffer (respects`narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn
-        (kill-ring-save (point-min) (point-max)))
-    (if (use-region-p)
-        (progn
-          (kill-ring-save (region-beginning) (region-end)))
-      (if (eq last-command this-command)
-          (if (eobp)
-              (progn)
-            (progn
-              (kill-append "\n" nil)
-              (kill-append
-               (buffer-substring-no-properties (line-beginning-position) (line-end-position))
-               nil)
-              (progn
-                (end-of-line)
-                (forward-char))))
-        (if (eobp)
-            (if (eq (char-before) 10)
-                (progn)
-              (progn
-                (kill-ring-save (line-beginning-position) (line-end-position))
-                (end-of-line)))
-          (progn
-            (kill-ring-save (line-beginning-position) (line-end-position))
-            (end-of-line)
-            (forward-char)))))))
-
-(defun comment-toggle ()
-  "Toggle comments for the region.
-If no region is selected, toggles comments for the line."
-  (interactive)
-  (let ((start (line-beginning-position))
-        (end (line-end-position)))
-    (when (or (not transient-mark-mode) (region-active-p))
-      (setq start (save-excursion
-                    (goto-char (region-beginning))
-                    (beginning-of-line)
-                    (point))
-            end (save-excursion
-                  (goto-char (region-end))
-                  (end-of-line)
-                  (point))))
-    (comment-or-uncomment-region start end))
-  (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
-
-(defun select-current-line ()
-  "Select the current line."
-  (interactive)
-  (beginning-of-line)
-  (set-mark (line-end-position)))
-
 ;; Wrap text.
 (setq-default fill-column 80)
 
@@ -1488,7 +1124,6 @@ If no region is selected, toggles comments for the line."
 (setq require-final-newline t
       ;; Sentences end with one space.
       sentence-end-double-space nil)
-
 
 ;; Delete selection on insert or yank
 (delete-selection-mode 1)
@@ -1498,12 +1133,6 @@ If no region is selected, toggles comments for the line."
               tab-width 2
               tab-stop-list (number-sequence tab-width 120 tab-width))
 
-;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
-(bind-key "M-\\" #'cycle-spacing)
-
-;; Continue comment on next line (default binding is "C-M-j")
-(bind-key "M-RET" #'indent-new-comment-line)
-
 (defun configure-auto-fill-mode ()
   "Automatically fill comments.
 Wraps on `fill-column' columns."
@@ -1512,54 +1141,21 @@ Wraps on `fill-column' columns."
 
 (add-hook 'prog-mode-hook #'configure-auto-fill-mode)
 
-(defun move-line-or-region-to-other-window ()
-  "Kill region (if active) or the current line then yank at point
-in the other window."
-  (interactive)
-  (kill-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
-(defun copy-line-or-region-to-other-window ()
-  "Copy region (if active) or the current line to point in the
-other window."
-  (interactive)
-  (copy-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
-(bind-keys ("s-C" . copy-line-or-region-to-other-window)
-           ("s-X" . move-line-or-region-to-other-window))
-
 ;; sh-mode
 (use-package sh-script
-  :ensure-system-package
-  (shfmt . "brew install shfmt")
+  :ensure-system-package shfmt
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t))
-
-;; Make a shell script executable automatically on save
-(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
-
-(defun maybe-reset-major-mode ()
-  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time.
-https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
-  (when (and
-         ;; The buffer's visited file does not exist.
-         (eq (file-exists-p (buffer-file-name)) nil)
-         (eq major-mode 'fundamental-mode))
-    (normal-mode)))
-
-(add-hook 'before-save-hook #'maybe-reset-major-mode)
+  (executable-prefix-env t)
+  :hook
+  ;; Make a shell script executable automatically on save
+  (after-save . executable-make-buffer-file-executable-if-script-p)
+  (before-save . maybe-reset-major-mode)
+  :bind
+  (:map sh-mode-map
+        ("s-<ret>" . eshell-send-current-line)))
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
@@ -1567,21 +1163,12 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
 ;; Automatically indent after RET
 (electric-indent-mode +1)
 
-;; http://whattheemacsd.com/key-bindings.el-03.html
-(defun delete-indentation-forward ()
-  "Like `delete-indentation', but in the opposite direction.
-Bring the line below point up to the current line."
-  (interactive)
-  (join-line -1))
-
-(bind-key "C-^" #'delete-indentation-forward)
-
 (use-package redo+
   :straight
   (:type git :host github :repo "clemera/undo-redo")
   :bind
-  ("s-z" . undo-modern)
-  ("C-z" . undo-modern)
+  ("s-z" . undo)
+  ("C-z" . undo)
   ("s-Z" . redo)
   ("s-y" . redo))
 
@@ -1694,147 +1281,56 @@ Bring the line below point up to the current line."
     web-mode
     yaml-mode) . format-all-mode))
 
-(defun indent-buffer-or-region (&optional arg)
-  "Indent the region if one is active, otherwise format the buffer.
-Some modes have special treatment."
-  (interactive "P")
-  (when (sp-point-in-string-or-comment)
-    (fill-paragraph arg))
-  (call-interactively #'crux-cleanup-buffer-or-region)
-  (if (use-region-p)
-      (progn
-        (indent-region (region-beginning) (region-end))
-        (message "Region indented."))
-    (progn
-      (format-all-buffer)
-      (message "Buffer formatted."))))
-
-(defun indent-defun ()
-  "Indent the current defun."
-  (interactive)
-  (save-excursion
-    (mark-defun)
-    (indent-buffer-or-region (region-beginning) (region-end))))
-
-(bind-keys ("C-M-\\" . indent-buffer-or-region)
-           ("C-\\" . indent-defun))
-
 (use-package darkroom
   :bind
   ("C-c C-d" . darkroom-mode)
   :commands
-  (darkroom-mode darkroom-tentative-mode))
+  (darkroom-mode))
+
+(bind-keys ("C-M-\\" . indent-buffer-or-region)
+           ("C-\\" . indent-defun)
+           ("C-^" . delete-indentation-forward)
+           ("s-C" . copy-line-or-region-to-other-window)
+           ("s-X" . move-line-or-region-to-other-window)
+           ;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
+           ("M-\\" . cycle-spacing)
+           ;; Continue comment on next line (default binding is "C-M-j")
+           ("M-RET" . indent-new-comment-line))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Lisp, S-Expressions, Parentheses, Brackets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun sp-sh-post-handler (_id action _context)
-  "Bash post handler ID, ACTION, CONTEXT."
-  (-let (((&plist :arg arg :enc enc) sp-handler-context))
-    (when (equal action 'barf-backward)
-      (sp-ruby-delete-indentation 1)
-      (indent-according-to-mode)
-      (save-excursion
-        (sp-backward-sexp)              ; move to begining of current sexp
-        (sp-backward-sexp arg)
-        (sp-ruby-maybe-one-space)))
+(add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
 
-    (when (equal action 'barf-forward)
-      (sp-get enc
-        (let ((beg-line (line-number-at-pos :beg-in))))))
-    (sp-forward-sexp arg)
-    (sp-ruby-maybe-one-space)
-    (when (not (= (line-number-at-pos) beg-line))
-      (sp-ruby-delete-indentation -1))
-    (indent-according-to-mode)))
-
-(defun sp-sh-block-post-handler (id action context)
-  "Handler for bash block insertions.
-ID, ACTION, CONTEXT."
-  (when (equal action 'insert)
-    (save-excursion
-      (newline)
-      (indent-according-to-mode))
-    (indent-according-to-mode))
-  (sp-sh-post-handler id action context))
-
-(defun sp-sh-pre-handler (_id action _context)
-  "Handler for bash slurp and barf.
-ID, ACTION, CONTEXT."
-  (let ((enc (plist-get sp-handler-context :enc)))
-    (sp-get enc
-      (let ((beg-line (line-number-at-pos :beg-in))))
-      (end-line (line-number-at-pos :end-in)
-
-                (when (equal action 'slurp-backward))))
-    (save-excursion
-      (sp-forward-sexp)
-      (when (looking-at-p ";") (forward-char))
-      (sp-ruby-maybe-one-space)
-      (when (not (= (line-number-at-pos) end-line))
-        (sp-ruby-delete-indentation -1)))
-    (while (thing-at-point-looking-at "\\.[[:blank:]\n]*")
-      (sp-backward-sexp))
-    (when (looking-back "[@$:&?!]")
-      (backward-char)
-      (when (looking-back "[@&:]")
-        (backward-char)))
-    (just-one-space)
-    (save-excursion
-      (if (= (line-number-at-pos) end-line
-             (insert " "))
-          (newline
-
-           (when (equal action 'barf-backward)))))
-    ;; Barf whole method chains
-    (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
-      (sp-forward-sexp))
-    (if (looking-at-p " *$")
-        (newline)
-      (save-excursion (newline)
-
-                      (when (equal action 'slurp-forward))))
-    (save-excursion
-      (sp-backward-sexp)
-      (when (looking-back "\." nil) (backward-char))
-      (sp-ruby-maybe-one-space)
-      (when (not (= (line-number-at-pos) beg-line))
-        (if (thing-at-point-looking-at "\\.[[:blank:]\n]*")))
-      (progn
-        (forward-symbol -1)
-        (sp-ruby-delete-indentation -1
-                                    (sp-ruby-delete-indentation))))
-    (while (looking-at-p "::") (sp-forward-symbol))
-    (when (looking-at-p "[?!;]") (forward-char))
-    (if (= (line-number-at-pos) beg-line)
-        (insert " ")
-      (newline
-
-       (when (equal action 'barf-forward))))
-    (when (looking-back "\\." nil) (backward-char))
-    (while (looking-back "::" nil) (sp-backward-symbol))
-    (if (= (line-number-at-pos) end-line)
-        (insert " ")
-      (if (looking-back "^[[:blank:]]*" nil
-                        (save-excursion (newline)))
-          (newline)))))
-
-(defun sp-backward-slurp-into-previous-sexp ()
-  "Add the sexp at point into the preceeding list."
-  (interactive)
-  (save-excursion
-    (sp-down-sexp)
-    (sp-backward-symbol)
-    (sp-forward-slurp-sexp)))
-
-;; See https://github.com/Fuco1/smartparens/issues/80
-(defun sp-create-newline-and-enter-sexp (&rest _)
-  "Open a new brace or bracket expression, with relevant newlines and indent."
-  (newline)
-  (indent-according-to-mode)
-  (forward-line -1)
-  (indent-according-to-mode))
+(use-package parinfer
+  :custom
+  (parinfer-extensions
+   '(defaults       ; should be included.
+      pretty-parens ; different paren styles for different modes.
+      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
+      smart-yank))  ; Yank behavior depends on mode.
+  :config
+  (parinfer-strategy-add 'default 'newline-and-indent)
+  :hook
+  ((clojure-mode common-lisp-mode emacs-lisp-mode hy-mode lisp-interaction-mode
+                 lisp-mode scheme-mode) . parinfer-mode)
+  :bind
+  (:map parinfer-mode-map
+        ("<tab>" . parinfer-smart-tab:dwim-right)
+        ("S-<tab>" . parinfer-smart-tab:dwim-left)
+        ("C-i" . parinfer--reindent-sexp)
+        ("C-M-i" . parinfer-auto-fix)
+        ("C-," . parinfer-toggle-mode)
+        ;; Don't interfere with smartparens quote handling
+        ("\"" . nil)
+        ;; sp-newline seems to offer a better experience for lisps
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline)
+        :map parinfer-region-mode-map
+        ("C-i" . indent-for-tab-command)
+        ("<tab>" . parinfer-smart-tab:dwim-right)
+        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
 (use-package smartparens
   :custom
@@ -1849,8 +1345,6 @@ ID, ACTION, CONTEXT."
   (sp-base-key-bindings 'paredit)
   (sp-override-key-bindings '(("C-M-<backspace>" . sp-splice-sexp-killing-backward)))
   :config
-  (bind-key [remap kill-line] #'sp-kill-hybrid-sexp smartparens-mode-map
-            (apply #'derived-mode-p sp-lisp-modes))
   (sp-with-modes
       '(c-mode c++-mode css-mode graphql-mode javascript-mode js2-mode json-mode objc-mode
                python-mode java-mode sh-mode web-mode)
@@ -1884,8 +1378,7 @@ ID, ACTION, CONTEXT."
   (smartparens-global-mode)
   :hook
   (smartparens-mode . (lambda ()
-                        (require 'smartparens-config)
-                        (turn-on-show-smartparens-mode)))
+                        (require 'smartparens-config) (turn-on-show-smartparens-mode)))
   (prog-mode . turn-on-smartparens-mode)
   (clojure-mode . (lambda () (require 'smartparens-clojure)))
   ((ruby-mode enh-ruby-mode) . (lambda () (require 'smartparens-ruby)))
@@ -1895,11 +1388,82 @@ ID, ACTION, CONTEXT."
   (org-mode . (lambda () (require 'smartparens-org)))
   (python-mode . (lambda () (require 'smartparens-python)))
   (text-mode . (lambda () (require 'smartparens-text)))
-  (web-mode . (lambda () (require 'smartparens-html))))
+  (web-mode . (lambda () (require 'smartparens-html)))
+  :bind
+  (:map smartparens-mode-map
+        ("C-c C-<return>" . toggle-sp-newline)
+        :filter (cl-some #'derived-mode-p sp-lisp-modes)
+        ([remap kill-line] . sp-kill-hybrid-sexp)))
 
-(add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
+(use-package clojure-mode
+  :config
+  (add-to-list 'interpreter-mode-alist '("inlein" . clojure-mode))
+  :hook
+  ((clojure-mode clojurescript-mode) . turn-on-eldoc-mode))
 
-(with-eval-after-load 'elisp-mode (require 'm-lisp))
+;; (use-package clojure-mode-extra-font-locking
+;;   :defer 1)
+
+(use-package cider
+  ;; :hook
+  ;; (cider-repl-mode . (lambda () (company-mode nil)))
+  :bind
+  (:map cider-mode-map
+        ("s-<return>" . cider-eval-last-sexp)))
+
+(use-package inf-clojure
+  :hook
+  (comint-mode . reinstate-comint-simple-send)
+  :bind
+  (:map inf-clojure-minor-mode-map
+        ("s-<return>" . inf-clojure-eval-last-sexp)
+        ("C-c C-k" . inf-clojure-eval-buffer)))
+
+;; (use-package sly
+;;   ;; There are some problems building sly with straight.el in Windows
+;;   :unless (eq system-type 'windows-nt)
+;;   :custom
+;;   (inferior-lisp-program (executable-find "sbcl"))
+;;   :bind
+;;   (:map sly-prefix-map
+;;         ("M-h" . sly-documentation-lookup)))
+
+;; (use-package sly-company
+;;   :unless (eq system-type 'windows-nt)
+;;   :hook
+;;   (sly-mode . sly-company-mode)
+;;   :config
+;;   (add-to-list 'company-backends 'sly-company))
+
+;; Configured to use CHICKEN Scheme
+;; (use-package geiser
+;;   :custom
+;;   (geiser-default-implementation 'chicken)
+;;   (geiser-mode-eval-last-sexp-to-buffer t)
+;;   (scheme-program-name "csi -:c")
+;;   :config
+;;   (setq-default geiser-scheme-implementation 'chicken)
+
+;;   ;; Indenting module body code at column 0
+;;   (defun scheme-module-indent (state indent-point normal-indent) 0)
+;;   (put 'module 'scheme-indent-function 'scheme-module-indent)
+;;   (put 'and-let* 'scheme-indent-function 1)
+;;   (put 'parameterize 'scheme-indent-function 1)
+;;   (put 'handle-exceptions 'scheme-indent-function 1)
+;;   (put 'when 'scheme-indent-function 1)
+;;   (put 'unless 'scheme-indenfunction 1)
+;;   (put 'match 'scheme-indent-function 1)
+;;   :commands
+;;   (geiser run-geiser run-chicken))
+
+(bind-keys
+ :map lisp-mode-shared-map
+ ("s-<return>" . eval-last-sexp)
+ ("C-s-<return>" . eval-last-sexp-other-window)
+ ("C-c C-k" . eval-buffer)
+ ("C-x C-r" . eval-region)
+ ("C-x r E" . expression-to-register)
+ ("C-x r e" . eval-register))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Shell, Terminal, SSH, Tramp
@@ -1911,9 +1475,81 @@ ID, ACTION, CONTEXT."
 
 (with-eval-after-load 'tramp (require 'm-shell-common))
 
-(with-eval-after-load 'shell (require 'm-shell-common))
+(with-eval-after-load 'shell
+  (require 'm-shell-common)
+  (bind-keys :map shell-mode-map
+             ("C-d" . comint-delchar-or-eof-or-kill-buffer)
+             ("SPC" . comint-magic-space)))
 
 (with-eval-after-load 'term (require 'm-shell-common))
+
+;; TODO: Is there some way to check whether module support is compiled in?
+(ignore-errors
+  (let ((vterm-dir "~/code/emacs-libvterm"))
+    (when (file-exists-p vterm-dir)
+      (add-to-list 'load-path "~/code/emacs-libvterm")
+      (let (vterm-install)
+        (require 'vterm)))))
+
+(use-package term
+  :bind
+  (("C-c t" . vterm)
+   :map term-mode-map
+   ("M-p" . term-send-up)
+   ("M-n" . term-send-down)
+   :map term-raw-map
+   ("M-o" . other-window)
+   ("M-p" . term-send-up)
+   ("M-n" . term-send-down)
+   ("C-M-j" . term-switch-to-shell-mode)))
+
+;; xterm colors
+(use-package xterm-color
+  :custom
+  (comint-output-filter-functions
+   (remove 'ansi-color-process-output comint-output-filter-functions))
+  :config
+  (advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
+  :hook
+  (shell-mode
+   . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
+  (compilation-start
+   . (lambda (proc)
+       ;; We need to differentiate between compilation-mode buffers
+       ;; and running as part of comint (which at this point we assume
+       ;; has been configured separately for xterm-color)
+       (when (eq (process-filter proc) 'compilation-filter)
+         ;; This is a process associated with a compilation-mode buffer.
+         ;; We may call `xterm-color-filter' before its own filter function.
+         (set-process-filter proc
+                             (lambda (proc string)
+                               (funcall 'compilation-filter proc
+                                        (xterm-color-filter string))))))))
+
+(use-package bash-completion
+  :custom
+  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
+  ;; file name.
+  (bash-completion-nospace t)
+  :hook
+  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
+
+(use-package fish-mode
+  :custom (fish-indent-offset tab-width)
+  :mode "\\.fish\\'")
+
+(use-package fish-completion
+  :custom
+  (fish-completion-fallback-on-bash-p t)
+  :config
+  (global-fish-completion-mode))
+
+(use-package company-shell
+  :config
+  (add-to-list
+   'company-backends
+   `(company-shell company-shell-env
+                   ,(when (executable-find "fish") 'company-fish-shell))))
 
 (use-package eshell
   :custom
@@ -1931,12 +1567,9 @@ ID, ACTION, CONTEXT."
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
   :config
-  (with-eval-after-load 'sh
-    (bind-keys :map sh-mode-map
-               ("s-<ret>" . eshell-send-current-line)))
-  (require 'm-eshell)
+  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
   :hook
-  ((eshell-mode . eshell/init)
+  ((eshell-load . eshell/init)
    (eshell-before-prompt . (lambda ()
                              (setq xterm-color-preserve-properties t)
                              (rename-buffer
@@ -1958,65 +1591,21 @@ ID, ACTION, CONTEXT."
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
-  (unless (eq system-type 'windows-nt)
-    (pinentry-start)))
+  (unless (eq system-type 'windows-nt) (pinentry-start)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Mount
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; These functions execute the `mnt' utility, which uses config
-;; profiles to mount smb shares (even through ssh tunnels).
-
-(defun mnt-cmd (cmd)
-  "Interactively Run a `mnt/umnt' utility (CMD).
-The config is specified in the config file in `~/.mnt/'."
-  (let ((config (completing-read (format "Run %s using config: " cmd)
-                                 (directory-files "~/.mnt" nil "^[^.]")
-                                 nil t)))
-    (setq config (expand-file-name config "~/.mnt"))
-    (if (async-shell-command (concat cmd " " config) "*mnt*")
-        (message (format "%s succeeded with config file: %s" cmd config))
-      (message (format "%s FAILED with config file: %s" cmd config)))))
-
-(defun mnt ()
-  "Mount a share using the `mnt' utility."
-  (interactive)
-  (mnt-cmd "sudo_mnt"))
-
-(defun umnt ()
-  "Unmount a share using the `umnt' utility."
-  (interactive)
-  (mnt-cmd "umnt"))
+(bind-keys ("C-c C-v" . expand-environment-variable)
+           ("C-:" . tramp-insert-remote-part))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Notes, Journal, and Documentation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(with-eval-after-load 'org (require 'm-org))
+(with-eval-after-load 'org
+  (require 'm-org)
+  (bind-keys  :map (org-mode-map ("s-;" . org-shiftright))))
 
 ;; visual-line-mode
-;; Don't shadow mwim and org-mode bindings
-(bind-key [remap move-beginning-of-line] nil visual-line-mode-map)
 (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
-
-(defvar mode-line-format-backup nil
-  "Backup of `mode-line-format'.")
-
-(defun hide-mode-line ()
-  "Hide the mode line."
-  (interactive)
-  (setq mode-line-format-backup mode-line-format)
-  (setq-default mode-line-format nil))
-
-(defun show-mode-line ()
-  "Show the mode line."
-  (interactive)
-  (setq-default mode-line-format mode-line-format-backup))
-
-;; (use-package darkroom-mode
-;;   :commands
-;;   (darkroom-mode darkroom-tentative-mode))
 
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
@@ -2025,6 +1614,18 @@ The config is specified in the config file in `~/.mnt/'."
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
+
+(bind-keys
+ ("C-c l" . org-store-link)
+ ("C-c a" . org-agenda)
+ ("C-c c" . org-capture)
+ ("C-c b" . org-switchb)
+ ("C-c s" . search-org-files)
+ ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
+ ("C-c O" . (lambda () (interactive) (find-file org-directory)))
+ :map visual-line-mode-map
+ ;; Don't shadow mwim and org-mode bindings
+ ([remap move-beginning-of-line] . nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Log files
@@ -2038,16 +1639,8 @@ The config is specified in the config file in `~/.mnt/'."
 
 ;; (use-package logview)
 
-(defun tail-file (file)
-  "Run `tail -f' on FILE.
-Tries to find a file at point."
-  (interactive (list (completing-read "Tail file: "
-                                      'read-file-name-internal
-                                      'file-exists-p t nil 'file-name-history
-                                      (thing-at-point 'filename))))
-  (async-shell-command (concat "tail -f " file)))
-
-(bind-key "F" #'tail-file dired-mode-map)
+(with-eval-after-load 'dired
+  (bind-key "F" #'tail-file dired-mode-map))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Search, Completion, Symbols, Project Management
@@ -2133,38 +1726,18 @@ Tries to find a file at point."
         :map ivy-minibuffer-map
         ("C-e" . ivy-partial-or-done)))
 
+;; Hydra requirement
 (use-package lv)
 
 (use-package ivy-hydra
   :after lv
   :defer 1)
 
-(defun replace-regexp-entire-buffer (pattern replacement)
-  "Immediately replace PATTERN with REPLACEMENT throughout the buffer."
-  (interactive
-   (let ((args (query-replace-read-args "Replace in entire buffer" t)))
-     (setcdr (cdr args) nil)    ; remove third value returned from query---args
-     args))
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward pattern nil t)
-      (replace-match replacement))))
-
-(defun ivy--replace-regexp-entire-buffer (replacement)
-  "Replace the currently input via regexp with REPLACEMENT."
-  (interactive (list (read-from-minibuffer (concat "Replace all occurrences of `" ivy--old-re "\' in entire buffer: "))))
-  (with-current-buffer (window-buffer (minibuffer-selected-window))
-    (replace-regexp-entire-buffer ivy--old-text replacement))
-  (ivy-done)
-  ;; * TODO: How to make this the last message displayed?
-  (message (concat "Replaced `" ivy--old-text "\' with `" replacement"\' across entire buffer.")))
-
 (use-package swiper
   :bind
-  (("s-5" . replace-regexp-entire-buffer)
-   :map ivy-minibuffer-map
-   ("C-c C-c" . ivy-toggle-calling)
-   ("s-5" . ivy--replace-regexp-entire-buffer)))
+  (:map ivy-minibuffer-map
+        ("C-c C-c" . ivy-toggle-calling)
+        ("s-5" . ivy--replace-regexp-entire-buffer)))
 
 (defun reloading (cmd)
   "Wrap CMD, reloading ivy."
@@ -2184,12 +1757,6 @@ Tries to find a file at point."
 (defun confirm-delete-file (file)
   "Delete FILE with confirmation."
   (dired-delete-file file 'confirm-each-subdirectory))
-
-(defun counsel--call-in-other-window-action (x)
-  "Call the command represented by string X after switching to
-the other window."
-  (switch-to-buffer-other-window (current-buffer)
-                                 (call-interactively (intern x))))
 
 (use-package counsel
   :custom
@@ -2233,7 +1800,7 @@ the other window."
         ("C-x f" . counsel-recentf)
         ("C-x j" . counsel-file-jump)
         ("s-b" . counsel-switch-buffer)
-        ("s-B" . counsel-buffer-other-window)
+        ("s-B" . counsel-switch-buffer-other-window)
         ("C-h <tab>" . counsel-info-lookup-symbol)
         ("C-h C-a" . counsel-apropos)
         ("C-c u" . counsel-unicode-char)
@@ -2248,27 +1815,7 @@ the other window."
   (:map minibuffer-local-map
         ("C-r" . counsel-minibuffer-history)))
 
-(defun counsel-rg-default-directory (f &rest args)
-  "Call F (`counsel-rg') with ARGS from `default-directory'.
-
-It seems like `counsel-rg' should call itself from
-`default-directory' without assistance but in my experience it
-looks for a project root directory instead. If we want to search
-from the project root, we can use `counsel-projectile-rg'."
-  (let ((initial-input (car args))
-        (initial-directory (or (cadr args) default-directory))
-        (extra-rg-args (caddr args))
-        (rg-prompt (or (cadddr args) (format "(%s) rg: " default-directory))))
-    (funcall f initial-input initial-directory extra-rg-args rg-prompt)))
-
 (advice-add 'counsel-rg :around #'counsel-rg-default-directory)
-
-(use-package ivy-dired-history
-  :config
-  (add-to-list 'savehist-additional-variables 'ivy-dired-history-variable)
-  :bind
-  (:map dired-mode-map
-        ("," . dired)))
 
 (use-package prescient
   :config
@@ -2281,18 +1828,6 @@ from the project root, we can use `counsel-projectile-rg'."
 (use-package company-prescient
   :config
   (company-prescient-mode))
-
-(defun projectile-load-settings (&optional file)
-  "Load project elisp settings from FILE.
-Look in active project root directory, or if in the case of
-  undefined root directory, file is otherwise path resolvable.
-
-https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-settings.el"
-  (interactive)
-  (let ((p (expand-file-name (or file "config.el") (projectile-project-root))))
-    (when (file-exists-p p)
-      (load p)
-      (message "%s" (concat "Loaded project settings from: " p)))))
 
 (defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
   "Default code project container directory.")
@@ -2361,6 +1896,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :commands
   (spotlight spotlight-fast))
 
+(bind-key "s-5" #'replace-regexp-entire-buffer)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Version Control
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2374,22 +1911,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 ;; SSH server config files
 (add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
 
-(defun git-add-current-file (file)
-  "Run `git add' on the current buffer file name."
-  (interactive (list (buffer-file-name)))
-  (shell-command (format "git add '%s'" file)))
-
-(defun dired-git-add ()
-  "Run `git add' on the selected files in a dired buffer."
-  (interactive)
-  (let ((files (dired-get-marked-files)))
-    (message "> git add %s" files)
-    (dired-do-shell-command "git add" nil files)))
-
-(bind-keys ("C-c ;" . git-add-current-file)
-           :map dired-mode-map
-           (";" . dired-git-add))
-
 (use-package magit
   :custom
   (magit-repository-directories `((,code-directory . 1)))
@@ -2402,75 +1923,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 
 (use-package forge
   :after magit)
-
-(defun git-worktree-link (gitdir worktree)
-  "Link git WORKTREE at GITDIR.
-https://github.com/magit/magit/issues/460#issuecomment-36139308"
-  (interactive (list (read-directory-name "Gitdir: ")
-                     (read-directory-name "Worktree: ")))
-  (with-temp-file (expand-file-name ".git" worktree)
-    (insert "gitdir: " (file-relative-name gitdir worktree) "\n"))
-  (magit-call-git "config" "-f" (expand-file-name "config" gitdir)
-                  "core.worktree" (file-relative-name worktree gitdir))
-  ;; Configure projectile to only look at tracked files
-  (if (boundp 'projectile-git-command)
-      (setq projectile-git-command "git ls-files -zc --exclude-standard")))
-
-(defun git-worktree-unlink (worktree)
-  "Unlink git WORKTREE at GITDIR."
-  (interactive (list (read-directory-name "Worktree: ")))
-  ;; Configure projectile back to default
-  (if (boundp 'projectile-git-command)
-      (setq projectile-git-command "git ls-files -zco --exclude-standard"))
-  ;; This does `git config --unset core.worktree'.  We don't actually
-  ;; have to do this and not doing it would have some advantages, but
-  ;; might be confusing.
-  ;; (magit-set nil "core.worktree")
-  ;; This causes an error if this actually is a directory, which is
-  ;; a good thing, it saves us from having to do this explicitly :-)
-  (delete-file (expand-file-name ".git" worktree)))
-
-(setq git-home-repo-dir
-      (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
-
-(defun git-home-link (repo)
-  "Interactively link a git REPO's worktree to $HOME."
-  (interactive (list (completing-read "Link git home repository: "
-                                      (directory-files git-home-repo-dir nil "^[^.]")
-                                      nil t)))
-  (setq repo (expand-file-name repo git-home-repo-dir))
-  ;; "Fix" repositories that were created with --bare.
-  ;; (let ((default-directory (file-name-as-directory repo)))
-  ;;   (magit-set "false" "core.bare"))
-  ;; Regular link.
-  (git-worktree-link repo (getenv "HOME"))
-  (message "Linked repo at %s" repo))
-
-(defun git-home-unlink ()
-  "Unlink the current git repo's worktree from $HOME."
-  (interactive)
-  (let ((f (expand-file-name ".git" (getenv "HOME"))))
-    (git-worktree-unlink (getenv "HOME"))
-    (message "Unlinked repo at %s" f)))
-
-(bind-keys
- ("C-c M-l" . git-home-link)
- ("C-c M-u" . git-home-unlink))
-
-(defun projectile-git-ls-files (&optional dir)
-  "List of the tracked files in the git repo, specified by DIR."
-  (cd (or dir (projectile-project-root)))
-  (-filter #'nil-blank-string
-           (split-string (shell-command-to-string "git ls-files") "\n")))
-
-(defun projectile-git-ls-files-dired (&optional dir)
-  "Dired list of the tracked files in the git repo, specified by DIR."
-  (interactive)
-  (let ((dir (or dir (projectile-project-root))))
-    (dired (cons dir (projectile-git-ls-files dir)))
-    (rename-buffer (format "*git ls-files %s*" dir))))
-
-(bind-key "C-x G" #'projectile-git-ls-files-dired)
 
 (use-package git-timemachine
   :bind
@@ -2488,13 +1940,19 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   ((prog-mode markdown-mode) . diff-hl-mode)
   (dired-mode . diff-hl-dired-mode))
 
+(bind-keys
+ ("C-c M-l" . git-home-link)
+ ("C-c M-u" . git-home-unlink)
+ ("C-x G" . projectile-git-ls-files-dired)
+ ("C-c ;" . git-add-current-file))
+
+(with-eval-after-load 'dired
+  (bind-keys  :map dired-mode-map
+              (";" . dired-git-add)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Network and System Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; (use-package eww
-;;   :commands
-;;   (eww))
 
 (use-package shr-tag-pre-highlight
   :config
@@ -2504,31 +1962,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 
 (use-package w3m
   :commands
-  (w3m w3m-weather))
-
-(defun public-ip ()
-  "Display the local host's apparent public IP address."
-  (interactive)
-  (message
-   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
-     (goto-char (point-min))
-     (re-search-forward "^$")
-     (delete-char 1)
-     (delete-region (point) (point-min))
-     (buffer-string))))
-
-(defun df ()
-  "Display the local host's disk usage in human readable form."
-  (interactive)
-  (print (shell-command-to-string "df -h")))
-
-(defun dis (hostname)
-  "Resolve a HOSTNAME to its IP address."
-  (interactive "MHostname: ")
-  (message (shell-command-to-string
-            (concat "drill "
-                    hostname
-                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
+  w3m)
 
 ;; Automate communication with services, such as nicserv
 (with-eval-after-load 'erc
@@ -2560,7 +1994,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (markdown-list-indent-width tab-width)
   (markdown-command "multimarkdown"))
 
-;; XML
 (use-package web-mode
   :mode "\\.html\?\\'"
   :init
@@ -2612,19 +2045,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :hook
   (restclient-mode . (lambda ()
                        (add-to-list 'company-backends 'company-restclient))))
-
-(defun toggle-sp-newline ()
-  "Toggle whether `RET' is bound to `newline' or `sp-newline'.
-
-This is because under certain conditions `sp-newline' can do bad
-things."
-  (interactive)
-  (let* ((f (key-binding (kbd "RET")))
-         (newf (if (eq f 'sp-newline) #'newline #'sp-newline)))
-    (bind-key "RET" newf smartparens-mode-map)
-    (message "<RET> now invokes to %s" newf)))
-
-(bind-key "C-c C-<return>" #'toggle-sp-newline)
 
 (use-package add-node-modules-path
   :hook
@@ -2738,7 +2158,7 @@ things."
 
 (use-package enh-ruby-mode
   :ensure-system-package
-  (rufo "gem install rufo")
+  (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
 
 (use-package inf-ruby
@@ -2753,7 +2173,6 @@ things."
         ("C-M-x" . ruby-send-block)))
 
 (use-package lua-mode
-  :ensure-system-package t
   :mode "\\.lua\\'")
 
 (use-package go-mode
@@ -2826,12 +2245,6 @@ things."
 ;;; Other Packages
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun advice-delete-other-windows (&rest _)
-  "Advice that will delete other windows."
-  (delete-other-windows))
-
-(advice-add 'wttrin :before #'advice-delete-other-windows)
-
 (use-package wttrin
   :custom
   (wttrin-default-cities '("Albany CA"
@@ -2841,6 +2254,12 @@ things."
                            "Truckee CA"
                            "Moon"))
   (wttrin-default-accept-language '("Accept-Language" . "en-US"))
+  :config
+  (defun advice-delete-other-windows (&rest _)
+    "Advice that will delete other windows."
+    (delete-other-windows))
+
+  (advice-add 'wttrin :before #'advice-delete-other-windows)
   :bind
   ("C-c M-w" . wttrin))
 
@@ -2848,8 +2267,8 @@ things."
 ;;; Private
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Load private stuff if it exists
-(require 'm-private nil 'noerror)
+(when (file-exists-p "~/.emacs.d/m-private.el")
+  (load-file "~/.emacs.d/m-private.el"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Custom
