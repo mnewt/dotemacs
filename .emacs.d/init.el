@@ -1193,17 +1193,17 @@ Wraps on `fill-column' columns."
 ;; Automatically indent after RET
 (electric-indent-mode +1)
 
-(defun undo-tree-keep-region (f)
+(defun undo-tree-keep-region (f &rest args)
   "Keep region after `undo-tree-undo'."
-  (if (use-region-p
-       (let ((m (set-marker (make-marker) (mark)))
-             (p (set-marker (make-marker) (point))))
-         (call-interactively f)
-         (goto-char p)
-         (set-mark m)
-         (set-marker p nil)
-         (set-marker m nil)))
-      (call-interactively f)))
+  (if (use-region-p)
+      (let ((m (set-marker (make-marker) (mark)))
+            (p (set-marker (make-marker) (point))))
+        (apply f args)
+        (goto-char p)
+        (set-mark m)
+        (set-marker p nil)
+        (set-marker m nil))
+    (call-interactively f)))
 
 (use-package undo-tree
   :init
