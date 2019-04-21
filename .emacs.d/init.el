@@ -751,6 +751,38 @@ Update environment variables from a shell source file."
 ;; Enable all commands
 (setq disabled-command-function nil)
 
+(defun undo-tree-keep-region (f &rest args)
+  "Keep region after `undo-tree-undo'."
+  (if (use-region-p)
+      (let ((m (set-marker (make-marker) (mark)))
+            (p (set-marker (make-marker) (point))))
+        (apply f args)
+        (goto-char p)
+        (set-mark m)
+        (set-marker p nil)
+        (set-marker m nil))
+    (call-interactively f)))
+
+(use-package undo-tree
+  :straight
+  (:type git :host nil :repo "http://www.dr-qubit.org/git/undo-tree.git")
+  :init
+  ;; Keep region when undoing in region.
+  ;; http://whattheemacsd.com/my-misc.el-02.html
+  (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
+  :custom
+  (undo-tree-auto-save-history t)
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
+  (undo-tree-visualizer-timestamps t)
+  (undo-tree-visualizer-diff t)
+  :hook
+  (after-init . global-undo-tree-mode)
+  :bind
+  (("s-z" . undo-tree-undo)
+   ("s-Z" . undo-tree-redo)
+   ("s-y" . undo-tree-redo)
+   ("M-s-z" . undo-tree-visualize)))
+
 (defun evil-mode-toggle ()
   "Toggle `evil-mode'.
 It's necessary because it often forgets to change the cursor type back."
@@ -1192,36 +1224,6 @@ Wraps on `fill-column' columns."
 
 ;; Automatically indent after RET
 (electric-indent-mode +1)
-
-(defun undo-tree-keep-region (f &rest args)
-  "Keep region after `undo-tree-undo'."
-  (if (use-region-p)
-      (let ((m (set-marker (make-marker) (mark)))
-            (p (set-marker (make-marker) (point))))
-        (apply f args)
-        (goto-char p)
-        (set-mark m)
-        (set-marker p nil)
-        (set-marker m nil))
-    (call-interactively f)))
-
-(use-package undo-tree
-  :init
-  ;; Keep region when undoing in region.
-  ;; http://whattheemacsd.com/my-misc.el-02.html
-  (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
-  :custom
-  (undo-tree-auto-save-history t)
-  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
-  (undo-tree-visualizer-timestamps t)
-  (undo-tree-visualizer-diff t)
-  :hook
-  (after-init . global-undo-tree-mode)
-  :bind
-  (("s-z" . undo-tree-undo)
-   ("s-Z" . undo-tree-redo)
-   ("s-y" . undo-tree-redo)
-   ("M-s-z" . undo-tree-visualize)))
 
 (use-package volatile-highlights
   :hook
