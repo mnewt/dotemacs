@@ -33,16 +33,17 @@
 ;; ElDoc and topical help in Eshell.
 (use-package esh-help
   :config
-  (setup-esh-help-eldoc))
+  (setup-esh-help-eldoc)
+  :commands
+  (setup-esh-help-eldoc esh-help-run-help))
 
 ;; Fish-like autosuggestions.
 (use-package esh-autosuggest
   :hook
   (eshell-mode . esh-autosuggest-mode)
-  :bind
-  (:map esh-autosuggest-active-map
-        ("C-e" . company-complete-selection)))
-
+  (esh-autosuggest-mode . (lambda () (bind-key "C-e"
+                                               #'company-complete-selection
+                                               esh-autosuggest-active-map))))
 (defun eshell-other-window (arg)
   "Opens an eshell in another window, creating a new one if ARG is specified."
   (interactive "p")
@@ -80,6 +81,8 @@
           (delete-window)))
     (delete-char  arg)))
 
+(declare-function eshell-previous-input 'eshell)
+
 (defun eshell-send-previous-input (&optional arg)
   "Re-run the previous command with ARG in the last used eshell buffer."
   (interactive "*p")
@@ -115,6 +118,8 @@
       (goto-char (point-max))
       (switch-to-buffer-other-window buf))))
 
+(declare-function eshell/pwd 'eshell)
+
 (defun m-eshell-prompt-function ()
   "Produce a highlighted prompt for Eshell."
   (mapconcat
@@ -135,6 +140,8 @@
                      "white")
       :weight bold))
    ""))
+
+(declare-function eshell/cd 'eshell)
 
 (defun eshell/s (host)
   "Change directory to HOST via tramp."
@@ -252,20 +259,23 @@ https://stackoverflow.com/a/14769115/1588358"
   (shell-command ". ~/.env && . ~/.aliases && alias | sed -E \"s/^alias ([^=]+)='(.*)'$/alias \\1 \\2 \\$*/g; s/'\\\\''/'/g;\""
                  "*bash aliases*"))
 
+(declare-function eshell-previous-prompt 'eshell)
+(declare-function eshell-next-prompt 'eshell)
+
 ;;;###autoload
 (defun eshell/init ()
   "Initialize the Eshell environment."
+
   (source-sh "~/.env")
   (setq eshell-path-env (getenv "PATH"))
   ;; Path to shell executable. Set it this way to work with tramp.
-  (setenv "ESHELL" "/bin/bash")
+  (setenv "SHELL" "/bin/bash")
   ;; (setenv "TERM" "eterm-color")
   (setenv "EDITOR" "emacsclient")
   (setenv "PAGER" "cat")
   (setenv "MANPAGER" "cat")
 
   (bind-keys
-   ("M-P" . eshell-send-previous-input)
    :map eshell-mode-map
    ("C-a" . eshell-maybe-bol)
    ("C-d" . eshell-quit-or-delete-char)
@@ -288,17 +298,52 @@ https://stackoverflow.com/a/14769115/1588358"
   (setq eshell-output-filter-functions
         (remove 'eshell-handle-ansi-color eshell-output-filter-functions))
 
-  ;; Commands that use curses get launched in their own `term' buffer
-  (seq-do (-partial #'add-to-list 'eshell-visual-commands)
-          '("htop" "mbsync" "ncdu" "nnn" "nvim" "ssh" "tail" "tmux"
-            "top" "vim" "w3m"))
-  (seq-do (-partial #'add-to-list 'eshell-visual-subcommands)
-          '(("git" "log" "diff" "show")
-            ("dw" "log" "runshell" "shell")))
-
   ;; Load the Eshell versions of `su' and `sudo'
   (require 'em-tramp)
-  (add-to-list 'eshell-modules-list 'eshell-tramp))
+  (add-to-list 'eshell-modules-list 'eshell-tramp)
+  (remove-hook 'eshell-before-prompt-hook 'eshell/init))
+
+(defun eshell-ls-find-file-at-point ()
+  "RET on Eshell's `ls' output to open files."
+  (interactive "d")
+  (find-file (substring-no-properties (thing-at-point 'filename))))
+
+(defvar m-eshell-ls-file-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'eshell-ls-find-file-at-point)
+    (define-key map (kbd "<return>") 'eshell-ls-find-file-at-point)
+    (define-key map [mouse-1] 'eshell-ls-find-file-at-point)
+    map)
+  "Keys in effect when point is over a file in `eshell/ls'
+  output.")
+
+(declare-function eshell-ls-applicable 'eshell)
+
+(defun m-eshell-ls-decorated-name (f &rest args)
+  "Add more decoration to files in `eshell/ls' output.
+
+* Mark directories with a `/'
+* Mark execurables with a `*'
+* Open files and directories with `RET' or `mouse-1'
+
+Advise `eshell-ls-decorated-name'."
+  (let* ((file (car args))
+         (name (apply f args))
+         (suffix
+          (cond
+           ;; Directory
+           ((eq (cadr file) t)
+            "/")
+           ;; Executable
+           ((and (/= (user-uid) 0)            ; root can execute anything
+                 (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
+            "*"))))
+    (propertize
+     (if (and suffix (not (string-suffix-p suffix name)))
+         (concat name suffix)
+       name)
+     'keymap m-eshell-ls-file-keymap
+     'mouse-face 'highlight)))
 
 ;;;###autoload
 (defun ibuffer-show-eshell-buffers ()
@@ -328,56 +373,17 @@ because I dynamically rename the buffer according to
   (interactive)
   (switch-to-buffer (eshell-get-or-create)))
 
+;;;###autoload
 (defun eshell-switch-to-buffer-other-window ()
   "Get or create an Eshell buffer, then switch to it."
   (interactive)
   (switch-to-buffer-other-window (eshell-get-or-create)))
 
+;;;###autoload
 (defun switch-to-eshell-buffer ()
   "Interactively choose an Eshell buffer."
   (interactive)
   (switch-to-buffer-by-mode 'eshell-mode))
-
-(defun eshell-ls-find-file-at-point (point)
-  "RET on Eshell's `ls' output to open files."
-  (interactive "d")
-  (find-file (substring-no-properties (thing-at-point 'filename))))
-
-(defvar m-eshell-ls-file-keymap
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") 'eshell-ls-find-file-at-point)
-    (define-key map (kbd "<return>") 'eshell-ls-find-file-at-point)
-    (define-key map [mouse-1] 'eshell-ls-find-file-at-point)
-    map)
-  "Keys in effect when point is over a file in `eshell/ls'
-  output.")
-
-;;;###autoload
-(defun m-eshell-ls-decorated-name (f &rest args)
-  "Add more decoration to files in `eshell/ls' output.
-
-* Mark directories with a `/'
-* Mark execurables with a `*'
-* Open files and directories with `RET' or `mouse-1'
-
-Advise `eshell-ls-decorated-name'."
-  (let* ((file (car args))
-         (name (apply f args))
-         (suffix
-          (cond
-           ;; Directory
-           ((eq (cadr file) t)
-            "/")
-           ;; Executable
-           ((and (/= (user-uid) 0)            ; root can execute anything
-                 (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
-            "*"))))
-    (propertize
-     (if (and suffix (not (string-suffix-p suffix name)))
-         (concat name suffix)
-       name)
-     'keymap m-eshell-ls-file-keymap
-     'mouse-face 'highlight)))
 
 (provide 'm-eshell)
 

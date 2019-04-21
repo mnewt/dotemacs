@@ -3,7 +3,7 @@
 ;; Author: Matthew Newton
 ;; Maintainer: Matthew Newton
 ;; Version: version
-;; Package-Requires: (dependencies)
+;; Package-Requires: (emacs "24.1")
 ;; Homepage: homepage
 ;; Keywords: keywords
 

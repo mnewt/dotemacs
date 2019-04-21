@@ -69,6 +69,8 @@ Interactively, reads the register using `register-read-with-preview'."
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
 
+(require 'smartparens-ruby)
+
 ;;;###autoload
 (defun sp-sh-post-handler (_id action _context)
   "Bash post handler ID, ACTION, CONTEXT."

@@ -3,7 +3,7 @@
 ;; Author: Matthew Newton
 ;; Maintainer: Matthew Newton
 ;; Version: version
-;; Package-Requires: ()
+;; Package-Requires: (emacs "24.1")
 ;; Homepage: homepage
 ;; Keywords: keywords
 
@@ -32,7 +32,9 @@
 
 (require 'dired-x)
 
-(use-package dired+)
+(use-package dired+
+  :commands
+  (dired-get-filename))
 
 (use-package find-dired+)
 
@@ -60,10 +62,16 @@
 (use-package wdired
   :custom
   (wdired-allow-to-change-permissions t)
-  (wdired-create-parent-directories t))
+  (wdired-create-parent-directories t)
+  :commands
+  (wdired-change-to-wdired-mode)
+  :bind
+  ("C-c C-p" . wdired-change-to-wdired-mode))
 
 (use-package diredfl
   :config
+  (diredfl-global-mode)
+  :commands
   (diredfl-global-mode))
 
 (use-package dired-subtree
@@ -130,8 +138,7 @@
  :map dired-mode-map
  ("C-c o" . dired-open-file)
  ("T" . touch)
- ("C-." . dired-omit-mode)
- ("C-c C-p" . wdired-change-to-wdired-mode))
+ ("C-." . dired-omit-mode))
 
 (provide 'm-dired)
 

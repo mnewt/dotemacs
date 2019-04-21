@@ -164,6 +164,8 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
         (explicit-dtach-args explicit-dtach-args))
     (shell (format "*ssh (dtach) %s*" host))))
 
+(require 'term)
+
 ;; https://www.emacswiki.org/emacs/ShellMode
 ;;;###autoload
 (defun term-switch-to-shell-mode ()
@@ -217,6 +219,8 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
 
    ((string-match-p "|sudo:root@" path)
     (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
+
+(declare-function eshell-return-to-prompt 'eshell)
 
 ;;;###autoload
 (defun sudo-toggle ()

@@ -4,7 +4,16 @@
 
 (use-package lv)
 
-(use-package hydra)
+(require 'ibuffer)
+
+(require 'hideshow)
+
+(require 'ediff)
+
+(use-package hydra
+  :commands
+  (hydra-default-pre hydra-keyboard-quit hydra--call-interactively-remap-maybe
+                     hydra-show-hint hydra-set-transient-map))
 
 (defhydra hydra-multiple-cursors (:hint nil)
   "
@@ -145,7 +154,7 @@ _q_ quit
   ("C" dired-do-copy)        ;; Copy all marked files
   ("D" dired-do-delete)
   ("E" dired-mark-extension)
-  ("e" dired-ediff-files)
+  ;; ("e" dired-ediff-files)
   ("F" dired-do-find-marked-files)
   ("G" dired-do-chgrp)
   ("g" revert-buffer)        ;; read all directories again (refresh)

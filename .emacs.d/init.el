@@ -21,12 +21,11 @@
 (defvar file-name-handler-alist-original file-name-handler-alist)
 (setq file-name-handler-alist nil)
 
-(run-with-idle-timer
- 5 nil
- (lambda ()
-   (nconc file-name-handler-alist file-name-handler-alist-original)
-   (makunbound 'file-name-handler-alist-original)
-   (run-with-idle-timer 20 t (lambda () (garbage-collect)))))
+(run-with-idle-timer 5 nil
+                     (lambda ()
+                       (nconc file-name-handler-alist file-name-handler-alist-original)
+                       (makunbound 'file-name-handler-alist-original)
+                       (run-with-idle-timer 20 t (lambda () (garbage-collect)))))
 
 (setq load-prefer-newer t)
 
@@ -47,17 +46,17 @@
   "Call `update-autoloads-from-directories' on the local lisp directory."
   (interactive)
   (require 'autoload)
-  (update-directory-autoloads elisp-directory)
-  (mapc #'byte-compile-file (directory-files elisp-directory t "[^.]+"))
-  (byte-compile-file "~/.emacs.d/init.el"))
+  (update-directory-autoloads elisp-directory))
+;; (mapc #'byte-compile-file (directory-files elisp-directory t "\\.el$"))
+;; (byte-compile-file "~/.emacs.d/init.el"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Package Management
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Disable package.el initialization.
-(setq package-enable-at-startup nil     ; don't auto-initialize!
-      ;; don't add that `custom-set-variables' block to my initl!
+(setq package-enable-at-startup nil
+      ;; don't add `custom-set-variables' block
       package--init-file-ensured t)
 
 ;; Bootstrap straight.el
@@ -74,9 +73,16 @@
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
+;; All external packages and many built in ones are configured using use-package.
 (straight-use-package 'use-package)
 (defvar straight-use-package-by-default)
 (setq straight-use-package-by-default t)
+
+(defvar use-package-enable-imenu-support)
+(setq use-package-enable-imenu-support t)
+
+(eval-when-compile (require 'use-package))
+(require 'bind-key)
 
 ;; https://github.com/raxod502/straight.el/issues/41
 (defvar straight-check-for-modifications)
@@ -112,7 +118,7 @@
   :commands
   (epkg epkg-describe-package epkg-list-packages))
 
-(use-package use-package-ensure-system-package)
+;; (use-package use-package-ensure-system-package)
 
 ;; (use-package benchmark-init
 ;;   :config
@@ -124,13 +130,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; cl is assumed to be present in this config and some packages too.
-(require 'cl)
+;; (require 'cl)
 (require 'seq)
-
-;; All external packages and many built in ones are configured using use-package.
-(eval-when-compile
-  (require 'use-package))
-(require 'bind-key)
 
 (defun add-multiple-to-list (list items)
   "Run `add-to-list' for all ITEMS in the LIST."
@@ -138,7 +139,9 @@
 
 ;; These packages are used by many things so they are on the critical path.
 
-(use-package dash)
+(use-package dash
+  :commands
+  (-map -filter -distinct -interpose))
 
 (use-package s)
 
@@ -196,7 +199,9 @@
 ;; eww uses this as its default font, among others.
 (set-face-font 'variable-pitch "Georgia-18")
 
-(use-package doom-themes)
+(use-package doom-themes
+  :commands
+  (doom-blend))
 
 (use-package solarized-theme)
 
@@ -302,12 +307,12 @@ TESTFN is an equality function, *not* an alist function as with
         (car (mapcar #'cadr matches))
       default)))
 
-(defun get-attr (propname attribute name)
+(defun get-attr (object propname attribute name)
   "Get the ATTRIBUTE identified by NAME from PROPNAME."
   (let ((name (if (stringp name) (intern name) name)))
     (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
                            (cadddr e)))
-             (get (car custom-enabled-themes) 'theme-settings))))
+             (get (car object) propname))))
 
 (defun theme-get-attr (attribute name)
   "Get the ATTRIBUTE identified by NAME from the current theme settings.
@@ -317,7 +322,7 @@ Example usage
     \(plist-get
       \(face-spec-choose \(theme-get-attr 'theme-face 'default))
       \:background)"
-  (get-attr 'theme-settings attribute name))
+  (get-attr custom-enabled-themes 'theme-settings attribute name))
 
 (defun theme-get-face (face)
   "Get the FACE from the current theme. See `theme-get-attr'."
@@ -338,7 +343,6 @@ Example usage
 See also `theme-specs-common'. Advise or override this function
 to customize furter."
   (let* ((default-spec (face-spec-choose (theme-get-face 'default)))
-         (highlight-spec (face-spec-choose (theme-get-face 'highlight)))
          (outline-1-spec (face-spec-choose (theme-get-face 'outline-1)))
          (active-bg (plist-get default-spec :background))
          (active-fg (plist-get default-spec :foreground))
@@ -512,8 +516,8 @@ Insert spaces between the two so that the string is
   :if (>= emacs-major-version 27)
   :straight
   (:type git :host github :repo "dcolascione/emacs-window-highlight")
-  :config
-  (window-highlight-mode 1))
+  :hook
+  (after-init . window-highlight-mode))
 
 (bind-key "C-c C-t" #'theme-choose)
 
@@ -551,7 +555,7 @@ Update environment variables from a shell source file."
       (while (search-forward-regexp (concat "^+" envvar-re) nil t)
         (let ((var (match-string 1))
               (value (read (match-string 2))))
-          (message "%s" (prin1-to-string `(setenv ,var ,value)))
+          ;; (message "%s" (prin1-to-string `(setenv ,var ,value)))
           (setenv var value)))))
   (message "Sourcing environment from `%s'... done." filename))
 
@@ -570,7 +574,7 @@ Update environment variables from a shell source file."
                                             os-specific-paths
                                             old-path))))))
     (setenv "PATH" (apply 'concat (-interpose sep new-path)))
-    (message "New path: %s" new-path)
+    ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))
 
 (source-sh "~/.env")
@@ -612,6 +616,11 @@ Update environment variables from a shell source file."
   ;; Use system trash
   (setq delete-by-moving-to-trash t
         trash-directory "~/.Trash"))
+
+(declare w32-pass-lwindow-to-system)
+(declare w32-lwindow-modifier)
+(declare w32-pass-rwindow-to-system)
+(declare w32-rwindow-modifier)
 
 (defun config-windows ()
   "Configure Emacs for Windows."
@@ -703,9 +712,11 @@ Update environment variables from a shell source file."
       auto-revert-verbose nil)
 
 ;; Desktop
-(desktop-save-mode 1)
+(require 'desktop)
+(setq desktop-dirname "~/.emacs.d")
 (add-to-list 'desktop-globals-to-save 'kill-ring)
 (add-to-list 'desktop-globals-to-save 'theme-current-theme)
+(desktop-save-mode 1)
 
 (defun psync-maybe-sync ()
   "If we find a `psync_config' file then run `psync'."
@@ -740,10 +751,22 @@ Update environment variables from a shell source file."
 ;; Enable all commands
 (setq disabled-command-function nil)
 
+(defun evil-mode-toggle ()
+  "Toggle `evil-mode'.
+It's necessary because it often forgets to change the cursor type back."
+  (interactive)
+  (if (bound-and-true-p evil-state)
+      (progn
+        (call-interactively #'turn-off-evil-mode)
+        (setq cursor-type 'box))
+    (call-interactively #'turn-on-evil-mode)))
+
 (use-package evil
+  :commands
+  (turn-on-evil-mode turn-off-evil-mode)
   :bind
-  ("s-ESC" . evil-mode)
-  ("s-<escape>" . evil-mode))
+  ("s-ESC" . evil-mode-toggle)
+  ("s-<escape>" . evil-mode-toggle))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Navigation
@@ -753,8 +776,8 @@ Update environment variables from a shell source file."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package winner
-  :init
-  (winner-mode)
+  :hook
+  (after-init . winner-mode)
   :bind
   (("C-c [" . winner-undo)
    ("s-[" . winner-undo)
@@ -777,8 +800,8 @@ Update environment variables from a shell source file."
 (use-package winum
   :custom
   (winum-auto-setup-mode-line nil)
-  :config
-  (winum-mode)
+  :hook
+  (after-init . winum-mode)
   :bind
   ("s-1" . winum-select-window-1)
   ("C-c 1" . winum-select-window-1)
@@ -805,8 +828,8 @@ Update environment variables from a shell source file."
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
-  :config
-  (eyebrowse-mode t)
+  :hook
+  (after-init . eyebrowse-mode)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -895,7 +918,12 @@ Update environment variables from a shell source file."
 
 (use-package symbol-overlay
   :hook
-  (prog-mode . symbol-overlay-mode))
+  (prog-mode . symbol-overlay-mode)
+  :bind
+  ("C-s-n" . symbol-overlay-jump-next)
+  ("C-s-p" . symbol-overlay-jump-prev)
+  ("C-s-r" . symbol-overlay-rename)
+  ("C-s-5" . symbol-overlay-query-replace))
 
 (use-package rainbow-mode
   :hook
@@ -904,14 +932,14 @@ Update environment variables from a shell source file."
 (use-package crux
   :bind
   ("C-c C-j" . crux-eval-and-replace)
+  ("C-s-<backspace>" . crux-kill-line-backwards)
+  ("C-M-X" . crux-indent-defun)
   ("C-c D" . crux-delete-file-and-buffer)
   ("C-c d" . crux-duplicate-current-line-or-region)
   ("C-c R" . crux-rename-file-and-buffer)
   ("C-c k" . crux-kill-other-buffers)
-  ("C-M-X" . crux-indent-defun)
-  ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
-  ("C-c S" . crux-find-shell-init-file)
-  ("C-<backspace>" . crux-kill-line-backwards))
+  ("C-c O" . crux-open-with)
+  ("C-c S" . crux-find-shell-init-file))
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -947,7 +975,7 @@ Update environment variables from a shell source file."
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
 
- ("s-i" . os-reveal-file)
+ ("C-c U" . revert-buffer)
  ("C-c i" . os-reveal-file)
  ("s-<return>" . eval-last-sexp)
  ("s-RET" . eval-last-sexp)
@@ -1003,6 +1031,9 @@ Update environment variables from a shell source file."
 
  ("C-c C-f" . find-file-at-point-with-line)
 
+ ;; Init
+ ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
+
  :map ctl-x-4-map
  ("t" . toggle-window-split))
 
@@ -1017,8 +1048,8 @@ Update environment variables from a shell source file."
 (use-package help-at-pt
   :custom
   (help-at-pt-display-when-idle t)
-  :config
-  (help-at-pt-set-timer))
+  :hook
+  (after-init . help-at-pt-set-timer))
 
 (use-package help-fns+)
 
@@ -1046,9 +1077,8 @@ Update environment variables from a shell source file."
           ielm-mode-hook))
 
 (use-package which-key
-  :demand t
-  :config
-  (which-key-mode t)
+  :hook
+  (after-init . which-key-mode)
   :bind
   ("M-s-h" . which-key-show-top-level))
 
@@ -1072,8 +1102,8 @@ Update environment variables from a shell source file."
   ("C-h t u" . tldr-update-docs))
 
 (use-package eg
-  :ensure-system-package
-  (eg . "pip install eg")
+  ;; :ensure-system-package
+  ;; (eg . "pip install eg")
   :straight
   (:type git :host github :repo "mnewt/eg.el")
   :bind
@@ -1143,7 +1173,7 @@ Wraps on `fill-column' columns."
 
 ;; sh-mode
 (use-package sh-script
-  :ensure-system-package shfmt
+  ;; :ensure-system-package shfmt
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)
@@ -1163,38 +1193,47 @@ Wraps on `fill-column' columns."
 ;; Automatically indent after RET
 (electric-indent-mode +1)
 
-(use-package redo+
-  :straight
-  (:type git :host github :repo "clemera/undo-redo")
-  :bind
-  ("s-z" . undo)
-  ("C-z" . undo)
-  ("s-Z" . redo)
-  ("s-y" . redo))
+(defun undo-tree-keep-region (f)
+  "Keep region after `undo-tree-undo'."
+  (if (use-region-p
+       (let ((m (set-marker (make-marker) (mark)))
+             (p (set-marker (make-marker) (point))))
+         (call-interactively f)
+         (goto-char p)
+         (set-mark m)
+         (set-marker p nil)
+         (set-marker m nil)))
+      (call-interactively f)))
 
-(use-package undohist
-  :config
-  (undohist-initialize)
-  (advice-add 'undohist-recover-1
-              :around
-              (lambda (f) (cl-flet ((yes-or-no-p (_) t))))))
-
-(use-package undo-propose
-  :straight
-  (:type git :host github :repo "jackkamm/undo-propose-el")
+(use-package undo-tree
+  :init
+  ;; Keep region when undoing in region.
+  ;; http://whattheemacsd.com/my-misc.el-02.html
+  (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
+  :custom
+  (undo-tree-auto-save-history t)
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
+  (undo-tree-visualizer-timestamps t)
+  (undo-tree-visualizer-diff t)
+  :hook
+  (after-init . global-undo-tree-mode)
   :bind
-  (("C-s-z" . undo-propose)
-   :map undo-propose-mode-map
-   ([remap undo-modern] . undo-propose-undo)
-   ([remap redo] . undo-propose-undo)))
+  (("s-z" . undo-tree-undo)
+   ("s-Z" . undo-tree-redo)
+   ("s-y" . undo-tree-redo)
+   ("M-s-z" . undo-tree-visualize)))
 
 (use-package volatile-highlights
-  :config
-  (vhl/define-extension 'undo 'redo 'undo-modern)
-  (vhl/define-extension 'evil 'evil-paste-after 'evil-paste-before
-                        'evil-paste-pop 'evil-move)
-  (vhl/install-extension 'evil)
-  (volatile-highlights-mode t))
+  :hook
+  (after-init . (lambda ()
+                  (vhl/define-extension 'undo 'redo 'undo-modern)
+                  (vhl/define-extension 'evil 'evil-paste-after 'evil-paste-before
+                                        'evil-paste-pop 'evil-move)
+                  (vhl/install-extension 'evil)
+                  (volatile-highlights-mode t)))
+  :commands
+  (volatile-highlights-mode vhl/define-extension vhl/install-extension
+                            vhl/disable-advice-if-defined))
 
 (use-package goto-chg
   :bind
@@ -1247,11 +1286,10 @@ Wraps on `fill-column' columns."
   ("C-c C-u" . string-inflection-all-cycle))
 
 (use-package yasnippet
-  :defer 2
   :custom
   (yas-verbosity 1)
-  :config
-  (yas-global-mode 1)
+  :hook
+  (after-init . yas-global-mode)
   :bind
   ("C-c C-s" . yas-insert-snippet))
 
@@ -1310,11 +1348,12 @@ Wraps on `fill-column' columns."
       pretty-parens ; different paren styles for different modes.
       smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
       smart-yank))  ; Yank behavior depends on mode.
-  :config
-  (parinfer-strategy-add 'default 'newline-and-indent)
   :hook
   ((clojure-mode common-lisp-mode emacs-lisp-mode hy-mode lisp-interaction-mode
                  lisp-mode scheme-mode) . parinfer-mode)
+  (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
+  :commands
+  (parinfer-strategy-add)
   :bind
   (:map parinfer-mode-map
         ("<tab>" . parinfer-smart-tab:dwim-right)
@@ -1344,38 +1383,6 @@ Wraps on `fill-column' columns."
   ;; `use-package/:bind' to set them.
   (sp-base-key-bindings 'paredit)
   (sp-override-key-bindings '(("C-M-<backspace>" . sp-splice-sexp-killing-backward)))
-  :config
-  (sp-with-modes
-      '(c-mode c++-mode css-mode graphql-mode javascript-mode js2-mode json-mode objc-mode
-               python-mode java-mode sh-mode web-mode)
-    (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-    (sp-local-pair "[" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-    (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
-  (sp-with-modes
-      '(python-mode)
-    (sp-local-pair "\"\"\"" "\"\"\""
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
-  (sp-with-modes
-      '(sh-mode)
-    (sp-local-pair "do" "done"
-                   :when '(("SPC" "RET"))
-                   :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler))
-    (sp-local-pair "then" "fi"
-                   :when '(("SPC" "RET"))
-                   :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler))
-    (sp-local-pair "case" "esac"
-                   :when '(("SPC" "RET"))
-                   :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler)))
-  (smartparens-global-mode)
   :hook
   (smartparens-mode . (lambda ()
                         (require 'smartparens-config) (turn-on-show-smartparens-mode)))
@@ -1389,6 +1396,42 @@ Wraps on `fill-column' columns."
   (python-mode . (lambda () (require 'smartparens-python)))
   (text-mode . (lambda () (require 'smartparens-text)))
   (web-mode . (lambda () (require 'smartparens-html)))
+  (after-init
+   .
+   (lambda ()
+     (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode
+                             js2-mode json-mode objc-mode python-mode java-mode
+                             sh-mode web-mode)
+       (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
+       (sp-local-pair "[" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
+       (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+     (sp-with-modes
+         '(python-mode)
+       (sp-local-pair "\"\"\"" "\"\"\""
+                      :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+     (sp-with-modes
+         '(sh-mode)
+       (sp-local-pair "do" "done"
+                      :when '(("SPC" "RET"))
+                      :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
+                      :actions '(insert navigate)
+                      :pre-handlers '(sp-sh-pre-handler)
+                      :post-handlers '(sp-sh-block-post-handler))
+       (sp-local-pair "then" "fi"
+                      :when '(("SPC" "RET"))
+                      :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
+                      :actions '(insert navigate)
+                      :pre-handlers '(sp-sh-pre-handler)
+                      :post-handlers '(sp-sh-block-post-handler))
+       (sp-local-pair "case" "esac"
+                      :when '(("SPC" "RET"))
+                      :unless '(sp-in-string-p sp-in-comment-p sp-in-docstring-p)
+                      :actions '(insert navigate)
+                      :pre-handlers '(sp-sh-pre-handler)
+                      :post-handlers '(sp-sh-block-post-handler))
+       (smartparens-global-mode))))
+  :commands
+  (sp-local-pair sp-with-modes smartparens-global-mode turn-on-show-smartparens-mode)
   :bind
   (:map smartparens-mode-map
         ("C-c C-<return>" . toggle-sp-newline)
@@ -1407,6 +1450,8 @@ Wraps on `fill-column' columns."
 (use-package cider
   ;; :hook
   ;; (cider-repl-mode . (lambda () (company-mode nil)))
+  :commands
+  (cider-switch-to-repl-buffer)
   :bind
   (:map cider-mode-map
         ("s-<return>" . cider-eval-last-sexp)))
@@ -1510,6 +1555,8 @@ Wraps on `fill-column' columns."
    (remove 'ansi-color-process-output comint-output-filter-functions))
   :config
   (advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
+  :commands
+  (xterm-color-filter)
   :hook
   (shell-mode
    . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
@@ -1541,8 +1588,8 @@ Wraps on `fill-column' columns."
 (use-package fish-completion
   :custom
   (fish-completion-fallback-on-bash-p t)
-  :config
-  (global-fish-completion-mode))
+  :hook
+  (after-init . global-fish-completion-mode))
 
 (use-package company-shell
   :config
@@ -1569,7 +1616,7 @@ Wraps on `fill-column' columns."
   :config
   (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
   :hook
-  ((eshell-load . eshell/init)
+  ((eshell-before-prompt . eshell/init)
    (eshell-before-prompt . (lambda ()
                              (setq xterm-color-preserve-properties t)
                              (rename-buffer
@@ -1586,12 +1633,14 @@ Wraps on `fill-column' columns."
    ("M-P" . eshell-send-previous-input)))
 
 (use-package pinentry
+  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
+  :unless (eq system-type 'windows-nt)
   :custom
   (password-cache-expiry nil)
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
-  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
-  (unless (eq system-type 'windows-nt) (pinentry-start)))
+  :hook
+  (after-init . pinentry-start))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
            ("C-:" . tramp-insert-remote-part))
@@ -1609,8 +1658,9 @@ Wraps on `fill-column' columns."
 
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
-  :config
-  (pdf-tools-install)
+  :hook
+  (after-init . pdf-loader-install)
+  (pdf-view-mode . (lambda () (auto-revert-mode -1)))
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
@@ -1622,7 +1672,7 @@ Wraps on `fill-column' columns."
  ("C-c b" . org-switchb)
  ("C-c s" . search-org-files)
  ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
- ("C-c O" . (lambda () (interactive) (find-file org-directory)))
+ ("C-c o" . (lambda () (interactive) (find-file org-directory)))
  :map visual-line-mode-map
  ;; Don't shadow mwim and org-mode bindings
  ([remap move-beginning-of-line] . nil))
@@ -1671,8 +1721,10 @@ Wraps on `fill-column' columns."
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
-  :ensure-system-package
-  (rg . ripgrep)
+  ;; :ensure-system-package
+  ;; (rg . ripgrep)
+  :custom
+  (rg-keymap-prefix (kbd "C-c M-s"))
   :after
   (wgrep-ag)
   :config
@@ -1702,24 +1754,25 @@ Wraps on `fill-column' columns."
   :hook
   (after-init . global-company-mode)
   :bind
-  (:map prog-mode-map
-        ("M-/" . company-complete)
-        :map company-active-map
-        ;; TODO: The inconsistency between C-n and M-n to select company
-        ;; completion in different contexts (e.g `emacs-lisp-mode' and
-        ;; `eshell-mode') is aggravating. Not sure about the solution though.
-        ;; ("C-n" . company-select-next) ("C-p" . company-select-previous)
-        ("RET" . nil)
-        ("<return>" . nil)
-        ("C-e" . company-complete-selection)
-        ("M-." . company-show-location)))
+  (([remap dabbrev-expand] . company-complete)
+   :map company-active-map
+   ;; TODO: The inconsistency between C-n and M-n to select company
+   ;; completion in different contexts (e.g `emacs-lisp-mode' and
+   ;; `eshell-mode') is aggravating. Not sure about the solution though.
+   ;; ("C-n" . company-select-next) ("C-p" . company-select-previous)
+   ("RET" . nil)
+   ("<return>" . nil)
+   ("C-e" . company-complete-selection)
+   ("M-." . company-show-location)))
 
 (use-package ivy
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
-  :config
-  (ivy-mode 1)
+  :hook
+  (after-init . ivy-mode)
+  :commands
+  (ivy--reset-state ivy-add-actions)
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
@@ -1763,7 +1816,6 @@ Wraps on `fill-column' columns."
   (counsel-find-file-at-point t)
   (counsel-grep-base-command "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
   :config
-  (counsel-mode)
   (ivy-add-actions
    'counsel-M-x
    `(("j" counsel--call-in-other-window-action "other window")))
@@ -1790,12 +1842,14 @@ Wraps on `fill-column' columns."
      ("r"
       ivy--rename-buffer-action
       "rename")))
+  :hook
+  (after-init . counsel-mode)
   :bind
   (:map counsel-mode-map
-        ("C-h C-k" . counsel-descbinds)
-        ("s-F" . counsel-rg)
-        ("s-f" . counsel-grep-or-swiper)
         ("M-x" . counsel-M-x)
+        ("C-h C-k" . counsel-descbinds)
+        ("s-f" . counsel-grep-or-swiper)
+        ("s-F" . counsel-rg)
         ("C-x C-f" . counsel-find-file)
         ("C-x f" . counsel-recentf)
         ("C-x j" . counsel-file-jump)
@@ -1818,16 +1872,16 @@ Wraps on `fill-column' columns."
 (advice-add 'counsel-rg :around #'counsel-rg-default-directory)
 
 (use-package prescient
-  :config
-  (prescient-persist-mode))
+  :hook
+  (after-init . prescient-persist-mode))
 
 (use-package ivy-prescient
-  :config
-  (ivy-prescient-mode))
+  :hook
+  (after-init . ivy-prescient-mode))
 
 (use-package company-prescient
-  :config
-  (company-prescient-mode))
+  :hook
+  (after-init . company-prescient-mode))
 
 (defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
   "Default code project container directory.")
@@ -1840,13 +1894,15 @@ Wraps on `fill-column' columns."
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
   :config
-  (projectile-mode +1)
   (projectile-register-project-type 'npm '("package.json")
                                     :compile "npm start"
                                     :test "npm test"
                                     :test-suffix ".test")
   :hook
   (projectile-after-switch-project . projectile-load-settings)
+  (after-init . projectile-mode)
+  :commands
+  (projectile-register-project-type)
   :bind
   (:map projectile-mode-map
         ("s-}" . projectile-next-project-buffer)
@@ -1860,9 +1916,10 @@ Wraps on `fill-column' columns."
   (counsel-projectile-remove-current-project t)
   (compilation-scroll-output t)
   :config
-  (counsel-projectile-mode)
   ;; When switching projects, go straight to dired in the project root.
   (setf (car counsel-projectile-switch-project-action) 4)
+  :hook
+  (after-init . counsel-projectile-mode)
   :bind
   ("M-s-p" . counsel-projectile-switch-to-buffer)
   ("s-p" . counsel-projectile)
@@ -2065,23 +2122,27 @@ Wraps on `fill-column' columns."
   :custom
   (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
   (tide-default-mode "JS")
+  :commands
+  (tide-setup tide-hl-identifier-mode)
   :hook
   ((js2-mode typescript-mode) .
    (lambda ()
      (tide-setup)
+     ;; Let tide do the symbol highlighting.
+     (symbol-overlay-mode -1)
      (tide-hl-identifier-mode)
-     ;; Because we use prettier.
-     (setq flycheck-checkers (remove 'jsx-tide flycheck-checkers)))))
+     ;; Because we use prettier instead.
+     (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))))
 
 (use-package prettier-js
-  :ensure-system-package
-  (prettier . "npm i -g prettier")
+  ;; :ensure-system-package
+  ;; (prettier . "npm i -g prettier")
   :hook
   ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
 
 (use-package indium
-  :ensure-system-package
-  (indium . "npm i -g indium")
+  ;; :ensure-system-package
+  ;; (indium . "npm i -g indium")
   :custom
   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
   (indium-chrome-use-temporary-profile nil)
@@ -2089,8 +2150,7 @@ Wraps on `fill-column' columns."
   (indium-connect indium-launch))
 
 (use-package json-mode
-  :ensure-system-package
-  jq
+  ;; :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 
 (use-package graphql-mode
@@ -2132,17 +2192,19 @@ Wraps on `fill-column' columns."
   :mode "\\.toml\\'")
 
 (use-package elpy
-  :ensure-system-package
+  ;; :ensure-system-package
   ;; jedi doesn't have an executable and there's not one single path we can look
   ;; across OS and python versions, so just assume it comes with flake8.
-  ((flake8 . "pip install jedi flake8")
-   (autopep8 . "pip install autopep8")
-   (yapf . "pip install yapf"))
+  ;; ((flake8 . "pip install jedi flake8")
+  ;;  (autopep8 . "pip install autopep8")
+  ;;  (yapf . "pip install yapf"))
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
   :config
   (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
+  :commands
+  (elpy-autopep8-fix-code)
   :hook
   (python-mode . (lambda ()
                    (unless (bound-and-true-p elpy-version) (elpy-enable))
@@ -2157,8 +2219,8 @@ Wraps on `fill-column' columns."
   (python-mode . (lambda () (set (make-local-variable 'company-backends) '(company-jedi)))))
 
 (use-package enh-ruby-mode
-  :ensure-system-package
-  (rufo . "gem install rufo")
+  ;; :ensure-system-package
+  ;; (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
 
 (use-package inf-ruby
