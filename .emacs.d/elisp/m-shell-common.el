@@ -51,6 +51,13 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
 
 ;;;###autoload
+(defun tramp-cleanup-all ()
+  "Clean up all tramp buffers and connections."
+  (interactive)
+  (tramp-cleanup-all-buffers)
+  (tramp-cleanup-all-connections))
+
+;;;###autoload
 (defun tramp-insert-remote-part ()
   "Insert current tramp prefix at point."
   (interactive)
