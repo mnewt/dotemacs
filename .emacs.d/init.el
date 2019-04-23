@@ -1960,7 +1960,9 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                 :caller 'counsel-git-grep
                 :unwind #'counsel--git-grep-unwind
                 :update-fn #'counsel--git-grep-update-fn))))
-(cl-pushnew 'counsel-git-grep ivy-highlight-grep-commands)
+
+
+;; (cl-pushnew 'counsel-git-grep ivy-highlight-grep-commands)
 
 (cl-defun counsel-ag (&optional initial-input initial-directory extra-ag-args ag-prompt
                                 &key caller)
@@ -2000,6 +2002,36 @@ CALLER is passed to `ivy-read'."
               :caller (or caller 'counsel-ag)
               :unwind #'counsel--git-grep-unwind
               :update-fn #'counsel--git-grep-update-fn)))
+
+(defvar counsel-register-history nil
+  "History for `counsel-register'.")
+
+(defun counsel-register-action (s)
+  "Default action for `counsel-register'.
+
+Do what I mean for each type of register."
+  (let* ((k (string-to-char s))
+         (v (get-register k)))
+    (if (or (stringp v) (numberp v))
+        (insert (format "%s" v))
+      (jump-to-register k))))
+
+(defun counsel-register ()
+  "Interactively choose a register and perform a default action
+on it."
+  (interactive)
+  (ivy-read "Register: "
+            (cl-loop for (k . v) in register-alist
+                     collect (concat (key-description (list k))
+                                     " => "
+                                     (if (or (stringp v) (numberp v))
+                                         (format "%s" v)
+                                       (format "[%s] %s"
+                                               (symbol-name (car v))
+                                               (cdr v)))))
+            :preselect 0
+            :history 'counsel-register-history
+            :action #'counsel-register-action))
 
 (advice-add 'counsel-rg :around #'counsel-rg-default-directory)
 
