@@ -30,15 +30,18 @@
 
 ;;; Code:
 
+;; visual-line-mode
+(add-hook 'text-mode-hook #'turn-on-visual-line-mode)
+
+;;;; Org
+
 (require 'org)
 
-;;;###autoload
 (defun search-org-files ()
   "Search ~/org using `counsel-rg'."
   (interactive)
   (counsel-rg nil org-directory))
 
-;;;###autoload
 (defun org-todo-todo ()
   "Create or update Org todo entry to TODO status."
   (interactive)
@@ -63,50 +66,48 @@
          (priority-int (if priority (string-to-char priority) org-default-priority)))
     (format "%03d %03d" todo-int priority-int)))
 
-;;;###autoload
 (defun org-sort-entries-by-todo-status ()
   "Sort Org TODO entries by their status."
   (interactive)
   (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
 
-(setq
- org-directory "~/org"
- ;; Clean view
- org-startup-indented t
- ;; Smart C-a/e
- org-special-ctrl-a/e t
- ;; Smart C-k
- org-special-ctrl-k t
- ;; Insert a row in tables
- org-special-ctrl-o t
- ;; Tab in source blocks should act like in major mode
- org-src-tab-acts-natively t
- ;; Code highlighting in code blocks
- org-src-fontify-natively t
- ;; Customize todo keywords
- ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
- ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
- ;;                           ("NEXT" (:foreground "red" :weight bold))
- ;;                           ("WIP" (:foreground "green" :weight bold))
- ;;                           ("DONE" (:foreground "gray"))))
- org-agenda-files '(org-directory
-                    (expand-file-name "TODO.org" org-directory)))
+(setq org-directory "~/org"
+      ;; Clean view
+      org-startup-indented t
+      ;; Smart C-a/e
+      org-special-ctrl-a/e t
+      ;; Smart C-k
+      org-special-ctrl-k t
+      ;; Insert a row in tables
+      org-special-ctrl-o t
+      ;; Tab in source blocks should act like in major mode
+      org-src-tab-acts-natively t
+      ;; Code highlighting in code blocks
+      org-src-fontify-natively t
+      ;; Customize todo keywords
+      ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
+      ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
+      ;;                           ("NEXT" (:foreground "red" :weight bold))
+      ;;                           ("WIP" (:foreground "green" :weight bold))
+      ;;                           ("DONE" (:foreground "gray"))))
+      org-agenda-files '(org-directory
+                         (expand-file-name "TODO.org" org-directory)))
 
 ;; (use-package ox-hugo
 ;;   :after ox)
 
-;; Calendar and Journal
+;;;; Calendar and Journal
 
 (require 'calendar)
 
 (defun calendar-iso8601-date-string (date)
   "Create an ISO8601 date string from DATE."
   (destructuring-bind (month day year) date
-    (concat (format "%4i" year)
-            "-"
-            (format "%02i" month)
-            "-"
-            (format "%02i" day))))
+                      (concat (format "%4i" year)
+                              "-"
+                              (format "%02i" month)
+                              "-"
+                              (format "%02i" day))))
 
 (defun calendar-date-add-days (date days)
   "Add DAYS to DATE."
@@ -122,19 +123,16 @@
          (date-strings (mapcar #'calendar-iso8601-date-string dates)))
     (completing-read "Date: " date-strings nil nil (substring (car date-strings) 0 7))))
 
-;;;###autoload
 (defun calendar-insert-date (date)
   "Interactively choose a DATE in ISO 8601 format and insert it at point."
   (interactive (list (calendar-choose-date)))
   (insert date))
 
-;;;###autoload
 (defun calendar-insert-date-today ()
   "Insert today's date in ISO 8601 format."
   (interactive)
   (insert (calendar-iso8601-date-string (calendar-current-date))))
 
-;;;###autoload
 (defun journal-new-entry ()
   "Create a new journal entry."
   (interactive)
@@ -145,6 +143,29 @@
           (insert "journal")
           (yas-expand)))))
 
-(provide 'm-org)
+(use-package pdf-tools
+  :magic ("%PDF" . pdf-view-mode)
+  :hook
+  (after-init . pdf-loader-install)
+  (pdf-view-mode . (lambda () (auto-revert-mode -1)))
+  :bind
+  (:map pdf-view-mode-map
+        ("s-f" . isearch-forward)))
+
+(bind-keys
+ ("C-c l" . org-store-link)
+ ("C-c a" . org-agenda)
+ ("C-c c" . org-capture)
+ ("C-c b" . org-switchb)
+ ("C-c s" . search-org-files)
+ ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
+ ("C-c o" . (lambda () (interactive) (find-file org-directory)))
+ :map org-mode-map
+ ("s-;" . org-shiftright)
+ :map visual-line-mode-map
+ ;; Don't shadow mwim and org-mode bindings
+ ([remap move-beginning-of-line] . nil))
+
+(provide 'm-notes)
 
 ;;; m-org.el ends here

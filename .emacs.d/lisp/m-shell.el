@@ -32,7 +32,6 @@
 
 (require 'tramp)
 
-;;;###autoload
 (defun maybe-reset-major-mode ()
   "Reset the buffer's `major-mode' if a different mode seems like a better fit.
 Mostly useful as a `before-save-hook', to guess mode when saving a
@@ -44,20 +43,17 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
          (eq major-mode 'fundamental-mode))
     (normal-mode)))
 
-;;;###autoload
 (defun expand-environment-variable ()
   "Insert contents of an envionment variable at point."
   (interactive)
   (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
 
-;;;###autoload
 (defun tramp-cleanup-all ()
   "Clean up all tramp buffers and connections."
   (interactive)
   (tramp-cleanup-all-buffers)
   (tramp-cleanup-all-connections))
 
-;;;###autoload
 (defun tramp-insert-remote-part ()
   "Insert current tramp prefix at point."
   (interactive)
@@ -111,7 +107,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
             (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
             recentf-list))))
 
-;;;###autoload
 (defun ssh-choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
   (completing-read (or prompt "SSH to Host: ")
@@ -123,7 +118,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
                      (list-hosts-from-etc-hosts)))
                    nil t))
 
-;;;###autoload
 (defun tramp-dired (host)
   "Choose an ssh HOST and then open it with dired."
   (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
@@ -132,7 +126,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
        host
      (find-file (concat "/ssh:" host ":")))))
 
-;;;###autoload
 (defun tramp-dired-sudo (host)
   "SSH to HOST, sudo to root, open dired."
   (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
@@ -142,7 +135,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
      (concat "/ssh:" host "|sudo:root@" host ":"))))
 
 ;; http://whattheemacsd.com/setup-shell.el-01.html
-;;;###autoload
 (defun comint-delchar-or-eof-or-kill-buffer (arg)
   "`C-d' on an empty line in the shell terminates the process, accepts ARG."
   (interactive "p")
@@ -150,7 +142,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
       (kill-buffer)
     (comint-delchar-or-maybe-eof arg)))
 
-;;;###autoload
 (defun shell-command-exit-code (program &rest args)
   "Run PROGRAM with ARGS and return the exit code."
   (with-temp-buffer
@@ -162,7 +153,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   '("-A" "/tmp/emacs.dtach" "-z" "bash" "--noediting" "--login")
   "Args for dtach.")
 
-;;;###autoload
 (defun ssh-dtach (host)
   "Open SSH connection to HOST and create or attach to dtach session."
   (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
@@ -174,7 +164,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
 (require 'term)
 
 ;; https://www.emacswiki.org/emacs/ShellMode
-;;;###autoload
 (defun term-switch-to-shell-mode ()
   "Switch a term session to shell."
   (interactive)
@@ -204,7 +193,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
       (with-current-buffer buf
         (xterm-color-colorize-buffer)))))
 
-;;;###autoload
 (defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
   "Wrap `xterm-color-apply-on-minibuffer'."
   (xterm-color-apply-on-minibuffer))
@@ -227,9 +215,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
    ((string-match-p "|sudo:root@" path)
     (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
 
-(declare-function eshell-return-to-prompt 'eshell)
-
-;;;###autoload
 (defun sudo-toggle ()
   "Reopen the current file, directory, or shell as root.  For))))
 files and dired buffers, the non-sudo buffer is replaced with a
@@ -259,6 +244,126 @@ shell is left intact."
            (eshell-send-input))
           (t (message "Can't sudo this buffer")))))
 
-(provide 'm-shell-common)
+;; TODO: Is there some way to check whether module support is compiled in?
+(ignore-errors
+  (let ((vterm-dir "~/code/emacs-libvterm"))
+    (when (file-exists-p vterm-dir)
+      (add-to-list 'load-path "~/code/emacs-libvterm")
+      (let (vterm-install)
+        (require 'vterm)))))
+
+(use-package term
+  :bind
+  (("C-c t" . vterm)
+   :map term-mode-map
+   ("M-p" . term-send-up)
+   ("M-n" . term-send-down)
+   :map term-raw-map
+   ("M-o" . other-window)
+   ("M-p" . term-send-up)
+   ("M-n" . term-send-down)
+   ("C-M-j" . term-switch-to-shell-mode)))
+
+;; xterm colors
+(use-package xterm-color
+  :custom
+  (comint-output-filter-functions
+   (remove 'ansi-color-process-output comint-output-filter-functions))
+  :config
+  (advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
+  :commands
+  (xterm-color-filter)
+  :hook
+  (shell-mode
+   . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
+  (compilation-start
+   . (lambda (proc)
+       ;; We need to differentiate between compilation-mode buffers
+       ;; and running as part of comint (which at this point we assume
+       ;; has been configured separately for xterm-color)
+       (when (eq (process-filter proc) 'compilation-filter)
+         ;; This is a process associated with a compilation-mode buffer.
+         ;; We may call `xterm-color-filter' before its own filter function.
+         (set-process-filter proc
+                             (lambda (proc string)
+                               (funcall 'compilation-filter proc
+                                        (xterm-color-filter string))))))))
+
+(use-package bash-completion
+  :custom
+  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
+  ;; file name.
+  (bash-completion-nospace t)
+  :hook
+  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
+
+(use-package fish-mode
+  :custom (fish-indent-offset tab-width)
+  :mode "\\.fish\\'")
+
+(use-package fish-completion
+  :custom
+  (fish-completion-fallback-on-bash-p t)
+  :hook
+  (after-init . global-fish-completion-mode))
+
+(use-package company-shell
+  :config
+  (add-to-list
+   'company-backends
+   `(company-shell company-shell-env
+                   ,(when (executable-find "fish") 'company-fish-shell))))
+
+(use-package eshell
+  :custom
+  (eshell-banner-message "")
+  (eshell-buffer-shorthand t)
+  (eshell-scroll-to-bottom-on-input 'all)
+  (eshell-error-if-no-glob t)
+  (eshell-hist-ignoredups t)
+  (eshell-save-history-on-exit t)
+  (eshell-prompt-function 'm-eshell-prompt-function)
+  (eshell-prompt-regexp "^(#?) ")
+  (eshell-highlight-prompt nil)
+  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
+                                          "_history" "-history" ".tmp" "~"
+                                          "desktop.ini" "Icon\r" "Thumbs.db"
+                                          "$RECYCLE_BIN" "lost+found")))
+  :config
+  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
+  :hook
+  ((eshell-before-prompt . eshell/init)
+   (eshell-before-prompt . (lambda ()
+                             (setq xterm-color-preserve-properties t)
+                             (rename-buffer
+                              (format "*%s*" default-directory) t))))
+  :bind
+  (("s-e" . eshell-switch-to-buffer)
+   ("C-c e" . eshell-switch-to-buffer)
+   ("s-E" . eshell-switch-to-buffer-other-window)
+   ("C-c E" . eshell-switch-to-buffer-other-window)
+   ("C-s-e" . switch-to-eshell-buffer)
+   ("M-E" . ibuffer-show-eshell-buffers)
+   ("C-c M-e" . ibuffer-show-eshell-buffers)
+   :map prog-mode-map
+   ("M-P" . eshell-send-previous-input)))
+
+(use-package pinentry
+  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
+  :unless (eq system-type 'windows-nt)
+  :custom
+  (password-cache-expiry nil)
+  :config
+  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
+  :hook
+  (after-init . pinentry-start))
+
+(bind-keys ("C-c C-v" . expand-environment-variable)
+           ("C-:" . tramp-insert-remote-part)
+           :map shell-mode-map
+           ("C-d" . comint-delchar-or-eof-or-kill-buffer)
+           ("SPC" . comint-magic-space))
+
+(provide 'm-shell)
 
 ;;; m-shell-common.el ends here

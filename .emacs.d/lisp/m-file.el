@@ -32,11 +32,90 @@
 
 (require 'dired-x)
 
-;; (use-package dired+
-;;   :commands
-;;   (dired-get-filename))
+(defun dos2unix ()
+  "Convert DOS line endings to Unix ones."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (search-forward (string ?\C-m) nil t)
+      (replace-match (string ?\C-j) nil t)))
+  (set-buffer-file-coding-system 'unix 't))
 
-;; (use-package find-dired+)
+(defun unix2dos ()
+  "Convert Unix encoded buffer to DOS encoding.
+https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
+  (interactive)
+  (set-buffer-file-coding-system 'dos))
+
+(defvar touch-history nil)
+
+(defun touch (cmd)
+  "Run `touch CMD' in `default-directory'."
+  (interactive (list (read-shell-command "Run touch (like this): "
+                                         "touch "
+                                         'touch-history
+                                         "touch ")))
+  (shell-command cmd))
+
+(use-package reveal-in-osx-finder
+  :commands
+  reveal-in-osx-finder)
+
+(defun reveal-in-windows-explorer (file)
+  (call-process "explorer" nil 0 nil
+                (concat "/select," (dired-replace-in-string "/" "\\" file))))
+
+(defun os-reveal-file (&optional file)
+  "Reveal FILE using the operating system's GUI file browser."
+  (interactive)
+  (let ((file (or file buffer-file-name)))
+    (message "Revealing %s..." file)
+    (pcase system-type
+      ('darwin (reveal-in-osx-finder file))
+      ('windows-nt (reveal-in-windows-explorer file))
+      ('cygwin (reveal-in-windows-explorer file)))))
+
+(defun os-open-file (&optional file)
+  "Open FILE using the operating system's GUI file opener."
+  (interactive)
+  (let ((file (or file buffer-file-name)))
+    (message "Opening %s..." file)
+    (pcase system-type
+      ('darwin (call-process "open" nil 0 nil file))
+      ('windows-nt (call-process "command" nil 0 nil file))
+      ('cygwin (call-process "command" nil 0 nil file)))))
+
+;; These functions execute the `mnt' utility, which uses config
+;; profiles to mount smb shares (even through ssh tunnels).
+
+(defun mnt-cmd (cmd)
+  "Interactively Run a `mnt/umnt' utility (CMD).
+The config is specified in the config file in `~/.mnt/'."
+  (let ((config (completing-read (format "Run %s using config: " cmd)
+                                 (directory-files "~/.mnt" nil "^[^.]")
+                                 nil t)))
+    (setq config (expand-file-name config "~/.mnt"))
+    (if (async-shell-command (concat cmd " " config) "*mnt*")
+        (message (format "%s succeeded with config file: %s" cmd config))
+      (message (format "%s FAILED with config file: %s" cmd config)))))
+
+(defun mnt ()
+  "Mount a share using the `mnt' utility."
+  (interactive)
+  (mnt-cmd "sudo_mnt"))
+
+(defun umnt ()
+  "Unmount a share using the `umnt' utility."
+  (interactive)
+  (mnt-cmd "umnt"))
+
+(defun tail-file (file)
+  "Run `tail -f' on FILE. Tries to find a file at point."
+  (interactive (list (completing-read "Tail file: "
+                                      'read-file-name-internal
+                                      'file-exists-p t nil 'file-name-history
+                                      (thing-at-point 'filename))))
+  (async-shell-command (concat "tail -f " file)))
 
 (use-package ivy-dired-history
   :config
@@ -59,6 +138,32 @@
       dired-clean-confirm-killing-deleted-buffers nil
       find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
 
+(defun public-ip ()
+  "Display the local host's apparent public IP address."
+  (interactive)
+  (message
+   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
+     (goto-char (point-min))
+     (re-search-forward "^$")
+     (delete-char 1)
+     (delete-region (point) (point-min))
+     (buffer-string))))
+
+;;;###autoload
+(defun df ()
+  "Display the local host's disk usage in human readable form."
+  (interactive)
+  (print (shell-command-to-string "df -h")))
+
+;;;###autoload
+(defun dis (hostname)
+  "Resolve a HOSTNAME to its IP address."
+  (interactive "MHostname: ")
+  (message (shell-command-to-string
+            (concat "drill "
+                    hostname
+                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
+
 (use-package wdired
   :custom
   (wdired-allow-to-change-permissions t)
@@ -78,7 +183,7 @@
     (dired-rainbow-define-chmod directory "#6cb2eb" "d.*")
     (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx"))
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
     (dired-rainbow-define markdown "#f2d024" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
@@ -94,8 +199,7 @@
     (dired-rainbow-define fonts "#6cb2eb" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
     (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
     (dired-rainbow-define vc "#0074d9" ("git" "gitignore" "gitattributes" "gitmodules"))
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-    (dired-rainbow-define microsoft "#3465a4" ("doc" "docx" "xls" "xlsx" "vsd" "vsdx"))))
+    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")))
 
 (use-package dired-filter
   :commands
@@ -112,13 +216,14 @@
    dired-filter-by-symlink
    dired-filter-by-executable))
 
-;; (use-package dired-list
-;;   :commands
-;;   (dired-list-git-ls-files
-;;    dired-list-locate
-;;    dired-list-find-file
-;;    dired-list-find-name
-;;    dired-list-grep))
+(use-package dired-list
+  :straight (:type git :host github :repo "Fuco1/dired-hacks" :files ("dired-list.el"))
+  :commands
+  (dired-list-git-ls-files
+   dired-list-locate
+   dired-list-find-file
+   dired-list-find-name
+   dired-list-grep))
 
 (use-package dired-subtree
   :bind
@@ -196,32 +301,17 @@ human readable."
                                      'invisible 'dired-hide-details-information))
                        t nil nil 2)))))
 
-(defun dired-format-summary-line ()
-  "Format the `total used in directory' and `available' space as
-human readable."
-  (save-excursion
-    (goto-char (point-min))
-    (forward-line)
-    (let ((inhibit-read-only t)
-          (kill-ring kill-ring)
-          (limit (line-end-position)))
-      (while (re-search-forward "^\\s-*total used in directory [0-9BGKM]+ available \\([0-9]+\\)$"
-                                nil t)
-        (forward-char)
-        (unless (dired-utils-get-filename)
-          (let* ((avail (or (word-at-point) "0"))
-                 (avail-hr (s-trim (ls-lisp-format-file-size (* 1024 (string-to-number avail)) t 1))))
-            (kill-word 1)
-            (insert (propertize avail-hr 'invisible 'dired-hide-details-information))))))))
-
-(add-hook 'dired-after-readin-hook #'dired-make-available-human-readable)
+(add-hook 'dired-mode-hook #'dired-hide-details-mode)
+(add-hook 'dired-after-readin-hook #'dired-format-summary-line)
 
 (bind-keys
  :map dired-mode-map
  ("C-c o" . dired-open-file)
  ("T" . touch)
- ("C-." . dired-omit-mode))
+ ("C-." . dired-omit-mode)
+ ("F" . tail-file)
+ (";" . dired-git-add))
 
-(provide 'm-dired)
+(provide 'm-file)
 
 ;;; m-dired.el ends here

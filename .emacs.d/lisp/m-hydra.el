@@ -278,11 +278,11 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
 
 (require 'ibuffer)
 
-(bind-keys ("C-c C-m" . hydra-multiple-cursors/body)
-           ("C-c #" . hydra-outline/body)
-           ("C-c @" . hydra-hs/body)
-           ("C-c C-o" . hydra-occur-dwim/body)
-           :map dired-mode-map
-           ("." . hydra-dired/body)
-           :map ibuffer-mode-map
-           ("." . hydra-ibuffer-main/body))
+(bind-keys (("C-c C-m" . hydra-multiple-cursors/body)
+            ("C-c #" . hydra-outline/body)
+            ("C-c @" . hydra-hs/body)
+            ("C-c C-o" . hydra-occur-dwim/body)
+            :map dired-mode-map
+            ("." . hydra-dired/body)
+            :map ibuffer-mode-map
+            ("." . hydra-ibuffer-main/body)))
