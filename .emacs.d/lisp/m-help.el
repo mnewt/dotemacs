@@ -1,33 +1,25 @@
 ;;; m-help.el --- Help and Documentation -*- lexical-binding: t -*-
 
-;; Author: Matthew Newton
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
-;; commentary
+;; Help and Documentation lookup
 
 ;;; Code:
 
 (setq suggest-key-bindings 5
       ;; Select help window so it's easy to quit it with `q'
       help-window-select t)
+
+(use-package epkg
+  :commands
+  (epkg epkg-describe-package epkg-list-packages))
+
+(defun update-packages ()
+  "Use straight.el to update all packages."
+  (interactive)
+  (straight-normalize-all)
+  (straight-fetch-all)
+  (straight-merge-all))
 
 (use-package help-at-pt
   :custom

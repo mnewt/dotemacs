@@ -1,32 +1,8 @@
-;;; m-org.el --- My Org config -*- lexical-binding: t -*-
-
-;; Author: Matthew Newton
-;; Maintainer: Matthew Newton
-;; Version: version
-;; Package-Requires: (dependencies)
-;; Homepage: homepage
-;; Keywords: keywords
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
+;;; m-notes.el --- Note taking -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
-;; commentary
+;; Note taking and Org
 
 ;;; Code:
 
@@ -36,6 +12,7 @@
 ;;;; Org
 
 (require 'org)
+(require 'org-capture)
 
 (defun search-org-files ()
   "Search ~/org using `counsel-rg'."
@@ -52,8 +29,8 @@
   (first (-non-nil
           (mapcar (lambda (keywords)
                     (let ((todo-seq
-                           (-map (lambda (x) (first (split-string  x "(")))
-                                 (rest keywords))))
+                           (mapcar (lambda (x) (first (split-string  x "(")))
+                                   (rest keywords))))
                       (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
                   org-todo-keywords))))
 
@@ -93,6 +70,14 @@
       org-agenda-files '(org-directory
                          (expand-file-name "TODO.org" org-directory)))
 
+(add-to-list
+ 'org-capture-templates
+ '("m"
+   "TODO respond to email"
+   entry
+   (file (expand-file-name "TODO.org" org-directory))
+   "* TODO %^{Description}\n%A\n%?\n"))
+
 ;; (use-package ox-hugo
 ;;   :after ox)
 
@@ -103,11 +88,11 @@
 (defun calendar-iso8601-date-string (date)
   "Create an ISO8601 date string from DATE."
   (destructuring-bind (month day year) date
-                      (concat (format "%4i" year)
-                              "-"
-                              (format "%02i" month)
-                              "-"
-                              (format "%02i" day))))
+    (concat (format "%4i" year)
+            "-"
+            (format "%02i" month)
+            "-"
+            (format "%02i" day))))
 
 (defun calendar-date-add-days (date days)
   "Add DAYS to DATE."

@@ -1,27 +1,8 @@
 ;;; m-modes.el --- File Modes -*- lexical-binding: t -*-
 
-;; Author: Matthew Newton
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
-;; commentary
+;; All modes which don't fit into a larger category
 
 ;;; Code:
 
@@ -42,10 +23,6 @@
   (require 'erc-services)
   (erc-services-mode 1))
 
-;;;; Emacs Lisp
-
-(add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
-
 ;;;; Log Files
 
 (use-package vlf
@@ -54,24 +31,20 @@
   :config
   (require 'vlf-setup))
 
-;; (use-package logview)
-
-;;;; Shell
-
-(use-package sh-script
-  ;; :ensure-system-package shfmt
+(use-package logview
   :custom
-  (sh-basic-offset tab-width)
-  (sh-indentation tab-width)
-  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t)
-  :hook
-  ;; Make a shell script executable automatically on save
-  (after-save . executable-make-buffer-file-executable-if-script-p)
-  (before-save . maybe-reset-major-mode)
-  :bind
-  (:map sh-mode-map
-        ("s-<ret>" . eshell-send-current-line)))
+  (logview-additional-timestamp-formats
+   '(("ISO 8601 datetime (with 'T' and 'Z') + millis"
+      (java-pattern . "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))))
+  (logview-additional-level-mappings
+   '(("VMware" . ((error "error")
+                  (warning "warning")
+                  (information "info")
+                  (debug "debug")
+                  (trace "trace")))))
+  (logview-additional-submodes
+   '(("VMware" . ((format  . "TIMESTAMP LEVEL NAME [THREAD] ")
+                  (levels  . "VMware"))))))
 
 ;;;; Docker
 

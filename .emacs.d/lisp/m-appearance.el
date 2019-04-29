@@ -1,27 +1,8 @@
 ;;; m-appearance.el --- Appearance Related Configuration -*- lexical-binding: t -*-
 
-;; Author: Matthew Newton
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
-;; commentary
+;; Set up visual UI and theme stuff.
 
 ;;; Code:
 
@@ -35,7 +16,6 @@
       inhibit-splash-screen t)
 
 (defun display-startup-echo-area-message ()
-  "Run when Emacs has finished starting."
   (message "Emacs has finished starting up."))
 
 ;; Blinking is NOT OK
@@ -43,7 +23,8 @@
 
 ;; Beeping is REALLY NOT OK
 (setq visible-bell t
-      ;; Show keystrokes right away, don't show the message in the scratch buffer
+      ;; Show keystrokes right away, don't show the message in the scratch
+      ;; buffer.
       echo-keystrokes 0.1)
 
 ;; Smoother and nicer scrolling

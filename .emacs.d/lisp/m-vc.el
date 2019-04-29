@@ -1,42 +1,16 @@
-;;; m-vc.el --- Version Control Functions -*- lexical-binding: t -*-
-
-;; Author: Matthew Newton
-;; Maintainer: Matthew Newton
-;; Version: version
-;; Package-Requires: (emacs "")
-;; Homepage: https://gitlab.com/mnewt/dotemacs
-;; Keywords: keywords
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
+;;; m-vc.el --- Version Control  -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
-;; commentary
+;; Version Control customization
 
 ;;; Code:
 
-;;;###autoload
 (defun git-add-current-file (file)
   "Run `git add' on the current buffer file name."
   (interactive (list (buffer-file-name)))
   (shell-command (format "git add '%s'" file)))
 
-;;;###autoload
 (defun dired-git-add ()
   "Run `git add' on the selected files in a dired buffer."
   (interactive)
@@ -74,7 +48,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   ;; a good thing, it saves us from having to do this explicitly :-)
   (delete-file (expand-file-name ".git" worktree)))
 
-;;;###autoload
 (defun git-home-link (repo)
   "Interactively link a git REPO's worktree to $HOME."
   (interactive (list (completing-read "Link git home repository: "
@@ -88,7 +61,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (git-worktree-link repo (getenv "HOME"))
   (message "Linked repo at %s" repo))
 
-;;;###autoload
 (defun git-home-unlink ()
   "Unlink the current git repo's worktree from $HOME."
   (interactive)
@@ -104,7 +76,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (cl-remove-if #'string-blank-p
                 (split-string (shell-command-to-string "git ls-files") "\n")))
 
-;;;###autoload
 (defun projectile-git-ls-files-dired (&optional dir)
   "Dired list of the tracked files in the git repo, specified by DIR."
   (interactive)

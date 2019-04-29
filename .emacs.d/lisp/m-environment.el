@@ -1,29 +1,12 @@
 ;;; m-environment.el --- Operating System and environment -*- lexical-binding: t -*-
 
-;; Author: Matthew Newton
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
-;; commentary
+;; Set up Operating System and Environment details.
 
 ;;; Code:
+
+(setq datetime-timezone 'US/Pacific)
 
 ;; Path
 (defvar set-path-unix nil
@@ -68,11 +51,11 @@ Update environment variables from a shell source file."
          (old-path (split-string (getenv "PATH") sep))
          ;; De-dupe and validate new path
          (new-path
-          (-map 'expand-file-name
-                (-filter 'file-directory-p
-                         (-distinct (append set-path-user
-                                            os-specific-paths
-                                            old-path))))))
+          (mapcar 'expand-file-name
+                  (-filter 'file-directory-p
+                           (-distinct (append set-path-user
+                                              os-specific-paths
+                                              old-path))))))
     (setenv "PATH" (apply 'concat (-interpose sep new-path)))
     ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))

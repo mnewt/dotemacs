@@ -1,36 +1,27 @@
-;;; m-shell-common.el --- Shell, Terminal, SSH, and Tramp common config -*- lexical-binding: t -*-
-
-;; Author: Matthew Newton
-;; Maintainer: Matthew Newton
-;; Version: version
-;; Package-Requires: (dependencies)
-;; Homepage: homepage
-;; Keywords: keywords
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
+;;; m-shell-common.el --- Shell Configuration -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
-;; commentary
+;; Shell, Term, Tramp, and related things.
 
 ;;; Code:
 
 (require 'tramp)
+
+(use-package sh-script
+  ;; :ensure-system-package shfmt
+  :custom
+  (sh-basic-offset tab-width)
+  (sh-indentation tab-width)
+  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
+  (executable-prefix-env t)
+  :hook
+  ;; Make a shell script executable automatically on save
+  (after-save . executable-make-buffer-file-executable-if-script-p)
+  (before-save . maybe-reset-major-mode)
+  :bind
+  (:map sh-mode-map
+        ("s-<ret>" . eshell-send-current-line)))
 
 (defun maybe-reset-major-mode ()
   "Reset the buffer's `major-mode' if a different mode seems like a better fit.
@@ -103,7 +94,7 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
              (replace-regexp-in-string
               ":.*" ""
               (replace-regexp-in-string "^/sshx\?:" "" s)))
-           (-filter
+           (remove-if
             (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
             recentf-list))))
 
@@ -160,6 +151,11 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
         (default-directory (format  "/sshx:%s:" host))
         (explicit-dtach-args explicit-dtach-args))
     (shell (format "*ssh (dtach) %s*" host))))
+
+(defun ssh (host)
+  "Open SSH connection to HOST and create or attach to dtach session."
+  (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
+  (shell (format "*ssh %s*" host)))
 
 (require 'term)
 

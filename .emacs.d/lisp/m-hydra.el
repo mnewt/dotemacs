@@ -1,19 +1,35 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Hydra
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; m-hydra.el --- Hydra Configuration -*- lexical-binding: t -*-
+
+;;; Commentary:
+
+;; Hydra, dependencies, and hydras
+
+;;; Code:
 
 (use-package lv)
 
 (require 'ibuffer)
-
 (require 'hideshow)
-
 (require 'ediff)
 
 (use-package hydra
   :commands
-  (hydra-default-pre hydra-keyboard-quit hydra--call-interactively-remap-maybe
-                     hydra-show-hint hydra-set-transient-map))
+  (defhydra hydra-default-pre hydra-keyboard-quit
+    hydra--call-interactively-remap-maybe hydra-show-hint
+    hydra-set-transient-map))
+
+(defhydra hydra-move (:hint nil)
+  "Move"
+  ("n" next-line)
+  ("p" previous-line)
+  ("f" forward-char)
+  ("b" backward-char)
+  ("a" beginning-of-line)
+  ("e" move-end-of-line)
+  ("v" scroll-up-command)
+  ;; Converting M-v to V here by analogy.
+  ("V" scroll-down-command)
+  ("l" recenter-top-bottom))
 
 (defhydra hydra-multiple-cursors (:hint nil)
   "
@@ -108,7 +124,7 @@ _q_ quit
         regexp-history)
   (call-interactively 'occur))
 
-;; (advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
+(advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
 
 ;; Focus on *Occur* window right away.
 (add-hook 'occur-hook (lambda () (other-window 1)))
@@ -154,7 +170,7 @@ _q_ quit
   ("C" dired-do-copy)        ;; Copy all marked files
   ("D" dired-do-delete)
   ("E" dired-mark-extension)
-  ;; ("e" dired-ediff-files)
+  ("e" dired-ediff-files)
   ("F" dired-do-find-marked-files)
   ("G" dired-do-chgrp)
   ("g" revert-buffer)        ;; read all directories again (refresh)
@@ -276,13 +292,102 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   ("/" ibuffer-filter-disable "disable")
   ("b" hydra-ibuffer-main/body "back" :color blue))
 
-(require 'ibuffer)
+(defhydra hydra-mu4e-headers (:color blue :hint nil)
+  "
+ ^General^   | ^Search^           | _!_: read    | _#_: deferred  | ^Switches^
+-^^----------+-^^-----------------| _?_: unread  | _%_: pattern   |-^^------------------
+_n_: next    | _s_: search        | _r_: refile  | _&_: custom    | _O_: sorting
+_p_: prev    | _S_: edit prev qry | _u_: unmk    | _+_: flag      | _P_: threading
+_]_: n unred | _/_: narrow search | _U_: unmk *  | _-_: unflag    | _Q_: full-search
+_[_: p unred | _b_: search bkmk   | _d_: trash   | _T_: thr       | _V_: skip dups
+_y_: sw view | _B_: edit bkmk     | _D_: delete  | _t_: subthr    | _W_: include-related
+_R_: reply   | _{_: previous qry  | _m_: move    |-^^-------------+-^^------------------
+_C_: compose | _}_: next query    | _a_: action  | _|_: thru shl  | _`_: update, reindex
+_F_: forward | _C-+_: show more   | _A_: mk4actn | _H_: help      | _;_: context-switch
+_o_: org-cap | _C--_: show less   | _*_: *thing  | _q_: quit hdrs | _j_: jump2maildir "
 
-(bind-keys (("C-c C-m" . hydra-multiple-cursors/body)
-            ("C-c #" . hydra-outline/body)
-            ("C-c @" . hydra-hs/body)
-            ("C-c C-o" . hydra-occur-dwim/body)
-            :map dired-mode-map
-            ("." . hydra-dired/body)
-            :map ibuffer-mode-map
-            ("." . hydra-ibuffer-main/body)))
+  ;; general
+  ("n" mu4e-headers-next)
+  ("p" mu4e-headers-previous)
+  ("[" mu4e-select-next-unread)
+  ("]" mu4e-select-previous-unread)
+  ("y" mu4e-select-other-view)
+  ("R" mu4e-compose-reply)
+  ("C" mu4e-compose-new)
+  ("F" mu4e-compose-forward)
+  ("o" my/org-capture-mu4e)                  ; differs from built-in
+
+  ;; search
+  ("s" mu4e-headers-search)
+  ("S" mu4e-headers-search-edit)
+  ("/" mu4e-headers-search-narrow)
+  ("b" mu4e-headers-search-bookmark)
+  ("B" mu4e-headers-search-bookmark-edit)
+  ("{" mu4e-headers-query-prev)              ; differs from built-in
+  ("}" mu4e-headers-query-next)              ; differs from built-in
+  ("C-+" mu4e-headers-split-view-grow)
+  ("C--" mu4e-headers-split-view-shrink)
+
+  ;; mark stuff
+  ("!" mu4e-headers-mark-for-read)
+  ("?" mu4e-headers-mark-for-unread)
+  ("r" mu4e-headers-mark-for-refile)
+  ("u" mu4e-headers-mark-for-unmark)
+  ("U" mu4e-mark-unmark-all)
+  ("d" mu4e-headers-mark-for-trash)
+  ("D" mu4e-headers-mark-for-delete)
+  ("m" mu4e-headers-mark-for-move)
+  ("a" mu4e-headers-action)                  ; not really a mark per-se
+  ("A" mu4e-headers-mark-for-action)         ; differs from built-in
+  ("*" mu4e-headers-mark-for-something)
+
+  ("#" mu4e-mark-resolve-deferred-marks)
+  ("%" mu4e-headers-mark-pattern)
+  ("&" mu4e-headers-mark-custom)
+  ("+" mu4e-headers-mark-for-flag)
+  ("-" mu4e-headers-mark-for-unflag)
+  ("t" mu4e-headers-mark-subthread)
+  ("T" mu4e-headers-mark-thread)
+
+  ;; miscellany
+  ("q" mu4e~headers-quit-buffer)
+  ("H" mu4e-display-manual)
+  ("|" mu4e-view-pipe)                       ; does not seem built-in any longer
+
+  ;; switches
+  ("O" mu4e-headers-change-sorting)
+  ("P" mu4e-headers-toggle-threading)
+  ("Q" mu4e-headers-toggle-full-search)
+  ("V" mu4e-headers-toggle-skip-duplicates)
+  ("W" mu4e-headers-toggle-include-related)
+
+  ;; more miscellany
+  ("`" mu4e-update-mail-and-index)           ; differs from built-in
+  (";" mu4e-context-switch)
+  ("j" mu4e~headers-jump-to-maildir)
+
+  ("." nil))
+
+(bind-key "C-s-v" #'hydra-move/body)
+
+(with-eval-after-load 'outline
+  (bind-key "C-c #" #'hydra-outline/body outline-minor-mode-map))
+
+(with-eval-after-load 'hideshow
+  (bind-key "C-c @" #'hydra-hs/body hs-minor-mode-map))
+
+(with-eval-after-load 'occur-mode
+  (bind-key "C-o" #'hydra-occur-dwim/body occur-mode-map))
+
+(with-eval-after-load 'dired
+  (bind-key "." #'hydra-dired/body dired-mode-map))
+
+(with-eval-after-load 'ibuffer
+  (bind-key "." #'hydra-ibuffer-main/body ibuffer-mode-map))
+
+(with-eval-after-load 'mu4e
+  (bind-key "." #'hydra-mu4e-headers/body mu4e-headers-mode-map))
+
+(provide 'm-hydra)
+
+;;; m-hydra.el ends here

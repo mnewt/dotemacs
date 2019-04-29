@@ -67,36 +67,6 @@
 (defvar straight-check-for-modifications)
 (setq straight-check-for-modifications 'live)
 
-;; (defun m-straight-merge-all (&optional from-upstream)
-;;   "Try to merge all packages from their primary remotes.
-;; With prefix argument FROM-UPSTREAM, merge not just from primary
-;; remotes but also from configured upstreams.
-
-;; Do not merge packages listed in `m-pinned-packages'."
-;;   (interactive "P")
-;;   (straight-merge-all
-;;    from-upstream
-;;    (lambda (package)
-;;      (not (member package m-straight-pinned-packages)))))
-
-;; Packages in this list do not get updated when `update-packages' runs.
-;; Therefore, they stay at their current version until manually updated in some
-;; way, perhaps with `straight-merge-package'. See
-;; https://github.com/raxod502/straight.el/issues/246#issuecomment-415085772.
-;; (setq m-straight-pinned-packages
-;;       '(org-mode))
-
-(defun update-packages ()
-  "Use straight.el to update all packages."
-  (interactive)
-  (straight-normalize-all)
-  (straight-fetch-all)
-  (straight-merge-all))
-
-(use-package epkg
-  :commands
-  (epkg epkg-describe-package epkg-list-packages))
-
 ;; (use-package use-package-ensure-system-package)
 
 ;; (use-package benchmark-init
@@ -116,9 +86,7 @@
 
 ;; These packages are used by many things
 
-(use-package dash
-  :commands
-  (-map -filter -distinct -interpose))
+(use-package dash)
 
 (use-package s)
 
@@ -130,7 +98,7 @@
 (require 'm-ui)
 (require 'm-navigate)
 (require 'm-help)
-;; (require 'm-hydra)
+(require 'm-hydra)
 (require 'm-search)
 (require 'm-file)
 (require 'm-vc)
@@ -139,7 +107,6 @@
 (require 'm-edit)
 (require 'm-notes)
 (require 'm-lisp)
-
 (require 'm-modes)
 
 (load "~/.emacs.d/m-private.el" t)
