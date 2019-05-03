@@ -47,10 +47,10 @@
 (global-eldoc-mode)
 
 ;; ELDoc
-(seq-do (lambda (m) (add-hook m #'turn-on-eldoc-mode))
-        '(emacs-lisp-mode-hook
-          lisp-interaction-mode-hook
-          ielm-mode-hook))
+(mapc (lambda (m) (add-hook m #'turn-on-eldoc-mode))
+      '(emacs-lisp-mode-hook
+        lisp-interaction-mode-hook
+        ielm-mode-hook))
 
 (use-package which-key
   :hook
@@ -93,9 +93,9 @@
 (defun dash-docs-update-all-docsets ()
   "Update all docsets."
   (interactive)
-  (seq-do (lambda (d) (when (memq d (dash-docs-official-docsets))
-                        (dash-docs-install-docset d)))
-          (dash-docs-installed-docsets)))
+  (mapc (lambda (d) (when (memq d (dash-docs-official-docsets))
+                      (dash-docs-install-docset d)))
+        (dash-docs-installed-docsets)))
 
 (use-package dash-docs
   :straight

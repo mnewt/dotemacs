@@ -128,6 +128,8 @@
           (insert "journal")
           (yas-expand)))))
 
+;;;; Reading
+
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
   :hook
@@ -136,6 +138,9 @@
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
+
+(use-package nov
+  :mode "\\.epub\\'")
 
 (bind-keys
  ("C-c l" . org-store-link)

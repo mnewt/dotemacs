@@ -28,7 +28,8 @@ If ARG is provided then prompt for the buffer's mode. Try these
   (interactive)
   (let* ((mode (if current-prefix-arg
                    (intern (ivy-read "New scratch buffer with mode: "
-                                     (list-major-modes)
+                                     (append '(lisp-interaction-mode js-mode js-jsx-mode)
+                                             (list-major-modes))
                                      :history 'new-scratch-buffer-history
                                      :caller 'new-scratch-buffer))
                  ;; :initial-input (car new-scratch-buffer-history)))
@@ -244,11 +245,11 @@ return them in the Emacs format."
    ("C-H-A" . buf-move-left)
    ("C-H-D" . buf-move-right)))
 
-(use-package ace-window
-  :bind
-  ("M-o" . ace-window)
-  ("s-w" . ace-delete-window)
-  ("s-W" . ace-delete-other-windows))
+;; (use-package ace-window
+;;   :bind
+;;   ("M-o" . ace-window)
+;;   ("s-w" . ace-delete-window)
+;;   ("s-W" . ace-delete-other-windows))
 
 (use-package winum
   :custom
@@ -385,7 +386,7 @@ return them in the Emacs format."
 (use-package crux
   :bind
   ("C-c C-j" . crux-eval-and-replace)
-  ("C-s-<backspace>" . crux-kill-line-backwards)
+  ("s-<backspace>" . crux-kill-line-backwards)
   ("C-M-X" . crux-indent-defun)
   ("C-c D" . crux-delete-file-and-buffer)
   ("C-c d" . crux-duplicate-current-line-or-region)

@@ -226,7 +226,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-c u" . counsel-unicode-char)
         ("C-c g" . counsel-git)
         ("C-c j" . counsel-git-grep)
-        ("C-c o" . counsel-outline)
+        ("C-c M-o" . counsel-outline)
         ("M-s-v" . counsel-yank-pop)
         ("M-Y" . counsel-yank-pop)
         ([remap find-file] . counsel-find-file))
@@ -291,7 +291,6 @@ The buffers are those opened during a session of `counsel-git-grep'."
         (with-ivy-window (pop-to-buffer-same-window buffer)
                          (counsel--line line-number))))))
 
-
 (defun counsel-git-grep (&optional cmd initial-input)
   "Grep for a string in the current Git repository.
 When CMD is a string, use it as a \"git grep\" command.
@@ -320,8 +319,8 @@ INITIAL-INPUT can be given as the initial minibuffer input."
                 :unwind #'counsel--git-grep-unwind
                 :update-fn #'counsel--git-grep-update-fn))))
 
-
-;; (cl-pushnew 'counsel-git-grep ivy-highlight-grep-commands)
+(with-eval-after-load 'ivy
+  (cl-pushnew 'counsel-git-grep ivy-highlight-grep-commands))
 
 (cl-defun counsel-ag (&optional initial-input initial-directory extra-ag-args ag-prompt
                                 &key caller)

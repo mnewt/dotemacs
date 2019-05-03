@@ -109,21 +109,13 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
                      (list-hosts-from-etc-hosts)))
                    nil t))
 
-(defun tramp-dired (host)
+(defun dired-tramp (host)
   "Choose an ssh HOST and then open it with dired."
   (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
   (find-file
    (if (tramp-file-name-p host)
        host
      (find-file (concat "/ssh:" host ":")))))
-
-(defun tramp-dired-sudo (host)
-  "SSH to HOST, sudo to root, open dired."
-  (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
-  (find-file
-   (if (tramp-file-name-p host)
-       host
-     (concat "/ssh:" host "|sudo:root@" host ":"))))
 
 ;; http://whattheemacsd.com/setup-shell.el-01.html
 (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -211,6 +203,29 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
    ((string-match-p "|sudo:root@" path)
     (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
 
+;; (defun sudo-enable ()
+;;   "Enable sudo in the current buffer."
+;;   (interative)
+;;   (let* ((position (point))
+;;          (f (expand-file-name (or buffer-file-name default-directory)))
+;;          (newf (sudo-toggle--add-sudo f))
+;;          ;; So that you don't get method overrides.
+;;          (tramp-default-proxies-alist nil))
+;;     (cond ((or buffer-file-name (derived-mode-p 'dired-mode))
+;;            (find-file newf)
+;;            (goto-char position))
+;;           ((derived-mode-p 'shell-mode)
+;;            (let ((b (format "*shell/sudo:root@%s*"
+;;                             (with-parsed-tramp-file-name newf nil host))))
+;;              (get-buffer-create b
+;;                                 (cd newf)
+;;                                 (shell b))))
+;;           ((derived-mode-p 'eshell-mode)
+;;            (eshell-return-to-prompt)
+;;            (insert (concat "cd '" newf "'"))
+;;            (eshell-send-input))
+;;           (t (message "Can't sudo this buffer.")))))
+
 (defun sudo-toggle ()
   "Reopen the current file, directory, or shell as root.  For))))
 files and dired buffers, the non-sudo buffer is replaced with a
@@ -222,10 +237,10 @@ shell is left intact."
          (newf (if (string-match-p "sudo:" f)
                    (sudo-toggle--remove-sudo f)
                  (sudo-toggle--add-sudo f)))
-         ;; so that you don't get method overrides
+         ;; So that you don't get method overrides.
          (tramp-default-proxies-alist nil))
     (cond ((or buffer-file-name (derived-mode-p 'dired-mode))
-           (find-alternate-file newf)
+           (find-file newf)
            (goto-char position))
           ((derived-mode-p 'shell-mode)
            (if (string-match-p "*shell/sudo:root@" (buffer-name))
@@ -240,7 +255,44 @@ shell is left intact."
            (eshell-send-input))
           (t (message "Can't sudo this buffer")))))
 
-;; TODO: Is there some way to check whether module support is compiled in?
+;; (defun filter-functions (regexp &optional predicate)
+;;   "Return a list of functions matching REGEXP.
+
+;; If PREDICATE is specified, only return functions for which
+;; predicate returns true."
+;;   (let (fs)
+;;     (mapatoms (lambda (x)
+;;                 (when (and (fboundp x) (string-match-p regexp (symbol-name x))
+;;                            (or (not predicate) (funcall predicate x)))
+;;                   (push x fs))))
+;;     fs))
+
+;; TODO: Finish `maybe-with-sudo'.
+;; (defun maybe-with-sudo (f &rest args)
+;;   "If the command is prefixed with sudo, use tramp to sudo.
+
+;; This is because `shell-command' and friends can't ask for sudo
+;; privileges on their own since they do not have any way to prompt
+;; the user for input.
+
+;; NOTE: Will barf if you supply switches to sudo."
+;;   (let* ((i ())
+;;          (command (stringp (car args)) (car args) (cadr args)))
+;;     (if (and (not (string-match-p "sudo:" default-directory))
+;;              (string-match "^sudo " command))
+;;         (progn (setq command (substring command 5))
+;;                (unwind-protect
+;;                    (progn (sudo-toggle)
+;;                           (apply f command args))
+;;                  (sudo-toggle)))
+;;       (apply f command args))))
+
+;; (seq-doseq (c (filter-functions "shell-command"
+;;                                 (lambda (f) (commandp (symbol-function f)))))
+;;   (advice-add c :around #'maybe-with-sudo))
+
+
+;; Load `vterm' if it's available.
 (ignore-errors
   (let ((vterm-dir "~/code/emacs-libvterm"))
     (when (file-exists-p vterm-dir)
@@ -266,7 +318,7 @@ shell is left intact."
   (comint-output-filter-functions
    (remove 'ansi-color-process-output comint-output-filter-functions))
   :config
-  (advice-add 'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
+  (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
   :commands
   (xterm-color-filter)
   :hook
@@ -309,50 +361,6 @@ shell is left intact."
    'company-backends
    `(company-shell company-shell-env
                    ,(when (executable-find "fish") 'company-fish-shell))))
-
-(use-package eshell
-  :custom
-  (eshell-banner-message "")
-  (eshell-buffer-shorthand t)
-  (eshell-scroll-to-bottom-on-input 'all)
-  (eshell-error-if-no-glob t)
-  (eshell-hist-ignoredups t)
-  (eshell-save-history-on-exit t)
-  (eshell-prompt-function 'm-eshell-prompt-function)
-  (eshell-prompt-regexp "^(#?) ")
-  (eshell-highlight-prompt nil)
-  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
-                                          "_history" "-history" ".tmp" "~"
-                                          "desktop.ini" "Icon\r" "Thumbs.db"
-                                          "$RECYCLE_BIN" "lost+found")))
-  :config
-  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
-  :hook
-  ((eshell-before-prompt . eshell/init)
-   (eshell-before-prompt . (lambda ()
-                             (setq xterm-color-preserve-properties t)
-                             (rename-buffer
-                              (format "*%s*" default-directory) t))))
-  :bind
-  (("s-e" . eshell-switch-to-buffer)
-   ("C-c e" . eshell-switch-to-buffer)
-   ("s-E" . eshell-switch-to-buffer-other-window)
-   ("C-c E" . eshell-switch-to-buffer-other-window)
-   ("C-s-e" . switch-to-eshell-buffer)
-   ("M-E" . ibuffer-show-eshell-buffers)
-   ("C-c M-e" . ibuffer-show-eshell-buffers)
-   :map prog-mode-map
-   ("M-P" . eshell-send-previous-input)))
-
-(use-package pinentry
-  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
-  :unless (eq system-type 'windows-nt)
-  :custom
-  (password-cache-expiry nil)
-  :config
-  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
-  :hook
-  (after-init . pinentry-start))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
            ("C-:" . tramp-insert-remote-part)

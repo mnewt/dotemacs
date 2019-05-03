@@ -68,9 +68,15 @@ Update environment variables from a shell source file."
           (require 'server)
           (unless (server-running-p) (server-start)))
 
-(use-package restart-emacs
-  :commands
-  (restart-emacs))
+(use-package pinentry
+  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
+  :unless (eq system-type 'windows-nt)
+  :custom
+  (password-cache-expiry nil)
+  :config
+  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
+  :hook
+  (after-init . pinentry-start))
 
 (defun config-unix ()
   "Configure Emacs for common Unix (Linux and macOS) settings."

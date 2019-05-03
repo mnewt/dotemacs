@@ -33,9 +33,12 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
                                          "touch ")))
   (shell-command cmd))
 
+;;;; OS program interaction
+
 (use-package reveal-in-osx-finder
+  :if (eq system-type 'darwin)
   :commands
-  reveal-in-osx-finder)
+  (reveal-in-osx-finder))
 
 (defun reveal-in-windows-explorer (file)
   (call-process "explorer" nil 0 nil
@@ -52,14 +55,25 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
       ('cygwin (reveal-in-windows-explorer file)))))
 
 (defun os-open-file (&optional file)
-  "Open FILE using the operating system's GUI file opener."
+  "Open visited FILE in default external program.
+When in dired mode, open file under the cursor.
+
+With a prefix ARG always prompt for command to use."
   (interactive)
-  (let ((file (or file buffer-file-name)))
-    (message "Opening %s..." file)
-    (pcase system-type
-      ('darwin (call-process "open" nil 0 nil file))
-      ('windows-nt (call-process "command" nil 0 nil file))
-      ('cygwin (call-process "command" nil 0 nil file)))))
+  (let* ((file (if (eq major-mode 'dired-mode)
+                   (dired-get-file-for-visit)
+                 (or file buffer-file-name)))
+         (open (pcase system-type
+                 ('darwin "open")
+                 ((or 'gnu 'gnu/linux 'gnu/kfreebsd) "xdg-open")
+                 ((or 'windows-nt 'cygwin) "command")))
+         (program (if (or current-prefix-arg (not open))
+                      (read-shell-command "Open current file with: ")
+                    open)))
+    (message "Opening %s in the OS registered external program..." file)
+    (call-process program nil 0 nil file)))
+
+;;;; mnt
 
 ;; These functions execute the `mnt' utility, which uses config
 ;; profiles to mount smb shares (even through ssh tunnels).
@@ -125,13 +139,11 @@ The config is specified in the config file in `~/.mnt/'."
      (delete-region (point) (point-min))
      (buffer-string))))
 
-;;;###autoload
 (defun df ()
   "Display the local host's disk usage in human readable form."
   (interactive)
   (print (shell-command-to-string "df -h")))
 
-;;;###autoload
 (defun dis (hostname)
   "Resolve a HOSTNAME to its IP address."
   (interactive "MHostname: ")
@@ -147,7 +159,8 @@ The config is specified in the config file in `~/.mnt/'."
   :commands
   (wdired-change-to-wdired-mode)
   :bind
-  ("C-c C-p" . wdired-change-to-wdired-mode))
+  (:map dired-mode-map
+        ("C-c C-p" . wdired-change-to-wdired-mode)))
 
 (use-package diredfl
   :hook
@@ -156,26 +169,27 @@ The config is specified in the config file in `~/.mnt/'."
 (use-package dired-rainbow
   :config
   (progn
-    (dired-rainbow-define-chmod directory "#6cb2eb" "d.*")
+    (dired-rainbow-define-chmod directory "#0074d9" "d.*")
     (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
     (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
-    (dired-rainbow-define markdown "#f2d024" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
     (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
     (dired-rainbow-define log "#c17d11" ("log"))
     (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "sed" "sh" "zsh" "vim"))
     (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js"))
-    (dired-rainbow-define compiled "#4dc0b5" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
+    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
     (dired-rainbow-define executable "#8cc4ff" ("exe" "msi"))
     (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
     (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
     (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-    (dired-rainbow-define fonts "#6cb2eb" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
     (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
-    (dired-rainbow-define vc "#0074d9" ("git" "gitignore" "gitattributes" "gitmodules"))
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")))
+    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
+    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))))
 
 (use-package dired-filter
   :commands
@@ -281,6 +295,8 @@ human readable."
 (add-hook 'dired-after-readin-hook #'dired-format-summary-line)
 
 (bind-keys
+ ("C-c o" . os-open-file)
+ ("C-c O" . os-reveal-file)
  :map dired-mode-map
  ("C-c o" . dired-open-file)
  ("T" . touch)

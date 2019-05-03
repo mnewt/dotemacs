@@ -139,23 +139,36 @@
   "Eshell alias for `dired-other-window', passing optional PATH."
   (dired-other-window path))
 
-(defun eshell-path-advice (f &rest paths)
-  "For each element in F PATHS, return path relative to the host.
-If the element starts with `:' and we are on a remote host).
+(defun tramp-colon-prefix-expand (path)
+  "Expand a colon prefix with the remote prefix
 
-Examples: > cd /etc -> /etc > cd :/etc -> /sshx:host:/etc > cd :
--> /sshx:host:/home/user"
-  (apply f
-         (cl-loop for path in (-flatten paths) collect
-                  (if-let* ((remote (and (string-prefix-p ":" path)
-                                         (file-remote-p path))))
-                      (concat remote (substring path 1))
-                    path))))
+Examples:
+  > cd /etc -> /etc
+  > cd :/etc -> /sshx:host:/etc
+  > cd : -> /sshx:host:/home/user"
+  (if (file-remote-p default-directory)
+      (cond
+       ((string-prefix-p ":" path)
+        (concat (file-remote-p default-directory)
+                (substring path 1)))
+       (t path))
+    path))
 
-;; Advise functions to work with ":" path syntax (see `eshell-path-advice').
-(seq-do (lambda (f) (advice-add f :around #'eshell-path-advice))
-        '(eshell/cd eshell/cp eshell/mv eshell/rm eshell/e eshell/ee eshell/d
-                    eshell/do))
+(defun tramp-colon-prefix-maybe-expand ()
+  "If we just inserted a colon prefix, run `tramp-colon-prefix-expand' on it."
+  (when (looking-back "\\_<:")
+    (delete-backward-char 1)
+    (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
+
+(defun tramp-colon-prefix-setup ()
+  (make-local-variable 'post-self-insert-hook)
+  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand))
+
+;; Advise `eshell/*' functions to work with ":" prefix path syntax.
+(seq-doseq (c '(cd cp mv rm e ee d do))
+  (advice-add (intern (concat "eshell/" (symbol-name c)))
+              :filter-args
+              (lambda (args) (mapcar #'tramp-colon-prefix-expand args))))
 
 (defun eshell/really-clear ()
   "Call `eshell/clear' with an argument to really clear the buffer.
@@ -238,7 +251,6 @@ https://stackoverflow.com/a/14769115/1588358"
 (declare-function eshell-previous-prompt 'eshell)
 (declare-function eshell-next-prompt 'eshell)
 
-;;;###autoload
 (defun eshell/init ()
   "Initialize the Eshell environment."
 
@@ -321,7 +333,6 @@ Advise `eshell-ls-decorated-name'."
      'keymap m-eshell-ls-file-keymap
      'mouse-face 'highlight)))
 
-;;;###autoload
 (defun ibuffer-show-eshell-buffers ()
   "Open an ibuffer window and display all Eshell buffers."
   (interactive)
@@ -340,7 +351,6 @@ Advise `eshell-ls-decorated-name'."
       (car (filter-buffers-by-mode 'eshell-mode))
       (eshell-create-in-background)))
 
-;;;###autoload
 (defun eshell-switch-to-buffer ()
   "Switch to the most recent Eshell buffer or create a new one.)))
 This is different than the normal `eshell' command in my setup
@@ -349,17 +359,51 @@ because I dynamically rename the buffer according to
   (interactive)
   (switch-to-buffer (eshell-get-or-create)))
 
-;;;###autoload
 (defun eshell-switch-to-buffer-other-window ()
   "Get or create an Eshell buffer, then switch to it."
   (interactive)
   (switch-to-buffer-other-window (eshell-get-or-create)))
 
-;;;###autoload
 (defun switch-to-eshell-buffer ()
   "Interactively choose an Eshell buffer."
   (interactive)
   (switch-to-buffer-by-mode 'eshell-mode))
+
+(defun eshell-prompt-housekeeping ()
+  (setq xterm-color-preserve-properties t)
+  (rename-buffer (format "*%s*" default-directory) t))
+
+(use-package eshell
+  :custom
+  (eshell-banner-message "")
+  (eshell-buffer-shorthand t)
+  (eshell-scroll-to-bottom-on-input 'all)
+  (eshell-error-if-no-glob t)
+  (eshell-hist-ignoredups t)
+  (eshell-save-history-on-exit t)
+  (eshell-prompt-function 'm-eshell-prompt-function)
+  (eshell-prompt-regexp "^(#?) ")
+  (eshell-highlight-prompt nil)
+  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
+                                          "_history" "-history" ".tmp" "~"
+                                          "desktop.ini" "Icon\r" "Thumbs.db"
+                                          "$RECYCLE_BIN" "lost+found")))
+  :config
+  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
+  :hook
+  ((eshell-mode . tramp-colon-prefix-setup)
+   (eshell-before-prompt . eshell/init)
+   (eshell-before-prompt . eshell-prompt-housekeeping))
+  :bind
+  (("s-e" . eshell-switch-to-buffer)
+   ("C-c e" . eshell-switch-to-buffer)
+   ("s-E" . eshell-switch-to-buffer-other-window)
+   ("C-c E" . eshell-switch-to-buffer-other-window)
+   ("C-s-e" . switch-to-eshell-buffer)
+   ("M-E" . ibuffer-show-eshell-buffers)
+   ("C-c M-e" . ibuffer-show-eshell-buffers)
+   :map prog-mode-map
+   ("M-P" . eshell-send-previous-input)))
 
 (provide 'm-eshell)
 

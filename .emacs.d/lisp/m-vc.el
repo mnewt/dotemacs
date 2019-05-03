@@ -105,6 +105,11 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 (use-package forge
   :after magit)
 
+(use-package magit-todos
+  :custom
+  (magit-todos-scanner #'magit-todos--scan-with-git-grep)
+  :hook (magit-mode . magit-todos-mode))
+
 (use-package git-timemachine
   :bind
   (("C-x t" . git-timemachine)))

@@ -131,7 +131,6 @@ Bring the line below point up to the current line."
   :hook
   ((css-mode
     dockerfile-mode
-    emacs-lisp-mode
     enh-ruby-mode
     go-mode
     lua-mode
@@ -354,6 +353,8 @@ things."
   :bind
   (:map smartparens-mode-map
         ("C-c C-<return>" . toggle-sp-newline)
+        ("M-<backspace>" . sp-backward-kill-word)
+        ("C-<backspace>" . sp-backward-kill-symbol)
         :filter (cl-some #'derived-mode-p sp-lisp-modes)
         ([remap kill-line] . sp-kill-hybrid-sexp)))
 
@@ -485,11 +486,6 @@ other window."
   (other-window -1))
 
 (bind-keys
- :map lisp-mode-shared-map
- ("s-<return>" . eval-last-sexp)
- ("C-s-<return>" . eval-last-sexp-other-window)
- ("C-c C-k" . eval-buffer)
- ("C-x C-r" . eval-region)
  ("C-x r E" . expression-to-register)
  ("C-x r e" . eval-register)
  ("C-M-\\" . indent-buffer-or-region)
@@ -500,7 +496,12 @@ other window."
  ;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
  ("M-\\" . cycle-spacing)
  ;; Continue comment on next line (default binding is "C-M-j")
- ("M-RET" . indent-new-comment-line))
+ ("M-RET" . indent-new-comment-line)
+ :map lisp-mode-shared-map
+ ("s-<return>" . eval-last-sexp)
+ ("C-s-<return>" . eval-last-sexp-other-window)
+ ("C-c C-k" . eval-buffer)
+ ("C-x C-r" . eval-region))
 
 (provide 'm-edit)
 

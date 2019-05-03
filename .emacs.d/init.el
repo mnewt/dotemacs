@@ -82,7 +82,7 @@
 
 (defun add-multiple-to-list (list items)
   "Run `add-to-list' for all ITEMS in the LIST."
-  (seq-do (apply-partially #'add-to-list list) items))
+  (mapc (apply-partially #'add-to-list list) items))
 
 ;; These packages are used by many things
 

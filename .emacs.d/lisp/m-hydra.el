@@ -8,10 +8,6 @@
 
 (use-package lv)
 
-(require 'ibuffer)
-(require 'hideshow)
-(require 'ediff)
-
 (use-package hydra
   :commands
   (defhydra hydra-default-pre hydra-keyboard-quit
@@ -30,6 +26,107 @@
   ;; Converting M-v to V here by analogy.
   ("V" scroll-down-command)
   ("l" recenter-top-bottom))
+
+(defhydra hydra-window (:color red
+                               :hint nil)
+  "
+ Split: _v_ert _x_:horz
+Delete: _o_nly  _da_ce  _dw_indow  _db_uffer  _df_rame
+  Move: _s_wap
+Frames: _f_rame new  _df_ delete
+  Misc: _m_ark _a_ce  _u_ndo  _r_edo"
+  ("h" windmove-left)
+  ("j" windmove-down)
+  ("k" windmove-up)
+  ("l" windmove-right)
+  ("H" hydra-move-splitter-left)
+  ("J" hydra-move-splitter-down)
+  ("K" hydra-move-splitter-up)
+  ("L" hydra-move-splitter-right)
+  ("|" (lambda ()
+         (interactive)
+         (split-window-right)
+         (windmove-right)))
+  ("_" (lambda ()
+         (interactive)
+         (split-window-below)
+         (windmove-down)))
+  ("v" split-window-right)
+  ("x" split-window-below)
+                                        ;("t" transpose-frame "'")
+  ;; winner-mode must be enabled
+  ("u" winner-undo)
+  ("r" winner-redo) ;;Fixme, not working?
+  ("o" delete-other-windows :exit t)
+  ("a" ace-window :exit t)
+  ("f" new-frame :exit t)
+  ("s" ace-swap-window)
+  ("da" ace-delete-window)
+  ("dw" delete-window)
+  ("db" kill-this-buffer)
+  ("df" delete-frame :exit t)
+  ("q" nil)
+                                        ;("i" ace-maximize-window "ace-one" :color blue)
+                                        ;("b" ido-switch-buffer "buf")
+  ("m" headlong-bookmark-jump))
+
+(defun hydra-move-splitter-left (arg)
+  "Move window splitter left."
+  (interactive "p")
+  (if (let ((windmove-wrap-around))
+        (windmove-find-other-window 'right))
+      (shrink-window-horizontally arg)
+    (enlarge-window-horizontally arg)))
+
+(defun hydra-move-splitter-right (arg)
+  "Move window splitter right."
+  (interactive "p")
+  (if (let ((windmove-wrap-around))
+        (windmove-find-other-window 'right))
+      (enlarge-window-horizontally arg)
+    (shrink-window-horizontally arg)))
+
+(defun hydra-move-splitter-up (arg)
+  "Move window splitter up."
+  (interactive "p")
+  (if (let ((windmove-wrap-around))
+        (windmove-find-other-window 'up))
+      (enlarge-window arg)
+    (shrink-window arg)))
+
+(defun hydra-move-splitter-down (arg)
+  "Move window splitter down."
+  (interactive "p")
+  (if (let ((windmove-wrap-around))
+        (windmove-find-other-window 'up))
+      (shrink-window arg)
+    (enlarge-window arg)))
+
+(defhydra hydra-window (:hint nil)
+  "
+MOVE^   [_h_] left          [_j_] down                    [_k_] up             [_l_] right
+SPLIT^  [_V_] vertical      [_H_] horizontal              [_u_] undo           [_r_] redo
+SIZE^   [_b_] thinner       [_n_] taller                  [_p_] shorter        [_f_] wider
+DELETE^ [_d_] kill buffer   [_D_] kill buffer and window  [_w_] delete window  [_W_] delete other windows
+       [_q_] quit
+"
+  ("h" windmove-left)
+  ("j" windmove-down)
+  ("k" windmove-up)
+  ("l" windmove-right)
+  ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
+  ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
+  ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
+  ("r" winner-redo)
+  ("b" hydra-move-splitter-left)
+  ("n" hydra-move-splitter-down)
+  ("p" hydra-move-splitter-up)
+  ("f" hydra-move-splitter-right)
+  ("d" kill-current-buffer)
+  ("D" kill-buffer-and-window)
+  ("w" delete-window)
+  ("W" delete-other-windows)
+  ("q" nil))
 
 (defhydra hydra-multiple-cursors (:hint nil)
   "
@@ -368,7 +465,8 @@ _o_: org-cap | _C--_: show less   | _*_: *thing  | _q_: quit hdrs | _j_: jump2ma
 
   ("." nil))
 
-(bind-key "C-s-v" #'hydra-move/body)
+(bind-keys ("C-s-v" . hydra-move/body)
+           ("C-s-m" . hydra-window/body))
 
 (with-eval-after-load 'outline
   (bind-key "C-c #" #'hydra-outline/body outline-minor-mode-map))
