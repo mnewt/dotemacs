@@ -142,6 +142,14 @@ https://github.com/clojure-emacs/inf-clojure/issues/154"
 ;;   :commands
 ;;   (geiser run-geiser run-chicken))
 
+(my-bind-keys
+ :map lisp-mode-shared-map
+ ("s-<return>" . eval-last-sexp)
+ ("C-s-<return>" . eval-last-sexp-other-window)
+ ("C-c C-k" . eval-buffer)
+ ("C-x C-r" . eval-region)
+ ("C-x M-e" . pp-macroexpand-last-sexp))
+
 (provide 'm-lisp)
 
 ;;; m-lisp.el ends here

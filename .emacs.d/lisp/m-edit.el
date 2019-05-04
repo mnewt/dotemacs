@@ -35,16 +35,14 @@
 ;; Automatically indent after RET
 (electric-indent-mode +1)
 
-(defun configure-auto-fill-mode ()
-  "Automatically fill comments.
-Wraps on `fill-column' columns.")
+(defun auto-fill-mode-setup ()
+  "Automatically fill comments. Wraps on `fill-column' columns."
+  (set (make-local-variable 'comment-auto-fill-only-comments) t)
+  (auto-fill-mode t))
 
-(add-hook 'prog-mode-hook (lambda ()
-                            (set (make-local-variable 'comment-auto-fill-only-comments) t)
-                            (auto-fill-mode t)))
+(add-hook 'prog-mode-hook #'auto-fill-mode-setup)
 
 ;; http://whattheemacsd.com/key-bindings.el-03.html
-;;;###autoload
 (defun delete-indentation-forward ()
   "Like `delete-indentation', but in the opposite direction.
 Bring the line below point up to the current line."
@@ -496,12 +494,7 @@ other window."
  ;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
  ("M-\\" . cycle-spacing)
  ;; Continue comment on next line (default binding is "C-M-j")
- ("M-RET" . indent-new-comment-line)
- :map lisp-mode-shared-map
- ("s-<return>" . eval-last-sexp)
- ("C-s-<return>" . eval-last-sexp-other-window)
- ("C-c C-k" . eval-buffer)
- ("C-x C-r" . eval-region))
+ ("M-RET" . indent-new-comment-line))
 
 (provide 'm-edit)
 

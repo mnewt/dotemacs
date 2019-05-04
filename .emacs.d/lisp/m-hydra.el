@@ -27,49 +27,6 @@
   ("V" scroll-down-command)
   ("l" recenter-top-bottom))
 
-(defhydra hydra-window (:color red
-                               :hint nil)
-  "
- Split: _v_ert _x_:horz
-Delete: _o_nly  _da_ce  _dw_indow  _db_uffer  _df_rame
-  Move: _s_wap
-Frames: _f_rame new  _df_ delete
-  Misc: _m_ark _a_ce  _u_ndo  _r_edo"
-  ("h" windmove-left)
-  ("j" windmove-down)
-  ("k" windmove-up)
-  ("l" windmove-right)
-  ("H" hydra-move-splitter-left)
-  ("J" hydra-move-splitter-down)
-  ("K" hydra-move-splitter-up)
-  ("L" hydra-move-splitter-right)
-  ("|" (lambda ()
-         (interactive)
-         (split-window-right)
-         (windmove-right)))
-  ("_" (lambda ()
-         (interactive)
-         (split-window-below)
-         (windmove-down)))
-  ("v" split-window-right)
-  ("x" split-window-below)
-                                        ;("t" transpose-frame "'")
-  ;; winner-mode must be enabled
-  ("u" winner-undo)
-  ("r" winner-redo) ;;Fixme, not working?
-  ("o" delete-other-windows :exit t)
-  ("a" ace-window :exit t)
-  ("f" new-frame :exit t)
-  ("s" ace-swap-window)
-  ("da" ace-delete-window)
-  ("dw" delete-window)
-  ("db" kill-this-buffer)
-  ("df" delete-frame :exit t)
-  ("q" nil)
-                                        ;("i" ace-maximize-window "ace-one" :color blue)
-                                        ;("b" ido-switch-buffer "buf")
-  ("m" headlong-bookmark-jump))
-
 (defun hydra-move-splitter-left (arg)
   "Move window splitter left."
   (interactive "p")
@@ -104,16 +61,21 @@ Frames: _f_rame new  _df_ delete
 
 (defhydra hydra-window (:hint nil)
   "
-MOVE^   [_h_] left          [_j_] down                    [_k_] up             [_l_] right
-SPLIT^  [_V_] vertical      [_H_] horizontal              [_u_] undo           [_r_] redo
-SIZE^   [_b_] thinner       [_n_] taller                  [_p_] shorter        [_f_] wider
-DELETE^ [_d_] kill buffer   [_D_] kill buffer and window  [_w_] delete window  [_W_] delete other windows
-       [_q_] quit
+MOVE WINDOW^   _h_ left          _j_ down                    _k_ up             _l_ right
+MOVE BUFFER^   _←_ left          _↓_ down                    _↑_ up             _→_ right
+SPLIT^         _V_ vertical      _H_ horizontal              _u_ undo           _r_ redo
+SIZE^          _b_ thinner       _n_ taller                  _p_ shorter        _f_ wider                 _B_ balance
+DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  _W_ delete other windows
+              _q_ quit
 "
   ("h" windmove-left)
   ("j" windmove-down)
   ("k" windmove-up)
   ("l" windmove-right)
+  ("<left>" buf-move-left)
+  ("<down>" buf-move-down)
+  ("<up>" buf-move-up)
+  ("<right>" buf-move-right)
   ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
   ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
   ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
@@ -122,6 +84,7 @@ DELETE^ [_d_] kill buffer   [_D_] kill buffer and window  [_w_] delete window  [
   ("n" hydra-move-splitter-down)
   ("p" hydra-move-splitter-up)
   ("f" hydra-move-splitter-right)
+  ("B" balance-windows)
   ("d" kill-current-buffer)
   ("D" kill-buffer-and-window)
   ("w" delete-window)
@@ -132,10 +95,10 @@ DELETE^ [_d_] kill buffer   [_D_] kill buffer and window  [_w_] delete window  [
   "
      ^Up^            ^Down^        ^Other^
 ----------------------------------------------
-[_p_]   Next    [_n_]   Next    [_l_] Edit lines
-[_P_]   Skip    [_N_]   Skip    [_a_] Mark all
-[_M-p_] Unmark  [_M-n_] Unmark  [_r_] Mark by regexp
-^ ^             ^ ^             [_q_] Quit
+_p_   Next    _n_   Next    _l_ Edit lines
+_P_   Skip    _N_   Skip    _a_ Mark all
+_M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
+^ ^             ^ ^             _q_ Quit
 "
   ("l" mc/edit-lines :exit t)
   ("a" mc/mark-all-like-this :exit t)
@@ -391,17 +354,17 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
 
 (defhydra hydra-mu4e-headers (:color blue :hint nil)
   "
- ^General^   | ^Search^           | _!_: read    | _#_: deferred  | ^Switches^
--^^----------+-^^-----------------| _?_: unread  | _%_: pattern   |-^^------------------
-_n_: next    | _s_: search        | _r_: refile  | _&_: custom    | _O_: sorting
-_p_: prev    | _S_: edit prev qry | _u_: unmk    | _+_: flag      | _P_: threading
-_]_: n unred | _/_: narrow search | _U_: unmk *  | _-_: unflag    | _Q_: full-search
-_[_: p unred | _b_: search bkmk   | _d_: trash   | _T_: thr       | _V_: skip dups
-_y_: sw view | _B_: edit bkmk     | _D_: delete  | _t_: subthr    | _W_: include-related
-_R_: reply   | _{_: previous qry  | _m_: move    |-^^-------------+-^^------------------
-_C_: compose | _}_: next query    | _a_: action  | _|_: thru shl  | _`_: update, reindex
-_F_: forward | _C-+_: show more   | _A_: mk4actn | _H_: help      | _;_: context-switch
-_o_: org-cap | _C--_: show less   | _*_: *thing  | _q_: quit hdrs | _j_: jump2maildir "
+ ^General^   | ^Search^           | _!_ read    | _#_ deferred  | ^Switches^
+-^^----------+-^^-----------------| _?_ unread  | _%_ pattern   |-^^------------------
+_n_ next    | _s_ search        | _r_ refile  | _&_ custom    | _O_ sorting
+_p_ prev    | _S_ edit prev qry | _u_ unmk    | _+_ flag      | _P_ threading
+_]_ n unred | _/_ narrow search | _U_ unmk *  | _-_ unflag    | _Q_ full-search
+_[_ p unred | _b_ search bkmk   | _d_ trash   | _T_ thr       | _V_ skip dups
+_y_ sw view | _B_ edit bkmk     | _D_ delete  | _t_ subthr    | _W_ include-related
+_R_ reply   | _{_ previous qry  | _m_ move    |-^^-------------+-^^------------------
+_C_ compose | _}_ next query    | _a_ action  | _|_ thru shl  | _`_ update, reindex
+_F_ forward | _C-+_ show more   | _A_ mk4actn | _H_ help      | _;_ context-switch
+_o_ org-cap | _C--_ show less   | _*_ *thing  | _q_ quit hdrs | _j_ jump2maildir "
 
   ;; general
   ("n" mu4e-headers-next)
@@ -466,7 +429,7 @@ _o_: org-cap | _C--_: show less   | _*_: *thing  | _q_: quit hdrs | _j_: jump2ma
   ("." nil))
 
 (bind-keys ("C-s-v" . hydra-move/body)
-           ("C-s-m" . hydra-window/body))
+           ("C-c w" . hydra-window/body))
 
 (with-eval-after-load 'outline
   (bind-key "C-c #" #'hydra-outline/body outline-minor-mode-map))

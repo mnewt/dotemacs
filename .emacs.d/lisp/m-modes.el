@@ -35,16 +35,25 @@
   :custom
   (logview-additional-timestamp-formats
    '(("ISO 8601 datetime (with 'T' and 'Z') + millis"
-      (java-pattern . "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))))
+      (java-pattern . "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
+     ("millis"
+      (java-pattern . "SSSSS"))))
   (logview-additional-level-mappings
    '(("VMware" . ((error "error")
                   (warning "warning")
                   (information "info")
                   (debug "debug")
-                  (trace "trace")))))
+                  (trace "trace")))
+     ("NPM" . ((error "error")
+               (warning "warn")
+               (information "info")
+               (debug "verbose")
+               (trace "silly")))))
   (logview-additional-submodes
    '(("VMware" . ((format  . "TIMESTAMP LEVEL NAME [THREAD] ")
-                  (levels  . "VMware"))))))
+                  (levels  . "VMware")))
+     ("NPM" . ((format . "TIMESTAMP LEVEL NAME THREAD")
+               (levels . "NPM"))))))
 
 ;;;; Docker
 

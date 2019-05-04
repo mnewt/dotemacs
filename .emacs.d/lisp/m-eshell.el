@@ -293,7 +293,7 @@ https://stackoverflow.com/a/14769115/1588358"
 
 (defun eshell-ls-find-file-at-point ()
   "RET on Eshell's `ls' output to open files."
-  (interactive "d")
+  (interactive)
   (find-file (substring-no-properties (thing-at-point 'filename))))
 
 (defvar m-eshell-ls-file-keymap
@@ -389,10 +389,11 @@ because I dynamically rename the buffer according to
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
   :config
+  (add-to-list 'eshell-visual-commands "n")
   (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
   :hook
-  ((eshell-mode . tramp-colon-prefix-setup)
-   (eshell-before-prompt . eshell/init)
+  ((eshell-mode . eshell/init)
+   (eshell-mode . tramp-colon-prefix-setup)
    (eshell-before-prompt . eshell-prompt-housekeeping))
   :bind
   (("s-e" . eshell-switch-to-buffer)

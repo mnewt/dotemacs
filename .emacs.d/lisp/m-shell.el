@@ -170,21 +170,6 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
       (term-char-mode)
       (term-send-raw-string (kbd "C-l")))))
 
-;; Apply colors to `shell-command' minibuffer output.
-;; Adapted from https://stackoverflow.com/a/42666026/1588358
-(defun xterm-color-apply-on-minibuffer ()
-  "Apply xterm color filtering on minibuffer output."
-  (let ((bufs (cl-remove-if-not
-               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
-               (buffer-list))))
-    (dolist (buf bufs)
-      (with-current-buffer buf
-        (xterm-color-colorize-buffer)))))
-
-(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
-  "Wrap `xterm-color-apply-on-minibuffer'."
-  (xterm-color-apply-on-minibuffer))
-
 (defun sudo-toggle--add-sudo (path)
   "Add sudo to file PATH string."
   (if (file-remote-p path)
@@ -312,13 +297,31 @@ shell is left intact."
    ("M-n" . term-send-down)
    ("C-M-j" . term-switch-to-shell-mode)))
 
-;; xterm colors
+;; Adapted from https://stackoverflow.com/a/42666026/1588358
+(defun xterm-color-apply-on-minibuffer ()
+  "Apply xterm color filtering on minibuffer output."
+  (let ((bufs (cl-remove-if-not
+               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
+               (buffer-list))))
+    (dolist (buf bufs)
+      (with-current-buffer buf
+        (xterm-color-colorize-buffer)))))
+
+(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
+  "Wrap `xterm-color-apply-on-minibuffer'."
+  (xterm-color-apply-on-minibuffer))
+
+(defun xterm-color-apply-on-shell-command-advice (_proc &rest _rest)
+  "Apply xterm color filtering on shell command output."
+  (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
+
 (use-package xterm-color
   :custom
   (comint-output-filter-functions
    (remove 'ansi-color-process-output comint-output-filter-functions))
   :config
   (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
+  (advice-add #'shell-command-on-region :after #'xterm-color-apply-on-shell-command-advice)
   :commands
   (xterm-color-filter)
   :hook
