@@ -369,7 +369,7 @@ Update environment variables from a shell source file."
 (with-eval-after-load 'ediff
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
-(add-hook 'hs-minor-mode '#hs-hide-all)
+(add-hook 'hs-minor-mode #'hs-hide-all)
 
 (bind-keys
  ("C-<tab>" . hs-toggle-hiding)
@@ -476,11 +476,12 @@ Update environment variables from a shell source file."
         lisp-interaction-mode-hook
         ielm-mode-hook))
 
-;; Make the manpage the current buffer in the other window
-(setq Man-notify-method 'aggressive)
+(with-eval-after-load 'man
+  ;; Make the manpage the current buffer in the other window
+  (setq Man-notify-method 'aggressive)
 
-(set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
-(set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
+  (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
+  (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t))
 
 (bind-keys ("C-h M-m" . man))
 
@@ -528,13 +529,13 @@ Wraps on `fill-column' columns."
       sh-indentation tab-width)
 
 ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-(executable-prefix-env t)
+(setq executable-prefix-env t)
 
 ;; Make a shell script executable automatically on save
 (add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
 (add-hook 'before-save  #'maybe-reset-major-mode)
 
-(eval-after-load 'sh-script
+(with-eval-after-load 'sh-script
   (bind-keys :map sh-mode-map ("s-<ret>" . eshell-send-current-line)))
 
 ;; dw (https://gitlab.com/mnewt/dw)
