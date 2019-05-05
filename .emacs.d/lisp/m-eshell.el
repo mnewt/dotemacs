@@ -20,6 +20,7 @@
   (esh-autosuggest-mode . (lambda () (bind-key "C-e"
                                                #'company-complete-selection
                                                esh-autosuggest-active-map))))
+
 (defun eshell-other-window (arg)
   "Opens an eshell in another window, creating a new one if ARG is specified."
   (interactive "p")

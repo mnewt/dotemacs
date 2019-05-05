@@ -32,11 +32,11 @@
       package--init-file-ensured t)
 
 (defmacro bind-keys (&rest bindings)
-  "Define multiple key BINDINGS for a given KEYMAP at once.
+  "Define multiple key BINDINGS at once.
 
 This is a small subset of the real `bind-keys' macro implemented
 so we don't have to load any external libraries."
-  (let ((map (current-global-map))
+  (let ((map `(current-global-map))
         defs)
     (while bindings
       (let ((x (pop bindings)))
@@ -44,6 +44,8 @@ so we don't have to load any external libraries."
             (setq map (pop bindings))
           (setq defs (cons `(define-key ,map ,(kbd (car x)) ',(cdr x)) defs)))))
     `(progn ,@defs)))
+
+(require 'cl-seq)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Appearance
@@ -81,8 +83,6 @@ so we don't have to load any external libraries."
 
 (pixel-scroll-mode)
 
-(global-hl-line-mode 1)
-
 ;; No GUI dialogs
 (setq use-dialog-box nil)
 
@@ -96,121 +96,7 @@ so we don't have to load any external libraries."
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 
-;; eww uses this as its default font, among others.
-(set-face-font 'variable-pitch "Georgia-18")
-
-;; Ripped from `doom-themes'
-(defun doom-themes-visual-bell-fn ()
-  "Blink the mode-line red briefly. Set `ring-bell-function' to this to use it."
-  (unless doom-themes--bell-p
-    (let ((old-remap (copy-alist face-remapping-alist)))
-      (setq doom-themes--bell-p t)
-      (setq face-remapping-alist
-            (append (delete (assq 'mode-line face-remapping-alist)
-                            face-remapping-alist)
-                    '((mode-line doom-modeline-error))))
-      (force-mode-line-update)
-      (run-with-timer 0.15 nil
-                      (lambda (remap buf)
-                        (with-current-buffer buf
-                          (when (assq 'mode-line face-remapping-alist)
-                            (setq face-remapping-alist remap
-                                  doom-themes--bell-p nil))
-                          (force-mode-line-update)))
-                      old-remap
-                      (current-buffer)))))
-
-(setq ring-bell-function #'doom-themes-visual-bell-fn
-      visible-bell t)
-
-(defun theme-render-mode-line (left right)
-  "Return a string string concatenating LEFT and RIGHT.
-
-Insert spaces between the two so that the string is
-`window-total-width' columns wide."
-  (let ((left (apply #'concat left))
-        (right (apply #'concat right)))
-    ;; Start with a string so left can start with nil without breaking things.
-    (concat ""
-            left
-            ;; ?\s is a space character
-            (make-string (- (window-total-width) (length left) (length right)) ?\s)
-            right)))
-
-(defun theme-ml-concat (strings &optional separator outside)
-  "Concatenate list of STRINGS, optionally with SEPARATOR in the
-  middle."
-  (let* ((separator (or separator " "))
-         (outside (when outside separator))
-         (inside (string-join (cl-remove-if-not (lambda (s) (and s (> (length s) 0)))
-                                                strings)
-                              separator)))
-    (when (> (length inside) 0)
-      (concat outside inside outside))))
-
-(defun theme-ml-remote-hostname ()
-  "Return the remote hostname for the current buffer or `nil' if
-  local."
-  (when (file-remote-p default-directory)
-    (concat " "
-            (tramp-file-name-host (tramp-dissect-file-name default-directory))
-            " ")))
-
-(defun theme-ml-term-mode ()
-  "Return the input mode for the buffer if in `term-mode' or
-`nil' otherwise."
-  (when (eq major-mode 'term-mode)
-    (cond
-     ((term-in-char-mode) " [char] ")
-     ((term-in-line-mode) " [line] ")
-     (t ""))))
-
-(defun when-propertize (exp &rest properties)
-  "Propertize the result of body or return `nil'."
-  (when exp (apply #'propertize exp properties)))
-
-(defun s-pad-left (len padding s)
-  "If S is shorter than LEN, pad it with PADDING on the left."
-  (declare (pure t) (side-effect-free t))
-  (let ((extra (max 0 (- len (length s)))))
-    (concat (make-string extra (string-to-char padding))
-            s)))
-
-(setq-default
- mode-line-format
- '((:eval
-    (if (theme-window-active-p)
-        (theme-render-mode-line
-         ;; left
-         (list
-          (when-propertize (theme-ml-remote-hostname) 'face 'mode-line-highlight)
-          (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
-          (when (buffer-modified-p) " • "))
-         ;; right
-         (list
-          (when-propertize (theme-ml-term-mode) 'face 'mode-line-emphasis)
-          ;; Some modes, e.g. `dired+', set `mode-name' to something fancy that
-          ;; must be evaluated with `format-mode-line'.
-          (concat " "(format-mode-line mode-name) " ")
-          (when-propertize
-           (theme-ml-concat
-            (list (when (buffer-narrowed-p) "⒩")
-                  (when (bound-and-true-p hs-minor-mode) "⒣")
-                  (when (bound-and-true-p outline-minor-mode) "⦿"))
-            " "
-            t)
-           'face 'mode-line-emphasis)
-          (propertize (s-pad-left 8 " " (format-mode-line " %l:%c  "))
-                      'face 'mode-line-buffer-id)))
-      (theme-render-mode-line
-       ;; left
-       (list
-        " "
-        (buffer-name)
-        " "
-        (when (buffer-modified-p) " • "))
-       ;; right
-       (list ""))))))
+(setq visible-bell t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environment and Operating System
@@ -259,12 +145,12 @@ Update environment variables from a shell source file."
          (old-path (split-string (getenv "PATH") sep))
          ;; De-dupe and validate new path
          (new-path
-          (-map 'expand-file-name
-                (-filter 'file-directory-p
-                         (-distinct (append set-path-user
-                                            os-specific-paths
-                                            old-path))))))
-    (setenv "PATH" (apply 'concat (-interpose sep new-path)))
+          (mapcar 'expand-file-name
+                  (cl-remove-if-not 'file-directory-p
+                                    (cl-remove-duplicates (append set-path-user
+                                                                  os-specific-paths
+                                                                  old-path))))))
+    (setenv "PATH" (mapconcat #'identity new-path sep))
     ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))
 
@@ -275,10 +161,6 @@ Update environment variables from a shell source file."
 (add-hook 'after-init-hook (lambda ())
           (require 'server)
           (unless (server-running-p) (server-start)))
-
-(use-package restart-emacs
-  :commands
-  (restart-emacs))
 
 (defun config-unix ()
   "Configure Emacs for common Unix (Linux and macOS) settings."
@@ -422,11 +304,13 @@ Update environment variables from a shell source file."
 
 (add-hook 'after-save-hook #'psync-maybe-sync)
 
-(bind-key "C-x M-s" #'psync-maybe-sync)
+(bind-keys ("C-x M-s" . psync-maybe-sync))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ido-mode 1)
 
 ;; Full screen
 (defun fullscreen ()
@@ -449,16 +333,16 @@ Update environment variables from a shell source file."
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
 
-(add-hook 'after-init-hook #'winner-mode)
-(global-set-key (kbd "C-c [") #'winner-undo)
-(global-set-key (kbd "C-c [") #'winner-redo)
+(winner-mode 1)
 
-(global-set-key (kbd "C-c <up>") #'buf-move-up)
-(global-set-key (kbd "C-c <down>") #'buf-move-down)
-(global-set-key (kbd "C-c <left>") #'buf-move-left)
-(global-set-key (kbd "C-c <right>") #'buf-move-right)
-
-(global-set-key (kbd "M-o") #'other-window)
+(bind-keys
+ ("C-c [" . winner-undo)
+ ("C-c [" . winner-redo)
+ ("C-c <up>" . buf-move-up)
+ ("C-c <down>" . buf-move-down)
+ ("C-c <left>" . buf-move-left)
+ ("C-c <right>" . buf-move-right)
+ ("M-o" . other-window))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -485,97 +369,92 @@ Update environment variables from a shell source file."
 (with-eval-after-load 'ediff
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
-(global-set-key (kbd "C-<tab>") #'hs-toggle-hiding)
-(add-hook 'hs-minor-mode '# hs-hide-all)
+(add-hook 'hs-minor-mode '#hs-hide-all)
 
-(global-set-key (kbd "s-o") #'find-file)
-(global-set-key (kbd "s-O") #'find-file-other-window)
-(global-set-key (kbd "s-s") #'save-buffer)
-(global-set-key (kbd "s-S") #'write-file)
-(global-set-key (kbd "s-q") #'save-buffers-kill-emacs)
-(global-set-key (kbd "s-z") #'undo)
-(global-set-key (kbd "C-z") #'undo)
-(global-set-key (kbd "s-x") #'kill-line-or-region)
-(global-set-key (kbd "s-c") #'copy-line-or-region)
-(global-set-key (kbd "s-v") #'clipboard-yank-and-indent)
-(global-set-key (kbd "s-a") #'mark-whole-buffer)
-(global-set-key (kbd "s-g") #'isearch-repeat-forward)
-(global-set-key (kbd "s-G") #'isearch-repeat-backward)
-(global-set-key (kbd "C-S-s") #'isearch-forward-symbol-at-point)
-(global-set-key (kbd "s-l") #'select-current-line)
-(global-set-key (kbd "C-S-L") #'select-current-line)
-(global-set-key (kbd "M-o") #'other-window)
-(global-set-key (kbd "s-b") #'switch-to-buffer)
-(global-set-key (kbd "s-B") #'switch-to-buffer-other-window)
-(global-set-key (kbd "s-\`") #'other-frame)
-(global-set-key (kbd "C-\`") #'other-frame)
-(global-set-key (kbd "s-w") #'delete-window)
-(global-set-key (kbd "s-W") #'delete-other-windows)
-(global-set-key (kbd "s-C-w") #'delete-frame)
-(global-set-key (kbd "s-/") #'comment-toggle)
-(global-set-key (kbd "s-h") #'ns-do-hide-emacs)
-(global-set-key (kbd "s-H") #'ns-do-hide-others)
+(bind-keys
+ ("C-<tab>" . hs-toggle-hiding)
+ ("s-o" . find-file)
+ ("s-O" . find-file-other-window)
+ ("s-s" . save-set-key)
+ ("s-S" . write-file)
+ ("s-q" . save-buffers-kill-emacs)
+ ("s-z" . undo)
+ ("C-z" . undo)
+ ("s-x" . kill-line-or-region)
+ ("s-c" . copy-line-or-region)
+ ("s-v" . clipboard-yank-and-indent)
+ ("s-a" . mark-whole-buffer)
+ ("s-g" . isearch-repeat-forward)
+ ("s-G" . isearch-repeat-backward)
+ ("C-S-s" . isearch-forward-symbol-at-point)
+ ("s-l" . select-current-line)
+ ("C-S-L" . select-current-line)
+ ("s-b" . switch-to-buffer)
+ ("s-B" . switch-to-buffer-other-window)
+ ("s-\`" . other-frame)
+ ("C-\`" . other-frame)
+ ("s-w" . delete-window)
+ ("s-W" . delete-other-windows)
+ ("s-C-w" . delete-frame)
+ ("s-/" . comment-toggle)
+ ("s-h" . ns-do-hide-emacs)
+ ("s-H" . ns-do-hide-others)
+ ("C-c U" . revert-buffer)
+ ("C-c i" . os-reveal-file)
+ ("s-<return>" . eval-last-sexp)
+ ("s-RET" . eval-last-sexp)
+ ("s-n" . new-scratch-buffer)
+ ("s-N" . new-scratch-buffer-other-window)
+ ("C-c C-n" . new-scratch-buffer)
+ ("C-c M-n" . new-scratch-buffer-other-window)
+ ("C-S-p" . previous-line-4)
+ ("C-S-n" . next-line-4)
+ ("H-p" . "\C-u1\M-v")
+ ("H-n" . "\C-u1\C-v")
+ ;; Quick switch buffers
+ ("C-x C-b" . ibuffer)
+ ("s-}" . next-buffer)
+ ("C-c }" . next-buffer)
+ ("s-{" . previous-buffer)
+ ("C-c {" . previous-buffer)
+ ("C-s-j" . switch-to-buffer-by-mode)
+ ("C-c M-j" . switch-to-buffer-by-mode)
+ ;; windmove
+ ("H-a" . windmove-left)
+ ("H-h" . windmove-left)
+ ("H-d" . windmove-right)
+ ("H-l" . windmove-right)
+ ("H-w" . windmove-up)
+ ("H-j" . windmove-up)
+ ("H-s" . windmove-down)
+ ("H-k" . windmove-down)
+ ("M-]" . windmove-right)
+ ("M-[" . windmove-left)
+ ;; Resize windows
+ ("M-s-<up>" . shrink-window)
+ ("M-s-<down>" . enlarge-window)
+ ("M-s-<left>" . shrink-window-horizontally)
+ ("M-s-<right>" . enlarge-window-horizontally)
+ ;; Navigate with mark
+ ("M-s-," . pop-to-mark-command)
+ ("C-c ," . pop-to-mark-command)
+ ("s-," . pop-global-mark)
+ ("C-c C-," . pop-global-mark)
 
-(global-set-key (kbd "C-c U") #'revert-buffer)
-(global-set-key (kbd "C-c i") #'os-reveal-file)
-(global-set-key (kbd "s-<return>") #'eval-last-sexp)
-(global-set-key (kbd "s-RET") #'eval-last-sexp)
-(global-set-key (kbd "s-n") #'new-scratch-buffer)
-(global-set-key (kbd "s-N") #'new-scratch-buffer-other-window)
-(global-set-key (kbd "C-c C-n") #'new-scratch-buffer)
-(global-set-key (kbd "C-c M-n") #'new-scratch-buffer-other-window)
-(global-set-key (kbd "C-S-p") #'previous-line-4)
-(global-set-key (kbd "C-S-n") #'next-line-4)
-(global-set-key (kbd "H-p") #'"\C-u1\M-v")
-(global-set-key (kbd "H-n") #'"\C-u1\C-v")
+ ;; Kill buffer and window at the same time.
+ ("M-s-w" . kill-buffer-and-window)
+ ("M-s-W" . kill-other-buffer-and-window)
 
-;; Quick switch buffers
-(global-set-key (kbd "C-x C-b") #'ibuffer)
-(global-set-key (kbd "s-}") #'next-buffer)
-(global-set-key (kbd "C-c }") #'next-buffer)
-(global-set-key (kbd "s-{") #'previous-buffer)
-(global-set-key (kbd "C-c {") #'previous-buffer)
-(global-set-key (kbd "C-s-j") #'switch-to-buffer-by-mode)
-(global-set-key (kbd "C-c M-j") #'switch-to-buffer-by-mode)
+ ;; Tags
+ ("s-R" . xref-find-definitions-other-window)
+ ("C-c M-r" . xref-find-definitions-other-window)
+ ("C-c C-f" . find-file-at-point-with-line)
 
-;; windmove
-(global-set-key (kbd "H-a") #'windmove-left)
-(global-set-key (kbd "H-h") #'windmove-left)
-(global-set-key (kbd "H-d") #'windmove-right)
-(global-set-key (kbd "H-l") #'windmove-right)
-(global-set-key (kbd "H-w") #'windmove-up)
-(global-set-key (kbd "H-j") #'windmove-up)
-(global-set-key (kbd "H-s") #'windmove-down)
-(global-set-key (kbd "H-k") #'windmove-down)
-(global-set-key (kbd "M-]") #'windmove-right)
-(global-set-key (kbd "M-[") #'windmove-left)
+ ;; Init
+ ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
 
-;; Resize windows
-(global-set-key (kbd "M-s-<up>") #'shrink-window)
-(global-set-key (kbd "M-s-<down>") #'enlarge-window)
-(global-set-key (kbd "M-s-<left>") #'shrink-window-horizontally)
-(global-set-key (kbd "M-s-<right>") #'enlarge-window-horizontally)
-
-;; Navigate with mark
-(global-set-key (kbd "M-s-,") #'pop-to-mark-command)
-(global-set-key (kbd "C-c ,") #'pop-to-mark-command)
-(global-set-key (kbd "s-,") #'pop-global-mark)
-(global-set-key (kbd "C-c C-,") #'pop-global-mark)
-
-;; Kill buffer and window at the same time.
-(global-set-key (kbd "M-s-w") #'kill-buffer-and-window)
-(global-set-key (kbd "M-s-W") #'kill-other-buffer-and-window)
-
-;; Tags
-(global-set-key (kbd "s-R") #'xref-find-definitions-other-window)
-(global-set-key (kbd "C-c M-r") #'xref-find-definitions-other-window)
-
-(global-set-key (kbd "C-c C-f") #'find-file-at-point-with-line)
-
-;; Init
-(global-set-key (kbd "C-c I") (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
-
-(define-key 'ctl-x-4-map (kbd"t") #'toggle-window-split)
+ :map ctl-x-4-map
+ ("t" . toggle-window-split))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Help and Documentation
@@ -585,8 +464,9 @@ Update environment variables from a shell source file."
       ;; Select help window so it's easy to quit it with `q'
       help-window-select t)
 
-(global-set-key (kbd "C-h C-i") #'#'elisp-index-search)
-(global-set-key (kbd "C-h M-i") #'#'info-apropos)
+(bind-keys
+ ("C-h C-i" . elisp-index-search)
+ ("C-h M-i" . info-apropos))
 
 (global-eldoc-mode)
 
@@ -602,7 +482,7 @@ Update environment variables from a shell source file."
 (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
 (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
 
-(global-set-key (kbd "C-h M-m") #'man)
+(bind-keys ("C-h M-m" . man))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Editing
@@ -617,6 +497,8 @@ Update environment variables from a shell source file."
       mouse-yank-at-point t
       mouse-drag-and-drop-region t
       mouse-drag-and-drop-region-cut-when-buffers-differ t)
+
+(add-hook 'after-init-hook #'electric-pair-mode)
 
 ;; Wrap text.
 (setq-default fill-column 80)
@@ -652,7 +534,8 @@ Wraps on `fill-column' columns."
 (add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
 (add-hook 'before-save  #'maybe-reset-major-mode)
 
-(define-key 'sh-mode-map "s-<ret>" #'eshell-send-current-line)
+(eval-after-load 'sh-script
+  (bind-keys :map sh-mode-map ("s-<ret>" . eshell-send-current-line)))
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
@@ -814,7 +697,6 @@ other window."
  ;; Continue comment on next line (default binding is "C-M-j")
  ("M-RET" . indent-new-comment-line))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Notes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -839,13 +721,13 @@ other window."
 
 (defun org-todo-to-int (todo)
   "Get the number of the TODO based on its status."
-  (first (-non-nil
-          (mapcar (lambda (keywords)
-                    (let ((todo-seq
-                           (mapcar (lambda (x) (first (split-string  x "(")))
-                                   (rest keywords))))
-                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
-                  org-todo-keywords))))
+  (first (cl-remove nil
+                    (mapcar (lambda (keywords)
+                              (let ((todo-seq
+                                     (mapcar (lambda (x) (first (split-string  x "(")))
+                                             (rest keywords))))
+                                (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
+                            org-todo-keywords))))
 
 (defun org-sort-entries--todo-status-key ()
   "Sort Org TODO entries by their status."
@@ -862,25 +744,25 @@ other window."
   (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
 
 (setq ;; Clean view
-      org-startup-indented t
-      ;; Smart C-a/e
-      org-special-ctrl-a/e t
-      ;; Smart C-k
-      org-special-ctrl-k t
-      ;; Insert a row in tables
-      org-special-ctrl-o t
-      ;; Tab in source blocks should act like in major mode
-      org-src-tab-acts-natively t
-      ;; Code highlighting in code blocks
-      org-src-fontify-natively t
-      ;; Customize todo keywords
-      ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
-      ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
-      ;;                           ("NEXT" (:foreground "red" :weight bold))
-      ;;                           ("WIP" (:foreground "green" :weight bold))
-      ;;                           ("DONE" (:foreground "gray"))))
-      org-agenda-files '(org-directory
-                         (expand-file-name "TODO.org" org-directory)))
+ org-startup-indented t
+ ;; Smart C-a/e
+ org-special-ctrl-a/e t
+ ;; Smart C-k
+ org-special-ctrl-k t
+ ;; Insert a row in tables
+ org-special-ctrl-o t
+ ;; Tab in source blocks should act like in major mode
+ org-src-tab-acts-natively t
+ ;; Code highlighting in code blocks
+ org-src-fontify-natively t
+ ;; Customize todo keywords
+ ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
+ ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
+ ;;                           ("NEXT" (:foreground "red" :weight bold))
+ ;;                           ("WIP" (:foreground "green" :weight bold))
+ ;;                           ("DONE" (:foreground "gray"))))
+ org-agenda-files '(org-directory
+                    (expand-file-name "TODO.org" org-directory)))
 
 (add-to-list
  'org-capture-templates
@@ -932,7 +814,7 @@ Interactively, reads the register using `register-read-with-preview'."
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
 
-(my-bind-keys
+(bind-keys
  :map lisp-mode-shared-map
  ("s-<return>" . eval-last-sexp)
  ("C-s-<return>" . eval-last-sexp-other-window)

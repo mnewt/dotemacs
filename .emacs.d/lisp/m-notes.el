@@ -26,13 +26,13 @@
 
 (defun org-todo-to-int (todo)
   "Get the number of the TODO based on its status."
-  (first (-non-nil
-          (mapcar (lambda (keywords)
-                    (let ((todo-seq
-                           (mapcar (lambda (x) (first (split-string  x "(")))
-                                   (rest keywords))))
-                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
-                  org-todo-keywords))))
+  (first (cl-remove nil
+                    (mapcar (lambda (keywords)
+                              (let ((todo-seq
+                                     (mapcar (lambda (x) (first (split-string  x "(")))
+                                             (rest keywords))))
+                                (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
+                            org-todo-keywords))))
 
 (defun org-sort-entries--todo-status-key ()
   "Sort Org TODO entries by their status."
