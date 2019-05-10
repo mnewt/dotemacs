@@ -140,7 +140,7 @@
         ("s-f" . isearch-forward)))
 
 (use-package nov
-  :mode "\\.epub\\'")
+  :mode ("\\.epub\\'" . nov-mode))
 
 (bind-keys
  ("C-c l" . org-store-link)

@@ -73,7 +73,6 @@
 (defvar theme-themes '((doom-vibrant)
                        (doom-one-light)
                        (doom-dracula)
-                       (doom-molokai)
                        (doom-tomorrow-day)
                        (solarized-light))
   "Alist where car is the theme and cdr can be:

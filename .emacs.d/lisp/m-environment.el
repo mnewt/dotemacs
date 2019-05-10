@@ -52,10 +52,10 @@ Update environment variables from a shell source file."
          ;; De-dupe and validate new path
          (new-path
           (mapcar 'expand-file-name
-                  (remove-if-not 'file-directory-p
-                                 (remove-duplicates (append set-path-user
-                                                            os-specific-paths
-                                                            old-path))))))
+                  (cl-remove-if-not 'file-directory-p
+                                    (cl-remove-duplicates (append set-path-user
+								  os-specific-paths
+								  old-path))))))
     (setenv "PATH" (mapconcat #'identity new-path sep))
     ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))

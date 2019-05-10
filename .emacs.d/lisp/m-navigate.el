@@ -395,6 +395,13 @@ return them in the Emacs format."
   ("C-c O" . crux-open-with)
   ("C-c S" . crux-find-shell-init-file))
 
+(defun save-kill-buffers-and-quit ()
+  "Kill all buffers, clean up tramp caches, and quit Emacs."
+  (interactive)
+  (desktop-clear)
+  (tramp-cleanup-all)
+  (save-buffers-kill-emacs))
+
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
 ;; to work on Windows and Linux. That is why there are multiple bindings for
@@ -406,6 +413,7 @@ return them in the Emacs format."
  ("s-s" . save-buffer)
  ("s-S" . write-file)
  ("s-q" . save-buffers-kill-emacs)
+ ("M-s-q" . save-kill-buffers-and-quit)
  ("s-z" . undo)
  ("C-z" . undo)
  ("s-x" . kill-line-or-region)

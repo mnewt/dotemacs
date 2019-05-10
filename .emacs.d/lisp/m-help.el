@@ -97,18 +97,14 @@
                       (dash-docs-install-docset d)))
         (dash-docs-installed-docsets)))
 
-(use-package dash-docs
-  :straight
-  (:type git :host github :repo "gilbertw1/dash-docs")
-  :custom
-  (dash-docs-docsets-path "~/.config/docsets")
-  (dash-docs-browser-func #'eww)
-  (dash-docs-common-docsets (dash-docs-installed-docsets)))
-
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
   :straight
   (:type git :host github :repo "gilbertw1/counsel-dash")
+  :custom
+  (dash-docs-docsets-path "~/.config/docsets")
+  (dash-docs-browser-func #'eww)
+  (dash-docs-common-docsets (dash-docs-installed-docsets))
   :commands
   (counsel-dash counsel-dash-at-point counsel-dash-install-docset)
   :bind

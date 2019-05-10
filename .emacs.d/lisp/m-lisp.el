@@ -105,44 +105,43 @@ https://github.com/clojure-emacs/inf-clojure/issues/154"
         ("s-<return>" . inf-clojure-eval-last-sexp)
         ("C-c C-k" . inf-clojure-eval-buffer)))
 
-;; (use-package sly
-;;   ;; There are some problems building sly with straight.el in Windows
-;;   :unless (eq system-type 'windows-nt)
-;;   :custom
-;;   (inferior-lisp-program (executable-find "sbcl"))
-;;   :bind
-;;   (:map sly-prefix-map
-;;         ("M-h" . sly-documentation-lookup)))
+(use-package sly
+  ;; There are some problems building sly with straight.el in Windows
+  :unless (eq system-type 'windows-nt)
+  :custom
+  (inferior-lisp-program (executable-find "sbcl"))
+  :bind
+  (:map sly-prefix-map
+        ("M-h" . sly-documentation-lookup)))
 
-;; (use-package sly-company
-;;   :unless (eq system-type 'windows-nt)
-;;   :hook
-;;   (sly-mode . sly-company-mode)
-;;   :config
-;;   (add-to-list 'company-backends 'sly-company))
+(use-package sly-company
+  :unless (eq system-type 'windows-nt)
+  :hook
+  (sly-mode . sly-company-mode)
+  :config
+  (add-to-list 'company-backends 'sly-company))
 
-;; Configured to use CHICKEN Scheme
-;; (use-package geiser
-;;   :custom
-;;   (geiser-default-implementation 'chicken)
-;;   (geiser-mode-eval-last-sexp-to-buffer t)
-;;   (scheme-program-name "csi -:c")
-;;   :config
-;;   (setq-default geiser-scheme-implementation 'chicken)
+(use-package geiser
+  :custom
+  (geiser-default-implementation 'chicken)
+  (geiser-mode-eval-last-sexp-to-buffer t)
+  (scheme-program-name "csi -:c")
+  :config
+  (setq-default geiser-scheme-implementation 'chicken)
 
-;;   ;; Indenting module body code at column 0
-;;   (defun scheme-module-indent (state indent-point normal-indent) 0)
-;;   (put 'module 'scheme-indent-function 'scheme-module-indent)
-;;   (put 'and-let* 'scheme-indent-function 1)
-;;   (put 'parameterize 'scheme-indent-function 1)
-;;   (put 'handle-exceptions 'scheme-indent-function 1)
-;;   (put 'when 'scheme-indent-function 1)
-;;   (put 'unless 'scheme-indenfunction 1)
-;;   (put 'match 'scheme-indent-function 1)
-;;   :commands
-;;   (geiser run-geiser run-chicken))
+  ;; Indenting module body code at column 0
+  (defun scheme-module-indent (state indent-point normal-indent) 0)
+  (put 'module 'scheme-indent-function 'scheme-module-indent)
+  (put 'and-let* 'scheme-indent-function 1)
+  (put 'parameterize 'scheme-indent-function 1)
+  (put 'handle-exceptions 'scheme-indent-function 1)
+  (put 'when 'scheme-indent-function 1)
+  (put 'unless 'scheme-indenfunction 1)
+  (put 'match 'scheme-indent-function 1)
+  :commands
+  (geiser run-geiser run-chicken))
 
-(my-bind-keys
+(bind-keys
  :map lisp-mode-shared-map
  ("s-<return>" . eval-last-sexp)
  ("C-s-<return>" . eval-last-sexp-other-window)

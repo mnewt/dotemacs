@@ -9,7 +9,6 @@
 (require 'tramp)
 
 (use-package sh-script
-  ;; :ensure-system-package shfmt
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)

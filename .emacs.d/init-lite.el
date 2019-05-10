@@ -291,12 +291,18 @@ Update environment variables from a shell source file."
 (add-to-list 'desktop-globals-to-save 'theme-current-theme)
 (desktop-save-mode 1)
 
+(defun upsearch (filename &optional dir)
+  "Recursively search up a directory tree for FILENAME."
+  (let ((dir (or dir default-directory)))
+    (while (not (or (string= "/" dir)
+                    (member filename (directory-files dir))))
+      (setq dir (file-name-directory (directory-file-name dir))))
+    (unless (string= "/" dir) dir)))
+
 (defun psync-maybe-sync ()
   "If we find a `psync_config' file then run `psync'."
   (interactive)
-  (let ((default-directory (or (and (fboundp 'projectile-project-root)
-                                    (projectile-project-root))
-                               default-directory)))
+  (let ((default-directory (upsearch "psync_config")))
     (when (and (executable-find "psync")
                (file-exists-p (expand-file-name "psync_config")))
       (unless (= 0 (shell-command-exit-code "psync"))
@@ -484,6 +490,805 @@ Update environment variables from a shell source file."
   (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t))
 
 (bind-keys ("C-h M-m" . man))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Search
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun replace-regexp-entire-buffer (pattern replacement)
+  "Immediately replace PATTERN with REPLACEMENT throughout the buffer."
+  (interactive
+   (let ((args (query-replace-read-args "Replace in entire buffer" t)))
+     (setcdr (cdr args) nil)    ; remove third value returned from query---args
+     args))
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward pattern nil t)
+      (replace-match replacement))))
+
+(bind-keys ("s-5" . replace-regexp-entire-buffer))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; File
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(require 'dired-x)
+
+(defun dos2unix ()
+  "Convert DOS line endings to Unix ones."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (search-forward (string ?\C-m) nil t)
+      (replace-match (string ?\C-j) nil t)))
+  (set-buffer-file-coding-system 'unix 't))
+
+(defun unix2dos ()
+  "Convert Unix encoded buffer to DOS encoding.
+https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
+  (interactive)
+  (set-buffer-file-coding-system 'dos))
+
+(defvar touch-history nil)
+
+(defun touch (cmd)
+  "Run `touch CMD' in `default-directory'."
+  (interactive (list (read-shell-command "Run touch (like this): "
+                                         "touch "
+                                         'touch-history
+                                         "touch ")))
+  (shell-command cmd))
+
+(defun os-open-file (&optional file)
+  "Open visited FILE in default external program.
+When in dired mode, open file under the cursor.
+
+With a prefix ARG always prompt for command to use."
+  (interactive)
+  (let* ((file (if (eq major-mode 'dired-mode)
+                   (dired-get-file-for-visit)
+                 (or file buffer-file-name)))
+         (open (pcase system-type
+                 ('darwin "open")
+                 ((or 'gnu 'gnu/linux 'gnu/kfreebsd) "xdg-open")
+                 ((or 'windows-nt 'cygwin) "command")))
+         (program (if (or current-prefix-arg (not open))
+                      (read-shell-command "Open current file with: ")
+                    open)))
+    (message "Opening %s in the OS registered external program..." file)
+    (call-process program nil 0 nil file)))
+
+(defun public-ip ()
+  "Display the local host's apparent public IP address."
+  (interactive)
+  (message
+   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
+     (goto-char (point-min))
+     (re-search-forward "^$")
+     (delete-char 1)
+     (delete-region (point) (point-min))
+     (buffer-string))))
+
+(defun df ()
+  "Display the local host's disk usage in human readable form."
+  (interactive)
+  (print (shell-command-to-string "df -h")))
+
+(defun dis (hostname)
+  "Resolve a HOSTNAME to its IP address."
+  (interactive "MHostname: ")
+  (message (shell-command-to-string
+            (concat "drill "
+                    hostname
+                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
+
+(defun dired-open-file ()
+  "Open file at point in OS default program."
+  (interactive)
+  (let* ((file (dired-get-filename nil t)))
+    (message "Opening %s..." file)
+    (os-open-file file)))
+
+(defun ls-lisp-format-file-size (file-size &optional human-readable level)
+  (setq level (or level 1000))
+  (if (or (not human-readable)
+          (< file-size 1024))
+      (format (if (floatp file-size) " %11.0f" " %11d") file-size)
+    (cl-do ((file-size (/ file-size 1024.0) (/ file-size 1024.0))
+            ;; kilo, mega, giga, tera, peta, exa
+            (post-fixes (list "k" "M" "G" "T" "P" "E") (cdr post-fixes))
+            (l level (1- l)))
+        ((or (= 0 l)
+             (< file-size 1024)) (format " %10.0f%s" file-size (car post-fixes))))))
+
+(defun dired-format-summary-line ()
+  "Format the `total used in directory' and `available' space as
+human readable."
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line)
+    (let ((inhibit-read-only t)
+          (limit (line-end-position)))
+      (while (re-search-forward "\\(directory\\|available\\) \\(\\<[0-9]+\\>\\)" nil t)
+        (replace-match (save-match-data
+                         (propertize (string-trim
+                                      (ls-lisp-format-file-size
+                                       (* 1024 (string-to-number (match-string 2))) t))
+                                     'invisible 'dired-hide-details-information))
+                       t nil nil 2)))))
+
+(add-hook 'dired-mode-hook #'dired-hide-details-mode)
+(add-hook 'dired-after-readin-hook #'dired-format-summary-line)
+
+(bind-keys
+ ("C-c o" . os-open-file)
+ ("C-c O" . os-reveal-file)
+ :map dired-mode-map
+ ("C-c o" . dired-open-file)
+ ("T" . touch)
+ ("C-." . dired-omit-mode)
+ ("F" . tail-file)
+ (";" . dired-git-add))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Version Control
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun git-add-current-file (file)
+  "Run `git add' on the current buffer file name."
+  (interactive (list (buffer-file-name)))
+  (shell-command (format "git add '%s'" file)))
+
+(defun dired-git-add ()
+  "Run `git add' on the selected files in a dired buffer."
+  (interactive)
+  (let ((files (dired-get-marked-files)))
+    (message "> git add %s" files)
+    (dired-do-shell-command "git add" nil files)))
+
+(defvar git-home-repo-dir
+  (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
+
+(defun git-worktree-link (gitdir worktree)
+  "Link git WORKTREE at GITDIR.
+https://github.com/magit/magit/issues/460#issuecomment-36139308"
+  (interactive (list (read-directory-name "Gitdir: ")
+                     (read-directory-name "Worktree: ")))
+  (with-temp-file (expand-file-name ".git" worktree)
+    (insert "gitdir: " (file-relative-name gitdir worktree) "\n"))
+  (magit-call-git "config" "-f" (expand-file-name "config" gitdir)
+                  "core.worktree" (file-relative-name worktree gitdir))
+  ;; Configure projectile to only look at tracked files
+  (if (boundp 'projectile-git-command)
+      (setq projectile-git-command "git ls-files -zc --exclude-standard")))
+
+(defun git-worktree-unlink (worktree)
+  "Unlink git WORKTREE at GITDIR."
+  (interactive (list (read-directory-name "Worktree: ")))
+  ;; Configure projectile back to default
+  (if (boundp 'projectile-git-command)
+      (setq projectile-git-command "git ls-files -zco --exclude-standard"))
+  ;; This does `git config --unset core.worktree'.  We don't actually
+  ;; have to do this and not doing it would have some advantages, but
+  ;; might be confusing.
+  ;; (magit-set nil "core.worktree")
+  ;; This causes an error if this actually is a directory, which is
+  ;; a good thing, it saves us from having to do this explicitly :-)
+  (delete-file (expand-file-name ".git" worktree)))
+
+(defun git-home-link (repo)
+  "Interactively link a git REPO's worktree to $HOME."
+  (interactive (list (completing-read "Link git home repository: "
+                                      (directory-files git-home-repo-dir nil "^[^.]")
+                                      nil t)))
+  (setq repo (expand-file-name repo git-home-repo-dir))
+  ;; "Fix" repositories that were created with --bare.
+  ;; (let ((default-directory (file-name-as-directory repo)))
+  ;;   (magit-set "false" "core.bare"))
+  ;; Regular link.
+  (git-worktree-link repo (getenv "HOME"))
+  (message "Linked repo at %s" repo))
+
+(defun git-home-unlink ()
+  "Unlink the current git repo's worktree from $HOME."
+  (interactive)
+  (let ((f (expand-file-name ".git" (getenv "HOME"))))
+    (git-worktree-unlink (getenv "HOME"))
+    (message "Unlinked repo at %s" f)))
+
+(require 'em-unix)
+
+;; VC follows the link and visits the real file, telling you about it in the
+;; echo area.
+(setq vc-follow-symlinks t)
+
+;; git config files
+(add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
+;; SSH server config files
+(add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
+
+(bind-keys
+ ("C-c M-l" . git-home-link)
+ ("C-c M-u" . git-home-unlink)
+ ("C-c ;" . git-add-current-file))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Shell
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(require 'tramp)
+
+(setq sh-basic-offset tab-width
+      sh-indentation tab-width
+      ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
+      executable-prefix-env t)
+
+(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
+(add-hook 'before-save #'maybe-reset-major-mode)
+
+(defun maybe-reset-major-mode ()
+  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+Mostly useful as a `before-save-hook', to guess mode when saving a
+new file for the first time.
+https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
+  (when (and
+         ;; The buffer's visited file does not exist.
+         (eq (file-exists-p (buffer-file-name)) nil)
+         (eq major-mode 'fundamental-mode))
+    (normal-mode)))
+
+(defun expand-environment-variable ()
+  "Insert contents of an envionment variable at point."
+  (interactive)
+  (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
+
+(defun tramp-cleanup-all ()
+  "Clean up all tramp buffers and connections."
+  (interactive)
+  (tramp-cleanup-all-buffers)
+  (tramp-cleanup-all-connections))
+
+(defun tramp-insert-remote-part ()
+  "Insert current tramp prefix at point."
+  (interactive)
+  (if-let* ((remote (file-remote-p default-directory)))
+      (insert remote)))
+
+;; Configure TRAMP to respect the PATH variable on the remote machine (for
+;; remote eshell sessions)
+(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+
+(defun list-hosts-from-known-hosts ()
+  "Return a list of hosts from `~/.ssh/known_hosts'."
+  (with-temp-buffer
+    (insert-file-contents "~/.ssh/known_hosts")
+    (remove-if (lambda (host) (string=  "" host)
+                 (mapcar (lambda (line)
+                           (replace-regexp-in-string "\\]\\|\\[" ""
+                                                     (car (split-string line "[, :]"))))
+                         (split-string (buffer-string) "\n"))))))
+
+(defun list-hosts-from-ssh-config ()
+  "Return a list of hosts from `~/.ssh/config'."
+  (with-temp-buffer
+    (insert-file-contents "~/.ssh/config")
+    (keep-lines "^Host")
+    (remove-if (lambda (host) (or (string=  "" host) (string= "*" host)))
+               (mapcar (lambda (line)
+                         (replace-regexp-in-string "Host +" "" line))
+                       (split-string (buffer-string) "\n")))))
+
+(defun list-hosts-from-etc-hosts ()
+  "Return a list of hosts from `/etc/hosts'."
+  (with-temp-buffer
+    (insert-file-contents "/etc/hosts")
+    (flush-lines "^#")
+    (flush-lines "^$")
+    (remove-if (lambda (host) (or (string= host "localhost"
+                                           (string= host "broadcasthost")
+                                           (eq host nil)))
+                 (mapcar (lambda (line) (cadr (split-string line "[ \t]+")))
+                         (split-string (buffer-string) "\n"))))))
+
+(defun list-hosts-from-recentf ()
+  "Return a list of hosts from the `recentf-list'."
+  (remove-duplicates
+   (mapcar (lambda (s)
+             (replace-regexp-in-string
+              ":.*" ""
+              (replace-regexp-in-string "^/sshx\?:" "" s)))
+           (remove-if
+            (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
+            recentf-list))))
+
+(defun ssh-choose-host (&optional prompt)
+  "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
+  (completing-read (or prompt "SSH to Host: ")
+                   (remove-duplicates
+                    (append
+                     (list-hosts-from-recentf)
+                     (list-hosts-from-known-hosts)
+                     (list-hosts-from-ssh-config)
+                     (list-hosts-from-etc-hosts)))
+                   nil t))
+
+(defun dired-tramp (host)
+  "Choose an ssh HOST and then open it with dired."
+  (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
+  (find-file
+   (if (tramp-file-name-p host)
+       host
+     (find-file (concat "/ssh:" host ":")))))
+
+;; http://whattheemacsd.com/setup-shell.el-01.html
+(defun comint-delchar-or-eof-or-kill-buffer (arg)
+  "`C-d' on an empty line in the shell terminates the process, accepts ARG."
+  (interactive "p")
+  (if (null (get-buffer-process (current-buffer)))
+      (kill-buffer)
+    (comint-delchar-or-maybe-eof arg)))
+
+(defun shell-command-exit-code (program &rest args)
+  "Run PROGRAM with ARGS and return the exit code."
+  (with-temp-buffer
+    (apply 'call-process program nil (current-buffer) nil args)))
+
+;; dtach (https://github.com/crigler/dtach)
+;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
+(defvar explicit-dtach-args
+  '("-A" "/tmp/emacs.dtach" "-z" "bash" "--noediting" "--login")
+  "Args for dtach.")
+
+(defun ssh-dtach (host)
+  "Open SSH connection to HOST and create or attach to dtach session."
+  (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
+  (let ((explicit-shell-file-name "dtach")
+        (default-directory (format  "/sshx:%s:" host))
+        (explicit-dtach-args explicit-dtach-args))
+    (shell (format "*ssh (dtach) %s*" host))))
+
+(defun ssh (host)
+  "Open SSH connection to HOST and create or attach to dtach session."
+  (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
+  (shell (format "*ssh %s*" host)))
+
+(require 'term)
+
+;; https://www.emacswiki.org/emacs/ShellMode
+(defun term-switch-to-shell-mode ()
+  "Switch a term session to shell."
+  (interactive)
+  (if (or (equal major-mode 'term-mode))
+      (progn
+        (shell-mode)
+        (set-process-filter  (get-buffer-process (current-buffer)) 'comint-output-filter)
+        (local-set-key (kbd "C-M-j") 'term-switch-to-shell-mode)
+        (compilation-shell-minor-mode 1)
+        (comint-send-input))
+    (progn
+      (compilation-shell-minor-mode -1)
+      (font-lock-mode -1)
+      (set-process-filter  (get-buffer-process (current-buffer)) 'term-emulate-terminal)
+      (term-mode)
+      (term-char-mode)
+      (term-send-raw-string (kbd "C-l")))))
+
+(defun sudo-toggle--add-sudo (path)
+  "Add sudo to file PATH string."
+  (if (file-remote-p path)
+      (with-parsed-tramp-file-name (expand-file-name path) nil
+        (concat "/" method ":"
+                (when user (concat user "@"))
+                host "|sudo:root@" host ":" localname))
+    (concat "/sudo:root@localhost:" (expand-file-name path))))
+
+(defun sudo-toggle--remove-sudo (path)
+  "Remove sudo from file PATH string."
+  (cond
+   ((string-match-p "/sudo:root@localhost:" path)
+    (replace-regexp-in-string (getenv "HOME") "~" (substring path 21)))
+
+   ((string-match-p "|sudo:root@" path)
+    (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
+
+(defun sudo-toggle ()
+  "Reopen the current file, directory, or shell as root.  For))))
+files and dired buffers, the non-sudo buffer is replaced with a
+sudo buffer.  For shells, a sudo shell is opened but the non-sudo
+shell is left intact."
+  (interactive)
+  (let* ((position (point))
+         (f (expand-file-name (or buffer-file-name default-directory)))
+         (newf (if (string-match-p "sudo:" f)
+                   (sudo-toggle--remove-sudo f)
+                 (sudo-toggle--add-sudo f)))
+         ;; So that you don't get method overrides.
+         (tramp-default-proxies-alist nil))
+    (cond ((or buffer-file-name (derived-mode-p 'dired-mode))
+           (find-file newf)
+           (goto-char position))
+          ((derived-mode-p 'shell-mode)
+           (if (string-match-p "*shell/sudo:root@" (buffer-name))
+               (kill-buffer-and-window)
+             (with-temp-buffer
+               (cd newf)
+               (shell (format "*shell/sudo:root@%s*"
+                              (with-parsed-tramp-file-name newf nil host))))))
+          ((derived-mode-p 'eshell-mode)
+           (eshell-return-to-prompt)
+           (insert (concat "cd '" newf "'"))
+           (eshell-send-input))
+          (t (message "Can't sudo this buffer")))))
+
+(bind-keys ("C-c t" . vterm)
+           :map term-mode-map
+           ("M-p" . term-send-up)
+           ("M-n" . term-send-down)
+           :map term-raw-map
+           ("M-o" . other-window)
+           ("M-p" . term-send-up)
+           ("M-n" . term-send-down)
+           ("C-M-j" . term-switch-to-shell-mode)
+           ("C-c C-v" . expand-environment-variable)
+           ("C-:" . tramp-insert-remote-part)
+           :map shell-mode-map
+           ("C-d" . comint-delchar-or-eof-or-kill-buffer)
+           ("SPC" . comint-magic-space))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Eshell
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun eshell-other-window (arg)
+  "Opens an eshell in another window, creating a new one if ARG is specified."
+  (interactive "p")
+  (if (= arg 4)
+      (let* ((parent (if (buffer-file-name)
+                         (file-name-directory (buffer-file-name))
+                       default-directory))
+             ;; `eshell' uses this variable as the new buffer name
+             (eshell-buffer-name (concat "*eshell: " (car (last (split-string parent "/" t))) "*")))
+        (switch-to-buffer-other-window "*eshell-here-temp*")
+        (eshell)
+        (kill-buffer "*eshell-here-temp*")
+        (insert (concat "ls"))
+        (eshell-queue-input))
+    (progn
+      (switch-to-buffer-other-window "*eshell*")
+      (eshell)
+      (message (number-to-string arg)))))
+
+(defun eshell-maybe-bol ()
+  "Smarter `beginning-of-line' for Eshell."
+  (interactive)
+  (let ((p (point)))
+    (eshell-bol)
+    (if (= p (point))
+        (beginning-of-line))))
+
+(defun eshell-quit-or-delete-char (arg)
+  "Quit Eshell if `C-d' is specified, passing ARG on."
+  (interactive "p")
+  (if (and (eolp) (looking-back eshell-prompt-regexp nil))
+      (progn
+        (eshell-life-is-too-much)
+        (ignore-errors
+          (delete-window)))
+    (delete-char  arg)))
+
+(declare-function eshell-previous-input 'eshell)
+
+(defun eshell-send-previous-input (&optional arg)
+  "Re-run the previous command with ARG in the last used eshell buffer."
+  (interactive "*p")
+  (with-current-buffer
+      (cl-some (lambda (b) (eq 'eshell-mode (with-current-buffer b major-mode)))
+               (buffer-list))
+    (with-selected-window (get-buffer-window)
+      (goto-char (point-max))
+      (recenter 4))
+    (eshell-previous-input arg)
+    (eshell-send-input)))
+
+(defun eshell-send-current-line ()
+  "Insert text of current line in eshell and execute."
+  (interactive)
+  (require 'eshell)
+  (let ((command (buffer-substring
+                  (save-excursion
+                    (beginning-of-line)
+                    (point))
+                  (save-excursion
+                    (end-of-line)
+                    (point)))))
+    (let ((buf (current-buffer)))
+      (unless (get-buffer eshell-buffer-name)
+        (eshell))
+      (display-buffer eshell-buffer-name t)
+      (switch-to-buffer-other-window eshell-buffer-name)
+      (goto-char (point-max))
+      (eshell-kill-input)
+      (insert command)
+      (eshell-send-input)
+      (goto-char (point-max))
+      (switch-to-buffer-other-window buf))))
+
+(declare-function eshell/pwd 'eshell)
+
+(defun m-eshell-prompt-function ()
+  "Produce a highlighted prompt for Eshell."
+  (mapconcat
+   (lambda (list)
+     (when list
+       (propertize (concat " " (car list) " ")
+                   'read-only t
+                   'font-lock-face (cdr list)
+                   'front-sticky '(font-lock-face read-only)
+                   'rear-nonsticky '(font-lock-face read-only))))
+   `(,(unless (eshell-exit-success-p)
+        `(,(number-to-string eshell-last-command-status)
+          :background "red" :foreground "white" :weight bold))
+     (,(abbreviate-file-name (eshell/pwd)) :background "cyan" :foreground "black")
+     (,(if (zerop (user-uid)) "\n(#)" "\n()")
+      :foreground ,(if (equal 'light (frame-parameter nil 'background-mode))
+                       "black"
+                     "white")
+      :weight bold))
+   ""))
+
+(declare-function eshell/cd 'eshell)
+
+(defun eshell/s (host)
+  "Change directory to HOST via tramp."
+  (eshell/cd (concat "/ssh:" host ":")))
+
+(defun eshell/e (&optional path)
+  "Eshell alias for `find-file', passing optional PATH."
+  (find-file path))
+
+(defun eshell/ee (&optional path)
+  "Eshell alias for `find-file-other-window', passing optional PATH."
+  (find-file-other-window path))
+
+(defun eshell/d (&optional path)
+  "Eshell alias for `dired', passing optional PATH."
+  (dired path))
+
+(defun eshell/do (&optional path)
+  "Eshell alias for `dired-other-window', passing optional PATH."
+  (dired-other-window path))
+
+(defun tramp-colon-prefix-expand (path)
+  "Expand a colon prefix with the remote prefix
+
+Examples:
+  > cd /etc -> /etc
+  > cd :/etc -> /sshx:host:/etc
+  > cd : -> /sshx:host:/home/user"
+  (if (file-remote-p default-directory)
+      (cond
+       ((string-prefix-p ":" path)
+        (concat (file-remote-p default-directory)
+                (substring path 1)))
+       (t path))
+    path))
+
+(defun tramp-colon-prefix-maybe-expand ()
+  "If we just inserted a colon prefix, run `tramp-colon-prefix-expand' on it."
+  (when (looking-back "\\_<:")
+    (delete-backward-char 1)
+    (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
+
+(defun tramp-colon-prefix-setup ()
+  (make-local-variable 'post-self-insert-hook)
+  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand))
+
+;; Advise `eshell/*' functions to work with ":" prefix path syntax.
+(seq-doseq (c '(cd cp mv rm e ee d do))
+  (advice-add (intern (concat "eshell/" (symbol-name c)))
+              :filter-args
+              (lambda (args) (mapcar #'tramp-colon-prefix-expand args))))
+
+(defun eshell/really-clear ()
+  "Call `eshell/clear' with an argument to really clear the buffer.
+Call it a second time to print the prompt."
+  (interactive)
+  (eshell/clear 1)
+  (eshell/clear))
+
+(defun eshell/info (&rest args)
+  "Invoke `info', optionally opening the Info system to car ARGS."
+  (Info-directory)
+  (let ((subject (car args)))
+    (if (not (null subject))
+        (let ((node-exists (ignore-errors (Info-menu subject))))
+          (if (not node-exists)
+              (format "No menu item `%s' in node `(dir)Top'." subject))))))
+
+(defun eshell-create-send (cmd &optional name)
+  "Create an eshell buffer named NAME and run CMD in it."
+  (let ((eshell-buffer-name (or name cmd)))
+    (eshell))
+  (insert cmd)
+  (eshell-queue-input))
+
+(defun eshell-vertical-create-send (cmd &optional name)
+  "Create an eshell buffer named NAME and run CMD in it.
+Split the window vertically."
+  (split-window-vertically)
+  (eshell-create-send cmd name))
+
+(defun eshell-kill-previous-output ()
+  "Kill the output of the previous command."
+  (interactive)
+  (let ((inhibit-read-only t)
+        (lines (count-lines (eshell-beginning-of-output)
+                            (eshell-end-of-output))))
+    ;; Kill region
+    (kill-region (eshell-beginning-of-output) (eshell-end-of-output))
+    (save-excursion
+      ;; Write something in place of the text so we know what happened.
+      (goto-char (eshell-beginning-of-output))
+      (insert (format "--- Killed %d lines ---\n" lines)))))
+
+(defun eshell-kill-previous-output-to-buffer ()
+  "Move output of the previous command to a new buffer."
+  (interactive)
+  (eshell-kill-previous-output)
+  (switch-to-buffer-other-window "*eshell-stdout*")
+  (yank))
+
+(defun eshell-copy-previous-output ()
+  "Copies the output of the previous command to the kill ring."
+  (interactive)
+  (let ((lines (count-lines (eshell-beginning-of-output)
+                            (eshell-end-of-output))))
+    ;; Copy region to kill ring
+    (copy-region-as-kill (eshell-beginning-of-output) (eshell-end-of-output))
+    (message "Copied %d lines" lines)))
+
+(defun local-set-minor-mode-key (mode key def)
+  "Override MODE KEY binding with DEF.
+Override a minor mode keybinding for the local buffer. Create or
+alter keymaps, storing them in buffer-local variable
+`minor-mode-overriding-map-alist' so that we get the bindings we
+want and they are now shadowed.'. See
+https://stackoverflow.com/a/14769115/1588358"
+  (let* ((oldmap (cdr (assoc mode minor-mode-map-alist)))
+         (newmap (or (cdr (assoc mode minor-mode-overriding-map-alist))
+                     (let ((map (make-sparse-keymap)))
+                       (set-keymap-parent map oldmap)
+                       (push `(,mode . ,map) minor-mode-overriding-map-alist)
+                       map))))
+    (define-key newmap key def)))
+
+(defun eshell/import-aliases ()
+  "Retrieve bash aliases and format them for import into Eshell."
+  (shell-command ". ~/.env && . ~/.aliases && alias | sed -E \"s/^alias ([^=]+)='(.*)'$/alias \\1 \\2 \\$*/g; s/'\\\\''/'/g;\""
+                 "*bash aliases*"))
+
+(declare-function eshell-previous-prompt 'eshell)
+(declare-function eshell-next-prompt 'eshell)
+
+(defun eshell/init ()
+  "Initialize the Eshell environment."
+
+  (source-sh "~/.env")
+  (setq eshell-path-env (getenv "PATH"))
+  ;; Path to shell executable. Set it this way to work with tramp.
+  (setenv "SHELL" "/bin/bash")
+  ;; (setenv "TERM" "eterm-color")
+  (setenv "EDITOR" "emacsclient")
+  (setenv "PAGER" "cat")
+  (setenv "MANPAGER" "cat")
+
+  (bind-keys
+   :map eshell-mode-map
+   ("C-a" . eshell-maybe-bol)
+   ("C-d" . eshell-quit-or-delete-char)
+   ("<tab>" . completion-at-point)
+   ("M-r" . counsel-esh-history)
+   ("C-L" . eshell/really-clear)
+   ("C-w" . eshell-kill-previous-output)
+   ("C-M-w" . eshell-kill-previous-output-to-buffer)
+   ("M-w" . eshell-copy-previous-output)
+   ("s-v" . clipboard-yank)
+   ("C-S-<backspace>" . eshell-kill-input)
+   ("C-M-S-p" . eshell-previous-prompt)
+   ("M-<up>" . eshell-previous-prompt)
+   ("C-M-S-n" . eshell-next-prompt)
+   ("M-<down>" . eshell-next-prompt)
+   ("C-h C-e" . esh-help-run-help))
+
+  ;; Load the Eshell versions of `su' and `sudo'
+  (require 'em-tramp)
+  (add-to-list 'eshell-modules-list 'eshell-tramp)
+  (remove-hook 'eshell-before-prompt-hook 'eshell/init))
+
+(defun eshell-ls-find-file-at-point ()
+  "RET on Eshell's `ls' output to open files."
+  (interactive)
+  (find-file (substring-no-properties (thing-at-point 'filename))))
+
+(defvar m-eshell-ls-file-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'eshell-ls-find-file-at-point)
+    (define-key map (kbd "<return>") 'eshell-ls-find-file-at-point)
+    (define-key map [mouse-1] 'eshell-ls-find-file-at-point)
+    map)
+  "Keys in effect when point is over a file in `eshell/ls'
+  output.")
+
+(declare-function eshell-ls-applicable 'eshell)
+
+(defun m-eshell-ls-decorated-name (f &rest args)
+  "Add more decoration to files in `eshell/ls' output.
+
+* Mark directories with a `/'
+* Mark execurables with a `*'
+* Open files and directories with `RET' or `mouse-1'
+
+Advise `eshell-ls-decorated-name'."
+  (let* ((file (car args))
+         (name (apply f args))
+         (suffix
+          (cond
+           ;; Directory
+           ((eq (cadr file) t)
+            "/")
+           ;; Executable
+           ((and (/= (user-uid) 0)            ; root can execute anything
+                 (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
+            "*"))))
+    (propertize
+     (if (and suffix (not (string-suffix-p suffix name)))
+         (concat name suffix)
+       name)
+     'keymap m-eshell-ls-file-keymap
+     'mouse-face 'highlight)))
+
+(defun ibuffer-show-eshell-buffers ()
+  "Open an ibuffer window and display all Eshell buffers."
+  (interactive)
+  (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
+           '(((name 64 64 :left) " " (process 0 -1 :right)))))
+
+(defun eshell-create-in-background ()
+  "Create a new Eshell buffer but don't display it."
+  (let ((eshell-buffer-name (generate-new-buffer "*Eshell*")))
+    (save-window-excursion (eshell))))
+
+(defun eshell-get-or-create ()
+  "Get or create an Eshell buffer."
+  (interactive)
+  (or (when current-prefix-arg (eshell-create-in-background))
+      (car (filter-buffers-by-mode 'eshell-mode))
+      (eshell-create-in-background)))
+
+(defun eshell-switch-to-buffer ()
+  "Switch to the most recent Eshell buffer or create a new one.)))
+This is different than the normal `eshell' command in my setup
+because I dynamically rename the buffer according to
+`default-directory'."
+  (interactive)
+  (switch-to-buffer (eshell-get-or-create)))
+
+(defun eshell-switch-to-buffer-other-window ()
+  "Get or create an Eshell buffer, then switch to it."
+  (interactive)
+  (switch-to-buffer-other-window (eshell-get-or-create)))
+
+(defun switch-to-eshell-buffer ()
+  "Interactively choose an Eshell buffer."
+  (interactive)
+  (switch-to-buffer-by-mode 'eshell-mode))
+
+(defun eshell-prompt-housekeeping ()
+  (setq xterm-color-preserve-properties t)
+  (rename-buffer (format "*%s*" default-directory) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Editing
@@ -831,9 +1636,6 @@ Interactively, reads the register using `register-read-with-preview'."
 (with-eval-after-load 'erc
   (require 'erc-services)
   (erc-services-mode 1))
-
-;; dw (https://gitlab.com/mnewt/dw)
-(add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)

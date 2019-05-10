@@ -134,7 +134,6 @@ Bring the line below point up to the current line."
     lua-mode
     php-mode
     ruby-mode
-    sh-mode
     toml-mode
     web-mode
     yaml-mode) . format-all-mode))
