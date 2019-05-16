@@ -264,6 +264,18 @@ https://stackoverflow.com/a/14769115/1588358"
   (setenv "PAGER" "cat")
   (setenv "MANPAGER" "cat")
 
+  ;; xterm colors
+  (add-to-list 'eshell-preoutput-filter-functions 'xterm-color-filter)
+  (setq eshell-output-filter-functions
+        (remove 'eshell-handle-ansi-color eshell-output-filter-functions))
+
+  (add-to-list 'eshell-visual-commands "n")
+  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
+
+  ;; Load the Eshell versions of `su' and `sudo'
+  (require 'em-tramp)
+  (add-to-list 'eshell-modules-list 'eshell-tramp)
+
   (bind-keys
    :map eshell-mode-map
    ("C-a" . eshell-maybe-bol)
@@ -280,17 +292,7 @@ https://stackoverflow.com/a/14769115/1588358"
    ("M-<up>" . eshell-previous-prompt)
    ("C-M-S-n" . eshell-next-prompt)
    ("M-<down>" . eshell-next-prompt)
-   ("C-h C-e" . esh-help-run-help))
-
-  ;; xterm colors
-  (add-to-list 'eshell-preoutput-filter-functions 'xterm-color-filter)
-  (setq eshell-output-filter-functions
-        (remove 'eshell-handle-ansi-color eshell-output-filter-functions))
-
-  ;; Load the Eshell versions of `su' and `sudo'
-  (require 'em-tramp)
-  (add-to-list 'eshell-modules-list 'eshell-tramp)
-  (remove-hook 'eshell-before-prompt-hook 'eshell/init))
+   ("C-h C-e" . esh-help-run-help)))
 
 (defun eshell-ls-find-file-at-point ()
   "RET on Eshell's `ls' output to open files."
@@ -389,9 +391,6 @@ because I dynamically rename the buffer according to
                                           "_history" "-history" ".tmp" "~"
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
-  :config
-  (add-to-list 'eshell-visual-commands "n")
-  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
   :hook
   ((eshell-mode . eshell/init)
    (eshell-mode . tramp-colon-prefix-setup)

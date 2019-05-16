@@ -229,6 +229,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-c M-o" . counsel-outline)
         ("M-s-v" . counsel-yank-pop)
         ("M-Y" . counsel-yank-pop)
+        ;; Don't shadow default binding.
+        ("M-y" . nil)
         ([remap find-file] . counsel-find-file))
   (:map ivy-minibuffer-map
         ("M-y" . ivy-next-line-and-call)

@@ -162,18 +162,115 @@ The config is specified in the config file in `~/.mnt/'."
   (:map dired-mode-map
         ("C-c C-p" . wdired-change-to-wdired-mode)))
 
-(use-package diredfl
-  :hook
-  (after-init . diredfl-mode))
+;; (use-package diredfl
+;;   :hook
+;;   (dired-mode . diredfl-mode))
 
 (use-package dired-rainbow
+  :custom
+  (dired-rainbow-file-regexp-group 1)
   :config
   (progn
+    (defface dired-rainbow-permissions-face '((t (:inherit font-lock-string-face)))
+      "Face for Dired permissions."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-links-face '((t (:inherit font-lock-comment-face)))
+      "Face for Dired links."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-user-face '((t (:inherit success)))
+      "Face for Dired user."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-group-face '((t (:inherit warning)))
+      "Face for Dired group."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-size-face '((t (:inherit font-lock-keyword-face)))
+      "Face for Dired file size."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-date-face '((t (:inherit font-lock-constant-face)))
+      "Face for Dired timestamp."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-extension-face '((t (:inherit font-lock-comment-face)))
+      "Face for Dired file extensions."
+      :group 'dired-rainbow)
+
+    (defface dired-rainbow-decoration-face '((t (:inherit shadow)))
+      "Face for file decoration."
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-permissions-regexp "\\([-dlrwxXst]\\{10\\}[.+-@]?\\)"
+      "A regexp matching the permissions in the dired listing."
+      :type 'string
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-links-regexp "[0-9]+"
+      "A regexp matching the number of links in the dired listing."
+      :type 'string
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-user-or-group-regexp "[a-z_][a-z0-9_-]*"
+      "A regexp matching the user and group in the dired listing."
+      :type 'string
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-size-regexp "[0-9.]+[kKmMgGtTpPi]\\{0,3\\}"
+      "A regexp matching the file size in the dired listing."
+      :type 'string
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-file-decoration "\\([*/]\\| -> .*?\\(\\.*?\\)?\\)?"
+      "A regexp matching the file decoration in the dired listing.
+
+This is the `/' or `*' after the file name when the `ls -F'
+option is used.
+
+It should be wrapped in an optional capture group.")
+
+    (defvar dired-rainbow-details-regexp
+      (let ((sep "\\) +\\("))
+        (concat
+         "^ +\\("
+         dired-rainbow-permissions-regexp
+         sep
+         dired-rainbow-links-regexp
+         sep
+         dired-rainbow-user-or-group-regexp
+         sep
+         dired-rainbow-user-or-group-regexp
+         sep
+         dired-rainbow-size-regexp
+         sep
+         dired-rainbow-date-regexp
+         "\\)")))
+
+    (defvar dired-rainbow-default-file-regexp
+      (concat dired-rainbow-date-regexp " \\(.*?\\)"
+              dired-rainbow-file-decoration
+              "$"))
+
+    (defun dired-rainbow-highlight-details ()
+      (font-lock-add-keywords
+       'dired-mode
+       `((,dired-rainbow-details-regexp
+          (1 'dired-rainbow-permissions-face)
+          (2 'dired-rainbow-links-face)
+          (3 'dired-rainbow-user-face)
+          (4 'dired-rainbow-group-face)
+          (5 'dired-rainbow-size-face)
+          (6 'dired-rainbow-date-face)))))
+
+    (dired-rainbow-highlight-details)
+
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
     (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
     (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
-    (dired-rainbow-define markdown "#4dc0b5" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
     (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
@@ -237,16 +334,15 @@ The config is specified in the config file in `~/.mnt/'."
         ("C-c C-r" . dired-rsync)))
 
 (use-package dired-sidebar
-  :init
-  (add-hook 'dired-sidebar-mode-hook
-            (lambda ()
-              (unless (file-remote-p default-directory)
-                (auto-revert-mode))))
   :config
   (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
   (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
+  :hook
+  (dired-sidebar-mode . (lambda ()
+                          (unless (file-remote-p default-directory)
+                            (auto-revert-mode))))
   :bind
-  (("C-x d" . dired-sidebar-toggle-sidebar)))
+  (("C-x C-d" . dired-sidebar-toggle-sidebar)))
 
 (use-package disk-usage
   :straight

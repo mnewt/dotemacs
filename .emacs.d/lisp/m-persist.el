@@ -112,11 +112,11 @@ Useful for finding project files like `Makefile' and `package.json'."
 (defun psync-maybe-sync ()
   "If we find a `psync_config' file then run `psync'."
   (interactive)
-  (let ((default-directory (upsearch "psync_config")))
-    (when (file-exists-p (expand-file-name "psync_config"))
-      (if (= 0 (shell-command-exit-code "psync"))
-          (message "psync in directory %s finished." default-directory)
-        (message "psync in directory %s failed." default-directory)))))
+  (when-let ((default-directory (unless (file-remote-p buffer-file-name)
+                                  (upsearch "psync_config"))))
+    (if (= 0 (shell-command-exit-code "psync"))
+        (message "psync in directory %s finished." default-directory)
+      (message "psync in directory %s failed." default-directory))))
 
 (add-hook 'after-save-hook #'psync-maybe-sync)
 

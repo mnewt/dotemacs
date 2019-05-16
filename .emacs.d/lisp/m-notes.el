@@ -48,6 +48,14 @@
   (interactive)
   (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
 
+(defun org-archive-done-tasks-in-file ()
+  (interactive)
+  (org-map-entries
+   (lambda ()
+     (org-archive-subtree)
+     (setq org-map-continue-from (outline-previous-heading)))
+   "/DONE" 'file))
+
 (setq org-directory "~/org"
       ;; Clean view
       org-startup-indented t

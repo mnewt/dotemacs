@@ -482,6 +482,18 @@ other window."
   (newline)
   (other-window -1))
 
+(defface todo-face
+  '((((class color))
+     (:foreground "magenta" :weight bold))
+    (t (:weight bold)))
+  "Face to fontify FIXME/TODO words")
+
+(defun todo-add-font-locking ()
+  "Add font locking for TODOs"
+  (font-lock-add-keywords nil '(("\\(TODO\\|FIXME\\|HELP\\):" 1 'todo-face t)) 'append))
+
+(add-hook 'prog-mode-hook #'todo-add-font-locking)
+
 (bind-keys
  ("C-x r E" . expression-to-register)
  ("C-x r e" . eval-register)

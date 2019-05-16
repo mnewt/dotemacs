@@ -68,6 +68,19 @@
   :bind
   ("C-h M-m" . man))
 
+(defun tramp-aware-woman (man-page-path)
+  (interactive)
+  (let ((dir (eshell/pwd)))
+    (woman-find-file
+     (if (file-remote-p dir)
+         (let ((vec (tramp-dissect-file-name dir)))
+           (tramp-make-tramp-file-name
+            (tramp-file-name-method vec)
+            (tramp-file-name-user vec)
+            (tramp-file-name-host vec)
+            man-page-path))
+       man-page-path))))
+
 (use-package tldr
   :init
   (unbind-key "C-h t")

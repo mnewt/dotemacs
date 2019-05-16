@@ -316,13 +316,14 @@ shell is left intact."
 
 (use-package xterm-color
   :custom
-  (comint-output-filter-functions
-   (remove 'ansi-color-process-output comint-output-filter-functions))
+  
   :config
+  (setq comint-output-filter-functions
+        (remove 'ansi-color-process-output comint-output-filter-functions))
   (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
   (advice-add #'shell-command-on-region :after #'xterm-color-apply-on-shell-command-advice)
   :commands
-  (xterm-color-filter)
+  (xterm-color-filter xterm-color-apply-on-minibuffer)
   :hook
   (shell-mode
    . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
