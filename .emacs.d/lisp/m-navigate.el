@@ -392,7 +392,7 @@ return them in the Emacs format."
   ("C-c d" . crux-duplicate-current-line-or-region)
   ("C-c R" . crux-rename-file-and-buffer)
   ("C-c k" . crux-kill-other-buffers)
-  ("C-c O" . crux-open-with)
+  ("C-c C-o" . crux-open-with)
   ("C-c S" . crux-find-shell-init-file))
 
 (defun save-kill-buffers-and-quit ()

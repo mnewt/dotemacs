@@ -315,8 +315,6 @@ shell is left intact."
   (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
 
 (use-package xterm-color
-  :custom
-  
   :config
   (setq comint-output-filter-functions
         (remove 'ansi-color-process-output comint-output-filter-functions))

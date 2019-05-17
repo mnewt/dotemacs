@@ -394,7 +394,7 @@ human readable."
  ("C-c o" . os-open-file)
  ("C-c O" . os-reveal-file)
  :map dired-mode-map
- ("C-c o" . dired-open-file)
+ ("C-c C-o" . dired-open-file)
  ("T" . touch)
  ("C-." . dired-omit-mode)
  ("F" . tail-file)

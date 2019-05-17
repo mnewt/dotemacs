@@ -41,16 +41,33 @@
   ("C-h v" . helpful-variable))
 
 (bind-keys
- ("C-h C-i" . #'elisp-index-search)
- ("C-h M-i" . #'info-apropos))
+ ("C-h C-i" . elisp-index-search)
+ ("C-h M-i" . info-apropos)
+ :map Info-mode-map
+ ("j" . next-line)
+ ("k" . previous-line)
+ ("J" . next-line-4)
+ ("K" . previous-line-4)
+ :map  help-mode-map)
+
+(seq-doseq (m '(Info-mode-map help-mode-map))
+  (bind-keys :map (symbol-value m)
+             ("j" . next-line)
+             ("k" . previous-line)
+             ("J" . next-line-4)
+             ("K" . previous-line-4)))
+
+(setq shr-color-visible-luminance-min 60
+      shr-color-visible-distance-min 5
+      shr-use-colors nil)
 
 (global-eldoc-mode)
 
 ;; ELDoc
-(mapc (lambda (m) (add-hook m #'turn-on-eldoc-mode))
-      '(emacs-lisp-mode-hook
-        lisp-interaction-mode-hook
-        ielm-mode-hook))
+(seq-doseq (m '(emacs-lisp-mode-hook
+                lisp-interaction-mode-hook
+                ielm-mode-hook))
+  (add-hook m #'turn-on-eldoc-mode))
 
 (use-package which-key
   :hook
@@ -106,9 +123,9 @@
 (defun dash-docs-update-all-docsets ()
   "Update all docsets."
   (interactive)
-  (mapc (lambda (d) (when (memq d (dash-docs-official-docsets))
-                      (dash-docs-install-docset d)))
-        (dash-docs-installed-docsets)))
+  (seq-doseq (d (dash-docs-installed-docsets))
+    (when (memq d (dash-docs-official-docsets))
+      (dash-docs-install-docset d))))
 
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
@@ -119,7 +136,9 @@
   (dash-docs-browser-func #'eww)
   (dash-docs-common-docsets (dash-docs-installed-docsets))
   :commands
-  (counsel-dash counsel-dash-at-point counsel-dash-install-docset)
+  (counsel-dash counsel-dash-at-point
+                counsel-dash-install-docset
+                dash-docs-official-docsets)
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
