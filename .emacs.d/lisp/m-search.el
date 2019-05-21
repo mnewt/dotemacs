@@ -230,7 +230,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("M-s-v" . counsel-yank-pop)
         ("M-Y" . counsel-yank-pop)
         ;; Don't shadow default binding.
-        ("M-y" . nil)
+        ([remap yank-pop] . nil)
+        ("M-Y" . counsel-yank-pop)
         ([remap find-file] . counsel-find-file))
   (:map ivy-minibuffer-map
         ("M-y" . ivy-next-line-and-call)

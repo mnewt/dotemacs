@@ -341,25 +341,25 @@ return them in the Emacs format."
 
 ;; outline-mode extension for navigating by sections. in Emacs Lisp that is defined by
 ;; `;;; ', `;;;; ', etc. Everywhere else it is like `;; * ' `;; ** ', and so on.
-(use-package outshine
-  :init
-  (defvar outline-minor-mode-prefix "\M-#")
-  :config
-  (put 'narrow-to-region 'disabled nil)
-  ;; Narrowing now works within the headline rather than requiring to be on it
-  (advice-add 'outshine-narrow-to-subtree :before
-              (lambda (&rest _args) (unless (outline-on-heading-p t)
-                                      (outline-previous-visible-heading 1))))
-  :hook
-  (prog-mode . outshine-mode)
-  :bind
-  (:map outline-minor-mode-map
-        ;; Don't shadow smarparens or org bindings
-        ("M-<up>" . nil)
-        ("M-<down>" . nil)
-        ("M-=" . outline-show-current-sublevel)
-        ("M-p" . outline-subtree-previous)
-        ("M-n" . outline-subtree-next)))
+;; (use-package outshine
+;;   :init
+;;   (defvar outline-minor-mode-prefix "\M-#")
+;;   :config
+;;   (put 'narrow-to-region 'disabled nil)
+;;   ;; Narrowing now works within the headline rather than requiring to be on it
+;;   (advice-add 'outshine-narrow-to-subtree :before
+;;               (lambda (&rest _args) (unless (outline-on-heading-p t)
+;;                                       (outline-previous-visible-heading 1))))
+;;   :hook
+;;   (prog-mode . outshine-mode)
+;;   :bind
+;;   (:map outline-minor-mode-map
+;;         ;; Don't shadow smarparens or org bindings
+;;         ("M-<up>" . nil)
+;;         ("M-<down>" . nil)
+;;         ("M-=" . outline-show-current-sublevel)
+;;         ("M-p" . outline-subtree-previous)
+;;         ("M-n" . outline-subtree-next)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow

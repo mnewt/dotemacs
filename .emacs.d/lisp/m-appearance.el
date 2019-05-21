@@ -16,6 +16,7 @@
       inhibit-splash-screen t)
 
 (defun display-startup-echo-area-message ()
+  "Display a message when Emacs finishes starting up."
   (message "Emacs has finished starting up."))
 
 ;; Blinking is NOT OK
@@ -64,7 +65,7 @@
 
 (defvar theme-source-faces
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
-  "The faces theme-activate uses to ")
+  "The faces theme-activate uses to style the mode-line.")
 
 (defvar theme-hook '(doom-themes-visual-bell-config
                      doom-themes-org-config)
@@ -164,20 +165,25 @@ TESTFN is an equality function, *not* an alist function as with
       default)))
 
 (defun get-attr (object propname attribute name)
-  "Get the ATTRIBUTE identified by NAME from PROPNAME."
+  "Get the value of NAME from OBJECT.
+
+PROPNAME, ATTRIBUTE, and NAME are symbols which drill down to
+access the individual Alist element we are after.
+
+See `get' and `theme-get-attr'."
   (let ((name (if (stringp name) (intern name) name)))
     (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
                            (cadddr e)))
              (get (car object) propname))))
 
 (defun theme-get-attr (attribute name)
-  "Get the ATTRIBUTE identified by NAME from the current theme settings.
+  "Get the ATTRIBUTE identified by NAME from the current theme settings.)
 
 Example usage
 
     \(plist-get
-      \(face-spec-choose \(theme-get-attr 'theme-face 'default))
-      \:background)"
+      \(face-spec-choose \(theme-get-attr 'theme-face 'default
+      \:background"
   (get-attr custom-enabled-themes 'theme-settings attribute name))
 
 (defun theme-get-face (face)
@@ -275,8 +281,8 @@ Insert spaces between the two so that the string is
             right)))
 
 (defun theme-ml-concat (strings &optional separator outside)
-  "Concatenate list of STRINGS, optionally with SEPARATOR in the
-  middle."
+  "Concatenate the given list of STRINGS.
+Optionally interpose with SEPARATOR and surround with OUTSIDE."
   (let* ((separator (or separator " "))
          (outside (when outside separator))
          (inside (string-join (cl-remove-if-not (lambda (s) (and s (> (length s) 0)))
@@ -286,25 +292,24 @@ Insert spaces between the two so that the string is
       (concat outside inside outside))))
 
 (defun theme-ml-remote-hostname ()
-  "Return the remote hostname for the current buffer or `nil' if
-  local."
+  "Return the remote hostname for the current buffer.
+Return nil if the buffer is local."
   (when (file-remote-p default-directory)
     (concat " "
             (tramp-file-name-host (tramp-dissect-file-name default-directory))
             " ")))
 
 (defun theme-ml-term-mode ()
-  "Return the input mode for the buffer if in `term-mode' or
-`nil' otherwise."
+  "Return the input mode for the buffer if in `term-mode'.
+Return nil if otherwise."
   (when (eq major-mode 'term-mode)
     (cond
      ((term-in-char-mode) " [char] ")
-     ((term-in-line-mode) " [line] ")
-     (t ""))))
+     ((term-in-line-mode) " [line] "))))
 
 (defun theme-ml-evil ()
-  "Return the state of `evil-mode', or `nil' if it's not
-  enabled."
+  "Return a mode line string indicating `evil-mode' status.
+Return nil if `evil-mode' is not active."
   (when (bound-and-true-p evil-state)
     (cl-case evil-state
       (normal (propertize " NORMAL " 'face
@@ -324,7 +329,8 @@ Insert spaces between the two so that the string is
                             ,(aref (theme-get-value 'ansi-color-names-vector) 7)))))))
 
 (defun when-propertize (exp &rest properties)
-  "Propertize the result of body or return `nil'."
+  "Evaluate EXP, which should return a string or nil..
+Propertize the result with the specified PROPERTIES."
   (when exp (apply #'propertize exp properties)))
 
 (setq-default
@@ -348,7 +354,8 @@ Insert spaces between the two so that the string is
             (concat (eyebrowse-mode-line-indicator) " "))
           (when-propertize
            (theme-ml-concat
-            (list (when (buffer-narrowed-p) "⒩")
+            (list (when (bound-and-true-p flycheck-mode) (flycheck-mode-line-status-text))
+                  (when (buffer-narrowed-p) "⒩")
                   (when (bound-and-true-p hs-minor-mode) "⒣")
                   (when (bound-and-true-p outline-minor-mode) "⦿"))
             " "
@@ -372,8 +379,8 @@ Insert spaces between the two so that the string is
   "Whether we let there be light or dark.")
 
 (defun fiat--set-os-dark-mode (p)
-  ;; Change directory in case we are in a tramp session.
-  (let ((default-directory "~")
+  "When P is non-nil, change the OS to dark mode."
+  (let ((default-directory "~") ;; Change directory in case we are in a tramp session.
         (p (if p "true" "false")))
     (shell-command (format "osascript -e '
 tell application \"System Events\"
@@ -396,7 +403,7 @@ end tell'" p))))
   "Switch Emacs and OS to dark mode."
   (interactive)
   (setq fiat-state 'nox)
-  (theme-activate 'doom-dracula)
+  (theme-activate 'doom-vibrant)
   (fiat--set-os-dark-mode t))
 
 (use-package window-highlight

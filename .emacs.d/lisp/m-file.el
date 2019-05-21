@@ -41,6 +41,7 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
   (reveal-in-osx-finder))
 
 (defun reveal-in-windows-explorer (file)
+  "Reveal FILE in Windows Explorer."
   (call-process "explorer" nil 0 nil
                 (concat "/select," (dired-replace-in-string "/" "\\" file))))
 
@@ -100,7 +101,8 @@ The config is specified in the config file in `~/.mnt/'."
   (mnt-cmd "umnt"))
 
 (defun tail-file (file)
-  "Run `tail -f' on FILE. Tries to find a file at point."
+  "Run `tail -f' on FILE.
+Tries to find a file at point."
   (interactive (list (completing-read "Tail file: "
                                       'read-file-name-internal
                                       'file-exists-p t nil 'file-name-history
@@ -171,19 +173,19 @@ The config is specified in the config file in `~/.mnt/'."
   (dired-rainbow-file-regexp-group 1)
   :config
   (progn
-    (defface dired-rainbow-permissions-face '((t (:inherit font-lock-string-face)))
+    (defface dired-rainbow-permissions-face '((t (:inherit default)))
       "Face for Dired permissions."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-links-face '((t (:inherit font-lock-comment-face)))
+    (defface dired-rainbow-links-face '((t (:inherit shadow)))
       "Face for Dired links."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-user-face '((t (:inherit success)))
+    (defface dired-rainbow-user-face '((t (:inherit default)))
       "Face for Dired user."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-group-face '((t (:inherit warning)))
+    (defface dired-rainbow-group-face '((t (:inherit font-lock-comment-face)))
       "Face for Dired group."
       :group 'dired-rainbow)
 
@@ -191,19 +193,19 @@ The config is specified in the config file in `~/.mnt/'."
       "Face for Dired file size."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-date-face '((t (:inherit font-lock-constant-face)))
+    (defface dired-rainbow-date-face '((t (:inherit font-lock-comment-face)))
       "Face for Dired timestamp."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-extension-face '((t (:inherit font-lock-comment-face)))
+    (defface dired-rainbow-file-extension-face '((t (:inherit font-lock-comment-face)))
       "Face for Dired file extensions."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-decoration-face '((t (:inherit shadow)))
+    (defface dired-rainbow-file-decoration-face '((t (:inherit default)))
       "Face for file decoration."
       :group 'dired-rainbow)
 
-    (defcustom dired-rainbow-permissions-regexp "\\([-dlrwxXst]\\{10\\}[.+-@]?\\)"
+    (defcustom dired-rainbow-permissions-regexp "[-dlrwxXst]\\{10\\}[.+-@]?"
       "A regexp matching the permissions in the dired listing."
       :type 'string
       :group 'dired-rainbow)
@@ -223,67 +225,95 @@ The config is specified in the config file in `~/.mnt/'."
       :type 'string
       :group 'dired-rainbow)
 
-    (defcustom dired-rainbow-file-decoration "\\([*/]\\| -> .*?\\(\\.*?\\)?\\)?"
+    (defcustom dired-rainbow-file-extension-regexp "\\.[^.]*?"
+      "A regexp matching file extensions."
+      :type 'string
+      :group 'dired-rainbow)
+
+    (defcustom dired-rainbow-file-decoration-regexp
+      "\\(?:[*/]\\| -> .*?\\(\\.*?\\)?\\)?"
       "A regexp matching the file decoration in the dired listing.
 
 This is the `/' or `*' after the file name when the `ls -F'
 option is used.
 
-It should be wrapped in an optional capture group.")
+It should be wrapped in an optional capture group."
+      :type 'string
+      :group 'dired-rainbow)
 
     (defvar dired-rainbow-details-regexp
       (let ((sep "\\) +\\("))
-        (concat
-         "^ +\\("
-         dired-rainbow-permissions-regexp
-         sep
-         dired-rainbow-links-regexp
-         sep
-         dired-rainbow-user-or-group-regexp
-         sep
-         dired-rainbow-user-or-group-regexp
-         sep
-         dired-rainbow-size-regexp
-         sep
-         dired-rainbow-date-regexp
-         "\\)")))
+        (concat "^ +\\("
+                dired-rainbow-permissions-regexp sep
+                dired-rainbow-links-regexp sep
+                dired-rainbow-user-or-group-regexp sep
+                dired-rainbow-user-or-group-regexp sep
+                dired-rainbow-size-regexp sep
+                dired-hacks-datetime-regexp
+                "\\)")))
 
-    (defvar dired-rainbow-default-file-regexp
-      (concat dired-rainbow-date-regexp " \\(.*?\\)"
-              dired-rainbow-file-decoration
-              "$"))
+    (defvar dired-rainbow-ending-regexp
+      (concat "\\("
+              dired-rainbow-file-extension-regexp "\\)\\("
+              dired-rainbow-file-decoration-regexp "\\)$"))
 
-    (defun dired-rainbow-highlight-details ()
-      (font-lock-add-keywords
-       'dired-mode
-       `((,dired-rainbow-details-regexp
-          (1 'dired-rainbow-permissions-face)
-          (2 'dired-rainbow-links-face)
-          (3 'dired-rainbow-user-face)
-          (4 'dired-rainbow-group-face)
-          (5 'dired-rainbow-size-face)
-          (6 'dired-rainbow-date-face)))))
+    (define-minor-mode dired-rainbow-line-mode
+      "Toggle highlighting of details in Dired."
+      :group 'dired-rainbow
+      :lighter ""
+      (if dired-rainbow-line-mode
+          (font-lock-add-keywords 'dired-mode
+                                  `((,dired-rainbow-details-regexp
+                                     (1 'dired-rainbow-permissions-face)
+                                     (2 'dired-rainbow-links-face)
+                                     (3 'dired-rainbow-user-face)
+                                     (4 'dired-rainbow-group-face)
+                                     (5 'dired-rainbow-size-face)
+                                     (6 'dired-rainbow-date-face))))
+        (font-lock-remove-keywords 'dired-mode
+                                   `((,dired-rainbow-details-regexp)))))
 
-    (dired-rainbow-highlight-details)
+    (dired-rainbow-line-mode t)
 
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
-    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
-    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
-    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
-    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
+    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html"
+                                          "jhtm" "mht" "eml" "mustache" "xhtml"))
+    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib"
+                                         "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb"
+                                              "pdf" "ps" "rtf" "djvu" "epub" "odp"
+                                              "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info"
+                                              "markdown" "md" "mkd" "nfo" "pod"
+                                              "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db"
+                                              "mdb" "sqlite" "nc"))
+    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg"
+                                           "mpg" "flv" "ogg" "mov" "mid" "midi"
+                                           "wav" "aiff" "flac"))
+    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg"
+                                           "jpg" "png" "psd" "eps" "svg"))
     (dired-rainbow-define log "#c17d11" ("log"))
     (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "sed" "sh" "zsh" "vim"))
-    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js"))
-    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
+    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql"
+                                                 "mysql" "pgsql" "sql" "r" "clj"
+                                                 "cljs" "scala" "js"))
+    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++"
+                                              "h++" "hpp" "hxx" "m" "cc" "cs" "cp"
+                                              "cpp" "go" "f" "for" "ftn" "f90"
+                                              "f95" "f03" "f08" "s" "rs" "hi" "hs"
+                                              "pyc" ".java"))
     (dired-rainbow-define executable "#8cc4ff" ("exe" "msi"))
-    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
-    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
-    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
+    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz"
+                                                "xz" "z" "Z" "jar" "war" "ear"
+                                                "rar" "sar" "xpi" "apk" "xz" "tar"))
+    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab"
+                                              "pak" "pk3" "vdf" "vpk" "bsp"))
+    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc"
+                                               "signature" "sig" "p12" "pem"))
     (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
-    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
+    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow"
+                                               "toast" "vcd" "vmdk" "bak"))
     (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))))
@@ -388,7 +418,7 @@ human readable."
                        t nil nil 2)))))
 
 (add-hook 'dired-mode-hook #'dired-hide-details-mode)
-(add-hook 'dired-after-readin-hook #'dired-format-summary-line)
+;; (add-hook 'dired-after-readin-hook #'dired-format-summary-line)
 
 (bind-keys
  ("C-c o" . os-open-file)

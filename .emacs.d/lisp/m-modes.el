@@ -87,15 +87,15 @@
   (defun sp-web-mode-is-code-context (_id action _context)
     (and (eq action 'insert)
          (not (or (get-text-property (point) 'part-side)
-                  (get-text-property (point) 'block-side)))))  :mode
-  ("\\.phtml\\'"
-   "\\.tpl\\.php\\'"
-   "\\.[agj]sp\\'"
-   "\\.as[cp]x\\'"
-   "\\.erb\\'"
-   "\\.mustache\\'"
-   "\\.djhtml\\'"
-   "\\.html?\\'")
+                  (get-text-property (point) 'block-side)))))
+  :mode ("\\.phtml\\'"
+         "\\.tpl\\.php\\'"
+         "\\.[agj]sp\\'"
+         "\\.as[cp]x\\'"
+         "\\.erb\\'"
+         "\\.mustache\\'"
+         "\\.djhtml\\'"
+         "\\.html?\\'")
   :custom
   (sgml-basic-offset tab-width)
   (web-mode-markup-indent-offset tab-width)
@@ -130,8 +130,7 @@
 
 (use-package company-restclient
   :hook
-  (restclient-mode . (lambda ()
-                       (add-to-list 'company-backends 'company-restclient))))
+  (restclient-mode . (lambda () (add-to-list 'company-backends 'company-restclient))))
 
 ;;;; Javascript
 
@@ -139,15 +138,17 @@
   :hook
   ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
 
-;; Pulls in `js2-mode' because it is derived from it.
-(use-package rjsx-mode
-  :mode "\\.jsx?\\'"
+(use-package js2-mode
+  :mode "\\.js\\'"
   :custom
-  (js2-basic-offset tab-width)
   ;; Set tab width for js-mode and json-mode
   (js-indent-level tab-width)
+  (js2-basic-offset tab-width)
   :hook
   (js2-mode . js2-imenu-extras-mode))
+
+(use-package rjsx-mode
+  :mode "\\.js[mx]\\'")
 
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
@@ -157,14 +158,14 @@
   :commands
   (tide-setup tide-hl-identifier-mode)
   :hook
-  ((js2-mode typescript-mode) .
-   (lambda ()
-     (tide-setup)
-     ;; Let tide do the symbol highlighting.
-     (symbol-overlay-mode -1)
-     (tide-hl-identifier-mode)
-     ;; Because we use prettier instead.
-     (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))))
+  ((js2-mode typescript-mode) . (lambda ()
+                                  (tide-setup)
+                                  ;; Let tide do the symbol highlighting.
+                                  (symbol-overlay-mode -1)
+                                  (tide-hl-identifier-mode)
+                                  ;; Because we use prettier instead.
+                                  (setq-local flycheck-checkers
+                                              (remove 'jsx-tide flycheck-checkers)))))
 
 (use-package prettier-js
   ;; :ensure-system-package
@@ -301,6 +302,8 @@
 
 (use-package polymode
   :config
+  
+;;;;; rjsx
   (define-hostmode poly-rjsx-hostmode
     :mode 'rjsx-mode)
   (define-innermode poly-rjsx-graphql-innermode
@@ -310,8 +313,10 @@
     :head-mode 'host
     :tail-mode 'host)
   (define-polymode poly-rjsx-mode
-    :hostmode 'poly-web-hostmode
+    :hostmode 'poly-rjsx-hostmode
     :innermodes '(poly-rjsx-graphql-innermode))
+  
+;;;;; web
   (define-hostmode poly-web-hostmode
     :mode 'web-mode)
   (define-innermode poly-web-svg-innermode
@@ -322,7 +327,30 @@
     :tail-mode 'inner)
   (define-polymode poly-web-mode
     :hostmode 'poly-web-hostmode
-    :innermodes '(poly-web-svg-innermode)))
+    :innermodes '(poly-web-svg-innermode))
+  
+;;;;; restclient
+  (define-hostmode poly-restclient-hostmode
+    :mode 'restclient-mode)
+  (define-innermode poly-restclient-elisp-root-innermode
+    :mode 'emacs-lisp-mode
+    :head-mode 'host
+    :tail-mode 'host)
+  (define-innermode poly-restclient-elisp-single-innermode poly-restclient-elisp-root-innermode
+    :head-matcher "^:[^ ]+ :="
+    :tail-matcher "\n")
+  (define-innermode poly-restclient-elisp-multi-innermode poly-restclient-elisp-root-innermode
+    :head-matcher "^:[^ ]+ := <<"
+    :tail-matcher "^#$")
+  (define-polymode poly-restclient-mode
+    :hostmode 'poly-restclient-hostmode
+    :innermodes '(poly-restclient-elisp-single-innermode
+                  poly-restclient-elisp-multi-innermode))
+  
+  :hook
+  ((rjsx-mode . poly-rjsx-mode)
+   (web-mode . poly-web-mode)
+   (restclient-mode . poly-restclient-mode)))
 
 (use-package poly-markdown)
 

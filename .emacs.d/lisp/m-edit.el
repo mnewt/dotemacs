@@ -118,9 +118,11 @@ Bring the line below point up to the current line."
 
 (use-package flycheck
   :custom
-  (flycheck-check-syntax-automatically '(save mode-enable))
+  (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
+  (flycheck-idle-change-delay 1)
+  (flycheck-idle-buffer-switch-delay 1)
   :hook
-  (js2-mode . flycheck-mode)
+  (prog-mode . flycheck-mode)
   :bind
   ("C-c ! !" . flycheck-mode))
 
@@ -146,9 +148,9 @@ Bring the line below point up to the current line."
       smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
       smart-yank))  ; Yank behavior depends on mode.
   :hook
-  ((clojure-mode common-lisp-mode emacs-lisp-mode hy-mode lisp-interaction-mode
+  ((clojure-mode emacs-lisp-mode hy-mode lisp-interaction-mode
                  lisp-mode scheme-mode) . parinfer-mode)
-  (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
+  ;; (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
   :commands
   (parinfer-strategy-add)
   :bind
