@@ -17,15 +17,6 @@
     (while (re-search-forward pattern nil t)
       (replace-match replacement))))
 
-(defun ivy--replace-regexp-entire-buffer (replacement)
-  "Replace the currently input via regexp with REPLACEMENT."
-  (interactive (list (read-from-minibuffer (concat "Replace all occurrences of `" ivy--old-re "\' in entire buffer: "))))
-  (with-current-buffer (window-buffer (minibuffer-selected-window))
-    (replace-regexp-entire-buffer ivy--old-text replacement))
-  (ivy-done)
-  ;; * TODO: How to make this the last message displayed?
-  (message (concat "Replaced `" ivy--old-text "\' with `" replacement"\' across entire buffer.")))
-
 (defun counsel--call-in-other-window-action (x)
   "Call the command represented by string X after switching to
 the other window."
@@ -135,6 +126,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
+  (ivy-count-format "[%d/%d] ")
   :hook
   (after-init . ivy-mode)
   :commands
@@ -177,6 +169,17 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   "Delete FILE with confirmation."
   (dired-delete-file file 'confirm-each-subdirectory))
 
+(defun counsel-register-action-delete (register)
+  "Delete the REGISTER."
+  (let ((val (get-text-property 0 'register register)))
+    (setq register-alist (delq (assoc val register-alist) register-alist))
+    (message "Deleted register %s." (single-key-description val))))
+
+(defun counsel-register-action-then-delete (register)
+  "Perform the default action on REGISTER, then delete it."
+  (counsel-register-action register)
+  (counsel-register-action-delete register))
+
 (use-package counsel
   :custom
   (counsel-find-file-at-point t)
@@ -208,6 +211,10 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
      ("r"
       ivy--rename-buffer-action
       "rename")))
+  (ivy-set-actions
+   'counsel-register
+   '(("d" counsel-register-action-delete "delete")
+     ("k" counsel-register-action-then-delete "call then delete")))
   :hook
   (after-init . counsel-mode)
   :bind

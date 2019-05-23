@@ -354,7 +354,8 @@ Propertize the result with the specified PROPERTIES."
             (concat (eyebrowse-mode-line-indicator) " "))
           (when-propertize
            (theme-ml-concat
-            (list (when (bound-and-true-p flycheck-mode) (flycheck-mode-line-status-text))
+            (list (when (bound-and-true-p flycheck-mode)
+                    (string-trim (flycheck-mode-line-status-text)))
                   (when (buffer-narrowed-p) "⒩")
                   (when (bound-and-true-p hs-minor-mode) "⒣")
                   (when (bound-and-true-p outline-minor-mode) "⦿"))

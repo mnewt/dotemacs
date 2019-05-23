@@ -374,7 +374,7 @@ because I dynamically rename the buffer according to
 
 (defun eshell-prompt-housekeeping ()
   (setq xterm-color-preserve-properties t)
-  (rename-buffer (format "*%s*" default-directory) t))
+  (rename-buffer (format "*Eshell: %s*" default-directory) t))
 
 (use-package eshell
   :custom

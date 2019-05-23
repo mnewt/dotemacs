@@ -8,6 +8,17 @@
 
 (require 'tramp)
 
+(defun maybe-reset-major-mode ()
+  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+Mostly useful as a `before-save-hook', to guess mode when saving a
+new file for the first time.
+https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
+  (when (and
+         ;; The buffer's visited file does not exist.
+         (eq (file-exists-p (buffer-file-name)) nil)
+         (eq major-mode 'fundamental-mode))
+    (normal-mode)))
+
 (use-package sh-script
   :custom
   (sh-basic-offset tab-width)
@@ -21,17 +32,6 @@
   :bind
   (:map sh-mode-map
         ("s-<ret>" . eshell-send-current-line)))
-
-(defun maybe-reset-major-mode ()
-  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time.
-https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
-  (when (and
-         ;; The buffer's visited file does not exist.
-         (eq (file-exists-p (buffer-file-name)) nil)
-         (eq major-mode 'fundamental-mode))
-    (normal-mode)))
 
 (defun expand-environment-variable ()
   "Insert contents of an envionment variable at point."
@@ -362,6 +362,25 @@ shell is left intact."
    'company-backends
    `(company-shell company-shell-env
                    ,(when (executable-find "fish") 'company-fish-shell))))
+
+(defun shell-rename-buffer (_)
+  "Rename buffer to `default-directory'."
+  (rename-buffer (format "*Shell: %s*" default-directory) t))
+
+(add-hook 'comint-output-filter-functions #'shell-rename-buffer)
+
+(defun pw (command)
+  "Run `pw' command as COMMAND.
+
+Copy the result to the `kill-ring'. Call with a prefix argument
+to modify the args."
+  (interactive (list (if current-prefix-arg
+                         (read-shell-command "Run pw (like this): "
+                                             "pw " 'pw-history)
+                       "pw")))
+  (let ((result (string-trim-right (shell-command-to-string command))))
+    (kill-new result)
+    (message result)))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
            ("C-:" . tramp-insert-remote-part)
