@@ -6,6 +6,8 @@
 
 ;;; Code:
 
+(require 'tramp)
+
 ;; Configure the frame
 (when window-system
   (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
@@ -97,29 +99,6 @@ alist as the cdr of the alist entry in `theme-themes'. The
 attributes specified in `theme-themes' overrides these.
 
 For details on face specs see `defface'.")
-
-;; List of current remapping cookies used for face remapping/unmapping.
-;; (defvar theme-highlight-window-remapping nil)
-;; (make-variable-buffer-local 'theme-highlight-window-remapping)
-
-;; (defface theme-selected-window-face '((t :inherit default))
-;;   "The face used for the selected window.")
-
-;; (defun theme-highlight-selected-window ()
-;;   "Highlight the selected window with a different background color."
-;;   ;; Keep the previous buffer highlighted if the current one is the minibuffer.
-;;   (unless (window-minibuffer-p)
-;;     (dolist (window (cdr (window-list)))
-;;       (with-current-buffer (window-buffer window)
-;;         (mapc #'face-remap-remove-relative theme-highlight-window-remapping)
-;;         (setq theme-highlight-window-remapping nil))))
-;;   (setq theme-highlight-window-remapping
-;;         (cl-loop for face in '(default fringe)
-;;                  collect (face-remap-add-relative face 'theme-selected-window-face))))
-
-;; (add-hook 'window-configuration-change-hook #'theme-highlight-selected-window)
-;; (add-hook 'buffer-list-update-hook #'theme-highlight-selected-window)
-;; ;; (remove-hook 'buffer-list-update-hook #'theme-highlight-selected-window)
 
 (defvar theme-selected-window (frame-selected-window)
   "Selected window.")
@@ -404,7 +383,7 @@ end tell'" p))))
   "Switch Emacs and OS to dark mode."
   (interactive)
   (setq fiat-state 'nox)
-  (theme-activate 'doom-vibrant)
+  (theme-activate 'doom-dracula)
   (fiat--set-os-dark-mode t))
 
 (use-package window-highlight
@@ -419,6 +398,10 @@ end tell'" p))))
   ("C-c C-d" . darkroom-mode)
   :commands
   (darkroom-mode))
+
+(use-package font-lock-studio
+  :commands
+  (font-lock-studio))
 
 (bind-key "C-c C-t" #'theme-choose)
 

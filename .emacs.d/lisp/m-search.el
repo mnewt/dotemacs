@@ -169,16 +169,16 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   "Delete FILE with confirmation."
   (dired-delete-file file 'confirm-each-subdirectory))
 
-(defun counsel-register-action-delete (register)
-  "Delete the REGISTER."
-  (let ((val (get-text-property 0 'register register)))
-    (setq register-alist (delq (assoc val register-alist) register-alist))
-    (message "Deleted register %s." (single-key-description val))))
+;; (defun counsel-register-action-delete (register)
+;;   "Delete the REGISTER."
+;;   (let ((val (get-text-property 0 'register register)))
+;;     (setq register-alist (delq (assoc val register-alist) register-alist))
+;;     (message "Deleted register %s." (single-key-description val))))
 
-(defun counsel-register-action-then-delete (register)
-  "Perform the default action on REGISTER, then delete it."
-  (counsel-register-action register)
-  (counsel-register-action-delete register))
+;; (defun counsel-register-action-then-delete (register)
+;;   "Perform the default action on REGISTER, then delete it."
+;;   (counsel-register-action register)
+;;   (counsel-register-action-delete register))
 
 (use-package counsel
   :custom
@@ -371,36 +371,6 @@ CALLER is passed to `ivy-read'."
               :unwind #'counsel--git-grep-unwind
               :update-fn #'counsel--git-grep-update-fn)))
 
-(defvar counsel-register-history nil
-  "History for `counsel-register'.")
-
-(defun counsel-register-action (s)
-  "Default action for `counsel-register'.
-
-Do what I mean for each type of register."
-  (let* ((k (string-to-char s))
-         (v (get-register k)))
-    (if (or (stringp v) (numberp v))
-        (insert (format "%s" v))
-      (jump-to-register k))))
-
-(defun counsel-register ()
-  "Interactively choose a register and perform a default action
-on it."
-  (interactive)
-  (ivy-read "Register: "
-            (cl-loop for (k . v) in register-alist
-                     collect (concat (key-description (list k))
-                                     " => "
-                                     (if (or (stringp v) (numberp v))
-                                         (format "%s" v)
-                                       (format "[%s] %s"
-                                               (symbol-name (car v))
-                                               (cdr v)))))
-            :preselect 0
-            :history 'counsel-register-history
-            :action #'counsel-register-action))
-
 (advice-add 'counsel-rg :around #'counsel-rg-default-directory)
 
 (use-package prescient
@@ -414,9 +384,6 @@ on it."
 (use-package company-prescient
   :hook
   (after-init . company-prescient-mode))
-
-(defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
-  "Default code project container directory.")
 
 (use-package projectile
   :custom

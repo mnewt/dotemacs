@@ -28,21 +28,21 @@ If region is active, store that. Otherwise, store the sexp at
   (setq deactivate-mark t)
   (when (called-interactively-p 'interactive) (indicate-copied-region)))
 
-(defun eval-register (register)
-  "Evaluate contents of register REGISTER as an Emacs Lisp expression.
-REGISTER is a character and its contents are a string.
+;; (defun eval-register (register)
+;;   "Evaluate contents of register REGISTER as an Emacs Lisp expression.
+;; REGISTER is a character and its contents are a string.
 
-If called with a prefix arg, then insert the return value at
-point.
+;; If called with a prefix arg, then insert the return value at
+;; point.
 
-Interactively, reads the register using `register-read-with-preview'."
-  (interactive (progn
-                 (barf-if-buffer-read-only)
-                 (list (register-read-with-preview "Eval register: ")
-                       current-prefix-arg)))
-  (let* ((val (get-register register))
-         (res (eval (car (read-from-string (format "(progn %s)" val))))))
-    (when current-prefix-arg (register-val-insert res))))
+;; Interactively, reads the register using `register-read-with-preview'."
+;;   (interactive (progn
+;;                  (barf-if-buffer-read-only)
+;;                  (list (register-read-with-preview "Eval register: ")
+;;                        current-prefix-arg)))
+;;   (let* ((val (get-register register))
+;;          (res (eval (car (read-from-string (format "(progn %s)" val))))))
+;;     (when current-prefix-arg (register-val-insert res))))
 
 (defun inf-clojure-start-lumo ()
   "Start lumo as a subprocess and then connect to it over TCP.

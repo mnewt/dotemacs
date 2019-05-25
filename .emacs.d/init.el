@@ -20,11 +20,11 @@
 
 (setq load-prefer-newer t)
 
-(with-eval-after-load 'gnutls
-  (setq gnutls-verify-error t))
+(eval-after-load 'gnutls
+  (defvar gnutls-verify-error t))
 
 (with-eval-after-load 'nsm
-  (setq network-security-level 'high))
+  (defvar network-security-level 'high))
 
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Local elisp configuration files go here.")
@@ -34,9 +34,7 @@
 ;;; Package Management
 
 ;; Disable package.el initialization.
-(setq package-enable-at-startup nil
-      ;; don't add `custom-set-variables' block
-      package--init-file-ensured t)
+(setq package-enable-at-startup nil)
 
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
@@ -67,6 +65,7 @@
 (defvar straight-check-for-modifications)
 (setq straight-check-for-modifications 'live)
 
+;; Not sure if it's worth the hassle.
 ;; (use-package use-package-ensure-system-package)
 
 ;; (use-package benchmark-init
@@ -76,8 +75,6 @@
 
 ;;; Libraries
 
-;; cl is assumed to be present in this config and some packages too.
-;; (require 'cl)
 (require 'seq)
 
 (defun add-multiple-to-list (list items)
@@ -89,6 +86,11 @@
 (use-package dash)
 
 (use-package s)
+
+;; Private settings
+
+(load "~/.emacs.d/m-private.el" t)
+(load "~/.emacs.d/custom.el" t)
 
 ;;; Local Packages
 
@@ -108,10 +110,6 @@
 (require 'm-notes)
 (require 'm-lisp)
 (require 'm-modes)
-
-(load "~/.emacs.d/m-private.el" t)
-
-(load "~/.emacs.d/custom.el" t)
 
 (provide 'init)
 

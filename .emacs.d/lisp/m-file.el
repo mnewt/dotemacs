@@ -8,6 +8,48 @@
 
 (require 'dired-x)
 
+(defun member-list (elts list)
+  "Return non-nil if one of ELTS is an element of LIST."
+  (let ((result nil)
+        (elts (purecopy elts)))
+    (while (and (not result) elts)
+      (setq result (member (pop elts) list)))
+    result))
+
+(defun upsearch-multiple (filenames &optional dir)
+  "Recursively search up a directory tree for a list of FILENAMES.
+
+Start from from DIR or `default-directory'.
+
+Useful for finding project files like `Makefile' and `package.json'."
+  (let ((dir (or dir default-directory)))
+    (while (not (or (string= "/" dir)
+                    (member-list filenames (directory-files dir))))
+      (setq dir (file-name-directory (directory-file-name dir))))
+    (unless (string= "/" dir) dir)))
+
+(defun upsearch (filename &optional dir)
+  "Recursively search up a directory tree for FILENAME.
+
+Start search in DIR or `default-directory'."
+  (let ((dir (or dir default-directory)))
+    (while (not (or (string= "/" dir)
+                    (member filename (directory-files dir))))
+      (setq dir (file-name-directory (directory-file-name dir))))
+    (unless (string= "/" dir) dir)))
+
+(defun psync-maybe-sync ()
+  "If we find a `psync_config' file then run `psync'."
+  (interactive)
+  (when-let ((default-directory (and default-directory
+                                     (not (file-remote-p default-directory))
+                                     (upsearch "psync_config"))))
+    (if (= 0 (shell-command-exit-code "psync"))
+        (message "psync in directory %s finished." default-directory)
+      (message "psync in directory %s failed." default-directory))))
+
+(add-hook 'after-save-hook #'psync-maybe-sync)
+
 (defun dos2unix ()
   "Convert DOS line endings to Unix ones."
   (interactive)
@@ -468,6 +510,7 @@ human readable."
 ;; (add-hook 'dired-after-readin-hook #'dired-format-summary-line)
 
 (bind-keys
+ ("C-x M-s" . psync-maybe-sync)
  ("C-c o" . os-open-file)
  ("C-c O" . os-reveal-file)
  :map dired-mode-map
