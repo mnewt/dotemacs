@@ -6,22 +6,11 @@
 
 ;;; Code:
 
-;;;; WWW
-
-(use-package shr-tag-pre-highlight
-  :config
-  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))
-  :commands
-  (shr-tag-pre-highlight))
-
-(use-package w3m
-  :commands
-  w3m)
-
 ;; Automate communication with services, such as nicserv
 (with-eval-after-load 'erc
-  (require 'erc-services)
-  (erc-services-mode 1))
+  (progn
+    (require 'erc-services)
+    (erc-services-mode 1)))
 
 ;;;; Log Files
 
@@ -58,7 +47,7 @@
 ;;;; Docker
 
 (use-package dockerfile-mode
-  :mode "Dockerfile\\'")
+  :mode "\\`Dockerfile")
 
 (use-package docker
   :bind
@@ -68,9 +57,30 @@
   :defer 2)
 
 ;; dw (https://gitlab.com/mnewt/dw)
-(add-to-list 'auto-mode-alist '("\\DWfile.*\\'" . sh-mode))
+(add-to-list 'auto-mode-alist '("\\`DWfile" . sh-mode))
 
 ;;;; Web
+
+(use-package shr-tag-pre-highlight
+  :config
+  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))
+  :commands
+  (shr-tag-pre-highlight))
+
+(use-package w3m
+  :custom
+  (w3m-search-engine-alist
+   '(("google" "https://www.google.com/search?q=%s&ie=utf-8&oe=utf-8&gbv=1" utf-8)
+     ("google news" "https://news.google.com/news?q=%s&ie=utf-8&oe=utf-8" utf-8)
+     ("debian-pkg" "https://packages.debian.org/search?&searchon=names&suite=stable&section=all&arch=amd64&keywords=%s")
+     ("debian-bts" "https://bugs.debian.org/cgi-bin/pkgreport.cgi?archive=yes&pkg=%s")
+     ("amazon" "https://www.amazon.com/exec/obidos/search-handle-form/250-7496892-7797857" iso-8859-1 "url=index=blended&field-keywords=%s")
+     ("emacswiki" "https://www.emacswiki.org/cgi-bin/wiki?search=%s")
+     ("en.wikipedia" "https://en.wikipedia.org/wiki/Special:Search?search=%s")
+     ("duckduckgo" "https://duckduckgo.com/lite" utf-8 "q=%s")))
+  (w3m-search-default-engine "duckduckgo")
+  :commands
+  (w3m w3m-goto-url w3m-search))
 
 (use-package markdown-mode
   :mode "\\.md\\|markdown\\'"
@@ -302,7 +312,6 @@
 
 (use-package polymode
   :config
-  
 ;;;;; rjsx
   (define-hostmode poly-rjsx-hostmode
     :mode 'rjsx-mode)
@@ -346,25 +355,28 @@
     :hostmode 'poly-restclient-hostmode
     :innermodes '(poly-restclient-elisp-single-innermode
                   poly-restclient-elisp-multi-innermode))
-  
+
   :hook
   ((rjsx-mode . poly-rjsx-mode)
    (web-mode . poly-web-mode)
    (restclient-mode . poly-restclient-mode)))
 
-(use-package poly-markdown)
+(use-package poly-markdown
+  :hook
+  (markdown-mode . poly-markdown-mode))
 
 (use-package fence-edit
   :straight
-  (:type git :host github :repo "mnewt/fence-edit.el")
+  (:type git :host github :repo "aaronbieber/fence-edit.el"
+         :fork (:host github :repo "mnewt/fence-edit.el"))
   :config
-  (add-multiple-to-list 'fence-edit-blocks
-                        '(("---" "---" yaml)
-                          ("+++" "+++" toml)
-                          ("graphql[ \t\n]*(?`" "`" graphql)
-                          ("<svg" "</svg>" nxml t)
-                          ("<html" "</html>" web t)
-                          ("<div" "</div>" web t)))
+  (seq-doseq (e '(("---" "---" yaml)
+                  ("+++" "+++" toml)
+                  ("graphql[ \t\n]*(?`" "`" graphql)
+                  ("<svg" "</svg>" nxml t)
+                  ("<html" "</html>" web t)
+                  ("<div" "</div>" web t)))
+    (add-to-list 'fence-edit-blocks e))
   :hook
   ;; Don't shadow the fence-edit binding
   (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))

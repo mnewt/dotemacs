@@ -58,21 +58,20 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   "Return a list of hosts from `~/.ssh/known_hosts'."
   (with-temp-buffer
     (insert-file-contents "~/.ssh/known_hosts")
-    (-remove (lambda (host) (string=  "" host))
-             (mapcar (lambda (line)
-                       (replace-regexp-in-string "\\]\\|\\[" ""
-                                                 (car (split-string line "[, :]"))))
-                     (split-string (buffer-string) "\n")))))
+    (cl-remove-if (lambda (host) (string=  "" host))
+                  (mapcar (lambda (line) (replace-regexp-in-string
+                                          "\\]\\|\\[" ""
+                                          (car (split-string line "[, :]"))))
+                          (split-string (buffer-string) "\n")))))
 
 (defun list-hosts-from-ssh-config ()
   "Return a list of hosts from `~/.ssh/config'."
   (with-temp-buffer
     (insert-file-contents "~/.ssh/config")
     (keep-lines "^Host")
-    (-remove (lambda (host) (or (string=  "" host) (string= "*" host)))
-             (mapcar (lambda (line)
-                       (replace-regexp-in-string "Host +" "" line))
-                     (split-string (buffer-string) "\n")))))
+    (cl-remove-if (lambda (host) (or (string=  "" host) (string= "*" host)))
+                  (mapcar (lambda (line) (replace-regexp-in-string "Host +" "" line))
+                          (split-string (buffer-string) "\n")))))
 
 (defun list-hosts-from-etc-hosts ()
   "Return a list of hosts from `/etc/hosts'."
@@ -80,20 +79,20 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
     (insert-file-contents "/etc/hosts")
     (flush-lines "^#")
     (flush-lines "^$")
-    (-remove (lambda (host) (or (string= host "localhost")
-                                (string= host "broadcasthost")
-                                (eq host nil)))
-             (mapcar (lambda (line) (cadr (split-string line "[ \t]+")))
-                     (split-string (buffer-string) "\n")))))
+    (cl-remove-if (lambda (host) (or (string= host "localhost")
+                                     (string= host "broadcasthost")
+                                     (eq host nil)))
+                  (mapcar (lambda (line) (cadr (split-string line "[ \t]+")))
+                          (split-string (buffer-string) "\n")))))
 
 (defun list-hosts-from-recentf ()
   "Return a list of hosts from the `recentf-list'."
-  (-distinct
+  (cl-remove-duplicates
    (mapcar (lambda (s)
              (replace-regexp-in-string
               ":.*" ""
               (replace-regexp-in-string "^/sshx\?:" "" s)))
-           (remove-if
+           (cl-remove-if
             (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
             recentf-list))))
 
@@ -390,4 +389,4 @@ to modify the args."
 
 (provide 'm-shell)
 
-;;; m-shell-common.el ends here
+;;; m-shell.el ends here

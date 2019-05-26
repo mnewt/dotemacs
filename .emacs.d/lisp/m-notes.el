@@ -11,9 +11,6 @@
 
 ;;;; Org
 
-(require 'org)
-(require 'org-capture)
-
 (defun search-org-files ()
   "Search ~/org using `counsel-rg'."
   (interactive)
@@ -49,6 +46,7 @@
   (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
 
 (defun org-archive-done-tasks-in-file ()
+  "Archive all tasks marked done."
   (interactive)
   (org-map-entries
    (lambda ()
@@ -56,42 +54,65 @@
      (setq org-map-continue-from (outline-previous-heading)))
    "/DONE" 'file))
 
-(setq org-directory "~/org"
-      ;; Clean view
-      org-startup-indented t
-      ;; Smart C-a/e
-      org-special-ctrl-a/e t
-      ;; Smart C-k
-      org-special-ctrl-k t
-      ;; Insert a row in tables
-      org-special-ctrl-o t
-      ;; Tab in source blocks should act like in major mode
-      org-src-tab-acts-natively t
-      ;; Code highlighting in code blocks
-      org-src-fontify-natively t
-      ;; Customize todo keywords
-      ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
-      ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
-      ;;                           ("NEXT" (:foreground "red" :weight bold))
-      ;;                           ("WIP" (:foreground "green" :weight bold))
-      ;;                           ("DONE" (:foreground "gray"))))
-      org-agenda-files '(org-directory
-                         (expand-file-name "TODO.org" org-directory)))
+(use-package org
+  :straight
+  (:type built-in)
+  :custom
+  ( org-directory "~/org")
+  ;; Clean view
+  (org-startup-indented t)
+  ;; Smart C-a/e
+  (org-special-ctrl-a/e t)
+  ;; Smart C-k
+  (org-special-ctrl-k t)
+  ;; Insert a row in tables
+  (org-special-ctrl-o t)
+  ;; Tab in source blocks should act like in major mode
+  (org-src-tab-acts-natively t)
+  ;; Code highlighting in code blocks
+  (org-src-fontify-natively t)
+  ;; Customize todo keywords
+  ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
+  ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))
+  ;;                           ("NEXT" (:foreground "red" :weight bold))
+  ;;                           ("WIP" (:foreground "green" :weight bold))
+  ;;                           ("DONE" (:foreground "gray"))))
+  (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
+  :bind
+  (("C-c l" . org-store-link)
+   ("C-c a" . org-agenda)
+   ("C-c c" . org-capture)
+   ("C-c b" . org-switchb)
+   ("C-c s" . search-org-files)
+   ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
+   ("C-c o" . (lambda () (interactive) (find-file org-directory)))
+   :map org-mode-map
+   ("s-;" . org-shiftright)
+   :map visual-line-mode-map
+   ;; Don't shadow mwim and org-mode bindings
+   ([remap move-beginning-of-line] . nil)))
 
-(add-to-list
- 'org-capture-templates
- '("m"
-   "TODO respond to email"
-   entry
-   (file (expand-file-name "TODO.org" org-directory))
-   "* TODO %^{Description}\n%A\n%?\n"))
+(use-package org-capture
+  :straight
+  (:type built-in)
+  :config
+  (add-to-list 'org-capture-templates
+               '("m"
+                 "TODO respond to email"
+                 entry
+                 (file (expand-file-name "TODO.org" org-directory))
+                 "* TODO %^{Description}\n%A\n%?\n"))
+  :commands
+  (org-capture org-capture-refile))
 
 ;; (use-package ox-hugo
 ;;   :after ox)
 
 ;;;; Calendar and Journal
 
-(require 'calendar)
+(use-package calendar
+  :commands
+  (calendar-gregorian-from-absolute))
 
 (defun calendar-iso8601-date-string (date)
   "Create an ISO8601 date string from DATE."
@@ -104,9 +125,7 @@
 
 (defun calendar-date-add-days (date days)
   "Add DAYS to DATE."
-  (calendar-gregorian-from-absolute
-   (+ (calendar-absolute-from-gregorian date)
-      days)))
+  (calendar-gregorian-from-absolute (+ (calendar-absolute-from-gregorian date) days)))
 
 (defun calendar-choose-date ()
   "Interactively choose DATE and return it as an ISO 8601 string."
@@ -150,20 +169,6 @@
 (use-package nov
   :mode ("\\.epub\\'" . nov-mode))
 
-(bind-keys
- ("C-c l" . org-store-link)
- ("C-c a" . org-agenda)
- ("C-c c" . org-capture)
- ("C-c b" . org-switchb)
- ("C-c s" . search-org-files)
- ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
- ("C-c o" . (lambda () (interactive) (find-file org-directory)))
- :map org-mode-map
- ("s-;" . org-shiftright)
- :map visual-line-mode-map
- ;; Don't shadow mwim and org-mode bindings
- ([remap move-beginning-of-line] . nil))
-
 (provide 'm-notes)
 
-;;; m-org.el ends here
+;;; m-notes.el ends here

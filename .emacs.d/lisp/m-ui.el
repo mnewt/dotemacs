@@ -21,7 +21,8 @@
 (setq disabled-command-function nil)
 
 (defun undo-tree-keep-region (f &rest args)
-  "Keep region after `undo-tree-undo'."
+  "Keep region after `undo-tree-undo'.
+Call F with ARGS."
   (if (use-region-p)
       (let ((m (set-marker (make-marker) (mark)))
             (p (set-marker (make-marker) (point))))

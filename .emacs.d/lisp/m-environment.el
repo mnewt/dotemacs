@@ -6,6 +6,7 @@
 
 ;;; Code:
 
+(defvar datetime-timezone)
 (setq datetime-timezone 'US/Pacific)
 
 ;; Path
@@ -64,12 +65,11 @@ Update environment variables from a shell source file."
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
 
-(add-hook 'after-init-hook (lambda ())
-          (require 'server)
-          (unless (server-running-p) (server-start)))
+(use-package server
+  :hook
+  (after-init . server-start))
 
 (use-package pinentry
-  ;; TODO: Don't know how to get pinentry to work with Windows. Maybe a TCP socket?
   :unless (eq system-type 'windows-nt)
   :custom
   (password-cache-expiry nil)
@@ -77,6 +77,9 @@ Update environment variables from a shell source file."
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   :hook
   (after-init . pinentry-start))
+
+(defvar os-open-file-executable nil
+  "The executable used to open files in the host OS GUI.")
 
 (defun config-unix ()
   "Configure Emacs for common Unix (Linux and macOS) settings."
@@ -106,10 +109,10 @@ Update environment variables from a shell source file."
   (setq delete-by-moving-to-trash t
         trash-directory "~/.Trash"))
 
-(declare w32-pass-lwindow-to-system)
-(declare w32-lwindow-modifier)
-(declare w32-pass-rwindow-to-system)
-(declare w32-rwindow-modifier)
+(defvar w32-pass-lwindow-to-system)
+(defvar w32-lwindow-modifier)
+(defvar w32-pass-rwindow-to-system)
+(defvar w32-rwindow-modifier)
 
 (defun config-windows ()
   "Configure Emacs for Windows."

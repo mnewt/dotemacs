@@ -29,7 +29,9 @@
                          (file-name-directory (buffer-file-name))
                        default-directory))
              ;; `eshell' uses this variable as the new buffer name
-             (eshell-buffer-name (concat "*eshell: " (car (last (split-string parent "/" t))) "*")))
+             (eshell-buffer-name (concat "*eshell: "
+                                         (car (last (split-string parent "/" t)))
+                                         "*")))
         (switch-to-buffer-other-window "*eshell-here-temp*")
         (eshell)
         (kill-buffer "*eshell-here-temp*")
@@ -141,7 +143,7 @@
   (dired-other-window path))
 
 (defun tramp-colon-prefix-expand (path)
-  "Expand a colon prefix with the remote prefix
+  "Expand a colon prefix in PATH with the TRAMP remove prefix.
 
 Examples:
   > cd /etc -> /etc
@@ -157,13 +159,9 @@ Examples:
 
 (defun tramp-colon-prefix-maybe-expand ()
   "If we just inserted a colon prefix, run `tramp-colon-prefix-expand' on it."
-  (when (looking-back "\\_<:")
-    (delete-backward-char 1)
+  (when (looking-back "\\_<:" nil)
+    (delete-char 1)
     (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
-
-(defun tramp-colon-prefix-setup ()
-  (make-local-variable 'post-self-insert-hook)
-  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand))
 
 ;; Advise `eshell/*' functions to work with ":" prefix path syntax.
 (seq-doseq (c '(cd cp mv rm e ee d do))
@@ -276,6 +274,10 @@ https://stackoverflow.com/a/14769115/1588358"
   (require 'em-tramp)
   (add-to-list 'eshell-modules-list 'eshell-tramp)
 
+  ;; Set up `tramp-colon-prefix'.
+  (make-local-variable 'post-self-insert-hook)
+  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand)
+
   (bind-keys
    :map eshell-mode-map
    ("C-a" . eshell-maybe-bol)
@@ -305,13 +307,14 @@ https://stackoverflow.com/a/14769115/1588358"
     (define-key map (kbd "<return>") 'eshell-ls-find-file-at-point)
     (define-key map [mouse-1] 'eshell-ls-find-file-at-point)
     map)
-  "Keys in effect when point is over a file in `eshell/ls'
-  output.")
+  "Keys in effect when point is over a file from `eshell/ls'.")
 
 (declare-function eshell-ls-applicable 'eshell)
 
 (defun m-eshell-ls-decorated-name (f &rest args)
-  "Add more decoration to files in `eshell/ls' output.
+  "Call F with ARGS.
+
+Add more decoration to files in `eshell/ls' output.
 
 * Mark directories with a `/'
 * Mark execurables with a `*'
@@ -373,6 +376,7 @@ because I dynamically rename the buffer according to
   (switch-to-buffer-by-mode 'eshell-mode))
 
 (defun eshell-prompt-housekeeping ()
+  "Housekeeping for Eshell prompt."
   (setq xterm-color-preserve-properties t)
   (rename-buffer (format "*Eshell: %s*" default-directory) t))
 

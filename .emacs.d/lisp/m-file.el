@@ -38,17 +38,27 @@ Start search in DIR or `default-directory'."
       (setq dir (file-name-directory (directory-file-name dir))))
     (unless (string= "/" dir) dir)))
 
+;;;; psync
+
+(defvar-local psync-directory nil
+  "Cached directory for `psync'.
+
+It is always buffer local.")
+
 (defun psync-maybe-sync ()
   "If we find a `psync_config' file then run `psync'."
   (interactive)
-  (when-let ((default-directory (and default-directory
-                                     (not (file-remote-p default-directory))
-                                     (upsearch "psync_config"))))
+  (when-let ((default-directory (or psync-directory
+                                    (and default-directory
+                                         (not (file-remote-p default-directory))
+                                         (upsearch "psync_config")))))
     (if (= 0 (shell-command-exit-code "psync"))
         (message "psync in directory %s finished." default-directory)
       (message "psync in directory %s failed." default-directory))))
 
 (add-hook 'after-save-hook #'psync-maybe-sync)
+
+;;;; File utils
 
 (defun dos2unix ()
   "Convert DOS line endings to Unix ones."
@@ -65,7 +75,8 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
   (interactive)
   (set-buffer-file-coding-system 'dos))
 
-(defvar touch-history nil)
+(defvar touch-history nil
+  "History for `touch' command.")
 
 (defun touch (cmd)
   "Run `touch CMD' in `default-directory'."
@@ -74,6 +85,39 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
                                          'touch-history
                                          "touch ")))
   (shell-command cmd))
+
+(defun tail-file (file)
+  "Run `tail -f' on FILE.
+Tries to find a file at point."
+  (interactive (list (completing-read "Tail file: "
+                                      'read-file-name-internal
+                                      'file-exists-p t nil 'file-name-history
+                                      (thing-at-point 'filename))))
+  (async-shell-command (concat "tail -f " file)))
+
+(defun df ()
+  "Display the local host's disk usage in human readable form."
+  (interactive)
+  (print (shell-command-to-string "df -h")))
+
+(defun public-ip ()
+  "Display the local host's apparent public IP address."
+  (interactive)
+  (message
+   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
+     (goto-char (point-min))
+     (re-search-forward "^$")
+     (delete-char 1)
+     (delete-region (point) (point-min))
+     (buffer-string))))
+
+(defun dis (hostname)
+  "Resolve a HOSTNAME to its IP address."
+  (interactive "MHostname: ")
+  (message (shell-command-to-string
+            (concat "drill "
+                    hostname
+                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
 
 ;;;; OS program interaction
 
@@ -142,14 +186,25 @@ The config is specified in the config file in `~/.mnt/'."
   (interactive)
   (mnt-cmd "umnt"))
 
-(defun tail-file (file)
-  "Run `tail -f' on FILE.
-Tries to find a file at point."
-  (interactive (list (completing-read "Tail file: "
-                                      'read-file-name-internal
-                                      'file-exists-p t nil 'file-name-history
-                                      (thing-at-point 'filename))))
-  (async-shell-command (concat "tail -f " file)))
+;;;; Dired
+
+(use-package dired
+  :straight
+  (:type built-in)
+  :custom
+  (dired-listing-switches "-aFhl")
+  (dired-recursive-deletes 'always)
+  (dired-recursive-copies 'always)
+  (dired-dwim-target t)
+  (dired-omit-mode t)
+  (dired-omit-files "\\`[#.].*")
+  ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
+  ;; Emacs and can run into issues with certain characters in the file name.
+  ( insert-directory-program (or (executable-find "gls")
+                                 (executable-find "ls")))
+  ;; Don't prompt to kill buffers of deleted directories.
+  (dired-clean-confirm-killing-deleted-buffers nil)
+  ( find-ls-option '("-print0 | xargs -0 ls -alhd" . "")))
 
 (use-package ivy-dired-history
   :config
@@ -157,44 +212,6 @@ Tries to find a file at point."
   :bind
   (:map dired-mode-map
         ("," . dired)))
-
-(setq dired-listing-switches "-aFhl"
-      dired-recursive-deletes 'always
-      dired-recursive-copies 'always
-      dired-dwim-target t
-      ;; dired-omit-mode t
-      ;; dired-omit-files "\\`[#.].*"
-      ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
-      ;; Emacs and can run into issues with certain characters in the file name.
-      insert-directory-program (or (executable-find "gls")
-                                   (executable-find "ls"))
-      ;; Don't prompt to kill buffers of deleted directories.
-      dired-clean-confirm-killing-deleted-buffers nil
-      find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
-
-(defun public-ip ()
-  "Display the local host's apparent public IP address."
-  (interactive)
-  (message
-   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
-     (goto-char (point-min))
-     (re-search-forward "^$")
-     (delete-char 1)
-     (delete-region (point) (point-min))
-     (buffer-string))))
-
-(defun df ()
-  "Display the local host's disk usage in human readable form."
-  (interactive)
-  (print (shell-command-to-string "df -h")))
-
-(defun dis (hostname)
-  "Resolve a HOSTNAME to its IP address."
-  (interactive "MHostname: ")
-  (message (shell-command-to-string
-            (concat "drill "
-                    hostname
-                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
 
 (use-package wdired
   :custom
@@ -227,13 +244,14 @@ Tries to find a file at point."
 (use-package dired-efap
   :bind
   (:map dired-mode-map
-        ("")))
+        ("r" . dired-efap)))
 
 (use-package dired-hacks-utils
-  :straight
-  (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-hacks-utils.el"))
+  ;; :straight
+  ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-hacks-utils.el"))
   :config
-  (dired-utils-format-information-line-mode t))
+  :hook
+  (after-init . dired-utils-format-information-line-mode))
 
 (use-package dired-rainbow
   ;; :straight
@@ -258,11 +276,11 @@ Tries to find a file at point."
       "Face for Dired group."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-size-face '((t (:inherit default :weight bold)))
+    (defface dired-rainbow-size-face '((t (:inherit default)))
       "Face for Dired file size."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-date-face '((t (:inherit default)))
+    (defface dired-rainbow-datetime-face '((t (:inherit default :foreground "gray")))
       "Face for Dired timestamp."
       :group 'dired-rainbow)
 
@@ -361,7 +379,7 @@ It should be wrapped in an optional capture group."
          (3 'dired-rainbow-user-face)
          (4 'dired-rainbow-group-face)
          (5 'dired-rainbow-size-face)
-         (6 'dired-rainbow-date-face))
+         (6 'dired-rainbow-datetime-face))
         (,(concat dired-rainbow-file-extension-regexp "$") (0 'dired-rainbow-file-extension-face))))
 
     (define-minor-mode dired-rainbow-listing-mode
@@ -388,7 +406,7 @@ It should be wrapped in an optional capture group."
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac") 'end)
     (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg") 'end)
     (dired-rainbow-define log "#c17d11" ("log") 'end)
-    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "sed" "sh" "zsh" "vim") 'end)
+    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim") 'end)
     (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js") 'end)
     (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java") 'end)
     (dired-rainbow-define executable "#8cc4ff" ("exe" "msi") 'end)
@@ -402,8 +420,8 @@ It should be wrapped in an optional capture group."
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end)))
 
 (use-package dired-filter
-  :straight
-  (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-filter.el"))
+  ;; :straight
+  ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-filter.el"))
   :commands
   (dired-filter-by-name
    dired-filter-by-regexp
@@ -419,7 +437,8 @@ It should be wrapped in an optional capture group."
    dired-filter-by-executable))
 
 (use-package dired-list
-  :straight (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-list.el"))
+  :straight
+  (:type git :host github :repo "Fuco1/dired-hacks" :files ("dired-list.el"))
   :commands
   (dired-list-git-ls-files
    dired-list-locate
@@ -428,8 +447,8 @@ It should be wrapped in an optional capture group."
    dired-list-grep))
 
 (use-package dired-subtree
-  :straight
-  (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-subtree.el"))
+  ;; :straight
+  ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-subtree.el"))
   :bind
   (:map dired-mode-map
         ("I" . dired-subtree-cycle)
@@ -442,8 +461,8 @@ It should be wrapped in an optional capture group."
         ("C-, v" . dired-subtree-down)))
 
 (use-package dired-collapse
-  :straight
-  (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-collapse.el"))
+  ;; :straight
+  ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-collapse.el"))
   :hook
   (dired-mode . dired-collapse-mode))
 
@@ -451,7 +470,7 @@ It should be wrapped in an optional capture group."
   :bind
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
-()
+
 (use-package dired-sidebar
   :config
   (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
@@ -478,36 +497,7 @@ It should be wrapped in an optional capture group."
     (message "Opening %s..." file)
     (os-open-file file)))
 
-(defun ls-lisp-format-file-size (file-size &optional human-readable level)
-  (setq level (or level 1000))
-  (if (or (not human-readable)
-          (< file-size 1024))
-      (format (if (floatp file-size) " %11.0f" " %11d") file-size)
-    (cl-do ((file-size (/ file-size 1024.0) (/ file-size 1024.0))
-            ;; kilo, mega, giga, tera, peta, exa
-            (post-fixes (list "k" "M" "G" "T" "P" "E") (cdr post-fixes))
-            (l level (1- l)))
-        ((or (= 0 l)
-             (< file-size 1024)) (format " %10.0f%s" file-size (car post-fixes))))))
-
-(defun dired-format-summary-line ()
-  "Format the `total used in directory' and `available' space as
-human readable."
-  (save-excursion
-    (goto-char (point-min))
-    (forward-line)
-    (let ((inhibit-read-only t)
-          (limit (line-end-position)))
-      (while (re-search-forward "\\(directory\\|available\\) \\(\\<[0-9]+\\>\\)" nil t)
-        (replace-match (save-match-data
-                         (propertize (string-trim
-                                      (ls-lisp-format-file-size
-                                       (* 1024 (string-to-number (match-string 2))) t))
-                                     'invisible 'dired-hide-details-information))
-                       t nil nil 2)))))
-
 (add-hook 'dired-mode-hook #'dired-hide-details-mode)
-;; (add-hook 'dired-after-readin-hook #'dired-format-summary-line)
 
 (bind-keys
  ("C-x M-s" . psync-maybe-sync)

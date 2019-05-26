@@ -6,20 +6,14 @@
 
 ;;; Code:
 
-(setq suggest-key-bindings 5
-      ;; Select help window so it's easy to quit it with `q'
-      help-window-select t)
+(use-package simple
+  :straight (:type built-in)
+  :custom
+  (suggest-key-bindings 5))
 
 (use-package epkg
   :commands
   (epkg epkg-describe-package epkg-list-packages))
-
-(defun update-packages ()
-  "Use straight.el to update all packages."
-  (interactive)
-  (straight-normalize-all)
-  (straight-fetch-all)
-  (straight-merge-all))
 
 (use-package help-at-pt
   :custom
@@ -57,17 +51,15 @@
              ("J" . next-line-4)
              ("K" . previous-line-4)))
 
-(setq shr-color-visible-luminance-min 60
-      shr-color-visible-distance-min 5
-      shr-use-colors nil)
+(use-package shr
+  :custom
+  (shr-color-visible-luminance-min 60)
+  (shr-color-visible-distance-min 5)
+  (shr-use-colors nil))
 
-(global-eldoc-mode)
-
-;; ELDoc
-(seq-doseq (m '(emacs-lisp-mode-hook
-                lisp-interaction-mode-hook
-                ielm-mode-hook))
-  (add-hook m #'turn-on-eldoc-mode))
+(use-package eldoc
+  :hook
+  (after-init . global-eldoc-mode))
 
 (use-package which-key
   :hook
@@ -86,6 +78,7 @@
   ("C-h M-m" . man))
 
 (defun tramp-aware-woman (man-page-path)
+  "Open a remote man page at MAN-PAGE-PATH via TRAMP."
   (interactive)
   (let ((dir (eshell/pwd)))
     (woman-find-file
@@ -115,6 +108,9 @@
   :bind
   ("C-h e" . eg))
 
+(defvar dash-docs-docsets-path "~/.config/docsets"
+  "Local path to save docsets.")
+
 (defun dash-docs-installed-docsets ()
   "Return a list of the currently installed docsets."
   (mapcar (lambda (f) (string-trim-right f ".docset"))
@@ -129,11 +125,8 @@
 
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
-  :straight
-  (:type git :host github :repo "gilbertw1/counsel-dash")
   :custom
-  (dash-docs-docsets-path "~/.config/docsets")
-  (dash-docs-browser-func #'eww)
+  (dash-docs-browser-func (if (fboundp #'w3m) #'w3m #'eww))
   (dash-docs-common-docsets (dash-docs-installed-docsets))
   :commands
   (counsel-dash counsel-dash-at-point

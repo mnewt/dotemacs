@@ -7,7 +7,7 @@
 ;;; Code:
 
 (defun git-add-current-file (file)
-  "Run `git add' on the current buffer file name."
+  "Run `git add' on the FILE visited in the current buffer."
   (interactive (list (buffer-file-name)))
   (shell-command (format "git add '%s'" file)))
 
@@ -108,11 +108,12 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 (use-package magit-todos
   :custom
   (magit-todos-scanner #'magit-todos--scan-with-git-grep)
-  :hook (magit-mode . magit-todos-mode))
+  :hook
+  (magit-mode . magit-todos-mode))
 
 (use-package git-timemachine
   :bind
-  (("C-x t" . git-timemachine)))
+  ("C-x t" . git-timemachine))
 
 (use-package gist
   :commands

@@ -8,15 +8,30 @@
 
 ;;; Top Level
 
+(defconst emacs-start-time (current-time))
+
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
 
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824)
-
 (run-with-idle-timer 5 nil
                      (lambda ()
                        (run-with-idle-timer 20 t (lambda () (garbage-collect)))))
+
+;; Unset file-name-handler-alist too (temporarily). Every file opened and loaded
+;; by Emacs will run through this list to check for a proper handler for the
+;; file, but during startup, it won’t need any of them.
+(defvar m--file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil)
+(add-hook 'emacs-startup-hook
+          (lambda () (setq file-name-handler-alist m--file-name-handler-alist)))
+
+(defun display-startup-echo-area-message ()
+  "Display a message when Emacs finishes starting up."
+  (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
+    (defconst emacs-load-time elapsed)
+    (message "Emacs has finished starting up in %.3f seconds." elapsed)))
 
 (setq load-prefer-newer t)
 
@@ -34,7 +49,7 @@
 ;;; Package Management
 
 ;; Disable package.el initialization.
-(setq package-enable-at-startup nil)
+(setq package-enable-at-startup nil) ; don't auto-initialize!
 
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
@@ -65,6 +80,13 @@
 (defvar straight-check-for-modifications)
 (setq straight-check-for-modifications 'live)
 
+(defun update-packages ()
+  "Use straight.el to update all packages."
+  (interactive)
+  (straight-normalize-all)
+  (straight-fetch-all)
+  (straight-merge-all))
+
 ;; Not sure if it's worth the hassle.
 ;; (use-package use-package-ensure-system-package)
 
@@ -76,10 +98,6 @@
 ;;; Libraries
 
 (require 'seq)
-
-(defun add-multiple-to-list (list items)
-  "Run `add-to-list' for all ITEMS in the LIST."
-  (mapc (apply-partially #'add-to-list list) items))
 
 ;; These packages are used by many things
 
@@ -94,9 +112,9 @@
 
 ;;; Local Packages
 
-(require 'm-appearance)
 (require 'm-environment)
 (require 'm-persist)
+(require 'm-appearance)
 (require 'm-ui)
 (require 'm-navigate)
 (require 'm-help)

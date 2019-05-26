@@ -18,8 +18,7 @@
       (replace-match replacement))))
 
 (defun counsel--call-in-other-window-action (x)
-  "Call the command represented by string X after switching to
-the other window."
+  "Switch to other window and call command X."
   (switch-to-buffer-other-window (current-buffer)
                                  (call-interactively (intern x))))
 
@@ -113,10 +112,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :bind
   (([remap dabbrev-expand] . company-complete)
    :map company-active-map
-   ;; TODO: The inconsistency between C-n and M-n to select company
-   ;; completion in different contexts (e.g `emacs-lisp-mode' and
-   ;; `eshell-mode') is aggravating. Not sure about the solution though.
-   ;; ("C-n" . company-select-next) ("C-p" . company-select-previous)
    ("RET" . nil)
    ("<return>" . nil)
    ("C-e" . company-complete-selection)
@@ -247,13 +242,14 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-r" . counsel-minibuffer-history)))
 
 (defcustom counsel-git-grep-preview t
-  "When non-nil, display the file and match for the current
-  selection in `counsel-git-grep', `counsel-ag', and
-  derivatives. "
+  "When non-nil, display the file and match immediately.
+This works for `counsel-git-grep', `counsel-ag', and
+  derivatives."
   :type 'boolean
   :group 'counsel)
 
 (defun counsel-git-grep-preview-toggle ()
+  "Toggle `counsel-git-grep-preview'."
   (if counsel-git-grep-preview
       (setq counsel-git-grep-preview nil)
     (setq counsel-git-grep-preview t)))
@@ -273,6 +269,8 @@ The buffers are those opened during a session of `counsel-git-grep'."
         counsel--git-grep-previous-buffers nil)
   (counsel-delete-process)
   (swiper--cleanup))
+
+(defvar ivy-text)
 
 (defun counsel--line (x)
   "Go to line number X in the current file."

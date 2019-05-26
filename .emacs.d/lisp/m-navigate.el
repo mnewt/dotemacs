@@ -16,39 +16,11 @@
   (interactive)
   (forward-line -4))
 
-(defun new-scratch-buffer ()
-  "Create or go to a scratch buffer in the current mode.
-
-If ARG is provided then prompt for the buffer's mode. Try these
-  things in succession\:
-
-1. Select an existing window containing the scratch buffer.
-2. Switch to an existing scratch buffer.
-3. Create a new scratch buffer and switch to it."
-  (interactive)
-  (let* ((mode (if current-prefix-arg
-                   (intern (ivy-read "New scratch buffer with mode: "
-                                     (append '(lisp-interaction-mode js-mode js-jsx-mode)
-                                             (list-major-modes))
-                                     :history 'new-scratch-buffer-history
-                                     :caller 'new-scratch-buffer))
-                 ;; :initial-input (car new-scratch-buffer-history)))
-                 major-mode))
-         (name (format "<%s>" (symbol-name mode)))
-         (win (get-buffer-window name)))
-    (cond
-     (win (select-window win))
-     (t (switch-to-buffer (get-buffer-create name))
-        (setq buffer-file-name name)
-        (funcall mode)))))
-
-(defun new-scratch-buffer-other-window ()
-  "Create or go to a scratch buffer in ther current mode.
-
-For for details see `new-scratch-buffer'."
-  (interactive)
-  (switch-to-buffer-other-window (current-buffer))
-  (new-scratch-buffer))
+(defvar scratch-other-modes
+  '(lisp-interaction-mode js-mode js-jsx-mode)
+  "Modes to add to the new scratch buffer list.
+This list exists because these modes may not be added
+  automatically. See `list-major-modes'.")
 
 (defun filter-buffers-by-name (regexp)
   "Return a list of buffers whose names match REGEXP."
@@ -67,11 +39,47 @@ For for details see `new-scratch-buffer'."
                        (buffer-list))))
 
 (defun list-major-modes ()
-  "Return a list of all major modes which are associated with a
-  magic string or file extension."
+  "Return a list of all major modes.
+
+It actually does not list them all because I don't know how to do
+  that. So, we find only ones which are associated with a magic
+  string or file extension."
   (delete-dups (mapcar #'cdr (append magic-mode-alist
                                      auto-mode-alist
                                      magic-fallback-mode-alist))))
+
+(defun scratch-new-buffer ()
+  "Create or go to a scratch buffer in the current mode.
+
+If ARG is provided then prompt for the buffer's mode. Try these
+  things in succession\:
+
+1. Select an existing window containing the scratch buffer.
+2. Switch to an existing scratch buffer.
+3. Create a new scratch buffer and switch to it."
+  (interactive)
+  (let* ((mode (if current-prefix-arg
+                   (intern (ivy-read "New scratch buffer with mode: "
+                                     (append scratch-other-modes (list-major-modes))
+                                     :history 'new-scratch-buffer-history
+                                     :caller 'scratch-new-buffer))
+                 ;; :initial-input (car new-scratch-buffer-history)))
+                 major-mode))
+         (name (format "<%s>" (symbol-name mode)))
+         (win (get-buffer-window name)))
+    (cond
+     (win (select-window win))
+     (t (switch-to-buffer (get-buffer-create name))
+        (setq buffer-file-name name)
+        (funcall mode)))))
+
+(defun scratch-new-buffer-other-window ()
+  "Create or go to a scratch buffer in ther current mode.
+
+For for details see `scratch-new-buffer'."
+  (interactive)
+  (switch-to-buffer-other-window (current-buffer))
+  (scratch-new-buffer))
 
 (defun switch-to-buffer-by-mode (mode)
   "Interactively choose a major MODE, then choose a buffer of that mode."
@@ -122,6 +130,8 @@ For for details see `new-scratch-buffer'."
           (set-window-buffer (next-window) next-win-buffer)
           (select-window first-win)
           (if this-win-2nd (other-window 1))))))
+
+(defvar ffap-url-fetcher)
 
 (defun find-file-at-point-with-line (&optional filename)
   "Open FILENAME at point and move point to line specified next to file name."
@@ -199,32 +209,6 @@ return them in the Emacs format."
           (goto-char (point-min))
           (forward-line n)))
     (linum-mode -1)))
-
-(defun outline-show-current-sublevel ()
-  "Show only the current top level section."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-previous ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-previous-visible-heading 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-next ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless outline-minor-mode
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-next-visible-heading 1)
-  (outline-show-subtree))
 
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
@@ -327,9 +311,11 @@ return them in the Emacs format."
 ;; Make `emacsclient' support solon notation of line:column
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
-;; Just set up 3 windows, no fancy frames or whatever
-(with-eval-after-load 'ediff
-  (setq ediff-window-setup-function #'ediff-setup-windows-plain))
+(use-package ediff
+  :custom
+  (ediff-window-setup-function #'ediff-setup-windows-plain)
+  :commands
+  (ediff-files ediff-files3 ediff-patch-buffer vc-ediff))
 
 (use-package goto-addr
   :hook
@@ -339,34 +325,63 @@ return them in the Emacs format."
   (:map goto-address-highlight-keymap
         ("C-c C-o" . goto-address-at-point)))
 
+(defvar outline-minor-mode)
+
+(defun outline-show-current-sublevel ()
+  "Show only the current top level section."
+  (interactive)
+  (unless outline-minor-mode
+    (outline-minor-mode t))
+  (outline-hide-sublevels 1)
+  (outline-show-subtree))
+
+(defun outline-subtree-previous ()
+  "Go to and expand previous sublevel."
+  (interactive)
+  (unless outline-minor-mode
+    (outline-minor-mode t))
+  (outline-hide-sublevels 1)
+  (outline-previous-visible-heading 1)
+  (outline-show-subtree))
+
+(defun outline-subtree-next ()
+  "Go to and expand previous sublevel."
+  (interactive)
+  (unless outline-minor-mode
+    (outline-minor-mode t))
+  (outline-hide-sublevels 1)
+  (outline-next-visible-heading 1)
+  (outline-show-subtree))
+
 ;; outline-mode extension for navigating by sections. in Emacs Lisp that is defined by
 ;; `;;; ', `;;;; ', etc. Everywhere else it is like `;; * ' `;; ** ', and so on.
-;; (use-package outshine
-;;   :init
-;;   (defvar outline-minor-mode-prefix "\M-#")
-;;   :config
-;;   (put 'narrow-to-region 'disabled nil)
-;;   ;; Narrowing now works within the headline rather than requiring to be on it
-;;   (advice-add 'outshine-narrow-to-subtree :before
-;;               (lambda (&rest _args) (unless (outline-on-heading-p t)
-;;                                       (outline-previous-visible-heading 1))))
-;;   :hook
-;;   (prog-mode . outshine-mode)
-;;   :bind
-;;   (:map outline-minor-mode-map
-;;         ;; Don't shadow smarparens or org bindings
-;;         ("M-<up>" . nil)
-;;         ("M-<down>" . nil)
-;;         ("M-=" . outline-show-current-sublevel)
-;;         ("M-p" . outline-subtree-previous)
-;;         ("M-n" . outline-subtree-next)))
+(use-package outshine
+  :custom
+  (outline-minor-mode-prefix "\M-#")
+  :config
+  (put 'narrow-to-region 'disabled nil)
+  ;; Narrowing now works within the headline rather than requiring to be on it
+  (advice-add 'outshine-narrow-to-subtree :before
+              (lambda (&rest _args) (unless (outline-on-heading-p t)
+                                      (outline-previous-visible-heading 1))))
+  :hook
+  (prog-mode . outshine-mode)
+  :bind
+  (:map outline-minor-mode-map
+        ;; Don't shadow smarparens or org bindings
+        ("M-<up>" . nil)
+        ("M-<down>" . nil)
+        ("M-=" . outline-show-current-sublevel)
+        ("M-p" . outline-subtree-previous)
+        ("M-n" . outline-subtree-next)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :bind
-  ("C-<tab>" . hs-toggle-hiding)
+  (:map hs-minor-mode-map
+        ("C-<tab>" . hs-toggle-hiding))
   :hook
   (hs-minor-mode . hs-hide-all))
 
@@ -398,10 +413,20 @@ return them in the Emacs format."
 (defun save-kill-buffers-and-quit ()
   "Kill all buffers, clean up tramp caches, and quit Emacs."
   (interactive)
+  (save-some-buffers)
   (desktop-clear)
   (tramp-cleanup-all)
-  (save-buffers-kill-emacs))
+  (kill-emacs))
 
+(defun dired-list-init-files ()
+  "Create a Dired listing of all Emacs init files."
+  (interactive)
+  (let ((default-directory "~/.emacs.d/lisp"))
+    (dired (cons "Emacs init files"
+                 (append '("../init.el" "../m-private.el")
+                         (cddr (directory-files ".")))))
+    (dired-omit-mode -1)))
+  
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
 ;; to work on Windows and Linux. That is why there are multiple bindings for
@@ -441,10 +466,10 @@ return them in the Emacs format."
  ("C-c i" . os-reveal-file)
  ("s-<return>" . eval-last-sexp)
  ("s-RET" . eval-last-sexp)
- ("s-n" . new-scratch-buffer)
- ("s-N" . new-scratch-buffer-other-window)
- ("C-c C-n" . new-scratch-buffer)
- ("C-c M-n" . new-scratch-buffer-other-window)
+ ("s-n" . scratch-new-buffer)
+ ("s-N" . scratch-new-buffer-other-window)
+ ("C-c C-n" . scratch-new-buffer)
+ ("C-c M-n" . scratch-new-buffer-other-window)
  ("C-S-p" . previous-line-4)
  ("C-S-n" . next-line-4)
  ("H-p" . "\C-u1\M-v")
@@ -461,13 +486,9 @@ return them in the Emacs format."
 
  ;; windmove
  ("H-a" . windmove-left)
- ("H-h" . windmove-left)
  ("H-d" . windmove-right)
- ("H-l" . windmove-right)
  ("H-w" . windmove-up)
- ("H-j" . windmove-up)
  ("H-s" . windmove-down)
- ("H-k" . windmove-down)
  ("M-]" . windmove-right)
  ("M-[" . windmove-left)
 
@@ -493,12 +514,10 @@ return them in the Emacs format."
 
  ("C-c C-f" . find-file-at-point-with-line)
 
- ;; Init
- ("C-c I" . (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
-
+ ("C-c I" . dired-list-init-files)
  :map ctl-x-4-map
  ("t" . toggle-window-split))
 
 (provide 'm-navigate)
 
-;;; m-navigation.el ends here
+;;; m-navigate.el ends here

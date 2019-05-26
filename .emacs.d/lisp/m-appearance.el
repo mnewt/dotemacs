@@ -17,10 +17,6 @@
 (setq frame-resize-pixelwise t
       inhibit-splash-screen t)
 
-(defun display-startup-echo-area-message ()
-  "Display a message when Emacs finishes starting up."
-  (message "Emacs has finished starting up."))
-
 ;; Blinking is NOT OK
 (blink-cursor-mode -1)
 
@@ -39,18 +35,23 @@
       mouse-wheel-follow-mouse 't
       mouse-wheel-scroll-amount '(1 ((shift) . 1)))
 
-(pixel-scroll-mode)
+(use-package pixel-scroll
+  :straight (:type built-in)
+  :hook
+  (after-init . pixel-scroll-mode))
 
-(global-hl-line-mode 1)
+(use-package hl-line
+  :hook
+  (after-init . global-hl-line-mode))
 
 ;; No GUI dialogs
 (setq use-dialog-box nil)
 
 ;; We don't set a frame title because Emacs on macOS renders the frame title
 ;; face terribly. No rendering is better than terrible rendering.
-(setq frame-title-format nil)
-;; No icon in the titlebar
-(setq ns-use-proxy-icon nil)
+(setq frame-title-format nil
+      ;; No icon in the titlebar
+      ns-use-proxy-icon nil)
 
 ;; Default frame settings. This is actually maximized, not full screen.
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
@@ -125,7 +126,8 @@ This is used to determine whether the current window is active."
   (eq theme-selected-window (selected-window)))
 
 (defun alist-get-all (key alist &optional default testfn)
-  "Return a list of the elements of ALIST with matching KEY.
+  "Return a list of all the elements of ALIST with matching KEY.
+
 Modeled on `alist-get', which only returns the first match.
 
 DEFAULT returns a default value if nothing matches.
