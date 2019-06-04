@@ -355,8 +355,6 @@ Propertize the result with the specified PROPERTIES."
        ;; right
        (list ""))))))
 
-(add-hook 'after-init-hook (lambda () (theme-activate theme-current-theme)))
-
 (defvar fiat-state 'nox
   "Whether we let there be light or dark.")
 
@@ -370,19 +368,19 @@ tell application \"System Events\"
 end tell'" p))))
 
 (defun fiat ()
-  "Let there be the opposite of whatever came before."
+  "Let the Emacs and OS themes be toggled."
   (interactive)
   (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
 
 (defun fiat-lux ()
-  "Switch Emacs and OS to light mode."
+  "Let the Emacs and OS themes be switched to light mode."
   (interactive)
   (setq fiat-state 'lux)
-  (theme-activate 'solarized-light)
+  (theme-activate 'doom-one-light)
   (fiat--set-os-dark-mode nil))
 
 (defun fiat-nox ()
-  "Switch Emacs and OS to dark mode."
+  "Let the Emacs and OS themes be switched to dark mode."
   (interactive)
   (setq fiat-state 'nox)
   (theme-activate 'doom-dracula)
@@ -404,6 +402,8 @@ end tell'" p))))
 (use-package font-lock-studio
   :commands
   (font-lock-studio))
+
+(add-hook 'after-init-hook (lambda () (theme-activate theme-current-theme)))
 
 (bind-key "C-c C-t" #'theme-choose)
 

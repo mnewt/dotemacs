@@ -359,18 +359,21 @@ return them in the Emacs format."
   :custom
   (outline-minor-mode-prefix "\M-#")
   :config
-  (put 'narrow-to-region 'disabled nil)
+  ;; (put 'narrow-to-region 'disabled t)
   ;; Narrowing now works within the headline rather than requiring to be on it
   (advice-add 'outshine-narrow-to-subtree :before
               (lambda (&rest _args) (unless (outline-on-heading-p t)
                                       (outline-previous-visible-heading 1))))
   :hook
-  (prog-mode . outshine-mode)
+  ;; Required for outshine
+  (outline-minor-mode . outshine-mode)
+  (prog-mode . outline-minor-mode)
   :bind
   (:map outline-minor-mode-map
         ;; Don't shadow smarparens or org bindings
         ("M-<up>" . nil)
         ("M-<down>" . nil)
+        ("<backtab>" . outshine-cycle-buffer)
         ("M-=" . outline-show-current-sublevel)
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
@@ -393,6 +396,19 @@ return them in the Emacs format."
   ("C-s-p" . symbol-overlay-jump-prev)
   ("C-s-r" . symbol-overlay-rename)
   ("C-s-5" . symbol-overlay-query-replace))
+
+(use-package iy-go-to-char
+  :custom
+  (iy-go-to-char-forward ?f)
+  (iy-go-to-char-backward ?b)
+  :config
+  (with-eval-after-load 'multiple-cursors
+    (add-to-list 'mc/cursor-specific-vars 'iy-go-to-char-start-pos))
+  :bind
+  (("M-F" . iy-go-up-to-char)
+   ("M-B" . iy-go-up-to-char-backward)
+   ("C-M-\"" . iy-go-to-or-up-to-continue)
+   ("C-M-:" . iy-go-to-or-up-to-continue-backward)))
 
 (use-package rainbow-mode
   :hook
@@ -425,8 +441,92 @@ return them in the Emacs format."
     (dired (cons "Emacs init files"
                  (append '("../init.el" "../m-private.el")
                          (cddr (directory-files ".")))))
-    (dired-omit-mode -1)))
-  
+    (when (fboundp #'dired-filter-mode)
+      (dired-filter-pop-all))))
+
+(defmacro specialize-beginning-of-buffer (mode &rest forms)
+  "Define a special version of `beginning-of-buffer' in MODE.
+
+The special function is defined such that the point first moves
+to `point-min' and then FORMS are evaluated.  If the point did
+not change because of the evaluation of FORMS, jump
+unconditionally to `point-min'.  This way repeated invocations
+toggle between real beginning and logical beginning of the
+buffer.
+
+https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-special-mode-buffers-(dired-etc.).html"
+  (declare (indent 1))
+  (let ((fname (intern (concat (symbol-name mode) "-beginning-of-buffer")))
+        (mode-map (intern (concat (symbol-name mode) "-mode-map")))
+        (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
+    `(progn
+       (defun ,fname ()
+         (interactive)
+         (let ((p (point)))
+           (goto-char (point-min))
+           ,@forms
+           (when (= p (point))
+             (goto-char (point-min)))))
+       (add-hook ',mode-hook
+                 (lambda ()
+                   (define-key ,mode-map
+                     [remap beginning-of-buffer] ',fname))))))
+
+(defmacro specialize-end-of-buffer (mode &rest forms)
+  "Define a special version of `end-of-buffer' in MODE.
+
+The special function is defined such that the point first moves
+to `point-max' and then FORMS are evaluated.  If the point did
+not change because of the evaluation of FORMS, jump
+unconditionally to `point-max'.  This way repeated invocations
+toggle between real end and logical end of the buffer.
+
+https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-special-mode-buffers-(dired-etc.).html"
+  (declare (indent 1))
+  (let ((fname (intern (concat "my-" (symbol-name mode) "-end-of-buffer")))
+        (mode-map (intern (concat (symbol-name mode) "-mode-map")))
+        (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
+    `(progn
+       (defun ,fname ()
+         (interactive)
+         (let ((p (point)))
+           (goto-char (point-max))
+           ,@forms
+           (when (= p (point))
+             (goto-char (point-max)))))
+       (add-hook ',mode-hook
+                 (lambda ()
+                   (define-key ,mode-map
+                     [remap end-of-buffer] ',fname))))))
+
+(specialize-beginning-of-buffer dired (while (not (ignore-errors (dired-get-filename)))
+                                        (dired-next-line 1)))
+(specialize-end-of-buffer dired (dired-previous-line 1))
+
+(specialize-beginning-of-buffer occur (occur-next 1))
+(specialize-end-of-buffer occur (occur-prev 1))
+
+(specialize-beginning-of-buffer ibuffer (ibuffer-forward-line 1))
+(specialize-end-of-buffer ibuffer (ibuffer-backward-line 1))
+
+(specialize-beginning-of-buffer vc-dir (vc-dir-next-line 1))
+(specialize-end-of-buffer vc-dir (vc-dir-previous-line 1))
+
+(specialize-beginning-of-buffer bs (bs-down 2))
+(specialize-end-of-buffer bs (bs-up 1) (bs-down 1))
+
+(specialize-beginning-of-buffer recentf-dialog (when (re-search-forward "^  \\[" nil t)
+                                                 (goto-char (match-beginning 0))))
+(specialize-end-of-buffer recentf-dialog (re-search-backward "^  \\[" nil t))
+
+(specialize-beginning-of-buffer org-agenda (org-agenda-next-item 1))
+(specialize-end-of-buffer org-agenda (org-agenda-previous-item 1))
+
+(specialize-beginning-of-buffer rg (compilation-next-error 1))
+(specialize-end-of-buffer rg (compilation-previous-error 1))
+
+(specialize-end-of-buffer elfeed-search (forward-line -2))
+
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
 ;; to work on Windows and Linux. That is why there are multiple bindings for
@@ -498,15 +598,15 @@ return them in the Emacs format."
  ("M-s-<left>" . shrink-window-horizontally)
  ("M-s-<right>" . enlarge-window-horizontally)
 
+ ;; Kill buffer and window at the same time.
+ ("M-s-w" . kill-buffer-and-window)
+ ("M-s-W" . kill-other-buffer-and-window)
+
  ;; Navigate with mark
  ("M-s-," . pop-to-mark-command)
  ("C-c ," . pop-to-mark-command)
  ("s-," . pop-global-mark)
  ("C-c C-," . pop-global-mark)
-
- ;; Kill buffer and window at the same time.
- ("M-s-w" . kill-buffer-and-window)
- ("M-s-W" . kill-other-buffer-and-window)
 
  ;; Tags
  ("s-R" . xref-find-definitions-other-window)
@@ -515,6 +615,7 @@ return them in the Emacs format."
  ("C-c C-f" . find-file-at-point-with-line)
 
  ("C-c I" . dired-list-init-files)
+
  :map ctl-x-4-map
  ("t" . toggle-window-split))
 

@@ -15,9 +15,7 @@
 
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824)
-(run-with-idle-timer 5 nil
-                     (lambda ()
-                       (run-with-idle-timer 20 t (lambda () (garbage-collect)))))
+(run-with-idle-timer 20 t #'garbage-collect)
 
 ;; Unset file-name-handler-alist too (temporarily). Every file opened and loaded
 ;; by Emacs will run through this list to check for a proper handler for the
@@ -49,7 +47,7 @@
 ;;; Package Management
 
 ;; Disable package.el initialization.
-(setq package-enable-at-startup nil) ; don't auto-initialize!
+(setq package-enable-at-startup nil)
 
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
@@ -87,25 +85,22 @@
   (straight-fetch-all)
   (straight-merge-all))
 
-;; Not sure if it's worth the hassle.
-;; (use-package use-package-ensure-system-package)
+(use-package use-package-ensure-system-package)
 
 ;; (use-package benchmark-init
 ;;   :config
 ;;   ;; To disable collection of benchmark data after init is done.
 ;;   (add-hook 'after-init-hook 'benchmark-init/deactivate))
 
-;;; Libraries
+;;; Emacs Lisp Extension Libraries
 
 (require 'seq)
-
-;; These packages are used by many things
-
+(require 'subr-x)
 (use-package dash)
-
+(use-package f)
 (use-package s)
 
-;; Private settings
+;;; Private settings
 
 (load "~/.emacs.d/m-private.el" t)
 (load "~/.emacs.d/custom.el" t)

@@ -1,4 +1,4 @@
-;;; m-persistence.el --- Persist State Between Emacs Sessions -*- lexical-binding: t -*-
+;;; m-persist.el --- Persist State Between Emacs Sessions -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -29,19 +29,31 @@
 
 (defun recentd-track-opened-file ()
   "Insert the name of the directory just opened into the recent list."
+  (require 'recentf)
   (and (derived-mode-p 'dired-mode) default-directory
        (recentf-add-file default-directory))
   ;; Must return nil because it is run from `write-file-functions'.
   nil)
 
+(defun recentf-save-list-silent ()
+  (let ((message-log-max nil))
+    (if (fboundp 'shut-up)
+        (shut-up (recentf-save-list))
+      (recentf-save-list))))
+
+(defun recentf-cleanup-silent ()
+  (let ((message-log-max nil))
+    (if shutup-p
+        (shut-up (recentf-cleanup))
+      (recentf-cleanup))))
+
 (use-package recentf
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
-  ;; Disable recentf-cleanup on Emacs start because it can cause problems
-  ;; with remote files. Clean up on idle for 60 seconds.
-  (recentf-auto-cleanup 60)
+  (recentf-auto-cleanup 'never)
   :hook
+  (focus-out-hook . (recentf-save-list-silent recentf-cleanup-silent))
   (after-init . recentf-mode)
   (dired-after-readin . recentd-track-opened-file))
 
@@ -81,11 +93,11 @@
 (use-package desktop
   :custom
   (desktop-dirname "~/.emacs.d")
+  (desktop-restore-eager 3)
   :config
   (add-to-list 'desktop-globals-to-save 'kill-ring)
   (add-to-list 'desktop-globals-to-save 'theme-current-theme)
-  :hook
-  (after-init-hook . desktop-save-mode))
+  (desktop-save-mode))
 
 (provide 'm-persist)
 

@@ -78,6 +78,7 @@
   ;;                           ("WIP" (:foreground "green" :weight bold))
   ;;                           ("DONE" (:foreground "gray"))))
   (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
+  (org-catch-invisible-edits 'show-and-error)
   :bind
   (("C-c l" . org-store-link)
    ("C-c a" . org-agenda)

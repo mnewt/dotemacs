@@ -8,6 +8,15 @@
 
 (require 'dired-x)
 
+(use-package jka-cmpr-hook
+  :straight (:type built-in)
+  :hook
+  ;; Sometimes (depending on how it's compiled and/or where the binary is?)
+  ;; `auto-compression-mode' doesn't load quite right, and then `find-library'
+  ;; and friends can't locate elisp source. Setting up the mode explicitly seems
+  ;; to fix it.
+  (after-init . auto-compression-mode))
+
 (defun member-list (elts list)
   "Return non-nil if one of ELTS is an element of LIST."
   (let ((result nil)
@@ -196,15 +205,16 @@ The config is specified in the config file in `~/.mnt/'."
   (dired-recursive-deletes 'always)
   (dired-recursive-copies 'always)
   (dired-dwim-target t)
-  (dired-omit-mode t)
-  (dired-omit-files "\\`[#.].*")
+  ;; `dired-omit-mode' is managed by `dired-filter'.
+  ;; (dired-omit-mode t)
+  (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
   ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
   ;; Emacs and can run into issues with certain characters in the file name.
-  ( insert-directory-program (or (executable-find "gls")
-                                 (executable-find "ls")))
+  (insert-directory-program (or (executable-find "gls"
+                                 (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
   (dired-clean-confirm-killing-deleted-buffers nil)
-  ( find-ls-option '("-print0 | xargs -0 ls -alhd" . "")))
+  (find-ls-option '("-print0 | xargs -0 ls -alhd" . "")))
 
 (use-package ivy-dired-history
   :config
@@ -223,24 +233,6 @@ The config is specified in the config file in `~/.mnt/'."
   (:map dired-mode-map
         ("C-c C-p" . wdired-change-to-wdired-mode)))
 
-;; Ripped from https://github.com/DamienCassou/dired-imenu.
-(defun dired-imenu-prev-index-position ()
-  "Find the previous file in the buffer."
-  (dired-previous-line 1))
-
-(defun dired-imenu-extract-index-name ()
-  "Return the name of the file at point."
-  (dired-get-filename 'verbatim))
-
-(defun dired-setup-imenu ()
-  "Configure imenu for the current dired buffer."
-  (set (make-local-variable 'imenu-prev-index-position-function)
-       'dired-imenu-prev-index-position)
-  (set (make-local-variable 'imenu-extract-index-name-function)
-       'dired-imenu-extract-index-name))
-
-(add-hook 'dired-mode-hook 'dired-setup-imenu)
-
 (use-package dired-efap
   :bind
   (:map dired-mode-map
@@ -254,10 +246,9 @@ The config is specified in the config file in `~/.mnt/'."
   (after-init . dired-utils-format-information-line-mode))
 
 (use-package dired-rainbow
-  ;; :straight
-  ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-rainbow.el"))
-  :custom
-  (dired-rainbow-file-regexp-group 1)
+  :straight
+  (:type git :host github :repo "Fuco1/dired-hacks" :files ("dired-rainbow.el"))
+  ;; :fork (:host github :repo "mnewt/dired-hacks"))
   :config
   (progn
     (defface dired-rainbow-permissions-face '((t (:inherit default)))
@@ -280,7 +271,9 @@ The config is specified in the config file in `~/.mnt/'."
       "Face for Dired file size."
       :group 'dired-rainbow)
 
-    (defface dired-rainbow-datetime-face '((t (:inherit default :foreground "gray")))
+    (defface dired-rainbow-datetime-face
+      '((((background dark)) (:inherit default :foreground "#999"))
+        (t (:inherit default :foreground "#777")))
       "Face for Dired timestamp."
       :group 'dired-rainbow)
 
@@ -324,7 +317,7 @@ The config is specified in the config file in `~/.mnt/'."
       :type 'string
       :group 'dired-rainbow)
 
-    (defcustom dired-rainbow-file-extension-regexp "\\.[^.]*?"
+    (defcustom dired-rainbow-file-extension-regexp "\\.[^./]*?$"
       "A regexp matching file extensions."
       :type 'string
       :group 'dired-rainbow)
@@ -380,7 +373,7 @@ It should be wrapped in an optional capture group."
          (4 'dired-rainbow-group-face)
          (5 'dired-rainbow-size-face)
          (6 'dired-rainbow-datetime-face))
-        (,(concat dired-rainbow-file-extension-regexp "$") (0 'dired-rainbow-file-extension-face))))
+        (,dired-rainbow-file-extension-regexp 0 'dired-rainbow-file-extension-face t)))
 
     (define-minor-mode dired-rainbow-listing-mode
       "Toggle highlighting of file listing details in Dired."
@@ -388,7 +381,7 @@ It should be wrapped in an optional capture group."
       :lighter ""
       (progn
         (if dired-rainbow-listing-mode
-            (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords t)
+            (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords 'end)
           (font-lock-remove-keywords 'dired-mode dired-rainbow-listing-keywords))
         (mapc (lambda (b) (with-current-buffer b
                             (when (equal major-mode 'dired-mode)
@@ -397,44 +390,35 @@ It should be wrapped in an optional capture group."
 
     (dired-rainbow-listing-mode t)
 
-    (dired-rainbow-define-chmod directory "#0074d9" "d.*" 'end)
-    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml") 'end)
-    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata") 'end)
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx") 'end)
-    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt") 'end)
-    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc") 'end)
-    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac") 'end)
-    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg") 'end)
-    (dired-rainbow-define log "#c17d11" ("log") 'end)
-    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim") 'end)
-    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js") 'end)
-    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java") 'end)
-    (dired-rainbow-define executable "#8cc4ff" ("exe" "msi") 'end)
-    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar") 'end)
-    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp") 'end)
-    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem") 'end)
-    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf") 'end)
-    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak") 'end)
-    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules") 'end)
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*" 'end)
-    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end)))
+    (dired-rainbow-define-chmod directory "#0074d9" "d.*")
+    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
+    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
+    (dired-rainbow-define log "#c17d11" ("log"))
+    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
+    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
+    (dired-rainbow-define executable "#8cc4ff" ("exe" "msi"))
+    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
+    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
+    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
+    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
+    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
+    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))))
 
 (use-package dired-filter
   ;; :straight
   ;; (:type git :host github :repo "mnewt/dired-hacks" :files ("dired-filter.el"))
-  :commands
-  (dired-filter-by-name
-   dired-filter-by-regexp
-   dired-filter-by-extension
-   dired-filter-by-dot-files
-   dired-filter-by-omit
-   dired-filter-by-garbage
-   dired-filter-by-predicate
-   dired-filter-by-file
-   dired-filter-by-directory
-   dired-filter-by-mode
-   dired-filter-by-symlink
-   dired-filter-by-executable))
+  :custom
+  (dired-filter-verbose nil)
+  :hook
+  (dired-mode . dired-filter-mode))
 
 (use-package dired-list
   :straight

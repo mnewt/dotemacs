@@ -77,8 +77,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
-  ;; :ensure-system-package
-  ;; (rg . ripgrep)
+  :ensure-system-package
+  (rg . ripgrep)
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
   :after
@@ -395,6 +395,9 @@ CALLER is passed to `ivy-read'."
                                     :compile "npm start"
                                     :test "npm test"
                                     :test-suffix ".test")
+  (projectile-register-project-type 'clojure-cli '("deps.edn")
+                                    :compile "clj "
+                                    :test-suffix "_test")
   :hook
   (projectile-after-switch-project . projectile-load-settings)
   (after-init . projectile-mode)
@@ -418,7 +421,6 @@ CALLER is passed to `ivy-read'."
   :hook
   (after-init . counsel-projectile-mode)
   :bind
-  ("M-s-p" . counsel-projectile-switch-to-buffer)
   ("s-p" . counsel-projectile)
   ("s-P" . counsel-projectile-switch-project)
   ("s-r" . counsel-imenu)
@@ -440,13 +442,15 @@ CALLER is passed to `ivy-read'."
 
 (use-package flash-thing
   :straight
-  (:type git :host github :repo "mnewt/flash-thing")
-  :hook
-  (after-init . flash-thing-mode))
+  (:type git :host github :repo "mnewt/flash-thing"))
+  ;; :hook
+  ;; (after-init . flash-thing-mode))
 
 (use-package spotlight
   :straight
   (:type git :host github :repo "cjp/spotlight.el")
+  :bind
+  ("")
   :commands
   (spotlight spotlight-fast))
 

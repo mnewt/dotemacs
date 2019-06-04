@@ -24,13 +24,15 @@
       ;; Sentences end with one space.
       sentence-end-double-space nil)
 
-;; Delete selection on insert or yank
-(delete-selection-mode 1)
-
 ;; Tabs
 (setq-default indent-tabs-mode nil
               tab-width 2
               tab-stop-list (number-sequence tab-width 120 tab-width))
+
+;; Delete selection on insert or yank
+(use-package delsel
+  :hook
+  (after-init . delete-selection-mode))
 
 ;; Automatically indent after RET
 (use-package electric
@@ -110,15 +112,35 @@ Bring the line below point up to the current line."
 
 (use-package yasnippet
   :custom
+  ;; Don't write messages at startup.
   (yas-verbosity 1)
   :hook
   (after-init . yas-global-mode)
-  (sh-mode . (lambda () (bind-key "C-c C-s" nil sh-mode-map)))
+  (after-init . (lambda () (with-eval-after-load 'sh-script
+                             (bind-keys :map sh-mode-map
+                                        ("C-c C-s" . nil)
+                                        ("C-c M-s" . sh-select)))))
   :bind
-  ("C-c C-s" . yas-insert-snippet))
+  (:map yas-minor-mode-map
+        ("s-'" . yas-expand)
+        ("C-c C-s" . yas-insert-snippet)))
 
 (use-package yasnippet-snippets
   :defer 2)
+
+(use-package flyspell
+  :custom
+  (ispell-program-name "aspell")
+  (ispell-extra-args '("--sug-mode=ultra"))
+  :hook
+  (text-mode . (lambda () (shut-up (flyspell-mode))))
+  (prog-mode . (lambda () (shut-up (flyspell-prog-mode))))
+  :bind
+  (:map flyspell-mode-map
+	      ("C-," . nil)
+	      ("C-." . nil)
+	      ("C-;" . nil)
+	      ("C-M-i" . nil)))
 
 (use-package flycheck
   :custom
@@ -161,14 +183,12 @@ Bring the line below point up to the current line."
   (:map parinfer-mode-map
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)
-        ("C-i" . parinfer--reindent-sexp)
-        ("C-M-i" . parinfer-auto-fix)
         ("C-," . parinfer-toggle-mode)
         ;; Don't interfere with smartparens quote handling
         ("\"" . nil)
         ;; sp-newline seems to offer a better experience for lisps
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline)
+        ("RET" . nil)
+        ("<return>" . nil)
         :map parinfer-region-mode-map
         ("C-i" . indent-for-tab-command)
         ("<tab>" . parinfer-smart-tab:dwim-right)
@@ -208,13 +228,13 @@ ID, ACTION, CONTEXT."
         (just-one-space)))
     (when (equal action 'barf-forward)
       (sp-get enc
-        (let ((beg-line (line-number-at-pos :beg-in)))
-              ;; (end-line (line-number-at-pos :end-in)))
-          (sp-forward-sexp arg)
-          (just-one-space)
-          (when (not (= (line-number-at-pos) beg-line))
-            (delete-indentation -1))
-          (indent-according-to-mode))))
+              (let ((beg-line (line-number-at-pos :beg-in)))
+                ;; (end-line (line-number-at-pos :end-in)))
+                (sp-forward-sexp arg)
+                (just-one-space)
+                (when (not (= (line-number-at-pos) beg-line))
+                  (delete-indentation -1))
+                (indent-according-to-mode))))
     (when (eq action 'insert)
       (save-excursion
         (indent-according-to-mode)))))
@@ -234,38 +254,38 @@ ID, ACTION, CONTEXT."
 ID, ACTION, CONTEXT."
   (let ((enc (plist-get sp-handler-context :enc)))
     (sp-get enc
-      (let ((beg-line (line-number-at-pos :beg-in))
-            (end-line (line-number-at-pos :end-in)))
-        (when (equal action 'slurp-backward)
-          (save-excursion
-            (sp-forward-sexp)
-            (when (looking-at-p ";") (forward-char))
-            (just-one-space)
-            (when (not (= (line-number-at-pos) end-line))
-              (delete-indentation -1))))
-        (when (equal action 'barf-backward)
-          ;; Barf whole method chains
-          (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
-            (sp-forward-sexp))
-          (if (looking-at-p " *$")
-              (newline)
-            (save-excursion (newline))))
-        (when (equal action 'slurp-forward)
-          (save-excursion
-            (sp-backward-sexp)
-            (just-one-space)
-            (when (not (= (line-number-at-pos) beg-line))
-              (delete-indentation)))
-          (when (looking-at-p ";") (forward-char))
-          (if (= (line-number-at-pos) beg-line)
-              (insert " ")
-            (newline)))
-        (when (equal action 'barf-forward)
-          (if (= (line-number-at-pos) end-line)
-              (insert " ")
-            (if (looking-back "^[[:blank:]]*" nil)
-                (save-excursion (newline))
-              (newline))))))))
+            (let ((beg-line (line-number-at-pos :beg-in))
+                  (end-line (line-number-at-pos :end-in)))
+              (when (equal action 'slurp-backward)
+                (save-excursion
+                  (sp-forward-sexp)
+                  (when (looking-at-p ";") (forward-char))
+                  (just-one-space)
+                  (when (not (= (line-number-at-pos) end-line))
+                    (delete-indentation -1))))
+              (when (equal action 'barf-backward)
+                ;; Barf whole method chains
+                (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
+                  (sp-forward-sexp))
+                (if (looking-at-p " *$")
+                    (newline)
+                  (save-excursion (newline))))
+              (when (equal action 'slurp-forward)
+                (save-excursion
+                  (sp-backward-sexp)
+                  (just-one-space)
+                  (when (not (= (line-number-at-pos) beg-line))
+                    (delete-indentation)))
+                (when (looking-at-p ";") (forward-char))
+                (if (= (line-number-at-pos) beg-line)
+                    (insert " ")
+                  (newline)))
+              (when (equal action 'barf-forward)
+                (if (= (line-number-at-pos) end-line)
+                    (insert " ")
+                  (if (looking-back "^[[:blank:]]*" nil)
+                      (save-excursion (newline))
+                    (newline))))))))
 
 (defun sp-sh-insert-spaces (_id action _context)
   "Handler for sh wrap.
@@ -299,46 +319,46 @@ ID, ACTION, CONTEXT."
   "Initialize smartparens."
   (require 'smartparens-config)
   (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js2-mode json-mode objc-mode java-mode web-mode)
-    (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-    (sp-local-pair "[" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-    (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+                 (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
+                 (sp-local-pair "[" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
+                 (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
   (sp-with-modes 'python-mode
-    (sp-local-pair "\"\"\"" "\"\"\""
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+                 (sp-local-pair "\"\"\"" "\"\"\""
+                                :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
   (sp-with-modes 'sh-mode
-    (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET") sp-sh-post-handler))
-    (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")  sp-sh-post-handler))
-    (sp-local-pair "[" "]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-    (sp-local-pair "[ " " ]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-    (sp-local-pair "[[" "]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-    (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-    (sp-local-pair "do" "done"
-                   :when '(("SPC" "RET" "TAB"))
-                   :unless '(sp-in-string-p sp-in-comment-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler))
-    (sp-local-pair "then" "fi"
-                   :when '(("SPC" "RET" "TAB"))
-                   :unless '(sp-in-string-p sp-in-comment-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler))
-    (sp-local-pair "in" "esac"
-                   :when '(("SPC" "RET" "TAB"))
-                   :unless '(sp-in-string-p sp-in-comment-p)
-                   :actions '(insert navigate)
-                   :pre-handlers '(sp-sh-pre-handler)
-                   :post-handlers '(sp-sh-block-post-handler)))
+                 (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET") sp-sh-post-handler))
+                 (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")  sp-sh-post-handler))
+                 (sp-local-pair "[" "]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+                 (sp-local-pair "[ " " ]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+                 (sp-local-pair "[[" "]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+                 (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+                 (sp-local-pair "do" "done"
+                                :when '(("SPC" "RET" "TAB"))
+                                :unless '(sp-in-string-p sp-in-comment-p)
+                                :actions '(insert navigate)
+                                :pre-handlers '(sp-sh-pre-handler)
+                                :post-handlers '(sp-sh-block-post-handler))
+                 (sp-local-pair "then" "fi"
+                                :when '(("SPC" "RET" "TAB"))
+                                :unless '(sp-in-string-p sp-in-comment-p)
+                                :actions '(insert navigate)
+                                :pre-handlers '(sp-sh-pre-handler)
+                                :post-handlers '(sp-sh-block-post-handler))
+                 (sp-local-pair "in" "esac"
+                                :when '(("SPC" "RET" "TAB"))
+                                :unless '(sp-in-string-p sp-in-comment-p)
+                                :actions '(insert navigate)
+                                :pre-handlers '(sp-sh-pre-handler)
+                                :post-handlers '(sp-sh-block-post-handler)))
   (sp-with-modes 'org-mode
-    (sp-local-pair "=" "=" :wrap "C-M-=")
-    (sp-local-pair "~" "~" :wrap "C-~"))
+                 (sp-local-pair "=" "=" :wrap "C-M-=")
+                 (sp-local-pair "~" "~" :wrap "C-~"))
   (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
   (sp-with-modes sp-lisp-modes
-    (sp-local-pair "(" nil
-                   :wrap "C-M-("
-                   :pre-handlers '(sp-add-space-before-sexp-insertion)
-                   :post-handlers '(sp-add-space-after-sexp-insertion)))
+                 (sp-local-pair "(" nil
+                                :wrap "C-M-("
+                                :pre-handlers '(sp-add-space-before-sexp-insertion)
+                                :post-handlers '(sp-add-space-after-sexp-insertion)))
   (setq sp-ignore-modes-list
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
   (smartparens-global-mode)
@@ -346,6 +366,8 @@ ID, ACTION, CONTEXT."
 
 (use-package smartparens
   :custom
+  ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
+  ;; the entire symbol, use `sp-kill-symbol'.
   (sp-hybrid-kill-entire-symbol nil)
   ;; Don't disable autoskip when point moves backwards. (This lets you
   ;; open a sexp, type some things, delete some things, etc., and then
@@ -355,21 +377,22 @@ ID, ACTION, CONTEXT."
   ;; smartparens does some weird stuff with bindings so you can't reliably use
   ;; `use-package/:bind' to set them.
   (sp-base-key-bindings 'paredit)
-  (sp-override-key-bindings '(("C-M-<backspace>" . sp-splice-sexp-killing-backward)))
+  (sp-override-key-bindings '(("C-S-d" . sp-down-sexp)
+                              ("C-M-d" . sp-kill-symbol)
+                              ("M-<backspace>" . sp-backward-kill-word)
+                              ("C-<backspace>" . sp-backward-kill-symbol)
+                              ("C-M-<backspace>" . sp-backward-kill-sexp)
+                              ("C-s-<backspace>" . sp-splice-sexp-killing-backward)))
   :hook
   (after-init . smartparens-init)
   :commands
   (sp-local-pair sp-with-modes smartparens-global-mode show-smartparens-global-mode)
   :bind
-  (:map smartparens-mode-map
-        ("C-c C-<return>" . toggle-sp-newline)
-        ("M-<backspace>" . sp-backward-kill-word)
-        ("C-<backspace>" . sp-backward-kill-symbol)
-        ("C-S-d" . sp-down-sexp)
-        ("C-M-d" . sp-kill-symbol)
-        :filter (cl-some #'derived-mode-p sp-lisp-modes)
-        ([remap kill-line] . sp-kill-hybrid-sexp)
+  (:map prog-mode-map
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline)
         :map lisp-mode-shared-map
+        ([remap kill-line] . sp-kill-hybrid-sexp)
         (";" . sp-comment)))
 
 (defun indent-buffer-or-region (beg end &optional arg)
@@ -499,6 +522,11 @@ If no region is selected, toggles comments for the line."
   (yank)
   (newline)
   (other-window -1))
+
+;; (use-package pullover
+;;   :straight
+;;   (:type git :host github :repo "ubolonton/pullover")
+;;   :defer t)
 
 (defface todo-face
   '((((class color))

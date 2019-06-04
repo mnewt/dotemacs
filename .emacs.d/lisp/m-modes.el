@@ -178,14 +178,14 @@
                                               (remove 'jsx-tide flycheck-checkers)))))
 
 (use-package prettier-js
-  ;; :ensure-system-package
-  ;; (prettier . "npm i -g prettier")
+  :ensure-system-package
+  (prettier . "npm i -g prettier")
   :hook
   ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
 
 (use-package indium
-  ;; :ensure-system-package
-  ;; (indium . "npm i -g indium")
+  :ensure-system-package
+  (indium . "npm i -g indium")
   :custom
   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
   (indium-chrome-use-temporary-profile nil)
@@ -193,7 +193,7 @@
   (indium-connect indium-launch))
 
 (use-package json-mode
-  ;; :ensure-system-package jq
+  :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 
 (use-package graphql-mode
@@ -202,12 +202,12 @@
 ;;;; Python
 
 (use-package elpy
-  ;; :ensure-system-package
+  :ensure-system-package
   ;; jedi doesn't have an executable and there's not one single path we can look
   ;; across OS and python versions, so just assume it comes with flake8.
-  ;; ((flake8 . "pip install jedi flake8")
-  ;;  (black . "pip install black")
-  ;;  (yapf . "pip install yapf"))
+  ((flake8 . "pip install jedi flake8")
+   (black . "pip install black")
+   (yapf . "pip install yapf"))
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
@@ -234,17 +234,23 @@
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
 
-;; perl
-(setq perl-indent-level tab-width)
+(use-package perl-mode
+  :custom
+  (perl-indent-level tab-width))
 
-;; systemd
-(add-to-list 'auto-mode-alist '("\\(?:\\.service\\|\\.timer\\)\\'" . conf-mode))
+(use-package systemd
+  :mode
+  "\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'")
+  
 
 ;; DNS
-(add-to-list 'auto-mode-alist '("\\.rpz\\'" . dns-mode))
+(use-package dns-mode
+  :mode "\\.rpz\\'")
 
-(setq-default css-indent-offset tab-width)
-
+(use-package css-mode
+  :custom
+  (css-indent-offset tab-width))
+  
 ;; (use-package genrnc
 ;;   :custom
 ;;   (genrnc-user-schemas-directory "~/.emacs.d/schema")
@@ -271,8 +277,8 @@
   :mode "\\.toml\\'")
 
 (use-package enh-ruby-mode
-  ;; :ensure-system-package
-  ;; (rufo . "gem install rufo")
+  :ensure-system-package
+  (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
 
 (use-package inf-ruby

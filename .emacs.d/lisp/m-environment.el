@@ -65,6 +65,10 @@ Update environment variables from a shell source file."
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
 
+(use-package shut-up
+  :config
+  (shut-up-silence-emacs))
+
 (use-package server
   :hook
   (after-init . server-start))

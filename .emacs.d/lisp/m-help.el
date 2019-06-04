@@ -101,8 +101,8 @@
   ("C-h t u" . tldr-update-docs))
 
 (use-package eg
-  ;; :ensure-system-package
-  ;; (eg . "pip install eg")
+  :ensure-system-package
+  (eg . "pip install eg")
   :straight
   (:type git :host github :repo "mnewt/eg.el")
   :bind
@@ -124,14 +124,13 @@
       (dash-docs-install-docset d))))
 
 (use-package counsel-dash
-  ;; :ensure-system-package sqlite3
+  :ensure-system-package sqlite3
   :custom
-  (dash-docs-browser-func (if (fboundp #'w3m) #'w3m #'eww))
+  (dash-docs-docsets-path "~/.config/docsets")
+  (dash-docs-browser-func #'eww-open-in-new-buffer)
   (dash-docs-common-docsets (dash-docs-installed-docsets))
   :commands
-  (counsel-dash counsel-dash-at-point
-                counsel-dash-install-docset
-                dash-docs-official-docsets)
+  (counsel-dash counsel-dash-at-point counsel-dash-install-docset dash-docs-installed-docsets dash-docs-official-docsets)
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)

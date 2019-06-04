@@ -163,11 +163,12 @@ Examples:
     (delete-char 1)
     (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
 
-;; Advise `eshell/*' functions to work with ":" prefix path syntax.
-(seq-doseq (c '(cd cp mv rm e ee d do))
-  (advice-add (intern (concat "eshell/" (symbol-name c)))
-              :filter-args
-              (lambda (args) (mapcar #'tramp-colon-prefix-expand args))))
+;; Advise `eshell/*' functions to work with `:' prefix path syntax.
+(with-eval-after-load 'eshell
+    (seq-doseq (c '(cd cp mv rm e ee d do))
+      (advice-add (intern (concat "eshell/" (symbol-name c)))
+                  :filter-args
+                  (lambda (args) (mapcar #'tramp-colon-prefix-expand args)))))
 
 (defun eshell/really-clear ()
   "Call `eshell/clear' with an argument to really clear the buffer.
@@ -275,8 +276,7 @@ https://stackoverflow.com/a/14769115/1588358"
   (add-to-list 'eshell-modules-list 'eshell-tramp)
 
   ;; Set up `tramp-colon-prefix'.
-  (make-local-variable 'post-self-insert-hook)
-  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand)
+  (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand nil t)
 
   (bind-keys
    :map eshell-mode-map
@@ -397,7 +397,6 @@ because I dynamically rename the buffer according to
                                           "$RECYCLE_BIN" "lost+found")))
   :hook
   ((eshell-mode . eshell/init)
-   (eshell-mode . tramp-colon-prefix-setup)
    (eshell-before-prompt . eshell-prompt-housekeeping))
   :bind
   (("s-e" . eshell-switch-to-buffer)

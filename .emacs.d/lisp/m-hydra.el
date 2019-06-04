@@ -352,6 +352,39 @@ _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
   ("/" ibuffer-filter-disable "disable")
   ("b" hydra-ibuffer-main/body "back" :color blue))
 
+(defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
+  "
+^Move^       ^Keep^               ^Diff^                 ^Other^
+^^-----------^^-------------------^^---------------------^^-------
+_n_ext       _b_ase               _<_: upper/base        _C_ombine
+_p_rev       _u_pper              _=_: upper/lower       _r_esolve
+^^           _l_ower              _>_: base/lower        _k_ill current
+^^           _a_ll                _R_efine
+^^           _RET_: current       _E_diff
+"
+                               ("n" smerge-next)
+                               ("p" smerge-prev)
+                               ("b" smerge-keep-base)
+                               ("u" smerge-keep-upper)
+                               ("l" smerge-keep-lower)
+                               ("a" smerge-keep-all)
+                               ("RET" smerge-keep-current)
+                               ("\C-m" smerge-keep-current)
+                               ("<" smerge-diff-base-upper)
+                               ("=" smerge-diff-upper-lower)
+                               (">" smerge-diff-base-lower)
+                               ("R" smerge-refine)
+                               ("E" smerge-ediff)
+                               ("C" smerge-combine-with-next)
+                               ("r" smerge-resolve)
+                               ("k" smerge-kill-current)
+                               ("ZZ" (lambda ()
+                                       (interactive)
+                                       (save-buffer)
+                                       (bury-buffer))
+                                "Save and bury buffer" :color blue)
+                               ("q" nil "cancel" :color blue))
+
 (defhydra hydra-mu4e-headers (:color blue :hint nil)
   "
  ^General^   | ^Search^           | _!_ read    | _#_ deferred  | ^Switches^
@@ -445,6 +478,11 @@ _o_ org-cap | _C--_ show less   | _*_ *thing  | _q_ quit hdrs | _j_ jump2maildir
 
 (with-eval-after-load 'ibuffer
   (bind-key "." #'hydra-ibuffer-main/body ibuffer-mode-map))
+
+(with-eval-after-load 'smerge
+  (add-hook 'magit-diff-visit-file-hook (lambda () (smerge-mode)
+                                          (smerge-hydra/body)))
+  (bind-key "C-s-s" #'hydra-smerge smerge-mode))
 
 (with-eval-after-load 'mu4e
   (bind-key "." #'hydra-mu4e-headers/body mu4e-headers-mode-map))

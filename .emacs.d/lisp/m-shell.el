@@ -2,21 +2,36 @@
 
 ;;; Commentary:
 
-;; Shell, Term, Tramp, and related things.
+;; Shell, Term, Tramp, Shell scripting, and related things.
 
 ;;; Code:
 
 (require 'tramp)
 
+(defun shell-match-variables-in-quotes (limit)
+  "Match variables in double-quotes in `sh-mode' with LIMIT."
+  (with-syntax-table sh-mode-syntax-table
+    (catch 'done
+      (while (re-search-forward
+              ;; `rx' is cool, mkay.
+              (rx (or line-start (not (any "\\")))
+                  (group "$")
+                  (group
+                   (or (and "{" (+? nonl) "}")
+                       (and (+ (any alnum "_")))
+                       (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
+              limit t)
+        (-when-let (string-syntax (nth 3 (syntax-ppss)))
+          (when (= string-syntax 34)
+            (throw 'done (point))))))))
+
 (defun maybe-reset-major-mode ()
   "Reset the buffer's `major-mode' if a different mode seems like a better fit.
 Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time.
-https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d1647/init.el#L137"
-  (when (and
-         ;; The buffer's visited file does not exist.
-         (eq (file-exists-p (buffer-file-name)) nil)
-         (eq major-mode 'fundamental-mode))
+new file for the first time."
+  (when (and (buffer-file-name)
+             (not (file-exists-p (buffer-file-name)))
+             (eq major-mode 'fundamental-mode))
     (normal-mode)))
 
 (use-package sh-script
@@ -25,13 +40,16 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   (sh-indentation tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
   (executable-prefix-env t)
+  :config
+  ;; Match variables in quotes. Fuco1 is awesome, mkay.
+  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
+  (font-lock-add-keywords
+   'sh-mode '((shell-match-variables-in-quotes
+               (1 'default t)
+               (2 font-lock-variable-name-face t))))
   :hook
-  ;; Make a shell script executable automatically on save
-  (after-save . executable-make-buffer-file-executable-if-script-p)
   (before-save . maybe-reset-major-mode)
-  :bind
-  (:map sh-mode-map
-        ("s-<ret>" . eshell-send-current-line)))
+  (after-save . executable-make-buffer-file-executable-if-script-p))
 
 (defun expand-environment-variable ()
   "Insert contents of an envionment variable at point."
@@ -58,7 +76,7 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   "Return a list of hosts from `~/.ssh/known_hosts'."
   (with-temp-buffer
     (insert-file-contents "~/.ssh/known_hosts")
-    (cl-remove-if (lambda (host) (string=  "" host))
+    (cl-remove-if (lambda (host) (string= "" host))
                   (mapcar (lambda (line) (replace-regexp-in-string
                                           "\\]\\|\\[" ""
                                           (car (split-string line "[, :]"))))
@@ -122,6 +140,12 @@ https://github.com/NateEag/.emacs.d/blob/9d4a2ec9b5c22fca3c80783a24323388fe1d164
   (if (null (get-buffer-process (current-buffer)))
       (kill-buffer)
     (comint-delchar-or-maybe-eof arg)))
+
+(use-package shell
+  :bind
+  (:map shell-mode-map
+        ("C-d" . comint-delchar-or-eof-or-kill-buffer)
+        ("SPC" . comint-magic-space)))
 
 (defun shell-command-exit-code (program &rest args)
   "Run PROGRAM with ARGS and return the exit code."
@@ -238,17 +262,17 @@ shell is left intact."
            (eshell-send-input))
           (t (message "Can't sudo this buffer")))))
 
-;; (defun filter-functions (regexp &optional predicate)
-;;   "Return a list of functions matching REGEXP.
+(defun filter-functions (regexp &optional predicate)
+  "Return a list of functions matching REGEXP.
 
-;; If PREDICATE is specified, only return functions for which
-;; predicate returns true."
-;;   (let (fs)
-;;     (mapatoms (lambda (x)
-;;                 (when (and (fboundp x) (string-match-p regexp (symbol-name x))
-;;                            (or (not predicate) (funcall predicate x)))
-;;                   (push x fs))))
-;;     fs))
+If PREDICATE is specified, only return functions for which
+predicate returns true."
+  (let (fs)
+    (mapatoms (lambda (x)
+                (when (and (fboundp x) (string-match-p regexp (symbol-name x))
+                           (or (not predicate) (funcall predicate x)))
+                  (push x fs))))
+    fs))
 
 ;; TODO: Finish `maybe-with-sudo'.
 ;; (defun maybe-with-sudo (f &rest args)
@@ -313,6 +337,18 @@ shell is left intact."
   "Apply xterm color filtering on shell command output."
   (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
 
+(defun xterm-color-apply-on-compile (proc)
+  "Apply xterm color filtering on the `compilation-mode' running PROC."
+  ;; We need to differentiate between compilation-mode buffers
+  ;; and running as part of comint (which at this point we assume
+  ;; has been configured separately for xterm-color)
+  (when (eq (process-filter proc) 'compilation-filter)
+    ;; This is a process associated with a compilation-mode buffer.
+    ;; We may call `xterm-color-filter' before its own filter function.
+    (set-process-filter proc (lambda (proc string)
+                               (funcall 'compilation-filter proc
+                                        (xterm-color-filter string))))))
+
 (use-package xterm-color
   :config
   (setq comint-output-filter-functions
@@ -322,20 +358,14 @@ shell is left intact."
   :commands
   (xterm-color-filter xterm-color-apply-on-minibuffer)
   :hook
-  (shell-mode
-   . (lambda () (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
-  (compilation-start
-   . (lambda (proc)
-       ;; We need to differentiate between compilation-mode buffers
-       ;; and running as part of comint (which at this point we assume
-       ;; has been configured separately for xterm-color)
-       (when (eq (process-filter proc) 'compilation-filter)
-         ;; This is a process associated with a compilation-mode buffer.
-         ;; We may call `xterm-color-filter' before its own filter function.
-         (set-process-filter proc
-                             (lambda (proc string)
-                               (funcall 'compilation-filter proc
-                                        (xterm-color-filter string))))))))
+  (shell-mode . (lambda ()
+                  ;; Disable font-locking in this buffer to improve performance
+                  (font-lock-mode -1)
+                  ;; Prevent font-locking from being re-enabled in this buffer
+                  (make-local-variable 'font-lock-function)
+                  (setq font-lock-function (lambda (_) nil))
+                  (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
+  (compilation-start . xterm-color-apply-on-compile))
 
 (use-package bash-completion
   :custom
@@ -382,10 +412,7 @@ to modify the args."
     (message result)))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
-           ("C-:" . tramp-insert-remote-part)
-           :map shell-mode-map
-           ("C-d" . comint-delchar-or-eof-or-kill-buffer)
-           ("SPC" . comint-magic-space))
+           ("C-:" . tramp-insert-remote-part))
 
 (provide 'm-shell)
 

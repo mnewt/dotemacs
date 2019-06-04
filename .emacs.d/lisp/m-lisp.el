@@ -85,15 +85,22 @@ of problems in that context."
   (cider-eval-last-sexp '(1)))
 
 (use-package cider
+  :custom
+  ;; Always prompt for the jack in command.
+  (cider-edit-jack-in-command t)
   :commands
-  (cider-switch-to-repl-buffer)
+  (cider-jack-in cider-switch-to-repl-buffer)
+  :hook
+  ;; The standard advice function runs at the wrong time I guess? Anyway, it
+  ;; often gets set to the wrong color when switching themes via `theme-choose'.
+  (theme . (lambda () (when (fboundp 'cider-scale-background-color)
+                        (setq cider-stacktrace-frames-background-color
+                              (cider-scale-background-color)))))
   :bind
   (:map cider-mode-map
         ("s-<return>" . cider-eval-last-sexp)))
 
 (use-package inf-clojure
-  :hook
-  (comint-mode . reinstate-comint-simple-send)
   :bind
   (:map inf-clojure-minor-mode-map
         ("s-<return>" . inf-clojure-eval-last-sexp)
@@ -114,6 +121,70 @@ of problems in that context."
   (sly-mode . sly-company-mode)
   :config
   (add-to-list 'company-backends 'sly-company))
+
+(with-eval-after-load 'scheme
+  (defun m-scheme-region-extend-function ()
+    (when (not (get-text-property (point) 'font-lock-multiline))
+      (let* ((heredoc nil)
+             (new-beg
+              (save-excursion
+                (when (and (re-search-backward "#>\\|<#\\|#<[<#]\\(.*\\)$" nil t)
+                           (not (get-text-property (point) 'font-lock-multiline)))
+                  (let ((match (match-string 0))
+                        (tag (match-string 1)))
+                    (cond
+                     ((equal match "#>") (point))
+                     ((string-match-p "^#<[<#]" match) (setq heredoc tag) (point)))))))
+             (new-end
+              (save-excursion
+                (if heredoc
+                    (when (and (re-search-forward (concat "^" (regexp-quote heredoc) "$") nil t)
+                               (not (get-text-property (point) 'font-lock-multiline)))
+                      (point))
+                  (when (and (re-search-forward "#>\\|<#" nil t)
+                             (not (get-text-property (point) 'font-lock-multiline))
+                             (equal (match-string 0) "<#"))
+                    (point))))))
+        (when (and new-beg new-end)
+          (setq font-lock-beg new-beg)
+          (setq font-lock-end new-end)
+          (with-silent-modifications
+            (put-text-property new-beg new-end 'font-lock-multiline t))
+          (cons new-beg new-end)))))
+
+  (defun m-scheme-syntax-propertize-foreign (_ end)
+    (save-match-data
+      (when (search-forward "<#" end t)
+        (with-silent-modifications
+          (put-text-property (1- (point)) (point)
+                             'syntax-table (string-to-syntax "> cn"))))))
+
+  (defun m-scheme-syntax-propertize-heredoc (_ end)
+    (save-match-data
+      (let ((tag (match-string 2)))
+        (when (and tag (re-search-forward (concat "^" (regexp-quote tag) "$") nil t))
+          (with-silent-modifications
+            (put-text-property (1- (point)) (point)
+                               'syntax-table (string-to-syntax "> cn")))))))
+
+  (defun scheme-syntax-propertize (beg end)
+    (goto-char beg)
+    (scheme-syntax-propertize-sexp-comment (point) end)
+    (funcall
+     (syntax-propertize-rules
+      ("\\(#\\);"
+       (1 (prog1 "< cn" (scheme-syntax-propertize-sexp-comment (point) end))))
+      ("\\(#\\)>"
+       (1 (prog1 "< cn" (m-scheme-syntax-propertize-foreign (point) end))))
+      ("\\(#\\)<[<#]\\(.*\\)$"
+       (1 (prog1 "< cn" (m-scheme-syntax-propertize-heredoc (point) end)))))
+     (point) end)))
+
+(defun m-scheme-mode-setup ()
+  (setq font-lock-extend-region-functions
+        (cons 'm-scheme-region-extend-function font-lock-extend-region-functions)))
+
+(add-hook 'scheme-mode-hook #'m-scheme-mode-setup)
 
 (use-package geiser
   :custom
