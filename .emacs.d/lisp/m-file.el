@@ -17,26 +17,6 @@
   ;; to fix it.
   (after-init . auto-compression-mode))
 
-(defun member-list (elts list)
-  "Return non-nil if one of ELTS is an element of LIST."
-  (let ((result nil)
-        (elts (purecopy elts)))
-    (while (and (not result) elts)
-      (setq result (member (pop elts) list)))
-    result))
-
-(defun upsearch-multiple (filenames &optional dir)
-  "Recursively search up a directory tree for a list of FILENAMES.
-
-Start from from DIR or `default-directory'.
-
-Useful for finding project files like `Makefile' and `package.json'."
-  (let ((dir (or dir default-directory)))
-    (while (not (or (string= "/" dir)
-                    (member-list filenames (directory-files dir))))
-      (setq dir (file-name-directory (directory-file-name dir))))
-    (unless (string= "/" dir) dir)))
-
 (defun upsearch (filename &optional dir)
   "Recursively search up a directory tree for FILENAME.
 
@@ -53,19 +33,26 @@ Start search in DIR or `default-directory'."
   "Cached directory for `psync'.
 
 It is always buffer local.")
+(make-variable-buffer-local 'psync-directory)
 
-(defun psync-maybe-sync ()
+(defun psync-maybe ()
   "If we find a `psync_config' file then run `psync'."
   (interactive)
-  (when-let ((default-directory (or psync-directory
-                                    (and default-directory
-                                         (not (file-remote-p default-directory))
-                                         (upsearch "psync_config")))))
+  (when-let
+      ((default-directory
+         (or psync-directory
+             (and default-directory
+                  (not (file-remote-p default-directory))
+                  (let ((d (shell-command-to-string "git rev-parse --show-toplevel")))
+                    (when (and (string-prefix-p "fatal: not a git repository" d)
+                               (file-exists-p (expand-file-name "psync_config" d)))
+                      d))))))
+    (setq psync-directory default-directory)
     (if (= 0 (shell-command-exit-code "psync"))
         (message "psync in directory %s finished." default-directory)
-      (message "psync in directory %s failed." default-directory))))
+      (error "Synchronization with psync failed in directory: %s" default-directory))))
 
-(add-hook 'after-save-hook #'psync-maybe-sync)
+(add-hook 'after-save-hook #'psync-maybe)
 
 ;;;; File utils
 
@@ -211,7 +198,7 @@ The config is specified in the config file in `~/.mnt/'."
   ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
   ;; Emacs and can run into issues with certain characters in the file name.
   (insert-directory-program (or (executable-find "gls"
-                                 (executable-find "ls"))))
+                                                 (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
   (dired-clean-confirm-killing-deleted-buffers nil)
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . "")))
@@ -390,27 +377,27 @@ It should be wrapped in an optional capture group."
 
     (dired-rainbow-listing-mode t)
 
-    (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
-    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
-    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
-    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
-    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
-    (dired-rainbow-define log "#c17d11" ("log"))
-    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
-    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
-    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
-    (dired-rainbow-define executable "#8cc4ff" ("exe" "msi"))
-    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
-    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
-    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
-    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
-    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))))
+    (dired-rainbow-define-chmod directory "#0074d9" "d.*" 'end)
+    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml") 'end)
+    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata") 'end)
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx") 'end)
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt") 'end)
+    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc") 'end)
+    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac") 'end)
+    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg") 'end)
+    (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9") 'end)
+    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim") 'end)
+    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx") 'end)
+    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" "java") 'end)
+    (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi") 'end)
+    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar") 'end)
+    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp") 'end)
+    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem") 'end)
+    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf") 'end)
+    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak") 'end)
+    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules") 'end)
+    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*" 'end)
+    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end)))
 
 (use-package dired-filter
   ;; :straight
@@ -484,7 +471,7 @@ It should be wrapped in an optional capture group."
 (add-hook 'dired-mode-hook #'dired-hide-details-mode)
 
 (bind-keys
- ("C-x M-s" . psync-maybe-sync)
+ ("C-x M-s" . psync-maybe)
  ("C-c o" . os-open-file)
  ("C-c O" . os-reveal-file)
  :map dired-mode-map

@@ -95,8 +95,8 @@
   (desktop-dirname "~/.emacs.d")
   (desktop-restore-eager 3)
   :config
-  (add-to-list 'desktop-globals-to-save 'kill-ring)
-  (add-to-list 'desktop-globals-to-save 'theme-current-theme)
+  (dolist (v '(kill-ring read-expression-history theme-current-theme))
+    (add-to-list 'desktop-globals-to-save v))
   (desktop-save-mode))
 
 (provide 'm-persist)

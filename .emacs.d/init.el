@@ -97,8 +97,8 @@
 (require 'seq)
 (require 'subr-x)
 (use-package dash)
-(use-package f)
 (use-package s)
+(use-package f)
 
 ;;; Private settings
 

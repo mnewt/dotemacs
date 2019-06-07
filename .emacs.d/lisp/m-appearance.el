@@ -70,8 +70,11 @@
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
   "The faces theme-activate uses to style the mode-line.")
 
-(defvar theme-hook '(doom-themes-visual-bell-config
-                     doom-themes-org-config)
+(defvar before-theme-hook nil
+  "Run whenever a theme is activated.")
+
+(defvar after-theme-hook '(doom-themes-visual-bell-config
+                           doom-themes-org-config)
   "Run whenever a theme is activated.")
 
 (defvar theme-themes '((doom-vibrant)
@@ -221,6 +224,7 @@ to customize furter."
 Handle some housekeeping that comes with switching themes. Set
 face specs for the mode-line. Having done that try to prevent
 Emacs from barfing fruit salad on the screen."
+  (mapc #'funcall before-theme-hook)
   (custom-set-variables '(custom-enabled-themes nil))
   (load-theme (if (stringp theme) (intern theme) theme) t)
   (let* ((opts (alist-get theme theme-themes)))
@@ -237,7 +241,7 @@ Emacs from barfing fruit salad on the screen."
                         (t "black")))
       (when (boundp 'hook) (mapc #'funcall hook)))
     (setq theme-current-theme theme)
-    (mapc #'funcall theme-hook)))
+    (mapc #'funcall after-theme-hook)))
 
 (defun theme-choose (theme)
   "Interactively choose a THEME from `theme-themes' and activate it."
@@ -335,11 +339,13 @@ Propertize the result with the specified PROPERTIES."
             (concat (eyebrowse-mode-line-indicator) " "))
           (when-propertize
            (theme-ml-concat
-            (list (when (bound-and-true-p flycheck-mode)
-                    (string-trim (flycheck-mode-line-status-text)))
+            (list (when (bound-and-true-p parinfer-mode)
+                    (if (eq 'paren parinfer--mode) "P↹" "🄟"))
                   (when (buffer-narrowed-p) "⒩")
                   (when (bound-and-true-p hs-minor-mode) "⒣")
-                  (when (bound-and-true-p outline-minor-mode) "⦿"))
+                  (when (bound-and-true-p outline-minor-mode) "⦿")
+                  (when (bound-and-true-p flycheck-mode)
+                    (string-trim (flycheck-mode-line-status-text))))
             " "
             t)
            'face 'mode-line-emphasis)
@@ -391,7 +397,7 @@ end tell'" p))))
   :straight
   (:type git :host github :repo "dcolascione/emacs-window-highlight")
   :hook
-  (after-init . window-highlight-mode))
+  (emacs-startup . window-highlight-mode))
 
 (use-package darkroom
   :bind
@@ -399,11 +405,20 @@ end tell'" p))))
   :commands
   (darkroom-mode))
 
+(defun font-lock-reload (keywords)
+  "Reload font-locking for the buffer with KEYWORDS."
+  (interactive)
+  (setq font-lock-keywords nil)
+  (font-lock-add-keywords major-mode keywords)
+  (font-lock-refresh-defaults)
+  (font-lock-flush)
+  (font-lock-ensure))
+
 (use-package font-lock-studio
   :commands
   (font-lock-studio))
 
-(add-hook 'after-init-hook (lambda () (theme-activate theme-current-theme)))
+(add-hook 'emacs-startup-hook (lambda () (theme-activate theme-current-theme)))
 
 (bind-key "C-c C-t" #'theme-choose)
 

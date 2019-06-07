@@ -137,10 +137,10 @@ Bring the line below point up to the current line."
   (prog-mode . (lambda () (shut-up (flyspell-prog-mode))))
   :bind
   (:map flyspell-mode-map
-	      ("C-," . nil)
-	      ("C-." . nil)
-	      ("C-;" . nil)
-	      ("C-M-i" . nil)))
+        ("C-," . nil)
+        ("C-." . nil)
+        ("C-;" . nil)
+        ("C-M-i" . nil)))
 
 (use-package flycheck
   :custom
@@ -228,25 +228,41 @@ ID, ACTION, CONTEXT."
         (just-one-space)))
     (when (equal action 'barf-forward)
       (sp-get enc
-              (let ((beg-line (line-number-at-pos :beg-in)))
-                ;; (end-line (line-number-at-pos :end-in)))
-                (sp-forward-sexp arg)
-                (just-one-space)
-                (when (not (= (line-number-at-pos) beg-line))
-                  (delete-indentation -1))
-                (indent-according-to-mode))))
+        (let ((beg-line (line-number-at-pos :beg-in)))
+          ;; (end-line (line-number-at-pos :end-in)))
+          (sp-forward-sexp arg)
+          (just-one-space)
+          (when (not (= (line-number-at-pos) beg-line))
+            (delete-indentation -1))
+          (indent-according-to-mode))))
     (when (eq action 'insert)
       (save-excursion
         (indent-according-to-mode)))))
 
-(defun sp-sh-block-post-handler (id action context)
-  "Handler for bash block insertions.
+(defun sp-sh-for-post-handler (id action context)
+  "Handler for bash for block insertions.
 ID, ACTION, CONTEXT."
   (when (equal action 'insert)
     (save-excursion
-      (newline)
-      (indent-according-to-mode))
-    (indent-according-to-mode))
+      (insert (format " in list; do\n%s\n" (s-repeat sh-basic-offset " ")))))
+  (sp-sh-post-handler id action context))
+
+(defun sp-sh-if-post-handler (id action context)
+  "Handler for bash if block insertions.
+ID, ACTION, CONTEXT."
+  (when (equal action 'insert)
+    (save-excursion
+      (insert (format " ; then\n%s\n" (s-repeat sh-basic-offset " "))))))
+
+(defun sp-sh-case-post-handler (id action context)
+  "Handler for bash case block insertions.
+ID, ACTION, CONTEXT."
+  (when (equal action 'insert)
+    (save-excursion
+      (insert (format " in\n%s\*)\n%s\n%s;;\n"
+                      (s-repeat sh-basic-offset " ")
+                      (s-repeat (* 2 sh-basic-offset) " ")
+                      (s-repeat (* 2 sh-basic-offset) " ")))))
   (sp-sh-post-handler id action context))
 
 (defun sp-sh-pre-handler (_id action _context)
@@ -254,38 +270,38 @@ ID, ACTION, CONTEXT."
 ID, ACTION, CONTEXT."
   (let ((enc (plist-get sp-handler-context :enc)))
     (sp-get enc
-            (let ((beg-line (line-number-at-pos :beg-in))
-                  (end-line (line-number-at-pos :end-in)))
-              (when (equal action 'slurp-backward)
-                (save-excursion
-                  (sp-forward-sexp)
-                  (when (looking-at-p ";") (forward-char))
-                  (just-one-space)
-                  (when (not (= (line-number-at-pos) end-line))
-                    (delete-indentation -1))))
-              (when (equal action 'barf-backward)
-                ;; Barf whole method chains
-                (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
-                  (sp-forward-sexp))
-                (if (looking-at-p " *$")
-                    (newline)
-                  (save-excursion (newline))))
-              (when (equal action 'slurp-forward)
-                (save-excursion
-                  (sp-backward-sexp)
-                  (just-one-space)
-                  (when (not (= (line-number-at-pos) beg-line))
-                    (delete-indentation)))
-                (when (looking-at-p ";") (forward-char))
-                (if (= (line-number-at-pos) beg-line)
-                    (insert " ")
-                  (newline)))
-              (when (equal action 'barf-forward)
-                (if (= (line-number-at-pos) end-line)
-                    (insert " ")
-                  (if (looking-back "^[[:blank:]]*" nil)
-                      (save-excursion (newline))
-                    (newline))))))))
+      (let ((beg-line (line-number-at-pos :beg-in))
+            (end-line (line-number-at-pos :end-in)))
+        (when (equal action 'slurp-backward)
+          (save-excursion
+            (sp-forward-sexp)
+            (when (looking-at-p ";") (forward-char))
+            (just-one-space)
+            (when (not (= (line-number-at-pos) end-line))
+              (delete-indentation -1))))
+        (when (equal action 'barf-backward)
+          ;; Barf whole method chains
+          (while (thing-at-point-looking-at "[(.:[][\n[:blank:]]*")
+            (sp-forward-sexp))
+          (if (looking-at-p " *$")
+              (newline)
+            (save-excursion (newline))))
+        (when (equal action 'slurp-forward)
+          (save-excursion
+            (sp-backward-sexp)
+            (just-one-space)
+            (when (not (= (line-number-at-pos) beg-line))
+              (delete-indentation)))
+          (when (looking-at-p ";") (forward-char))
+          (if (= (line-number-at-pos) beg-line)
+              (insert " ")
+            (newline)))
+        (when (equal action 'barf-forward)
+          (if (= (line-number-at-pos) end-line)
+              (insert " ")
+            (if (looking-back "^[[:blank:]]*" nil)
+                (save-excursion (newline))
+              (newline))))))))
 
 (defun sp-sh-insert-spaces (_id action _context)
   "Handler for sh wrap.
@@ -310,6 +326,7 @@ ID, ACTION, CONTEXT."
 ;; See https://github.com/Fuco1/smartparens/issues/80
 (defun sp-create-newline-and-enter-sexp (&rest _)
   "Open a new brace or bracket expression, with relevant newlines and indent."
+  (message "sp-newline-etc")
   (newline)
   (indent-according-to-mode)
   (forward-line -1)
@@ -318,47 +335,62 @@ ID, ACTION, CONTEXT."
 (defun smartparens-init ()
   "Initialize smartparens."
   (require 'smartparens-config)
-  (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js2-mode json-mode objc-mode java-mode web-mode)
-                 (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-                 (sp-local-pair "[" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")))
-                 (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+  (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
+                          js2-mode json-mode objc-mode java-mode web-mode)
+    (sp-local-pair "{" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)))
+    (sp-local-pair "[" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)))
+    (sp-local-pair "(" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline))))
   (sp-with-modes 'python-mode
-                 (sp-local-pair "\"\"\"" "\"\"\""
-                                :post-handlers '((sp-create-newline-and-enter-sexp "RET"))))
+    (sp-local-pair "\"\"\"" "\"\"\""
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline))))
   (sp-with-modes 'sh-mode
-                 (sp-local-pair "{" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET") sp-sh-post-handler))
-                 (sp-local-pair "(" nil :post-handlers '((sp-create-newline-and-enter-sexp "RET")  sp-sh-post-handler))
-                 (sp-local-pair "[" "]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-                 (sp-local-pair "[ " " ]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-                 (sp-local-pair "[[" "]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-                 (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate) :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-                 (sp-local-pair "do" "done"
-                                :when '(("SPC" "RET" "TAB"))
-                                :unless '(sp-in-string-p sp-in-comment-p)
-                                :actions '(insert navigate)
-                                :pre-handlers '(sp-sh-pre-handler)
-                                :post-handlers '(sp-sh-block-post-handler))
-                 (sp-local-pair "then" "fi"
-                                :when '(("SPC" "RET" "TAB"))
-                                :unless '(sp-in-string-p sp-in-comment-p)
-                                :actions '(insert navigate)
-                                :pre-handlers '(sp-sh-pre-handler)
-                                :post-handlers '(sp-sh-block-post-handler))
-                 (sp-local-pair "in" "esac"
-                                :when '(("SPC" "RET" "TAB"))
-                                :unless '(sp-in-string-p sp-in-comment-p)
-                                :actions '(insert navigate)
-                                :pre-handlers '(sp-sh-pre-handler)
-                                :post-handlers '(sp-sh-block-post-handler)))
+    (sp-local-pair "{" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)
+                                    sp-sh-post-handler))
+    (sp-local-pair "(" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)
+                                    sp-sh-post-handler))
+    (sp-local-pair "[" "]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+    (sp-local-pair "[ " " ]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+    (sp-local-pair "[[" "]]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+    (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
+    (sp-local-pair "for" "done"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-for-post-handler))
+    (sp-local-pair "if" "fi"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-if-post-handler))
+    (sp-local-pair "case" "esac"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-case-post-handler)))
   (sp-with-modes 'org-mode
-                 (sp-local-pair "=" "=" :wrap "C-M-=")
-                 (sp-local-pair "~" "~" :wrap "C-~"))
+    (sp-local-pair "=" "=" :wrap "C-M-=")
+    (sp-local-pair "~" "~" :wrap "C-~"))
   (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
   (sp-with-modes sp-lisp-modes
-                 (sp-local-pair "(" nil
-                                :wrap "C-M-("
-                                :pre-handlers '(sp-add-space-before-sexp-insertion)
-                                :post-handlers '(sp-add-space-after-sexp-insertion)))
+    (sp-local-pair "(" nil
+                   :wrap "C-M-("
+                   :pre-handlers '(sp-add-space-before-sexp-insertion)
+                   :post-handlers '(sp-add-space-after-sexp-insertion)))
   (setq sp-ignore-modes-list
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
   (smartparens-global-mode)

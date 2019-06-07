@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Install dependencies, build Emacs and VTerm.
+
+set -euo pipefail
+IFS=$'\n\t'
+
+base="$HOME/.emacs.d/src"
+
+required=(autoconf texinfo libxml2 imagemagick librsvg gnutls gnupg libvterm)
+printf "\033[48;5;057m Installing Dependencies...  \033[0m  \n"
+
+contains() {
+	local e match="$1"
+	shift
+	for e; do [[ "$e" == "$match" ]] && return 0; done
+	return 1
+}
+
+pkgs=($(brew list -1))
+needed=()
+for p in "${required[@]}"; do
+	contains "$p" "${pkgs[@]}" || needed+=("$p")
+done
+if [ -n "${needed[*]}" ]; then
+	echo "Installing packages: ${needed[*]}"
+	brew install "${needed[@]}"
+fi
+
+outdated="$(brew outdated | awk '{print $1}')"
+upgrade=()
+for p in "${required[@]}"; do
+	contains "$p" "${outdated[@]}" && upgrade+=("$p")
+done
+if [ -n "${upgrade[*]}" ]; then
+	echo "Upgrading packages: ${upgrade[*]}"
+	brew upgrade "${upgrade[@]}"
+fi
+
+mkdir -p "$base"
+pushd "$base"
+
+[ -d "./emacs" ] || git clone "https://git.savannah.gnu.org/git/emacs.git"
+pushd "./emacs"
+
+printf "\033[48;5;057m  Building Emacs...  \033[0m  \n"
+git pull
+git reset HEAD --hard
+./autogen.sh
+# The ctags bit is to rename the ctags binary so it doesn't conflict with an
+# existing, non-emacs ctags installation
+./configure --without-dbus --with-ns --disable-ns-self-contained --without-pop --with-modules CFLAGS="-I /usr/local/opt/libxml2/include/libxml2" --program-transform-name='s/^ctags$/ctags.emacs/'
+# Even though we move the binary ourselves, we still need to install to get the
+# Emacs Lisp source in the right place.
+make install
+rm -rf "$HOME/Applications/Emacs.app"
+mv nextstep/Emacs.app "$HOME/Applications/"
+
+popd
+
+[ -d "./emacs-libvterm" ] || git clone "https://github.com/akermu/emacs-libvterm.git"
+pushd "./emacs-libvterm"
+
+printf "\033[48;5;057m  Building VTerm...  \033[0m  \n"
+git pull
+git reset HEAD --hard
+mkdir -p build
+cd build
+cmake ..
+make
+
+popd

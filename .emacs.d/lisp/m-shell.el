@@ -43,10 +43,9 @@ new file for the first time."
   :config
   ;; Match variables in quotes. Fuco1 is awesome, mkay.
   ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
-  (font-lock-add-keywords
-   'sh-mode '((shell-match-variables-in-quotes
-               (1 'default t)
-               (2 font-lock-variable-name-face t))))
+  (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
+                                      (1 'default t)
+                                      (2 font-lock-variable-name-face t))))
   :hook
   (before-save . maybe-reset-major-mode)
   (after-save . executable-make-buffer-file-executable-if-script-p))
@@ -301,9 +300,9 @@ predicate returns true."
 
 ;; Load `vterm' if it's available.
 (ignore-errors
-  (let ((vterm-dir "~/code/emacs-libvterm"))
+  (let ((vterm-dir "~/.emacs.d/src/emacs-libvterm"))
     (when (file-exists-p vterm-dir)
-      (add-to-list 'load-path "~/code/emacs-libvterm")
+      (add-to-list 'load-path vterm-dir)
       (let (vterm-install)
         (require 'vterm)))))
 

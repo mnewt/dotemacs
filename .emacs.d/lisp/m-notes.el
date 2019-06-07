@@ -55,11 +55,9 @@
    "/DONE" 'file))
 
 (use-package org
-  :straight
-  (:type built-in)
   :custom
-  ( org-directory "~/org")
-  ;; Clean view
+  (org-directory "~/org")
+  ;; Indent text according to the outline structure
   (org-startup-indented t)
   ;; Smart C-a/e
   (org-special-ctrl-a/e t)
@@ -79,6 +77,22 @@
   ;;                           ("DONE" (:foreground "gray"))))
   (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
   (org-catch-invisible-edits 'show-and-error)
+  (org-hide-emphasis-markers t)
+  (org-startup-with-inline-images t)
+  (org-capture-templates
+   `(("t" "TODO" entry
+      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+      "* TODO %?\n  %i\n  %a")
+     ("n" "Note" entry
+      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+      "* %?\n  %i\n  %a")
+     ("m" "TODO respond to email" entry
+      (file ,(expand-file-name "TODO.org" org-directory))
+      "* TODO %^{Description}\n%A\n%?\n")))
+  :config
+  (require 'org-capture)
+  :commands
+  (org-capture org-capture-refile)
   :bind
   (("C-c l" . org-store-link)
    ("C-c a" . org-agenda)
@@ -93,18 +107,9 @@
    ;; Don't shadow mwim and org-mode bindings
    ([remap move-beginning-of-line] . nil)))
 
-(use-package org-capture
-  :straight
-  (:type built-in)
-  :config
-  (add-to-list 'org-capture-templates
-               '("m"
-                 "TODO respond to email"
-                 entry
-                 (file (expand-file-name "TODO.org" org-directory))
-                 "* TODO %^{Description}\n%A\n%?\n"))
-  :commands
-  (org-capture org-capture-refile))
+(use-package org-download
+  :hook
+  (dired-mode . org-download-enable))
 
 ;; (use-package ox-hugo
 ;;   :after ox)

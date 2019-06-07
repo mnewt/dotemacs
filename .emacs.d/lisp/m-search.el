@@ -109,6 +109,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (company-dabbrev-ignore-case t)
   :hook
   (after-init . global-company-mode)
+  ;; (minibuffer-setup . company-mode)
   :bind
   (([remap dabbrev-expand] . company-complete)
    :map company-active-map
