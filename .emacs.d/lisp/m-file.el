@@ -96,6 +96,8 @@ Tries to find a file at point."
   (interactive)
   (print (shell-command-to-string "df -h")))
 
+;;;; Network utils
+
 (defun public-ip ()
   "Display the local host's apparent public IP address."
   (interactive)
@@ -114,6 +116,18 @@ Tries to find a file at point."
             (concat "drill "
                     hostname
                     " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
+
+(defun ips ()
+  "Show the machine's IP addresses."
+  (interactive)
+  (shell-command
+   (pcase system-type
+     ('gnu/linux
+      "ip address show | awk '/inet /{if ($5 != \"lo\") { print $7 \": \" $2 }}'")
+     ('darwin
+      "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
+     ('cygwin
+      "ipconfig | awk -F' .' '/Address/ {print $NF}'"))))
 
 ;;;; OS program interaction
 
