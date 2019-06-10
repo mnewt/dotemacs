@@ -60,11 +60,14 @@
 ;; eww uses this as its default font, among others.
 (set-face-font 'variable-pitch "Georgia-18")
 
-(use-package doom-themes
-  :commands
-  (doom-blend))
+;; (use-package doom-themes)
 
-(use-package solarized-theme)
+;; (use-package solarized-theme)
+
+(use-package spacemacs-theme
+  :defer t
+  :custom
+  (spacemacs-theme-comment-bg nil))
 
 (defvar theme-source-faces
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
@@ -73,15 +76,11 @@
 (defvar before-theme-hook nil
   "Run whenever a theme is activated.")
 
-(defvar after-theme-hook '(doom-themes-visual-bell-config
-                           doom-themes-org-config)
+(defvar after-theme-hook nil
   "Run whenever a theme is activated.")
 
-(defvar theme-themes '((doom-vibrant)
-                       (doom-one-light)
-                       (doom-dracula)
-                       (doom-tomorrow-day)
-                       (solarized-light))
+(defvar theme-themes '((spacemacs-light)
+                       (spacemacs-dark))
   "Alist where car is the theme and cdr can be:
 
 * A function to run after loading the theme.
@@ -90,7 +89,7 @@
 ** specs
 ** mouse-color")
 
-(defvar theme-current-theme 'doom-dracula
+(defvar theme-current-theme 'spacemacs-dark
   "Defines the currently loaded theme.")
 
 (defvar theme-specs-common
@@ -183,17 +182,30 @@ Example usage
   (seq-filter (lambda (e) (string-match-p regexp (symbol-name (cadr e))))
               (get (car custom-enabled-themes) 'theme-settings)))
 
+(defun theme-color-blend (color1 color2 alpha)
+  "Blends COLOR1 onto COLOR2 with ALPHA.
+COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
+triplet strings (e.g. \"#ff12ec\").
+Alpha should be a float between 0 and 1.
+
+Lifted from solarized."
+  (apply #'color-rgb-to-hex
+         (-zip-with (lambda (it other)
+                      (+ (* alpha it) (* other (- 1 alpha))))
+                    (color-name-to-rgb color1)
+                    (color-name-to-rgb color2))))
+
 (defun theme-generate-specs ()
   "Automatically generate theme specs the supplied faces.
 
 See also `theme-specs-common'. Advise or override this function
-to customize furter."
+to customize further."
   (let* ((default-spec (face-spec-choose (theme-get-face 'default)))
          (outline-1-spec (face-spec-choose (theme-get-face 'outline-1)))
          (active-bg (plist-get default-spec :background))
          (active-fg (plist-get default-spec :foreground))
-         (inactive-bg (doom-blend active-bg active-fg 0.95))
-         (inactive-fg (doom-blend active-bg active-fg 0.4))
+         (inactive-bg (theme-color-blend active-bg active-fg 0.95))
+         (inactive-fg (theme-color-blend active-bg active-fg 0.4))
          (highlight-fg (plist-get outline-1-spec :foreground)))
     `((default ((t :background ,inactive-bg)))
       ;; (theme-selected-window-face ((t :background ,active-bg)))
@@ -202,12 +214,12 @@ to customize furter."
       (vertical-border ((t :foreground ,inactive-bg)))
       (mode-line ((t :box nil :underline nil
                      :background ,inactive-bg
-                     :foreground ,(doom-blend active-fg active-bg 0.9))))
-      (mode-line-emphasis ((t :background ,(doom-blend active-bg active-fg 0.7)
+                     :foreground ,(theme-color-blend active-fg active-bg 0.9))))
+      (mode-line-emphasis ((t :background ,(theme-color-blend active-bg active-fg 0.7)
                               :foreground ,active-fg)))
       (mode-line-highlight ((t :background ,highlight-fg
                                :foreground ,active-bg)))
-      (mode-line-buffer-id ((t :background ,(doom-blend active-bg active-fg 0.2)
+      (mode-line-buffer-id ((t :background ,(theme-color-blend active-bg active-fg 0.2)
                                :foreground ,inactive-bg :bold t)))
       (compilation-mode-line-fail ((t :inherit highlight)))
       (doom-modeline-error ((t :background nil :foreground nil :inherit highlight)))
@@ -340,12 +352,12 @@ Propertize the result with the specified PROPERTIES."
           (when-propertize
            (theme-ml-concat
             (list (when (bound-and-true-p parinfer-mode)
-                    (if (eq 'paren parinfer--mode) "P↹" "🄟"))
+                    (if (eq 'paren parinfer--mode) "🄟" "P↹"))
                   (when (buffer-narrowed-p) "⒩")
                   (when (bound-and-true-p hs-minor-mode) "⒣")
                   (when (bound-and-true-p outline-minor-mode) "⦿")
                   (when (bound-and-true-p flycheck-mode)
-                    (string-trim (flycheck-mode-line-status-text))))
+                    (substring (flycheck-mode-line-status-text) 1)))
             " "
             t)
            'face 'mode-line-emphasis)
@@ -366,31 +378,31 @@ Propertize the result with the specified PROPERTIES."
 
 (defun fiat--set-os-dark-mode (p)
   "When P is non-nil, change the OS to dark mode."
-  (let ((default-directory "~") ;; Change directory in case we are in a tramp session.
+  (let ((default-directory "~") ; Change directory in case we are in a tramp session.
         (p (if p "true" "false")))
     (shell-command (format "osascript -e '
 tell application \"System Events\"
   tell appearance preferences to set dark mode to %s
 end tell'" p))))
 
-(defun fiat ()
-  "Let the Emacs and OS themes be toggled."
-  (interactive)
-  (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
-
 (defun fiat-lux ()
   "Let the Emacs and OS themes be switched to light mode."
   (interactive)
   (setq fiat-state 'lux)
-  (theme-activate 'doom-one-light)
+  (theme-activate 'spacemacs-light)
   (fiat--set-os-dark-mode nil))
 
 (defun fiat-nox ()
   "Let the Emacs and OS themes be switched to dark mode."
   (interactive)
   (setq fiat-state 'nox)
-  (theme-activate 'doom-dracula)
+  (theme-activate 'spacemacs-dark)
   (fiat--set-os-dark-mode t))
+
+(defun fiat ()
+  "Let the Emacs and OS themes be toggled."
+  (interactive)
+  (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
 
 (use-package window-highlight
   :if (>= emacs-major-version 27)
@@ -398,6 +410,22 @@ end tell'" p))))
   (:type git :host github :repo "dcolascione/emacs-window-highlight")
   :hook
   (emacs-startup . window-highlight-mode))
+
+(use-package form-feed
+  :config
+  (custom-set-faces
+   '(form-feed-line
+     ((((type graphic)
+        (background light))
+       :inherit font-lock-comment-face
+       :strike-through t)
+      (((type graphic)
+        (background dark))
+       :inherit font-lock-comment-face
+       :strike-through t)
+      (((type tty)) :inherit font-lock-comment-face :underline t))))
+  :hook
+  (emacs-lisp-mode . form-feed-mode))
 
 (use-package darkroom
   :bind
@@ -420,7 +448,8 @@ end tell'" p))))
 
 (add-hook 'emacs-startup-hook (lambda () (theme-activate theme-current-theme)))
 
-(bind-key "C-c C-t" #'theme-choose)
+(bind-keys ("C-c C-t" . theme-choose)
+           ("C-M-s-t" . fiat))
 
 (provide 'm-appearance)
 

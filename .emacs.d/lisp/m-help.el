@@ -21,7 +21,7 @@
   :hook
   (after-init . help-at-pt-set-timer))
 
-(use-package help-fns+)
+;; (use-package help-fns+)
 
 (use-package helpful
   :bind
@@ -33,23 +33,6 @@
   ("C-h M" . helpful-macro)
   ("C-h M-s" . helpful-symbol)
   ("C-h v" . helpful-variable))
-
-(bind-keys
- ("C-h C-i" . elisp-index-search)
- ("C-h M-i" . info-apropos)
- :map Info-mode-map
- ("j" . next-line)
- ("k" . previous-line)
- ("J" . next-line-4)
- ("K" . previous-line-4)
- :map  help-mode-map)
-
-(seq-doseq (m '(Info-mode-map help-mode-map))
-  (bind-keys :map (symbol-value m)
-             ("j" . next-line)
-             ("k" . previous-line)
-             ("J" . next-line-4)
-             ("K" . previous-line-4)))
 
 (use-package shr
   :custom
@@ -91,14 +74,14 @@
             man-page-path))
        man-page-path))))
 
-(use-package tldr
-  :init
-  (unbind-key "C-h t")
-  :custom
-  (tldr-enabled-categories '("common" "linux" "osx"))
-  :bind
-  ("C-h t t" . tldr)
-  ("C-h t u" . tldr-update-docs))
+;; (use-package tldr
+;;   :init
+;;   (unbind-key "C-h t")
+;;   :custom
+;;   (tldr-enabled-categories '("common" "linux" "osx"))
+;;   :bind
+;;   ("C-h t t" . tldr)
+;;   ("C-h t u" . tldr-update-docs))
 
 (use-package eg
   :ensure-system-package
@@ -135,6 +118,23 @@
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
+
+(bind-keys
+ ("C-h C-i" . elisp-index-search)
+ ("C-h M-i" . info-apropos)
+ :map Info-mode-map
+ ("j" . next-line)
+ ("k" . previous-line)
+ ("J" . next-line-4)
+ ("K" . previous-line-4)
+ :map  help-mode-map)
+
+(seq-doseq (m '(Info-mode-map help-mode-map))
+  (bind-keys :map (symbol-value m)
+             ("j" . next-line)
+             ("k" . previous-line)
+             ("J" . next-line-4)
+             ("K" . previous-line-4)))
 
 (provide 'm-help)
 

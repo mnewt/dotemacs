@@ -52,10 +52,10 @@ Update environment variables from a shell source file."
          (old-path (split-string (getenv "PATH") sep))
          ;; De-dupe and validate new path
          (new-path
-          (mapcar 'expand-file-name
-                  (cl-remove-if-not 'file-directory-p
+          (mapcar #'expand-file-name
+                  (cl-remove-if-not #'file-directory-p
                                     (cl-remove-duplicates (append set-path-user
-								  os-specific-paths
+                                                                  os-specific-paths
 								  old-path))))))
     (setenv "PATH" (mapconcat #'identity new-path sep))
     ;; (message "New path: %s" new-path)

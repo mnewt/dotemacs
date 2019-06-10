@@ -6,8 +6,6 @@
 
 ;;; Code:
 
-(require 'dired-x)
-
 (use-package jka-cmpr-hook
   :straight (:type built-in)
   :hook
@@ -96,39 +94,6 @@ Tries to find a file at point."
   (interactive)
   (print (shell-command-to-string "df -h")))
 
-;;;; Network utils
-
-(defun public-ip ()
-  "Display the local host's apparent public IP address."
-  (interactive)
-  (message
-   (with-current-buffer (url-retrieve-synchronously "https://diagnostic.opendns.com/myip")
-     (goto-char (point-min))
-     (re-search-forward "^$")
-     (delete-char 1)
-     (delete-region (point) (point-min))
-     (buffer-string))))
-
-(defun dis (hostname)
-  "Resolve a HOSTNAME to its IP address."
-  (interactive "MHostname: ")
-  (message (shell-command-to-string
-            (concat "drill "
-                    hostname
-                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
-
-(defun ips ()
-  "Show the machine's IP addresses."
-  (interactive)
-  (shell-command
-   (pcase system-type
-     ('gnu/linux
-      "ip address show | awk '/inet /{if ($5 != \"lo\") { print $7 \": \" $2 }}'")
-     ('darwin
-      "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
-     ('cygwin
-      "ipconfig | awk -F' .' '/Address/ {print $NF}'"))))
-
 ;;;; OS program interaction
 
 (use-package reveal-in-osx-finder
@@ -170,32 +135,6 @@ With a prefix ARG always prompt for command to use."
     (message "Opening %s in the OS registered external program..." file)
     (call-process program nil 0 nil file)))
 
-;;;; mnt
-
-;; These functions execute the `mnt' utility, which uses config
-;; profiles to mount smb shares (even through ssh tunnels).
-
-(defun mnt-cmd (cmd)
-  "Interactively Run a `mnt/umnt' utility (CMD).
-The config is specified in the config file in `~/.mnt/'."
-  (let ((config (completing-read (format "Run %s using config: " cmd)
-                                 (directory-files "~/.mnt" nil "^[^.]")
-                                 nil t)))
-    (setq config (expand-file-name config "~/.mnt"))
-    (if (async-shell-command (concat cmd " " config) "*mnt*")
-        (message (format "%s succeeded with config file: %s" cmd config))
-      (message (format "%s FAILED with config file: %s" cmd config)))))
-
-(defun mnt ()
-  "Mount a share using the `mnt' utility."
-  (interactive)
-  (mnt-cmd "sudo_mnt"))
-
-(defun umnt ()
-  "Unmount a share using the `umnt' utility."
-  (interactive)
-  (mnt-cmd "umnt"))
-
 ;;;; Dired
 
 (use-package dired
@@ -215,7 +154,9 @@ The config is specified in the config file in `~/.mnt/'."
                                                  (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
   (dired-clean-confirm-killing-deleted-buffers nil)
-  (find-ls-option '("-print0 | xargs -0 ls -alhd" . "")))
+  (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
+  :hook
+  (after-init . (lambda () (require 'dired-x))))
 
 (use-package ivy-dired-history
   :config
@@ -233,11 +174,6 @@ The config is specified in the config file in `~/.mnt/'."
   :bind
   (:map dired-mode-map
         ("C-c C-p" . wdired-change-to-wdired-mode)))
-
-(use-package dired-efap
-  :bind
-  (:map dired-mode-map
-        ("r" . dired-efap)))
 
 (use-package dired-hacks-utils
   ;; :straight

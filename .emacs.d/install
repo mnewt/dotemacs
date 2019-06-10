@@ -48,7 +48,7 @@ git reset HEAD --hard
 ./autogen.sh
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
 # existing, non-emacs ctags installation
-./configure --without-dbus --with-ns --disable-ns-self-contained --without-pop --with-modules CFLAGS="-I /usr/local/opt/libxml2/include/libxml2" --program-transform-name='s/^ctags$/ctags.emacs/'
+./configure --without-dbus --without-pop --with-gnutls --with-ns --disable-ns-self-contained --with-imagemagick --with-rsvg --with-xml2 --with-modules CFLAGS="-I /usr/local/opt/libxml2/include/libxml2" --program-transform-name='s/^ctags$/ctags.emacs/'
 # Even though we move the binary ourselves, we still need to install to get the
 # Emacs Lisp source in the right place.
 make install

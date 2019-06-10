@@ -6,11 +6,10 @@
 
 ;;; Code:
 
-;; Automate communication with services, such as nicserv
-(with-eval-after-load 'erc
-  (progn
-    (require 'erc-services)
-    (erc-services-mode 1)))
+;; Automate communication with services, such as nicserv.
+(use-package erc
+  :hook
+  (erc-connect-pre . erc-services-mode))
 
 ;;;; Log Files
 
@@ -62,8 +61,9 @@
 ;;;; Web
 
 (use-package shr-tag-pre-highlight
-  :config
-  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))
+  :hook
+  (eww-mode . (lambda () (add-to-list 'shr-external-rendering-functions
+                                      '(pre . shr-tag-pre-highlight))))
   :commands
   (shr-tag-pre-highlight))
 
@@ -71,13 +71,9 @@
   :custom
   (w3m-search-engine-alist
    '(("google" "https://www.google.com/search?q=%s&ie=utf-8&oe=utf-8&gbv=1" utf-8)
-     ("google news" "https://news.google.com/news?q=%s&ie=utf-8&oe=utf-8" utf-8)
-     ("debian-pkg" "https://packages.debian.org/search?&searchon=names&suite=stable&section=all&arch=amd64&keywords=%s")
-     ("debian-bts" "https://bugs.debian.org/cgi-bin/pkgreport.cgi?archive=yes&pkg=%s")
-     ("amazon" "https://www.amazon.com/exec/obidos/search-handle-form/250-7496892-7797857" iso-8859-1 "url=index=blended&field-keywords=%s")
      ("emacswiki" "https://www.emacswiki.org/cgi-bin/wiki?search=%s")
      ("en.wikipedia" "https://en.wikipedia.org/wiki/Special:Search?search=%s")
-     ("duckduckgo" "https://duckduckgo.com/lite" utf-8 "q=%s")))
+     ("duckduckgo" "https://duckduckgo.com/lite&q=%s" utf-8)))
   (w3m-search-default-engine "duckduckgo")
   :commands
   (w3m w3m-goto-url w3m-search))
@@ -148,34 +144,36 @@
   :hook
   ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
 
-(use-package js2-mode
-  :mode "\\.js\\'"
+(use-package js
   :custom
-  ;; Set tab width for js-mode and json-mode
-  (js-indent-level tab-width)
-  (js2-basic-offset tab-width)
-  :hook
-  (js2-mode . js2-imenu-extras-mode))
+  (js-indent-level tab-width))
 
-(use-package rjsx-mode
-  :mode "\\.js[mx]\\'")
+;; (use-package js2-mode
+;;   :mode "\\.js\\'"
+;;   (js2-basic-offset tab-width)
+;;   :hook
+;;   (js2-mode . js2-imenu-extras-mode))
+
+;; (use-package rjsx-mode
+;;   :mode "\\.js[mx]\\'")
 
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
+  :init
+  (defun m-tide-setup ()
+    (tide-setup)
+    ;; Let tide do the symbol highlighting.
+    (symbol-overlay-mode -1)
+    (tide-hl-identifier-mode)
+    ;; Because we use prettier instead.
+    (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))
   :custom
   (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
   (tide-default-mode "JS")
   :commands
   (tide-setup tide-hl-identifier-mode)
   :hook
-  ((js2-mode typescript-mode) . (lambda ()
-                                  (tide-setup)
-                                  ;; Let tide do the symbol highlighting.
-                                  (symbol-overlay-mode -1)
-                                  (tide-hl-identifier-mode)
-                                  ;; Because we use prettier instead.
-                                  (setq-local flycheck-checkers
-                                              (remove 'jsx-tide flycheck-checkers)))))
+  ((js-mode js2-mode typescript-mode) . m-tide-setup))
 
 (use-package prettier-js
   :ensure-system-package
@@ -183,14 +181,14 @@
   :hook
   ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
 
-(use-package indium
-  :ensure-system-package
-  (indium . "npm i -g indium")
-  :custom
-  (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
-  (indium-chrome-use-temporary-profile nil)
-  :commands
-  (indium-connect indium-launch))
+;; (use-package indium
+;;   :ensure-system-package
+;;   (indium . "npm i -g indium")
+;;   :custom
+;;   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
+;;   (indium-chrome-use-temporary-profile nil)
+;;   :commands
+;;   (indium-connect indium-launch))
 
 (use-package json-mode
   :ensure-system-package jq
@@ -204,15 +202,15 @@
 (use-package elpy
   :ensure-system-package
   ;; jedi doesn't have an executable and there's not one single path we can look
-  ;; across OS and python versions, so just assume it comes with flake8.
+  ;; across OS and python versions, so just let it tag along.
   ((flake8 . "pip install jedi flake8")
    (black . "pip install black")
    (yapf . "pip install yapf"))
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
-  :config
-  (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
+  ;; :config
+  ;; (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
   :commands
   (elpy-black-fix-code)
   :hook
@@ -226,7 +224,8 @@
 
 (use-package company-jedi
   :hook
-  (python-mode . (lambda () (set (make-local-variable 'company-backends) '(company-jedi)))))
+  (python-mode . (lambda () (set (make-local-variable 'company-backends
+                                                      '(company-jedi))))))
 
 ;;;; Other Modes
 
@@ -241,7 +240,6 @@
 (use-package systemd
   :mode
   "\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'")
-  
 
 ;; DNS
 (use-package dns-mode
@@ -293,7 +291,9 @@
         ("C-M-x" . ruby-send-block)))
 
 (use-package lua-mode
-  :mode "\\.lua\\'")
+  :mode "\\.lua\\'"
+  :custom
+  (lua-indent-level 4))
 
 (use-package go-mode
   :mode "\\.go\\'")
@@ -388,24 +388,6 @@
   (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
   :bind
   ("C-c '" . fence-edit-dwim))
-
-(use-package wttrin
-  :custom
-  (wttrin-default-cities '("Albany CA"
-                           "San Francisco CA"
-                           "Austin TX"
-                           "Eugene OR"
-                           "Truckee CA"
-                           "Moon"))
-  (wttrin-default-accept-language '("Accept-Language" . "en-US"))
-  :config
-  (defun advice-delete-other-windows (&rest _)
-    "Advice that will delete other windows."
-    (delete-other-windows))
-
-  (advice-add 'wttrin :before #'advice-delete-other-windows)
-  :bind
-  ("C-c M-w" . wttrin))
 
 (provide 'm-modes)
 

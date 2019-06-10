@@ -33,7 +33,7 @@
 
 (setq load-prefer-newer t)
 
-(eval-after-load 'gnutls
+(with-eval-after-load 'gnutls
   (defvar gnutls-verify-error t))
 
 (with-eval-after-load 'nsm
@@ -43,6 +43,9 @@
   "Local elisp configuration files go here.")
 
 (add-to-list 'load-path elisp-directory)
+
+;; Make the window dark while we are waiting for the theme to load.
+(set-face-attribute 'default nil :background "#1A1A1A" :foreground "#8A8A8A")
 
 ;;; Package Management
 
@@ -87,10 +90,10 @@
 
 (use-package use-package-ensure-system-package)
 
-;; (use-package benchmark-init
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'after-init-hook 'benchmark-init/deactivate))
+(use-package benchmark-init
+  :config
+  ;; To disable collection of benchmark data after init is done.
+  (add-hook 'after-init-hook 'benchmark-init/deactivate))
 
 ;;; Emacs Lisp Extension Libraries
 
@@ -116,6 +119,7 @@
 (require 'm-hydra)
 (require 'm-search)
 (require 'm-file)
+(require 'm-net)
 (require 'm-vc)
 (require 'm-edit)
 (require 'm-shell)

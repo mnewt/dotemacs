@@ -9,15 +9,15 @@
 (defun git-add-current-file (file)
   "Run `git add' on the FILE visited in the current buffer."
   (interactive (list (buffer-file-name)))
-  (shell-command (format "git add '%s'" file))
-  (dired-revert))
+  (shell-command (format "git add '%s'" file)))
 
 (defun dired-git-add ()
   "Run `git add' on the selected files in a dired buffer."
   (interactive)
   (let ((files (dired-get-marked-files)))
     (message "> git add %s" files)
-    (dired-do-shell-command "git add" nil files)))
+    (dired-do-shell-command "git add" nil files)
+    (dired-revert)))
 
 (defvar git-home-repo-dir
   (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
@@ -100,8 +100,8 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :commands
   (magit-call-git)
   :bind
-  (("C-x g" . magit-status)
-   ("C-x C-g" . magit-dispatch)))
+  ("C-x g" . magit-status)
+  ("C-x C-g" . magit-dispatch))
 
 (use-package forge
   :after magit)

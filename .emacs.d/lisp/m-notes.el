@@ -78,7 +78,6 @@
   (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
   (org-catch-invisible-edits 'show-and-error)
   (org-hide-emphasis-markers t)
-  (org-startup-with-inline-images t)
   (org-capture-templates
    `(("t" "TODO" entry
       (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
