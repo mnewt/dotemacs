@@ -34,8 +34,6 @@ Call F with ARGS."
     (call-interactively f)))
 
 (use-package undo-tree
-  :straight
-  (:type git :host nil :repo "http://www.dr-qubit.org/git/undo-tree.git")
   :init
   ;; Keep region when undoing in region.
   ;; http://whattheemacsd.com/my-misc.el-02.html

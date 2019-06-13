@@ -7,7 +7,11 @@ IFS=$'\n\t'
 base="$HOME/.emacs.d/src"
 
 required=(autoconf texinfo libxml2 imagemagick librsvg gnutls gnupg libvterm)
-printf "\033[48;5;057m Installing Dependencies...  \033[0m  \n"
+required_casks=(mactex)
+
+heading() {
+  printf "\033[38;5;013m %s  \033[0m  \n" "$*"
+}
 
 contains() {
 	local e match="$1"
@@ -16,25 +20,40 @@ contains() {
 	return 1
 }
 
-pkgs=($(brew list -1))
-needed=()
-for p in "${required[@]}"; do
-	contains "$p" "${pkgs[@]}" || needed+=("$p")
-done
-if [ -n "${needed[*]}" ]; then
-	echo "Installing packages: ${needed[*]}"
-	brew install "${needed[@]}"
-fi
+heading "Installing Dependencies..."
 
-outdated="$(brew outdated | awk '{print $1}')"
-upgrade=()
-for p in "${required[@]}"; do
-	contains "$p" "${outdated[@]}" && upgrade+=("$p")
-done
-if [ -n "${upgrade[*]}" ]; then
-	echo "Upgrading packages: ${upgrade[*]}"
-	brew upgrade "${upgrade[@]}"
-fi
+# Ensure the given homebrew packages are installed and up to date
+brew_ensure() {
+  # Decide if we are operating on 'brew' or 'brew cask'
+  prefix="brew "
+  [ "$1" = "cask" ] && prefix="${prefix}cask " && shift
+
+  # Get list of missing packages, install them
+  read -r -a installed < <(eval $prefix list -1)
+  required=("$@")
+  missing=()
+  for p in "${required[@]}"; do
+	  contains "$p" "${installed[@]}" || needed+=("$p")
+  done
+  if [ -n "${missing[*]}" ]; then
+	  echo "Installing packages: ${missing[*]}"
+	  $prefix install "${missing[@]}"
+  fi
+
+  # Get list of outdated packages, upgrade them
+  outdated="$(eval $prefix outdated | awk '{print $1}')"
+  upgrade=()
+  for p in "${required[@]}"; do
+	  contains "$p" "${outdated[@]}" && upgrade+=("$p")
+  done
+  if [ -n "${upgrade[*]}" ]; then
+	  echo "Upgrading packages: ${upgrade[*]}"
+	  $prefix upgrade "${upgrade[@]}"
+  fi
+}
+
+brew_ensure "${required[@]}"
+brew_ensure cask "${required_casks[@]}"
 
 mkdir -p "$base"
 pushd "$base"
@@ -42,13 +61,14 @@ pushd "$base"
 [ -d "./emacs" ] || git clone "https://git.savannah.gnu.org/git/emacs.git"
 pushd "./emacs"
 
-printf "\033[48;5;057m  Building Emacs...  \033[0m  \n"
+heading "Building Emacs..."
+
 git pull
 git reset HEAD --hard
 ./autogen.sh
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
 # existing, non-emacs ctags installation
-./configure --without-dbus --without-pop --with-gnutls --with-ns --disable-ns-self-contained --with-imagemagick --with-rsvg --with-xml2 --with-modules CFLAGS="-I /usr/local/opt/libxml2/include/libxml2" --program-transform-name='s/^ctags$/ctags.emacs/'
+./configure --without-dbus --without-pop --with-gnutls --with-ns --disable-ns-self-contained --with-rsvg --with-imagemagick --with-json --with-xml2 --with-modules CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I /usr/local/opt/libxml2/include/libxml2' --program-transform-name='s/^ctags$/ctags.emacs/'
 # Even though we move the binary ourselves, we still need to install to get the
 # Emacs Lisp source in the right place.
 make install
@@ -60,7 +80,8 @@ popd
 [ -d "./emacs-libvterm" ] || git clone "https://github.com/akermu/emacs-libvterm.git"
 pushd "./emacs-libvterm"
 
-printf "\033[48;5;057m  Building VTerm...  \033[0m  \n"
+heading "Building VTerm..."
+
 git pull
 git reset HEAD --hard
 mkdir -p build

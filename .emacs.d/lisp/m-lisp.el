@@ -107,20 +107,11 @@ of problems in that context."
         ("C-c C-k" . inf-clojure-eval-buffer)))
 
 (use-package sly
-  ;; There are some problems building sly with straight.el in Windows
-  :unless (eq system-type 'windows-nt)
   :custom
   (inferior-lisp-program (executable-find "sbcl"))
   :bind
   (:map sly-prefix-map
         ("M-h" . sly-documentation-lookup)))
-
-(use-package sly-company
-  :unless (eq system-type 'windows-nt)
-  :hook
-  (sly-mode . sly-company-mode)
-  :config
-  (add-to-list 'company-backends 'sly-company))
 
 (with-eval-after-load 'scheme
   (defun m-scheme-region-extend-function ()

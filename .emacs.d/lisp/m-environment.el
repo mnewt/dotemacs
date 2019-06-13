@@ -65,13 +65,7 @@ Update environment variables from a shell source file."
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
 
-(use-package shut-up
-  :config
-  (shut-up-silence-emacs))
-
-(use-package server
-  :hook
-  (after-init . server-start))
+(add-hook 'after-init-hook #'server-start)
 
 (use-package pinentry
   :unless (eq system-type 'windows-nt)
@@ -108,7 +102,9 @@ Update environment variables from a shell source file."
         ns-pop-up-frames nil
         os-open-file-executable "open")
   (when window-system (menu-bar-mode +1))
-  (set-face-font 'default "Monaco-13")
+  (if (member "Input" (font-family-list))
+      (set-face-font 'default "Input-14")
+    (set-face-font 'default "Monaco-13"))
   ;; Use system trash
   (setq delete-by-moving-to-trash t
         trash-directory "~/.Trash"))

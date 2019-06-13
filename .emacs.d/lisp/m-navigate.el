@@ -131,8 +131,6 @@ For for details see `scratch-new-buffer'."
           (select-window first-win)
           (if this-win-2nd (other-window 1))))))
 
-(defvar ffap-url-fetcher)
-
 (defun find-file-at-point-with-line (&optional filename)
   "Open FILENAME at point and move point to line specified next to file name."
   (interactive)
@@ -311,11 +309,8 @@ return them in the Emacs format."
 ;; Make `emacsclient' support solon notation of line:column
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
-(use-package ediff
-  :custom
-  (ediff-window-setup-function #'ediff-setup-windows-plain)
-  :commands
-  (ediff-files ediff-files3 ediff-patch-buffer vc-ediff))
+(with-eval-after-load 'ediff
+  (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
 (use-package goto-addr
   :hook
@@ -353,9 +348,12 @@ return them in the Emacs format."
   (outline-next-visible-heading 1)
   (outline-show-subtree))
 
-;; outline-mode extension for navigating by sections. in Emacs Lisp that is defined by
-;; `;;; ', `;;;; ', etc. Everywhere else it is like `;; * ' `;; ** ', and so on.
+(use-package outorg
+  :after outshine)
+
 (use-package outshine
+  :disabled t
+  :after (:or outline org-mode)
   :custom
   (outline-minor-mode-prefix "\M-#")
   :config
@@ -364,12 +362,49 @@ return them in the Emacs format."
   (advice-add 'outshine-narrow-to-subtree :before
               (lambda (&rest _args) (unless (outline-on-heading-p t)
                                       (outline-previous-visible-heading 1))))
+
+  (defhydra hydra-outline (:color pink :hint nil)
+    "
+Outline
+
+^Hide^             ^Show^           ^Move
+^^^^^^------------------------------------------------------
+_s_ sublevels     _a_ all         _u_ up
+_t_ body          _e_ entry       _n_ next visible
+_o_ other         _i_ children    _p_ previous visible
+_c_ entry         _k_ branches    _f_ forward same level
+_l_ leaves        _s_ subtree     _b_ backward same level
+_d_ subtree
+
+"
+    ;; Hide
+    ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
+    ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
+    ("o" outline-hide-other)     ; Hide other branches
+    ("c" outline-hide-entry)     ; Hide this entry's body
+    ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
+    ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
+    ;; Show
+    ("a" outline-show-all)      ; Show (expand) everything
+    ("e" outline-show-entry)    ; Show this heading's body
+    ("i" outline-show-children) ; Show this heading's immediate child sub-headings
+    ("k" outline-show-branches) ; Show all sub-headings under this heading
+    ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
+    ;; Move
+    ("u" outline-up-heading)               ; Up
+    ("n" outline-next-visible-heading)     ; Next
+    ("p" outline-previous-visible-heading) ; Previous
+    ("f" outline-forward-same-level)       ; Forward - same level
+    ("b" outline-backward-same-level)      ; Backward - same level
+    ("q" nil "leave"))
+  
   :hook
   ;; Required for outshine
   (outline-minor-mode . outshine-mode)
   (prog-mode . outline-minor-mode)
   :bind
   (:map outline-minor-mode-map
+        ("C-c #" . hydra-outline/body)
         ;; Don't shadow smarparens or org bindings
         ("M-<up>" . nil)
         ("M-<down>" . nil)
@@ -382,8 +417,31 @@ return them in the Emacs format."
 (use-package hideshow
   :custom
   (hs-hide-comments-when-hiding-all nil)
+  :config
+  (defhydra hydra-hs (:color pink :hint nil)
+    "
+Hideshow
+
+Hide^^            ^Show^            ^Toggle^    ^Navigation^
+----------------------------------------------------------------
+_h_ hide all      _s_ show all      _t_ toggle    _n_ next line
+_d_ hide block    _a_ show block                _p_ previous line
+_l_ hide level
+
+_q_ quit
+"
+    ("s" hs-show-all)
+    ("h" hs-hide-all)
+    ("a" hs-show-block)
+    ("d" hs-hide-block)
+    ("t" hs-toggle-hiding)
+    ("l" hs-hide-level)
+    ("n" forward-line)
+    ("p" (forward-line -1))
+    ("q" nil))
   :bind
   (:map hs-minor-mode-map
+        ("C-c @" . hydra-hs/body)
         ("C-<tab>" . hs-toggle-hiding))
   :hook
   (hs-minor-mode . hs-hide-all))
@@ -433,16 +491,6 @@ return them in the Emacs format."
   (desktop-clear)
   (tramp-cleanup-all)
   (kill-emacs))
-
-(defun dired-list-init-files ()
-  "Create a Dired listing of all Emacs init files."
-  (interactive)
-  (let ((default-directory "~/.emacs.d/lisp"))
-    (dired (cons "Emacs init files"
-                 (append '("../init.el" "../m-private.el")
-                         (cddr (directory-files ".")))))
-    (when (fboundp #'dired-filter-mode)
-      (dired-filter-pop-all))))
 
 (defmacro specialize-beginning-of-buffer (mode &rest forms)
   "Define a special version of `beginning-of-buffer' in MODE.
@@ -506,6 +554,9 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer occur (occur-next 1))
 (specialize-end-of-buffer occur (occur-prev 1))
 
+(specialize-beginning-of-buffer ivy-occur-grep-mode (ivy-occur-next-line 1))
+(specialize-end-of-buffer ivy-occur-grep-mode (ivy-occur-previous-line 1))
+
 (specialize-beginning-of-buffer ibuffer (ibuffer-forward-line 1))
 (specialize-end-of-buffer ibuffer (ibuffer-backward-line 1))
 
@@ -526,6 +577,105 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
 (specialize-end-of-buffer elfeed-search (forward-line -2))
+
+(defhydra hydra-ibuffer-main (:color pink :hint nil)
+  "
+  ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
+  _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
+  _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
+  _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
+  _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
+  "
+  ("m" ibuffer-mark-forward)
+  ("u" ibuffer-unmark-forward)
+  ("*" hydra-ibuffer-mark/body :color blue)
+  ("t" ibuffer-toggle-marks)
+
+  ("D" ibuffer-do-delete)
+  ("s" ibuffer-do-save)
+  ("a" hydra-ibuffer-action/body :color blue)
+
+  ("g" ibuffer-update)
+  ("S" hydra-ibuffer-sort/body :color blue)
+  ("/" hydra-ibuffer-filter/body :color blue)
+  ("H" describe-mode :color blue)
+
+  ("h" ibuffer-backward-filter-group)
+  ("k" ibuffer-backward-line)
+  ("l" ibuffer-forward-filter-group)
+  ("j" ibuffer-forward-line)
+  ("RET" ibuffer-visit-buffer :color blue)
+
+  ("TAB" ibuffer-toggle-filter-group)
+
+  ("o" ibuffer-visit-buffer-other-window :color blue)
+  ("q" quit-window :color blue)
+  ("." nil :color blue))
+
+(defhydra hydra-ibuffer-mark (:color teal :columns 5
+                                     :after-exit (hydra-ibuffer-main/body))
+  "Mark"
+  ("*" ibuffer-unmark-all "unmark all")
+  ("M" ibuffer-mark-by-mode "mode")
+  ("m" ibuffer-mark-modified-buffers "modified")
+  ("u" ibuffer-mark-unsaved-buffers "unsaved")
+  ("s" ibuffer-mark-special-buffers "special")
+  ("r" ibuffer-mark-read-only-buffers "read-only")
+  ("/" ibuffer-mark-dired-buffers "dired")
+  ("e" ibuffer-mark-dissociated-buffers "dissociated")
+  ("h" ibuffer-mark-help-buffers "help")
+  ("z" ibuffer-mark-compressed-file-buffers "compressed")
+  ("b" hydra-ibuffer-main/body "back" :color blue))
+
+(defhydra hydra-ibuffer-action (:color teal :columns 4
+                                       :after-exit
+                                       (if (eq major-mode 'ibuffer-mode)
+                                           (hydra-ibuffer-main/body)))
+  "Action"
+  ("A" ibuffer-do-view "view")
+  ("E" ibuffer-do-eval "eval")
+  ("F" ibuffer-do-shell-command-file "shell-command-file")
+  ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
+  ("H" ibuffer-do-view-other-frame "view-other-frame")
+  ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
+  ("M" ibuffer-do-toggle-modified "toggle-modified")
+  ("O" ibuffer-do-occur "occur")
+  ("P" ibuffer-do-print "print")
+  ("Q" ibuffer-do-query-replace "query-replace")
+  ("R" ibuffer-do-rename-uniquely "rename-uniquely")
+  ("T" ibuffer-do-toggle-read-only "toggle-read-only")
+  ("U" ibuffer-do-replace-regexp "replace-regexp")
+  ("V" ibuffer-do-revert "revert")
+  ("W" ibuffer-do-view-and-eval "view-and-eval")
+  ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
+  ("b" nil "back"))
+
+(defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
+  "Sort"
+  ("i" ibuffer-invert-sorting "invert")
+  ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
+  ("v" ibuffer-do-sort-by-recency "recently used")
+  ("s" ibuffer-do-sort-by-size "size")
+  ("f" ibuffer-do-sort-by-filename/process "filename")
+  ("m" ibuffer-do-sort-by-major-mode "mode")
+  ("b" hydra-ibuffer-main/body "back" :color blue))
+
+(defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
+  "Filter"
+  ("m" ibuffer-filter-by-used-mode "mode")
+  ("M" ibuffer-filter-by-derived-mode "derived mode")
+  ("n" ibuffer-filter-by-name "name")
+  ("c" ibuffer-filter-by-content "content")
+  ("e" ibuffer-filter-by-predicate "predicate")
+  ("f" ibuffer-filter-by-filename "filename")
+  (">" ibuffer-filter-by-size-gt "size")
+  ("<" ibuffer-filter-by-size-lt "size")
+  ("/" ibuffer-filter-disable "disable")
+  ("b" hydra-ibuffer-main/body "back" :color blue))
+
+(with-eval-after-load 'ibuffer
+  (bind-keys :map ibuffer-mode-map
+             ("." . hydra-ibuffer-main/body)))
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -613,8 +763,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("C-c M-r" . xref-find-definitions-other-window)
 
  ("C-c C-f" . find-file-at-point-with-line)
-
- ("C-c I" . dired-list-init-files)
 
  :map ctl-x-4-map
  ("t" . toggle-window-split))

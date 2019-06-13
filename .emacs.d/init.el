@@ -29,7 +29,7 @@
   "Display a message when Emacs finishes starting up."
   (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
     (defconst emacs-load-time elapsed)
-    (message "Emacs has finished starting up in %.3f seconds." elapsed)))
+    (message "Emacs started in %.3f seconds." elapsed)))
 
 (setq load-prefer-newer t)
 
@@ -39,94 +39,81 @@
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
 
-(defvar elisp-directory "~/.emacs.d/lisp"
-  "Local elisp configuration files go here.")
-
-(add-to-list 'load-path elisp-directory)
-
 ;; Make the window dark while we are waiting for the theme to load.
-(set-face-attribute 'default nil :background "#1A1A1A" :foreground "#8A8A8A")
+(set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
 
 ;;; Package Management
 
-;; Disable package.el initialization.
-(setq package-enable-at-startup nil)
+(setq package-enable-at-startup nil
+      package-user-dir "~/.emacs.d/packages/"
+      package-archives '(("melpa" . "http://melpa.milkbox.net/packages/")
+                         ("gnu" . "http://elpa.gnu.org/packages/"))
+      custom-file "~/.emacs.d/custom.el")
 
-;; Bootstrap straight.el
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 5))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+(eval-when-compile
+  (require 'package)
+  (package-initialize)
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package))
+  (require 'use-package)
+  (setq use-package-always-ensure t
+        use-package-always-defer t
+        use-package-enable-imenu-support t))
 
-;; All external packages and many built in ones are configured using use-package.
-(straight-use-package 'use-package)
-(defvar straight-use-package-by-default)
-(setq straight-use-package-by-default t)
-
-(defvar use-package-enable-imenu-support)
-(setq use-package-enable-imenu-support t)
-
-(eval-when-compile (require 'use-package))
-(require 'bind-key)
-
-;; https://github.com/raxod502/straight.el/issues/41
-(defvar straight-check-for-modifications)
-(setq straight-check-for-modifications 'live)
-
-(defun update-packages ()
-  "Use straight.el to update all packages."
-  (interactive)
-  (straight-normalize-all)
-  (straight-fetch-all)
-  (straight-merge-all))
-
-(use-package use-package-ensure-system-package)
-
-(use-package benchmark-init
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'after-init-hook 'benchmark-init/deactivate))
+(use-package use-package-ensure-system-package :defer 5)
 
 ;;; Emacs Lisp Extension Libraries
 
-(require 'seq)
-(require 'subr-x)
-(use-package dash)
-(use-package s)
-(use-package f)
+(use-package seq :demand t)
+(use-package subr-x :demand t :ensure nil)
+(use-package dash :demand t)
+(use-package s :demand t)
+(use-package f :demand t)
+(use-package shut-up :demand t)
+
+;;; Benchmark init
+
+(use-package benchmark-init
+  :demand t
+  :config
+  ;; To disable collection of benchmark data after init is done.
+  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 ;;; Private settings
 
 (load "~/.emacs.d/m-private.el" t)
-(load "~/.emacs.d/custom.el" t)
 
 ;;; Local Packages
 
-(require 'm-environment)
-(require 'm-persist)
-(require 'm-appearance)
-(require 'm-ui)
-(require 'm-navigate)
-(require 'm-help)
-(require 'm-hydra)
-(require 'm-search)
-(require 'm-file)
-(require 'm-net)
-(require 'm-vc)
-(require 'm-edit)
-(require 'm-shell)
-(require 'm-eshell)
-(require 'm-notes)
-(require 'm-lisp)
-(require 'm-modes)
+(defvar elisp-directory "~/.emacs.d/lisp"
+  "Local elisp configuration files go here.")
+
+(dolist-with-progress-reporter
+    (p
+     '(environment
+       persist
+       appearance
+       ui
+       help
+       navigate
+       search
+       file
+       net
+       vc
+       edit
+       shell
+       eshell
+       notes
+       lisp
+       modes)
+
+     (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
+       (defconst emacs-load-time elapsed)
+       (message "Emacs loaded packages in %.3f seconds." elapsed)
+       elapsed))
+    "Emacs is starting... "
+  (load-file (format "%s/m-%s.el" elisp-directory (symbol-name p))))
 
 (provide 'init)
 

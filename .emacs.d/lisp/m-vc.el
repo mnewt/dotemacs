@@ -69,24 +69,10 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
     (git-worktree-unlink (getenv "HOME"))
     (message "Unlinked repo at %s" f)))
 
-(require 'em-unix)
-
-(defun projectile-git-ls-files (&optional dir)
-  "List of the tracked files in the git repo, specified by DIR."
-  (cd (or dir (projectile-project-root)))
-  (cl-remove-if #'string-blank-p
-                (split-string (shell-command-to-string "git ls-files") "\n")))
-
-(defun projectile-git-ls-files-dired (&optional dir)
-  "Dired list of the tracked files in the git repo, specified by DIR."
-  (interactive)
-  (let ((dir (or dir (projectile-project-root))))
-    (dired (cons dir (projectile-git-ls-files dir)))
-    (rename-buffer (format "*git ls-files %s*" dir))))
-
 ;; VC follows the link and visits the real file, telling you about it in the
 ;; echo area.
-(setq vc-follow-symlinks t)
+;; (with-eval-after-load 'vc
+;;   (setq vc-follow-symlinks t))
 
 ;; git config files
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
@@ -97,20 +83,20 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :custom
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
+  :config
+  (use-package forge :demand t)
+
+  (use-package magit-todos
+    :custom
+    (magit-todos-scanner #'magit-todos--scan-with-git-grep)
+    :hook
+    (magit-mode . magit-todos-mode))
+
   :commands
-  (magit-call-git)
+  magit-call-git
   :bind
   ("C-x g" . magit-status)
   ("C-x C-g" . magit-dispatch))
-
-(use-package forge
-  :after magit)
-
-(use-package magit-todos
-  :custom
-  (magit-todos-scanner #'magit-todos--scan-with-git-grep)
-  :hook
-  (magit-mode . magit-todos-mode))
 
 (use-package git-timemachine
   :bind
@@ -118,7 +104,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 
 (use-package gist
   :commands
-  (gist-list))
+  gist-list)
 
 (use-package diff-hl
   :commands
@@ -127,6 +113,47 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   (magit-post-refresh . diff-hl-magit-post-refresh)
   ((prog-mode markdown-mode) . diff-hl-mode)
   (dired-mode . diff-hl-dired-mode))
+
+;; (use-package smerge-mode
+;;   :config
+;;   (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
+;;     "
+;; ^Move^       ^Keep^               ^Diff^                 ^Other^
+;; ^^-----------^^-------------------^^---------------------^^-------
+;; _n_ext       _b_ase               _<_: upper/base        _C_ombine
+;; _p_rev       _u_pper              _=_: upper/lower       _r_esolve
+;; ^^           _l_ower              _>_: base/lower        _k_ill current
+;; ^^           _a_ll                _R_efine
+;; ^^           _RET_: current       _E_diff
+;; "
+;;     ("n" smerge-next)
+;;     ("p" smerge-prev)
+;;     ("b" smerge-keep-base)
+;;     ("u" smerge-keep-upper)
+;;     ("l" smerge-keep-lower)
+;;     ("a" smerge-keep-all)
+;;     ("RET" smerge-keep-current)
+;;     ("\C-m" smerge-keep-current)
+;;     ("<" smerge-diff-base-upper)
+;;     ("=" smerge-diff-upper-lower)
+;;     (">" smerge-diff-base-lower)
+;;     ("R" smerge-refine)
+;;     ("E" smerge-ediff)
+;;     ("C" smerge-combine-with-next)
+;;     ("r" smerge-resolve)
+;;     ("k" smerge-kill-current)
+;;     ("ZZ" (lambda ()
+;;             (interactive)
+;;             (save-buffer)
+;;             (bury-buffer))
+;;      "Save and bury buffer" :color blue)
+;;     ("q" nil "cancel" :color blue))
+  
+;;   :hook
+;;   (magit-diff-visit-file . (lambda () (smerge-mode) (hydra-smerge/body)))
+;;   :bind
+;;   (:map smerge-mode-map
+;;         ("C-s-s" . hydra-smerge/body)))
 
 (bind-keys
  ("C-c M-l" . git-home-link)

@@ -7,6 +7,7 @@
 ;;; Code:
 
 (use-package savehist
+  :defer 5
   :custom
   (savehist-autosave-interval 60)
   (history-length 200)
@@ -20,42 +21,48 @@
                                    command-history
                                    extended-command-history
                                    ivy-history))
-  :hook
-  (after-init-hook . savehist-mode))
+  :config
+  (savehist-mode))
 
 (use-package saveplace
-  :hook
-  (after-init . save-place-mode))
-
-(defun recentd-track-opened-file ()
-  "Insert the name of the directory just opened into the recent list."
-  (require 'recentf)
-  (and (derived-mode-p 'dired-mode) default-directory
-       (recentf-add-file default-directory))
-  ;; Must return nil because it is run from `write-file-functions'.
-  nil)
-
-(defun recentf-save-list-silent ()
-  (let ((message-log-max nil))
-    (if (fboundp 'shut-up)
-        (shut-up (recentf-save-list))
-      (recentf-save-list))))
-
-(defun recentf-cleanup-silent ()
-  (let ((message-log-max nil))
-    (if shutup-p
-        (shut-up (recentf-cleanup))
-      (recentf-cleanup))))
+  :defer 1
+  :config
+  (save-place-mode))
 
 (use-package recentf
+  :defer 5
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
   (recentf-auto-cleanup 'never)
+  :config
+  (defun recentf-add-dired-directory ()
+    (if (and dired-directory
+             (file-directory-p dired-directory)
+             (not (string= "/" dired-directory)))
+        (let ((last-idx (1- (length dired-directory))))
+          (recentf-add-file
+           (if (= ?/ (aref dired-directory last-idx))
+               (substring dired-directory 0 last-idx)
+             dired-directory)))))
+
+  (defun recentf-save-list-silent ()
+    (let ((message-log-max nil))
+      (if (fboundp 'shut-up)
+          (shut-up (recentf-save-list))
+        (recentf-save-list))))
+
+  (defun recentf-cleanup-silent ()
+    (let ((message-log-max nil))
+      (if shutup-p
+          (shut-up (recentf-cleanup))
+        (recentf-cleanup))))
+
+  (recentf-mode)
+
   :hook
   (focus-out-hook . (recentf-save-list-silent recentf-cleanup-silent))
-  (after-init . recentf-mode)
-  (dired-after-readin . recentd-track-opened-file))
+  (dired-mode . recentf-add-dired-directory))
 
 ;; Store all backup and autosave files in their own directory since it is bad to
 ;; clutter project directories.
@@ -82,18 +89,29 @@
       undo-limit 5242880)
 
 (use-package autorevert
+  :defer 5
   :custom
   ;; Work in Dired.
   (global-auto-revert-non-file-buffers t)
   ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
-  :hook
-  (after-init . global-auto-revert-mode))
+  :config
+  (global-auto-revert-mode))
+
+(use-package persistent-scratch
+  :defer 5
+  :unless (or (null window-system)
+              noninteractive)
+  :config
+  (persistent-scratch-autosave-mode)
+  (with-demoted-errors "Error: %S"
+    (persistent-scratch-setup-default))
+  :commands persistent-scratch-setup-default)
 
 (use-package desktop
+  :demand t
   :custom
   (desktop-dirname "~/.emacs.d")
-  (desktop-restore-eager 3)
   :config
   (dolist (v '(kill-ring read-expression-history theme-current-theme))
     (add-to-list 'desktop-globals-to-save v))

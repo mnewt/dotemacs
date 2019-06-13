@@ -6,6 +6,57 @@
 
 ;;; Code:
 
+;;; Shell scripting
+
+(use-package sh-script
+  :mode ("\\.sh\\'" . sh-mode)
+  :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
+  :init
+  (defun maybe-reset-major-mode ()
+    "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+Mostly useful as a `before-save-hook', to guess mode when saving a
+new file for the first time."
+    (when (and (buffer-file-name)
+               (not (file-exists-p (buffer-file-name)))
+               (eq major-mode 'fundamental-mode))
+      (normal-mode)))
+
+  :custom
+  (sh-basic-offset tab-width)
+  (sh-indentation tab-width)
+  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
+  (executable-prefix-env t)
+  :config
+  ;; Match variables in quotes. Fuco1 is awesome, mkay.
+  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
+  (defun shell-match-variables-in-quotes (limit)
+    "Match variables in double-quotes in `sh-mode' with LIMIT."
+    (with-syntax-table sh-mode-syntax-table
+      (catch 'done
+        (while (re-search-forward
+                ;; `rx' is cool, mkay.
+                (rx (or line-start (not (any "\\")))
+                    (group "$")
+                    (group
+                     (or (and "{" (+? nonl) "}")
+                         (and (+ (any alnum "_")))
+                         (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
+                limit t)
+          (-when-let (string-syntax (nth 3 (syntax-ppss)))
+            (when (= string-syntax 34)
+              (throw 'done (point))))))))
+
+  (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
+                                      (1 'default t)
+                                      (2 font-lock-variable-name-face t))))
+  :hook
+  (before-save . maybe-reset-major-mode)
+  (after-save . executable-make-buffer-file-executable-if-script-p)
+  :bind
+  (:map sh-mode-map
+        ("<return>" . newline-and-indent)
+        ("RET" . newline-and-indent)))
+
 ;; Automate communication with services, such as nicserv.
 (use-package erc
   :hook
@@ -14,12 +65,14 @@
 ;;;; Log Files
 
 (use-package vlf
+  :defer 5
   :custom
   (vlf-application 'dont-ask)
   :config
   (require 'vlf-setup))
 
 (use-package logview
+  :mode "\\.log.*"
   :custom
   (logview-additional-timestamp-formats
    '(("ISO 8601 datetime (with 'T' and 'Z') + millis"
@@ -53,19 +106,23 @@
   ("C-c M-d" . docker))
 
 (use-package docker-tramp
-  :defer 2)
+  :defer 5)
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("\\`DWfile" . sh-mode))
 
 ;;;; Web
 
-(use-package shr-tag-pre-highlight
-  :hook
-  (eww-mode . (lambda () (add-to-list 'shr-external-rendering-functions
-                                      '(pre . shr-tag-pre-highlight))))
+(use-package eww
+  :config
+  (use-package shr-tag-pre-highlight
+    :hook
+    (eww-mode . (lambda () (add-to-list 'shr-external-rendering-functions
+                                        '(pre . shr-tag-pre-highlight))))
+    :commands
+    (shr-tag-pre-highlight))
   :commands
-  (shr-tag-pre-highlight))
+  eww)
 
 (use-package w3m
   :custom
@@ -85,15 +142,6 @@
   (markdown-command "multimarkdown"))
 
 (use-package web-mode
-  :mode "\\.html\?\\'"
-  :init
-  ;; from web-mode FAQ to work with smartparens
-  (defun m-web-mode-hook ()
-    (setq web-mode-enable-auto-pairing nil))
-  (defun sp-web-mode-is-code-context (_id action _context)
-    (and (eq action 'insert)
-         (not (or (get-text-property (point) 'part-side)
-                  (get-text-property (point) 'block-side)))))
   :mode ("\\.phtml\\'"
          "\\.tpl\\.php\\'"
          "\\.[agj]sp\\'"
@@ -102,6 +150,14 @@
          "\\.mustache\\'"
          "\\.djhtml\\'"
          "\\.html?\\'")
+  :init
+  ;; from web-mode FAQ to work with smartparens
+  (defun m-web-mode-hook ()
+    (setq web-mode-enable-auto-pairing nil))
+  (defun sp-web-mode-is-code-context (_id action _context)
+    (and (eq action 'insert)
+         (not (or (get-text-property (point) 'part-side)
+                  (get-text-property (point) 'block-side)))))
   :custom
   (sgml-basic-offset tab-width)
   (web-mode-markup-indent-offset tab-width)
@@ -112,31 +168,32 @@
   (web-mode-enable-current-column-highlight t)
   (web-mode-ac-sources-alist '(("css" . (ac-source-css-property))
                                ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
+  :config
+  (use-package company-web
+    :commands
+    (company-web-html)
+    :hook
+    (web-mode . (lambda () (set (make-local-variable 'company-backends)
+                                (cons 'company-web-html company-backends)))))
   :hook
   (web-mode . m-web-mode-hook))
-
-(use-package company-web
-  :commands
-  (company-web-html)
-  :hook
-  (web-mode . (lambda () (set (make-local-variable 'company-backends)
-                              (cons 'company-web-html company-backends)))))
 
 (use-package sass-mode
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
 
-(use-package know-your-http-well
-  :commands
-  (http-header http-method http-relation http-status-code))
-
 (use-package restclient
   :mode "\\.restclient\\'"
+  :config
+  (use-package company-restclient
+    :hook
+    (restclient-mode . (lambda () (add-to-list 'company-backends 'company-restclient))))
+
+  (use-package know-your-http-well
+    :commands
+    (http-header http-method http-relation http-status-code))
+
   :commands
   (restclient-mode restclient-outline-mode))
-
-(use-package company-restclient
-  :hook
-  (restclient-mode . (lambda () (add-to-list 'company-backends 'company-restclient))))
 
 ;;;; Javascript
 
@@ -145,20 +202,22 @@
   ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
 
 (use-package js
+  :mode "\\.jsx?\\'"
   :custom
   (js-indent-level tab-width))
 
-;; (use-package js2-mode
-;;   :mode "\\.js\\'"
-;;   (js2-basic-offset tab-width)
-;;   :hook
-;;   (js2-mode . js2-imenu-extras-mode))
-
-;; (use-package rjsx-mode
-;;   :mode "\\.js[mx]\\'")
+  ;; (use-package indium
+  ;;   :ensure-system-package
+  ;;   (indium . "npm i -g indium")
+  ;;   :custom
+  ;;   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
+  ;;   (indium-chrome-use-temporary-profile nil)
+  ;;   :commands
+  ;;   (indium-connect indium-launch))
 
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
+  :defer 5
   :init
   (defun m-tide-setup ()
     (tide-setup)
@@ -176,30 +235,32 @@
   ((js-mode js2-mode typescript-mode) . m-tide-setup))
 
 (use-package prettier-js
+  :defer 5
   :ensure-system-package
   (prettier . "npm i -g prettier")
   :hook
   ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
 
-;; (use-package indium
-;;   :ensure-system-package
-;;   (indium . "npm i -g indium")
-;;   :custom
-;;   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
-;;   (indium-chrome-use-temporary-profile nil)
-;;   :commands
-;;   (indium-connect indium-launch))
+(use-package graphql-mode
+  :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
+
+;; (use-package js2-mode
+;;   :mode "\\.js\\'"
+;;   (js2-basic-offset tab-width)
+;;   :hook
+;;   (js2-mode . js2-imenu-extras-mode))
+
+;; (use-package rjsx-mode
+;;   :mode "\\.js[mx]\\'")
 
 (use-package json-mode
   :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 
-(use-package graphql-mode
-  :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
-
 ;;;; Python
 
 (use-package elpy
+  :mode "\\.py\\'"
   :ensure-system-package
   ;; jedi doesn't have an executable and there's not one single path we can look
   ;; across OS and python versions, so just let it tag along.
@@ -209,8 +270,12 @@
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
-  ;; :config
+  :config
   ;; (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
+  (use-package company-jedi
+    :hook
+    (python-mode . (lambda () (set (make-local-variable 'company-backends
+                                                        '(company-jedi))))))
   :commands
   (elpy-black-fix-code)
   :hook
@@ -222,10 +287,6 @@
   (:map python-mode-map
         ("s-<return>" . elpy-shell-send-statement)))
 
-(use-package company-jedi
-  :hook
-  (python-mode . (lambda () (set (make-local-variable 'company-backends
-                                                      '(company-jedi))))))
 
 ;;;; Other Modes
 
@@ -234,8 +295,13 @@
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
 
 (use-package perl-mode
+  :mode "\\.pl\\'"
   :custom
   (perl-indent-level tab-width))
+
+(use-package fish-mode
+  :mode "\\.fish\\'"
+  :custom (fish-indent-offset tab-width))
 
 (use-package systemd
   :mode
@@ -246,6 +312,7 @@
   :mode "\\.rpz\\'")
 
 (use-package css-mode
+  :mode "\\.css\\'"
   :custom
   (css-indent-offset tab-width))
   
@@ -263,10 +330,12 @@
 
 (use-package nginx-mode
   :custom
-  (nginx-indent-level tab-width))
+  (nginx-indent-level tab-width)
+  :commands
+  (nginx-mode))
 
 (use-package caddyfile-mode
-  :mode "\\`Caddyfile\\'")
+  :mode "\\`Caddyfile.*")
 
 (use-package yaml-mode
   :mode "\\.ya\?ml\\'")
@@ -277,18 +346,18 @@
 (use-package enh-ruby-mode
   :ensure-system-package
   (rufo . "gem install rufo")
-  :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'")
-
-(use-package inf-ruby
-  :hook
-  (enh-ruby-mode . inf-ruby-minor-mode)
-  (compilation-filter . inf-ruby-auto-enter)
-  :commands
-  (inf-ruby inf-ruby-console-auto)
-  :bind
-  (:map inf-ruby-minor-mode-map
-        ("s-<return>". ruby-send-last-sexp)
-        ("C-M-x" . ruby-send-block)))
+  :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
+  :config
+  (use-package inf-ruby
+    :hook
+    (enh-ruby-mode . inf-ruby-minor-mode)
+    (compilation-filter . inf-ruby-auto-enter)
+    :commands
+    (inf-ruby inf-ruby-console-auto)
+    :bind
+    (:map inf-ruby-minor-mode-map
+          ("s-<return>". ruby-send-last-sexp)
+          ("C-M-x" . ruby-send-block))))
 
 (use-package lua-mode
   :mode "\\.lua\\'"
@@ -296,11 +365,11 @@
   (lua-indent-level 4))
 
 (use-package go-mode
-  :mode "\\.go\\'")
-
-(use-package company-go
-  :hook
-  (go-mode . (lambda () (set (make-local-variable 'company-backends) '(company-go)))))
+  :mode "\\.go\\'"
+  :config
+  (use-package company-go
+    :hook
+    (go-mode . (lambda () (set (make-local-variable 'company-backends) '(company-go))))))
 
 (use-package powershell
   :mode "\\.ps1\\'"
@@ -311,14 +380,16 @@
 (use-package php-mode
   :mode "\\.php\\'")
 
-(use-package ios-config-mode
+(use-package IOS-config-mode
+  :load-path "src/IOS-config-mode"
   :mode "\\.cfg\\'")
 
 ;;;; Utility
 
 (use-package polymode
+  :defer 5
   :config
-;;;;; rjsx
+  ;; rjsx
   (define-hostmode poly-rjsx-hostmode
     :mode 'rjsx-mode)
   (define-innermode poly-rjsx-graphql-innermode
@@ -331,7 +402,7 @@
     :hostmode 'poly-rjsx-hostmode
     :innermodes '(poly-rjsx-graphql-innermode))
   
-;;;;; web
+  ;; web
   (define-hostmode poly-web-hostmode
     :mode 'web-mode)
   (define-innermode poly-web-svg-innermode
@@ -344,7 +415,7 @@
     :hostmode 'poly-web-hostmode
     :innermodes '(poly-web-svg-innermode))
   
-;;;;; restclient
+  ;; restclient
   (define-hostmode poly-restclient-hostmode
     :mode 'restclient-mode)
   (define-innermode poly-restclient-elisp-root-innermode
@@ -372,9 +443,7 @@
   (markdown-mode . poly-markdown-mode))
 
 (use-package fence-edit
-  :straight
-  (:type git :host github :repo "aaronbieber/fence-edit.el"
-         :fork (:host github :repo "mnewt/fence-edit.el"))
+  :load-path "src/fence-edit.el"
   :config
   (seq-doseq (e '(("---" "---" yaml)
                   ("+++" "+++" toml)

@@ -6,70 +6,29 @@
 
 ;;; Code:
 
-(require 'tramp)
-
-(defun shell-match-variables-in-quotes (limit)
-  "Match variables in double-quotes in `sh-mode' with LIMIT."
-  (with-syntax-table sh-mode-syntax-table
-    (catch 'done
-      (while (re-search-forward
-              ;; `rx' is cool, mkay.
-              (rx (or line-start (not (any "\\")))
-                  (group "$")
-                  (group
-                   (or (and "{" (+? nonl) "}")
-                       (and (+ (any alnum "_")))
-                       (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
-              limit t)
-        (-when-let (string-syntax (nth 3 (syntax-ppss)))
-          (when (= string-syntax 34)
-            (throw 'done (point))))))))
-
-(defun maybe-reset-major-mode ()
-  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time."
-  (when (and (buffer-file-name)
-             (not (file-exists-p (buffer-file-name)))
-             (eq major-mode 'fundamental-mode))
-    (normal-mode)))
-
-(use-package sh-script
-  :custom
-  (sh-basic-offset tab-width)
-  (sh-indentation tab-width)
-  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t)
+(use-package tramp
+  :defer t
   :config
-  ;; Match variables in quotes. Fuco1 is awesome, mkay.
-  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
-  (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
-                                      (1 'default t)
-                                      (2 font-lock-variable-name-face t))))
-  :hook
-  (before-save . maybe-reset-major-mode)
-  (after-save . executable-make-buffer-file-executable-if-script-p))
+  (defun tramp-cleanup-all ()
+    "Clean up all tramp buffers and connections."
+    (interactive)
+    (tramp-cleanup-all-buffers)
+    (tramp-cleanup-all-connections))
+
+  (defun tramp-insert-remote-part ()
+    "Insert current tramp prefix at point."
+    (interactive)
+    (if-let* ((remote (file-remote-p default-directory)))
+        (insert remote)))
+
+  ;; Configure TRAMP to respect the PATH variable on the remote machine (for
+  ;; remote eshell sessions)
+  (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
 
 (defun expand-environment-variable ()
   "Insert contents of an envionment variable at point."
   (interactive)
   (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
-
-(defun tramp-cleanup-all ()
-  "Clean up all tramp buffers and connections."
-  (interactive)
-  (tramp-cleanup-all-buffers)
-  (tramp-cleanup-all-connections))
-
-(defun tramp-insert-remote-part ()
-  "Insert current tramp prefix at point."
-  (interactive)
-  (if-let* ((remote (file-remote-p default-directory)))
-      (insert remote)))
-
-;; Configure TRAMP to respect the PATH variable on the remote machine (for
-;; remote eshell sessions)
-(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
 
 (defun list-hosts-from-known-hosts ()
   "Return a list of hosts from `~/.ssh/known_hosts'."
@@ -132,19 +91,48 @@ new file for the first time."
        host
      (find-file (concat "/ssh:" host ":")))))
 
-;; http://whattheemacsd.com/setup-shell.el-01.html
-(defun comint-delchar-or-eof-or-kill-buffer (arg)
-  "`C-d' on an empty line in the shell terminates the process, accepts ARG."
-  (interactive "p")
-  (if (null (get-buffer-process (current-buffer)))
-      (kill-buffer)
-    (comint-delchar-or-maybe-eof arg)))
-
 (use-package shell
+  :config
+  ;; http://whattheemacsd.com/setup-shell.el-01.html
+  (defun comint-delchar-or-eof-or-kill-buffer (arg)
+    "`C-d' on an empty line in the shell terminates the process, accepts ARG."
+    (interactive "p")
+    (if (null (get-buffer-process (current-buffer)))
+        (kill-buffer)
+      (comint-delchar-or-maybe-eof arg)))
+
+  (defun shell-rename-buffer (_)
+    "Rename buffer to `default-directory'."
+    (rename-buffer (format "*Shell: %s*" default-directory) t))
+
+  (use-package bash-completion
+    :custom
+    ;; So that it doesn't sometimes insert a space ('\ ') after completing the
+    ;; file name.
+    (bash-completion-nospace t)
+    :hook
+    (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
+
+  (use-package fish-completion
+    :custom
+    (fish-completion-fallback-on-bash-p t)
+    :hook
+    (after-init . global-fish-completion-mode))
+
+  (use-package company-shell
+    :config
+    (add-to-list
+     'company-backends
+     `(company-shell company-shell-env
+                     ,(when (executable-find "fish") 'company-fish-shell))))
+
+  :hook
+  (shell-mode . shell-dirtrack-mode)
   :bind
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
-        ("SPC" . comint-magic-space)))
+        ("SPC" . comint-magic-space)
+        ("M-r" . counsel-shell-history)))
 
 (defun shell-command-exit-code (program &rest args)
   "Run PROGRAM with ARGS and return the exit code."
@@ -161,35 +149,15 @@ new file for the first time."
   "Open SSH connection to HOST and create or attach to dtach session."
   (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
   (let ((explicit-shell-file-name "dtach")
-        (default-directory (format  "/sshx:%s:" host))
-        (explicit-dtach-args explicit-dtach-args))
+        (default-directory (format  "/ssh:%s:" host)))
     (shell (format "*ssh (dtach) %s*" host))))
 
 (defun ssh (host)
   "Open SSH connection to HOST and create or attach to dtach session."
-  (interactive (list (ssh-choose-host "SSH using dtach to host: ")))
-  (shell (format "*ssh %s*" host)))
-
-(require 'term)
-
-;; https://www.emacswiki.org/emacs/ShellMode
-(defun term-switch-to-shell-mode ()
-  "Switch a term session to shell."
-  (interactive)
-  (if (or (equal major-mode 'term-mode))
-      (progn
-        (shell-mode)
-        (set-process-filter  (get-buffer-process (current-buffer)) 'comint-output-filter)
-        (local-set-key (kbd "C-M-j") 'term-switch-to-shell-mode)
-        (compilation-shell-minor-mode 1)
-        (comint-send-input))
-    (progn
-      (compilation-shell-minor-mode -1)
-      (font-lock-mode -1)
-      (set-process-filter  (get-buffer-process (current-buffer)) 'term-emulate-terminal)
-      (term-mode)
-      (term-char-mode)
-      (term-send-raw-string (kbd "C-l")))))
+  (interactive (list (ssh-choose-host "SSH to host: ")))
+  (let ((explicit-shell-file-name "bash")
+        (default-directory (format  "/ssh:%s:" host)))
+    (shell (format "*ssh %s*" host))))
 
 (defun sudo-toggle--add-sudo (path)
   "Add sudo to file PATH string."
@@ -209,34 +177,14 @@ new file for the first time."
    ((string-match-p "|sudo:root@" path)
     (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
 
-;; (defun sudo-enable ()
-;;   "Enable sudo in the current buffer."
-;;   (interative)
-;;   (let* ((position (point))
-;;          (f (expand-file-name (or buffer-file-name default-directory)))
-;;          (newf (sudo-toggle--add-sudo f))
-;;          ;; So that you don't get method overrides.
-;;          (tramp-default-proxies-alist nil))
-;;     (cond ((or buffer-file-name (derived-mode-p 'dired-mode))
-;;            (find-file newf)
-;;            (goto-char position))
-;;           ((derived-mode-p 'shell-mode)
-;;            (let ((b (format "*shell/sudo:root@%s*"
-;;                             (with-parsed-tramp-file-name newf nil host))))
-;;              (get-buffer-create b
-;;                                 (cd newf)
-;;                                 (shell b))))
-;;           ((derived-mode-p 'eshell-mode)
-;;            (eshell-return-to-prompt)
-;;            (insert (concat "cd '" newf "'"))
-;;            (eshell-send-input))
-;;           (t (message "Can't sudo this buffer.")))))
-
 (defun sudo-toggle ()
-  "Reopen the current file, directory, or shell as root.  For))))
-files and dired buffers, the non-sudo buffer is replaced with a
-sudo buffer.  For shells, a sudo shell is opened but the non-sudo
-shell is left intact."
+  "Reopen the current file, directory, or shell as root.
+
+For files and dired buffers, the non-sudo buffer is replaced with
+a sudo buffer.
+
+For shells, a sudo shell is opened but the
+non-sudo shell is left intact."
   (interactive)
   (let* ((position (point))
          (f (expand-file-name (or buffer-file-name default-directory)))
@@ -318,38 +266,46 @@ predicate returns true."
    ("M-n" . term-send-down)
    ("C-M-j" . term-switch-to-shell-mode)))
 
-;; Adapted from https://stackoverflow.com/a/42666026/1588358
-(defun xterm-color-apply-on-minibuffer ()
-  "Apply xterm color filtering on minibuffer output."
-  (let ((bufs (cl-remove-if-not
-               (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
-               (buffer-list))))
-    (dolist (buf bufs)
-      (with-current-buffer buf
-        (xterm-color-colorize-buffer)))))
-
-(defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
-  "Wrap `xterm-color-apply-on-minibuffer'."
-  (xterm-color-apply-on-minibuffer))
-
-(defun xterm-color-apply-on-shell-command-advice (_proc &rest _rest)
-  "Apply xterm color filtering on shell command output."
-  (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
-
-(defun xterm-color-apply-on-compile (proc)
-  "Apply xterm color filtering on the `compilation-mode' running PROC."
-  ;; We need to differentiate between compilation-mode buffers
-  ;; and running as part of comint (which at this point we assume
-  ;; has been configured separately for xterm-color)
-  (when (eq (process-filter proc) 'compilation-filter)
-    ;; This is a process associated with a compilation-mode buffer.
-    ;; We may call `xterm-color-filter' before its own filter function.
-    (set-process-filter proc (lambda (proc string)
-                               (funcall 'compilation-filter proc
-                                        (xterm-color-filter string))))))
-
 (use-package xterm-color
   :config
+  ;; Adapted from https://stackoverflow.com/a/42666026/1588358
+  (defun xterm-color-apply-on-minibuffer ()
+    "Apply xterm color filtering on minibuffer output."
+    (let ((bufs (cl-remove-if-not
+                 (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
+                 (buffer-list))))
+      (dolist (buf bufs)
+        (with-current-buffer buf
+          (xterm-color-colorize-buffer)))))
+
+  (defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
+    "Wrap `xterm-color-apply-on-minibuffer'."
+    (xterm-color-apply-on-minibuffer))
+
+  (defun xterm-color-apply-on-shell-command-advice (_proc &rest _rest)
+    "Apply xterm color filtering on shell command output."
+    (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
+
+  (defun xterm-color-apply-on-compile (proc)
+    "Apply xterm color filtering on the `compilation-mode' running PROC."
+    ;; We need to differentiate between compilation-mode buffers
+    ;; and running as part of comint (which at this point we assume
+    ;; has been configured separately for xterm-color)
+    (when (eq (process-filter proc) 'compilation-filter)
+      ;; This is a process associated with a compilation-mode buffer.
+      ;; We may call `xterm-color-filter' before its own filter function.
+      (set-process-filter proc (lambda (proc string)
+                                 (funcall 'compilation-filter proc
+                                          (xterm-color-filter string))))))
+
+  (defun xterm-color-shell-setup ()
+    ;; Disable font-locking in this buffer to improve performance
+    (font-lock-mode -1)
+    ;; Prevent font-locking from being re-enabled in this buffer
+    (make-local-variable 'font-lock-function)
+    (setq font-lock-function (lambda (_) nil))
+    (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))
+
   (setq comint-output-filter-functions
         (remove 'ansi-color-process-output comint-output-filter-functions))
   (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
@@ -357,44 +313,10 @@ predicate returns true."
   :commands
   (xterm-color-filter xterm-color-apply-on-minibuffer)
   :hook
-  (shell-mode . (lambda ()
-                  ;; Disable font-locking in this buffer to improve performance
-                  (font-lock-mode -1)
-                  ;; Prevent font-locking from being re-enabled in this buffer
-                  (make-local-variable 'font-lock-function)
-                  (setq font-lock-function (lambda (_) nil))
-                  (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t)))
+  (shell-mode . xterm-color-shell-setup)
   (compilation-start . xterm-color-apply-on-compile))
 
-(use-package bash-completion
-  :custom
-  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
-  ;; file name.
-  (bash-completion-nospace t)
-  :hook
-  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
-
-(use-package fish-mode
-  :custom (fish-indent-offset tab-width)
-  :mode "\\.fish\\'")
-
-(use-package fish-completion
-  :custom
-  (fish-completion-fallback-on-bash-p t)
-  :hook
-  (after-init . global-fish-completion-mode))
-
-(use-package company-shell
-  :config
-  (add-to-list
-   'company-backends
-   `(company-shell company-shell-env
-                   ,(when (executable-find "fish") 'company-fish-shell))))
-
-(defun shell-rename-buffer (_)
-  "Rename buffer to `default-directory'."
-  (rename-buffer (format "*Shell: %s*" default-directory) t))
-
+(add-hook 'shell-mode #'shell-dirtrack-mode)
 (add-hook 'comint-output-filter-functions #'shell-rename-buffer)
 
 (defun pw (command)
@@ -411,7 +333,8 @@ to modify the args."
     (message result)))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
-           ("C-:" . tramp-insert-remote-part))
+           ("C-:" . tramp-insert-remote-part)
+           ("C-c C-x p" . pw))
 
 (provide 'm-shell)
 

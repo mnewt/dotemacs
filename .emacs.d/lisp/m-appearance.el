@@ -6,8 +6,6 @@
 
 ;;; Code:
 
-(require 'tramp)
-
 ;; Configure the frame
 (when window-system
   (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
@@ -15,7 +13,8 @@
   (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1)))
 
 (setq frame-resize-pixelwise t
-      inhibit-splash-screen t)
+      inhibit-splash-screen t
+      text-scale-mode-step 1.1)
 
 ;; Blinking is NOT OK
 (blink-cursor-mode -1)
@@ -35,14 +34,8 @@
       mouse-wheel-follow-mouse 't
       mouse-wheel-scroll-amount '(1 ((shift) . 1)))
 
-(use-package pixel-scroll
-  :straight (:type built-in)
-  :hook
-  (after-init . pixel-scroll-mode))
-
-(use-package hl-line
-  :hook
-  (after-init . global-hl-line-mode))
+(add-hook 'after-init-hook #'pixel-scroll-mode)
+(add-hook 'after-init-hook #'global-hl-line-mode)
 
 ;; No GUI dialogs
 (setq use-dialog-box nil)
@@ -230,12 +223,13 @@ to customize further."
       (sp-show-pair-match-face ((t :foreground nil :background nil
                                    :inherit highlight))))))
 
-(defun theme-activate (theme)
+(defun theme-activate (&optional theme)
   "Switch the current Emacs theme to THEME.
 
 Handle some housekeeping that comes with switching themes. Set
 face specs for the mode-line. Having done that try to prevent
 Emacs from barfing fruit salad on the screen."
+  (unless theme (setq theme theme-current-theme))
   (mapc #'funcall before-theme-hook)
   (custom-set-variables '(custom-enabled-themes nil))
   (load-theme (if (stringp theme) (intern theme) theme) t)
@@ -291,10 +285,8 @@ Optionally interpose with SEPARATOR and surround with OUTSIDE."
 (defun theme-ml-remote-hostname ()
   "Return the remote hostname for the current buffer.
 Return nil if the buffer is local."
-  (when (file-remote-p default-directory)
-    (concat " "
-            (tramp-file-name-host (tramp-dissect-file-name default-directory))
-            " ")))
+  (when (and (boundp 'tramp-mode) (file-remote-p default-directory))
+    (format " %s " (tramp-file-name-host (tramp-dissect-file-name default-directory)))))
 
 (defun theme-ml-term-mode ()
   "Return the input mode for the buffer if in `term-mode'.
@@ -339,7 +331,8 @@ Propertize the result with the specified PROPERTIES."
          (list
           (when-propertize (theme-ml-remote-hostname) 'face 'mode-line-highlight)
           (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
-          (when (buffer-modified-p) " • ")
+          " "
+          (when (buffer-modified-p) "• ")
           (theme-ml-evil))
          ;; right
          (list
@@ -372,6 +365,10 @@ Propertize the result with the specified PROPERTIES."
         (when (buffer-modified-p) " • "))
        ;; right
        (list ""))))))
+
+;; The theme has to be applied after desktop is loaded. Maybe some other things
+;; interfere too?
+(add-hook 'emacs-startup-hook #'theme-activate)
 
 (defvar fiat-state 'nox
   "Whether we let there be light or dark.")
@@ -406,8 +403,7 @@ end tell'" p))))
 
 (use-package window-highlight
   :if (>= emacs-major-version 27)
-  :straight
-  (:type git :host github :repo "dcolascione/emacs-window-highlight")
+  :load-path "src/emacs-window-highlight"
   :hook
   (emacs-startup . window-highlight-mode))
 
@@ -445,8 +441,6 @@ end tell'" p))))
 (use-package font-lock-studio
   :commands
   (font-lock-studio))
-
-(add-hook 'emacs-startup-hook (lambda () (theme-activate theme-current-theme)))
 
 (bind-keys ("C-c C-t" . theme-choose)
            ("C-M-s-t" . fiat))
