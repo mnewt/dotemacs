@@ -9,7 +9,10 @@
 (defun git-add-current-file (file)
   "Run `git add' on the FILE visited in the current buffer."
   (interactive (list (buffer-file-name)))
-  (shell-command (format "git add '%s'" file)))
+  (let ((dir (s-trim (shell-command-to-string "git rev-parse --show-toplevel"))))
+    (if (= 0 (call-process-shell-command (concat "git add " file)))
+        (message "File %s was added to the git repo at %s." (buffer-file-name) dir)
+      (error "Failed to add file %s to the git repo at %s" (buffer-file-name) dir))))
 
 (defun dired-git-add ()
   "Run `git add' on the selected files in a dired buffer."
@@ -69,15 +72,12 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
     (git-worktree-unlink (getenv "HOME"))
     (message "Unlinked repo at %s" f)))
 
-;; VC follows the link and visits the real file, telling you about it in the
-;; echo area.
-;; (with-eval-after-load 'vc
-;;   (setq vc-follow-symlinks t))
-
-;; git config files
-(add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
-;; SSH server config files
-(add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
+(with-eval-after-load 'vc
+  ;; VC follows the link and visits the real file, telling you about it in the
+  ;; echo area.
+  (setq vc-follow-symlinks t
+        ;; Backup even if file is in vc.
+        vc-make-backup-files t))
 
 (use-package magit
   :custom

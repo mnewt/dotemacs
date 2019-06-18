@@ -10,11 +10,32 @@
 (when window-system
   (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
   (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1)))
+  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
+  (setq frame-resize-pixelwise t
+        ;; We don't set a frame title because Emacs on macOS renders the frame title
+        ;; face terribly. No rendering is better than terrible rendering.
+        frame-title-format nil
+        ;; No icon in the titlebar
+        ns-use-proxy-icon nil
+        ;; Smoother and nicer scrolling
+        scroll-margin 6
+        scroll-step 1
+        scroll-conservatively 10000
+        scroll-preserve-screen-position 1
+        auto-window-vscroll nil)
 
-(setq frame-resize-pixelwise t
-      inhibit-splash-screen t
-      text-scale-mode-step 1.1)
+  ;; Default frame settings. This is actually maximized, not full screen.
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
+
+  (with-eval-after-load 'face-remap (setq text-scale-mode-step 1.1))
+
+  ;; eww uses this as its default font, among others.
+  (set-face-font 'variable-pitch "Georgia-18"))
+
+(with-eval-after-load 'menu-bar (menu-bar-mode -1))
+
+(with-eval-after-load 'startup (setq inhibit-splash-screen t))
 
 ;; Blinking is NOT OK
 (blink-cursor-mode -1)
@@ -23,42 +44,38 @@
 (setq visible-bell t
       ;; Show keystrokes right away, don't show the message in the scratch
       ;; buffer.
-      echo-keystrokes 0.1)
+      echo-keystrokes 0.01)
 
-;; Smoother and nicer scrolling
-(setq scroll-margin 6
-      scroll-step 1
-      scroll-conservatively 10000
-      scroll-preserve-screen-position 1
-      auto-window-vscroll nil
-      mouse-wheel-follow-mouse 't
-      mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+(with-eval-after-load 'mwheel
+  (setq mouse-wheel-follow-mouse 't
+        mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
-(add-hook 'after-init-hook #'pixel-scroll-mode)
-(add-hook 'after-init-hook #'global-hl-line-mode)
+(use-package pixel-scroll
+  :defer 1
+  :ensure nil
+  :config
+  (pixel-scroll-mode))
+
+(use-package hl-line
+  :defer 1
+  :hook
+  ((prog-mode text-mode) . hl-line-mode))
 
 ;; No GUI dialogs
 (setq use-dialog-box nil)
-
-;; We don't set a frame title because Emacs on macOS renders the frame title
-;; face terribly. No rendering is better than terrible rendering.
-(setq frame-title-format nil
-      ;; No icon in the titlebar
-      ns-use-proxy-icon nil)
-
-;; Default frame settings. This is actually maximized, not full screen.
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-(add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
-
-;; eww uses this as its default font, among others.
-(set-face-font 'variable-pitch "Georgia-18")
 
 ;; (use-package doom-themes)
 
 ;; (use-package solarized-theme)
 
+(use-package flash-thing
+  :defer 5
+  :load-path "src/flash-thing"
+  :config
+  (setq ring-bell-function #'flash-window)
+  (flash-thing-mode))
+
 (use-package spacemacs-theme
-  :defer t
   :custom
   (spacemacs-theme-comment-bg nil))
 
@@ -66,10 +83,10 @@
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
   "The faces theme-activate uses to style the mode-line.")
 
-(defvar before-theme-hook nil
+(defvar theme-before-hook nil
   "Run whenever a theme is activated.")
 
-(defvar after-theme-hook nil
+(defvar theme-after-hook nil
   "Run whenever a theme is activated.")
 
 (defvar theme-themes '((spacemacs-light)
@@ -83,10 +100,14 @@
 ** mouse-color")
 
 (defvar theme-current-theme 'spacemacs-dark
-  "Defines the currently loaded theme.")
+  "Defines the currently loaded theme.
+
+It is meant to be saved using `desktop' so that we load the
+previously selected theme on startup.")
 
 (defvar theme-specs-common
-  '((cursor ((t :background "#F60"))))
+  ;; '((cursor ((t :background "#F60"))))
+  '((cursor ((t :background "magenta"))))
   "List of default face specs to apply when a theme is activated.
 This list is for specs that are common to all themes and do not
 require any kind of dynamic evaluation (e.g. configuring one face
@@ -121,7 +142,7 @@ This is used to determine whether the current window is active."
   (eq theme-selected-window (selected-window)))
 
 (defun alist-get-all (key alist &optional default testfn)
-  "Return a list of all the elements of ALIST with matching KEY.
+  "Return a list of *all* the elements of ALIST with matching KEY.
 
 Modeled on `alist-get', which only returns the first match.
 
@@ -188,6 +209,17 @@ Lifted from solarized."
                     (color-name-to-rgb color1)
                     (color-name-to-rgb color2))))
 
+;; (defun theme-highlight-selected-window ()
+;;   "Highlight selected window with a different background color."
+;;   (let* ((bg (plist-get (face-spec-choose (theme-get-face 'fringe)) :background)))
+;;     (walk-windows (lambda (w)
+;;                     (unless (eq w (selected-window))
+;;                       (with-current-buffer (window-buffer w)
+;;                         (buffer-face-set (list :background bg)))))))
+;;   (buffer-face-set 'default))
+
+;; (add-hook 'buffer-list-update-hook 'theme-highlight-selected-window)
+
 (defun theme-generate-specs ()
   "Automatically generate theme specs the supplied faces.
 
@@ -215,7 +247,6 @@ to customize further."
       (mode-line-buffer-id ((t :background ,(theme-color-blend active-bg active-fg 0.2)
                                :foreground ,inactive-bg :bold t)))
       (compilation-mode-line-fail ((t :inherit highlight)))
-      (doom-modeline-error ((t :background nil :foreground nil :inherit highlight)))
       (mode-line-inactive ((t :box nil :underline nil
                               :background ,inactive-bg
                               :foreground ,inactive-fg)))
@@ -230,7 +261,7 @@ Handle some housekeeping that comes with switching themes. Set
 face specs for the mode-line. Having done that try to prevent
 Emacs from barfing fruit salad on the screen."
   (unless theme (setq theme theme-current-theme))
-  (mapc #'funcall before-theme-hook)
+  (mapc #'funcall theme-before-hook)
   (custom-set-variables '(custom-enabled-themes nil))
   (load-theme (if (stringp theme) (intern theme) theme) t)
   (let* ((opts (alist-get theme theme-themes)))
@@ -247,7 +278,7 @@ Emacs from barfing fruit salad on the screen."
                         (t "black")))
       (when (boundp 'hook) (mapc #'funcall hook)))
     (setq theme-current-theme theme)
-    (mapc #'funcall after-theme-hook)))
+    (mapc #'funcall theme-after-hook)))
 
 (defun theme-choose (theme)
   "Interactively choose a THEME from `theme-themes' and activate it."
@@ -262,8 +293,8 @@ Emacs from barfing fruit salad on the screen."
 
 Insert spaces between the two so that the string is
 `window-total-width' columns wide."
-  (let ((left (apply #'concat left))
-        (right (apply #'concat right)))
+  (let ((left (apply #'concat "" left))
+        (right (apply #'concat "" right)))
     ;; Start with a string so left can start with nil without breaking things.
     (concat ""
             left
@@ -402,10 +433,10 @@ end tell'" p))))
   (if (eq fiat-state 'nox) (fiat-lux) (fiat-nox)))
 
 (use-package window-highlight
-  :if (>= emacs-major-version 27)
-  :load-path "src/emacs-window-highlight"
-  :hook
-  (emacs-startup . window-highlight-mode))
+  :defer 1
+  :git "https://github.com/dcolascione/emacs-window-highlight.git"
+  :config
+  (window-highlight-mode))
 
 (use-package form-feed
   :config

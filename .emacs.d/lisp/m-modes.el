@@ -52,15 +52,10 @@ new file for the first time."
   :hook
   (before-save . maybe-reset-major-mode)
   (after-save . executable-make-buffer-file-executable-if-script-p)
-  :bind
+  :bind*
   (:map sh-mode-map
         ("<return>" . newline-and-indent)
         ("RET" . newline-and-indent)))
-
-;; Automate communication with services, such as nicserv.
-(use-package erc
-  :hook
-  (erc-connect-pre . erc-services-mode))
 
 ;;;; Log Files
 
@@ -106,6 +101,7 @@ new file for the first time."
   ("C-c M-d" . docker))
 
 (use-package docker-tramp
+  :after tramp
   :defer 5)
 
 ;; dw (https://gitlab.com/mnewt/dw)
@@ -116,6 +112,7 @@ new file for the first time."
 (use-package eww
   :config
   (use-package shr-tag-pre-highlight
+    :after shr
     :hook
     (eww-mode . (lambda () (add-to-list 'shr-external-rendering-functions
                                         '(pre . shr-tag-pre-highlight))))
@@ -178,6 +175,11 @@ new file for the first time."
   :hook
   (web-mode . m-web-mode-hook))
 
+(use-package css-mode
+  :mode "\\.css\\'"
+  :custom
+  (css-indent-offset tab-width))
+
 (use-package sass-mode
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
 
@@ -217,7 +219,7 @@ new file for the first time."
 
 ;; Tide is for Typescript but it works great for js/react.
 (use-package tide
-  :defer 5
+  :defer 2
   :init
   (defun m-tide-setup ()
     (tide-setup)
@@ -235,7 +237,7 @@ new file for the first time."
   ((js-mode js2-mode typescript-mode) . m-tide-setup))
 
 (use-package prettier-js
-  :defer 5
+  :defer 2
   :ensure-system-package
   (prettier . "npm i -g prettier")
   :hook
@@ -290,6 +292,11 @@ new file for the first time."
 
 ;;;; Other Modes
 
+;; git config files
+(add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
+;; SSH server config files
+(add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
+
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
@@ -311,11 +318,6 @@ new file for the first time."
 (use-package dns-mode
   :mode "\\.rpz\\'")
 
-(use-package css-mode
-  :mode "\\.css\\'"
-  :custom
-  (css-indent-offset tab-width))
-  
 ;; (use-package genrnc
 ;;   :custom
 ;;   (genrnc-user-schemas-directory "~/.emacs.d/schema")
@@ -381,26 +383,38 @@ new file for the first time."
   :mode "\\.php\\'")
 
 (use-package IOS-config-mode
-  :load-path "src/IOS-config-mode"
+  :git "https://github.com/nibrahim/IOS-config-mode.git"
   :mode "\\.cfg\\'")
 
 ;;;; Utility
 
 (use-package polymode
-  :defer 5
   :config
   ;; rjsx
-  (define-hostmode poly-rjsx-hostmode
-    :mode 'rjsx-mode)
-  (define-innermode poly-rjsx-graphql-innermode
+  ;; (define-hostmode poly-rjsx-hostmode
+  ;;   :mode 'rjsx-mode)
+  ;; (define-innermode poly-rjsx-graphql-innermode
+  ;;   :mode 'graphql-mode
+  ;;   :head-matcher "graphql[ \t\n]*(?`"
+  ;;   :tail-matcher "`"
+  ;;   :head-mode 'host
+  ;;   :tail-mode 'host)
+  ;; (define-polymode poly-rjsx-mode
+  ;;   :hostmode 'poly-rjsx-hostmode
+  ;;   :innermodes '(poly-rjsx-graphql-innermode))
+
+  ;; js
+  (define-hostmode poly-js-hostmode
+    :mode 'js-mode)
+  (define-innermode poly-js-graphql-innermode
     :mode 'graphql-mode
     :head-matcher "graphql[ \t\n]*(?`"
     :tail-matcher "`"
     :head-mode 'host
     :tail-mode 'host)
-  (define-polymode poly-rjsx-mode
-    :hostmode 'poly-rjsx-hostmode
-    :innermodes '(poly-rjsx-graphql-innermode))
+  (define-polymode poly-js-mode
+    :hostmode 'poly-js-hostmode
+    :innermodes '(poly-js-graphql-innermode))
   
   ;; web
   (define-hostmode poly-web-hostmode
@@ -434,7 +448,8 @@ new file for the first time."
                   poly-restclient-elisp-multi-innermode))
 
   :hook
-  ((rjsx-mode . poly-rjsx-mode)
+  ((js-mode . poly-js-mode)
+   ;; (rjsx-mode . poly-rjsx-mode)
    (web-mode . poly-web-mode)
    (restclient-mode . poly-restclient-mode)))
 
@@ -443,7 +458,7 @@ new file for the first time."
   (markdown-mode . poly-markdown-mode))
 
 (use-package fence-edit
-  :load-path "src/fence-edit.el"
+  :git "https://github.com/aaronbieber/fence-edit.el.git"
   :config
   (seq-doseq (e '(("---" "---" yaml)
                   ("+++" "+++" toml)

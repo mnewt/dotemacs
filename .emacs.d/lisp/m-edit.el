@@ -55,7 +55,39 @@ Bring the line below point up to the current line."
   (interactive)
   (join-line -1))
 
+(use-package undo-tree
+  :init
+  ;; Keep region when undoing in region.
+  ;; http://whattheemacsd.com/my-misc.el-02.html
+  (defun undo-tree-keep-region (f &rest args)
+    "Keep region after `undo-tree-undo'.
+Call F with ARGS."
+    (if (use-region-p)
+        (let ((m (set-marker (make-marker) (mark)))
+              (p (set-marker (make-marker) (point))))
+          (apply f args)
+          (goto-char p)
+          (set-mark m)
+          (set-marker p nil)
+          (set-marker m nil))
+      (call-interactively f)))
+
+  (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
+  :custom
+  (undo-tree-auto-save-history t)
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
+  (undo-tree-visualizer-timestamps t)
+  (undo-tree-visualizer-diff t)
+  :config
+  (global-undo-tree-mode)
+  :bind
+  ("s-z" . undo-tree-undo)
+  ("s-Z" . undo-tree-redo)
+  ("s-y" . undo-tree-redo)
+  ("M-s-z" . undo-tree-visualize))
+
 (use-package goto-chg
+  :after undo-tree
   :bind
   ("C-." . goto-last-change)
   ("C-;" . goto-last-change-reverse))
@@ -401,70 +433,6 @@ ID, ACTION, CONTEXT."
     (forward-line -1)
     (indent-according-to-mode))
 
-  (defun smartparens-init ()
-    "Initialize smartparens."
-    (require 'smartparens-config)
-    (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
-                            js2-mode json-mode objc-mode java-mode web-mode)
-      (sp-local-pair "{" nil
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)))
-      (sp-local-pair "[" nil
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)))
-      (sp-local-pair "(" nil
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline))))
-    (sp-with-modes 'python-mode
-      (sp-local-pair "\"\"\"" "\"\"\""
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline))))
-    (sp-with-modes 'sh-mode
-      (sp-local-pair "{" nil
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)
-                                      sp-sh-post-handler))
-      (sp-local-pair "(" nil
-                     :post-handlers '((sp-create-newline-and-enter-sexp "RET" sp-newline)
-                                      sp-sh-post-handler))
-      (sp-local-pair "[" "]"
-                     :actions '(wrap insert navigate)
-                     :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-      (sp-local-pair "[ " " ]"
-                     :actions '(wrap insert navigate)
-                     :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-      (sp-local-pair "[[" "]]"
-                     :actions '(wrap insert navigate)
-                     :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-      (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate)
-                     :post-handlers '(sp-sh-insert-spaces  sp-sh-post-handler))
-      (sp-local-pair "for" "done"
-                     :when '(("SPC" "RET" "TAB" sp-newline))
-                     :unless '(sp-in-string-p sp-in-comment-p)
-                     :actions '(insert navigate)
-                     :pre-handlers '(sp-sh-pre-handler)
-                     :post-handlers '(sp-sh-for-post-handler))
-      (sp-local-pair "if" "fi"
-                     :when '(("SPC" "RET" "TAB" sp-newline))
-                     :unless '(sp-in-string-p sp-in-comment-p)
-                     :actions '(insert navigate)
-                     :pre-handlers '(sp-sh-pre-handler)
-                     :post-handlers '(sp-sh-if-post-handler))
-      (sp-local-pair "case" "esac"
-                     :when '(("SPC" "RET" "TAB" sp-newline))
-                     :unless '(sp-in-string-p sp-in-comment-p)
-                     :actions '(insert navigate)
-                     :pre-handlers '(sp-sh-pre-handler)
-                     :post-handlers '(sp-sh-case-post-handler)))
-    (sp-with-modes 'org-mode
-      (sp-local-pair "=" "=" :wrap "C-M-=")
-      (sp-local-pair "~" "~" :wrap "C-~"))
-    (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
-    (sp-with-modes sp-lisp-modes
-      (sp-local-pair "(" nil
-                     :wrap "C-M-("
-                     :pre-handlers '(sp-add-space-before-sexp-insertion)
-                     :post-handlers '(sp-add-space-after-sexp-insertion)))
-    (setq sp-ignore-modes-list
-          (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
-    (smartparens-global-mode)
-    (show-smartparens-global-mode))
-
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
   ;; the entire symbol, use `sp-kill-symbol'.
@@ -477,14 +445,81 @@ ID, ACTION, CONTEXT."
   ;; smartparens does some weird stuff with bindings so you can't reliably use
   ;; `use-package/:bind' to set them.
   (sp-base-key-bindings 'paredit)
-  (sp-override-key-bindings '(("C-S-d" . sp-down-sexp)
+  (sp-override-key-bindings '(("M-s" . nil)
+                              ("M-s-s" . sp-splice-sexp)
+                              ("C-S-d" . sp-down-sexp)
                               ("C-M-d" . sp-kill-symbol)
                               ("M-<backspace>" . sp-backward-kill-word)
                               ("C-<backspace>" . sp-backward-kill-symbol)
                               ("C-M-<backspace>" . sp-backward-kill-sexp)
                               ("C-s-<backspace>" . sp-splice-sexp-killing-backward)))
+
   :config
-  (smartparens-init)
+  (require 'smartparens-config)
+  (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
+                          js2-mode json-mode objc-mode java-mode web-mode)
+    (sp-local-pair "{" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
+    (sp-local-pair "[" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
+    (sp-local-pair "(" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+  (sp-with-modes 'python-mode
+    (sp-local-pair "\"\"\"" "\"\"\""
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+  (sp-with-modes 'sh-mode
+    (sp-local-pair "{" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
+                                    sp-sh-post-handler))
+    (sp-local-pair "(" nil
+                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
+                                    sp-sh-post-handler))
+    (sp-local-pair "[" "]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces sp-sh-post-handler))
+    (sp-local-pair "[ " " ]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces sp-sh-post-handler))
+    (sp-local-pair "[[" "]]"
+                   :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces sp-sh-post-handler))
+    (sp-local-pair "[[ " " ]]" :actions '(wrap insert navigate)
+                   :post-handlers '(sp-sh-insert-spaces sp-sh-post-handler))
+    (sp-local-pair "for" "done"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-for-post-handler))
+    (sp-local-pair "if" "fi"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-if-post-handler))
+    (sp-local-pair "case" "esac"
+                   :when '(("SPC" "RET" "TAB" sp-newline))
+                   :unless '(sp-in-string-p sp-in-comment-p)
+                   :actions '(insert navigate)
+                   :pre-handlers '(sp-sh-pre-handler)
+                   :post-handlers '(sp-sh-case-post-handler)))
+  (sp-with-modes 'org-mode
+    (sp-local-pair "=" "=" :wrap "C-M-=")
+    (sp-local-pair "~" "~" :wrap "C-~"))
+  (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
+  (sp-with-modes sp-lisp-modes
+    (sp-local-pair "(" nil
+                   :wrap "C-M-("
+                   :pre-handlers '(sp-add-space-before-sexp-insertion)
+                   :post-handlers '(sp-add-space-after-sexp-insertion)))
+  (setq sp-ignore-modes-list
+        (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
+  (smartparens-global-mode)
+  (show-smartparens-global-mode)
+  ;; Damnit smartparens, quit binding `M-s'!
+  ;; (bind-key "M-s" nil smartparens-mode-map)
+  :hook
+  (after-init . sp--update-override-key-bindings)
   :commands
   (sp-local-pair sp-with-modes smartparens-global-mode show-smartparens-global-mode)
   :bind
@@ -493,7 +528,32 @@ ID, ACTION, CONTEXT."
         ("<return>" . sp-newline)
         :map lisp-mode-shared-map
         ([remap kill-line] . sp-kill-hybrid-sexp)
-        (";" . sp-comment)))
+        (";" . sp-comment))
+  :bind*
+  (:map smartparens-mode-map
+        ("M-s" . nil)
+        ("M-r" . nil)))
+
+(use-package hl-todo
+  :defer 6
+  :custom
+  (hl-todo-keyword-faces
+   '(("TODO" . "magenta")
+     ("NEXT" . "lime green")
+     ("NOTE" . "orange")
+     ("KLUDGE" . "orange")
+     ("HACK" . "orange")
+     ("TEMP" . "orange")
+     ("FIXME" . "magenta")
+     ("XXX+" . "orange")
+     ("\\?\\?\\?+" . "magenta")))
+  :config
+  (global-hl-todo-mode)
+  :bind
+  ("M-s h i" . hl-todo-insert)
+  ("M-s h p" . hl-todo-previous)
+  ("M-s h n" . hl-todo-next)
+  ("M-s h o" . hl-todo-occur))
 
 (defun indent-buffer-or-region (beg end &optional arg)
   "Indent the region from BEG to END.
@@ -622,19 +682,6 @@ If no region is selected, toggles comments for the line."
   (yank)
   (newline)
   (other-window -1))
-
-(defface todo-face
-  '((((class color))
-     (:foreground "magenta" :weight bold))
-    (t (:weight bold)))
-  "Face to fontify FIXME/TODO words."
-  :group 'todo)
-
-(defun todo-add-font-locking ()
-  "Add font locking for TODOs."
-  (font-lock-add-keywords 'prog-mode '(("\\(TODO\\|FIXME\\|HELP\\):" 1 'todo-face t)) 'append))
-
-(add-hook 'after-init-hook #'todo-add-font-locking)
 
 (bind-keys
  ("C-x r E" . expression-to-register)

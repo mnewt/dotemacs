@@ -44,19 +44,19 @@
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
+  :after
+  wgrep-ag
   :ensure-system-package
   (rg . ripgrep)
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
-  :after
-  (wgrep-ag)
   :config
   (rg-enable-default-bindings (kbd "C-r"))
   :hook
   (rg-mode . wgrep-ag-setup))
 
 (use-package ivy
-  :demand t
+  :defer 0.5
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -87,7 +87,7 @@
   :after (ivy hydra))
 
 (use-package swiper
-  :demand t
+  :defer 0.5
   :after ivy
   :bind
   (:map ivy-minibuffer-map
@@ -95,25 +95,31 @@
         ("s-5" . ivy--replace-regexp-entire-buffer)))
 
 (use-package counsel
-  :demand t
+  :defer 0.5
   :after ivy
   :custom
   (counsel-find-file-at-point t)
-  (counsel-grep-base-command "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
+  (counsel-grep-base-command
+   "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
   :config
-
-  (defun counsel--call-in-other-window-action (x)
+  (defun ivy--call-with-current-buffer-in-other-window-action (x)
     "Switch to other window and call command X."
     (switch-to-buffer-other-window (current-buffer)
                                    (call-interactively (intern x))))
 
+  (defun ivy--call-with-other-window-action (x)
+    "Switch current buffer to other window and call command X."
+    (other-window 1)
+    (call-interactively (intern x)))
+
   (defun counsel-rg-default-directory (f &rest args)
     "Call F (`counsel-rg') with ARGS from `default-directory'.
 
-It seems like `counsel-rg' should call itself from
+NOTE: It seems like `counsel-rg' should call itself from
 `default-directory' without assistance but in my experience it
 looks for a project root directory instead. If we want to search
-from the project root, we can use `counsel-projectile-rg'."
+from the project root, we can use `counsel-projectile-rg', and we
+force `counsel-rg' to search in `default-directory.'"
     (let ((initial-input (car args))
           (initial-directory (or (cadr args) default-directory))
           (extra-rg-args (caddr args))
@@ -141,20 +147,9 @@ from the project root, we can use `counsel-projectile-rg'."
     "Delete FILE with confirmation."
     (dired-delete-file file 'confirm-each-subdirectory))
 
-  ;; (defun counsel-register-action-delete (register)
-  ;;   "Delete the REGISTER."
-  ;;   (let ((val (get-text-property 0 'register register)))
-  ;;     (setq register-alist (delq (assoc val register-alist) register-alist))
-  ;;     (message "Deleted register %s." (single-key-description val))))
-
-  ;; (defun counsel-register-action-then-delete (register)
-  ;;   "Perform the default action on REGISTER, then delete it."
-  ;;   (counsel-register-action register)
-  ;;   (counsel-register-action-delete register))
-
   (ivy-add-actions
    'counsel-M-x
-   `(("j" counsel--call-in-other-window-action "other window")))
+   `(("j" ivy--call-with-current-buffer-in-other-window-action "other window")))
   (ivy-add-actions
    'counsel-find-file
    `(("c" ,(given-file #'copy-file "Copy") "copy")
@@ -166,147 +161,145 @@ from the project root, we can use `counsel-projectile-rg'."
      ("b" counsel-find-file-cd-bookmark-action "cd bookmark")))
   (ivy-add-actions
    'counsel-switch-buffer
-   '(("f"
-      ivy--find-file-action
-      "find file")
-     ("j"
-      ivy--switch-buffer-other-window-action
-      "other window")
-     ("k"
-      ivy--kill-buffer-action
-      "kill")
-     ("r"
-      ivy--rename-buffer-action
-      "rename")))
+   '(("f" ivy--find-file-action "find file")
+     ("j" ivy--switch-buffer-other-window-action "other window")
+     ("k" ivy--kill-buffer-action "kill")
+     ("r" ivy--rename-buffer-action "rename")))
+  ;; TODO: Adapt these functions for `counsel-rg'. See `counsel-git-grep-action'.
+  ;; (ivy-add-actions
+  ;;  'counsel-rg
+  ;;  '(("f" ivy--find-file-action "find file")
+  ;;    ("j" ivy--call-with-other-window-action "other window")))
   (ivy-set-actions
    'counsel-register
    '(("d" counsel-register-action-delete "delete")
      ("k" counsel-register-action-then-delete "call then delete")))
+  
 
-;;   (defcustom counsel-git-grep-preview t
-;;     "When non-nil, display the file and match immediately.
-;; This works for `counsel-git-grep', `counsel-ag', and
-;;   derivatives."
-;;     :type 'boolean
-;;     :group 'counsel)
+  ;;   (defcustom counsel-git-grep-preview t
+  ;;     "When non-nil, display the file and match immediately.
+  ;; This works for `counsel-git-grep', `counsel-ag', and
+  ;;   derivatives."
+  ;;     :type 'boolean
+  ;;     :group 'counsel)
 
-;;   (defun counsel-git-grep-preview-toggle ()
-;;     "Toggle `counsel-git-grep-preview'."
-;;     (if counsel-git-grep-preview
-;;         (setq counsel-git-grep-preview nil)
-;;       (setq counsel-git-grep-preview t)))
+  ;;   (defun counsel-git-grep-preview-toggle ()
+  ;;     "Toggle `counsel-git-grep-preview'."
+  ;;     (if counsel-git-grep-preview
+  ;;         (setq counsel-git-grep-preview nil)
+  ;;       (setq counsel-git-grep-preview t)))
 
-;;   (defvar counsel--git-grep-temporary-buffers nil
-;;     "Internal. Track open buffers during `counsel-git-grep' session.")
+  ;;   (defvar counsel--git-grep-temporary-buffers nil
+  ;;     "Internal. Track open buffers during `counsel-git-grep' session.")
 
-;;   (defvar counsel--git-grep-previous-buffers nil
-;;     "Internal. Used to restore buffer order after `counsel-git-grep'.")
+  ;;   (defvar counsel--git-grep-previous-buffers nil
+  ;;     "Internal. Used to restore buffer order after `counsel-git-grep'.")
 
-;;   (defun counsel--git-grep-unwind ()
-;;     "Clear temporary file buffers and restore `buffer-list'.
-;; The buffers are those opened during a session of `counsel-git-grep'."
-;;     (mapc #'kill-buffer counsel--git-grep-temporary-buffers)
-;;     (mapc #'bury-buffer (cl-remove-if-not #'buffer-live-p counsel--git-grep-previous-buffers))
-;;     (setq counsel--git-grep-temporary-buffers nil
-;;           counsel--git-grep-previous-buffers nil)
-;;     (counsel-delete-process)
-;;     (swiper--cleanup))
+  ;;   (defun counsel--git-grep-unwind ()
+  ;;     "Clear temporary file buffers and restore `buffer-list'.
+  ;; The buffers are those opened during a session of `counsel-git-grep'."
+  ;;     (mapc #'kill-buffer counsel--git-grep-temporary-buffers)
+  ;;     (mapc #'bury-buffer (cl-remove-if-not #'buffer-live-p counsel--git-grep-previous-buffers))
+  ;;     (setq counsel--git-grep-temporary-buffers nil
+  ;;           counsel--git-grep-previous-buffers nil)
+  ;;     (counsel-delete-process)
+  ;;     (swiper--cleanup))
 
-;;   (defun counsel--line (x)
-;;     "Go to line number X in the current file."
-;;     (swiper--cleanup)
-;;     (goto-char (point-min))
-;;     (forward-line (1- (string-to-number x)))
-;;     (re-search-forward (ivy--regex ivy-text t) (line-end-position) t)
-;;     (swiper--add-overlays (ivy--regex ivy-text)))
+  ;;   (defun counsel--line (x)
+  ;;     "Go to line number X in the current file."
+  ;;     (swiper--cleanup)
+  ;;     (goto-char (point-min))
+  ;;     (forward-line (1- (string-to-number x)))
+  ;;     (re-search-forward (ivy--regex ivy-text t) (line-end-position) t)
+  ;;     (swiper--add-overlays (ivy--regex ivy-text)))
 
-;;   (defun counsel--git-grep-update-fn ()
-;;     "Display the current selection and its buffer."
-;;     (let ((current (ivy-state-current ivy-last)))
-;;       (when (and counsel-git-grep-preview
-;;                  (string-match "\\`\\(.*?\\):\\([0-9]+\\):\\(.*\\)\\'" current))
-;;         (unless counsel--git-grep-previous-buffers
-;;           (setq counsel--git-grep-previous-buffers (buffer-list)))
-;;         (let* ((file-name (match-string-no-properties 1 current))
-;;                (line-number (match-string-no-properties 2 current))
-;;                (buffer (or (cl-some (lambda (b)
-;;                                       (when (string= (buffer-file-name b) file-name)
-;;                                         b))
-;;                                     (buffer-list))
-;;                            (let ((buffer (find-file-noselect file-name)))
-;;                              (cl-pushnew buffer counsel--git-grep-temporary-buffers)
-;;                              buffer))))
-;;           (with-ivy-window (pop-to-buffer-same-window buffer)
-;;                            (counsel--line line-number))))))
+  ;;   (defun counsel--git-grep-update-fn ()
+  ;;     "Display the current selection and its buffer."
+  ;;     (let ((current (ivy-state-current ivy-last)))
+  ;;       (when (and counsel-git-grep-preview
+  ;;                  (string-match "\\`\\(.*?\\):\\([0-9]+\\):\\(.*\\)\\'" current))
+  ;;         (unless counsel--git-grep-previous-buffers
+  ;;           (setq counsel--git-grep-previous-buffers (buffer-list)))
+  ;;         (let* ((file-name (match-string-no-properties 1 current))
+  ;;                (line-number (match-string-no-properties 2 current))
+  ;;                (buffer (or (cl-some (lambda (b)
+  ;;                                       (when (string= (buffer-file-name b) file-name)
+  ;;                                         b))
+  ;;                                     (buffer-list))
+  ;;                            (let ((buffer (find-file-noselect file-name)))
+  ;;                              (cl-pushnew buffer counsel--git-grep-temporary-buffers)
+  ;;                              buffer))))
+  ;;           (with-ivy-window (pop-to-buffer-same-window buffer)
+  ;;                            (counsel--line line-number))))))
 
-;;   (defun counsel-git-grep (&optional cmd initial-input)
-;;     "Grep for a string in the current Git repository.
-;; When CMD is a string, use it as a \"git grep\" command.
-;; When CMD is non-nil, prompt for a specific \"git grep\" command.
-;; INITIAL-INPUT can be given as the initial minibuffer input."
-;;     (interactive "P")
-;;     (let ((proj-and-cmd (counsel--git-grep-cmd-and-proj cmd))
-;;           proj)
-;;       (setq proj (car proj-and-cmd))
-;;       (setq counsel-git-grep-cmd (cdr proj-and-cmd))
-;;       (counsel-require-program counsel-git-grep-cmd)
-;;       (let ((collection-function
-;;              (if proj
-;;                  #'counsel-git-grep-proj-function
-;;                #'counsel-git-grep-function))
-;;             (default-directory (if proj
-;;                                    (car proj)
-;;                                  (counsel-locate-git-root))))
-;;         (ivy-read "git grep: " collection-function
-;;                   :initial-input initial-input
-;;                   :dynamic-collection t
-;;                   :keymap counsel-git-grep-map
-;;                   :action #'counsel-git-grep-action
-;;                   :history 'counsel-git-grep-history
-;;                   :caller 'counsel-git-grep
-;;                   :unwind #'counsel--git-grep-unwind
-;;                   :update-fn #'counsel--git-grep-update-fn))))
+  ;;   (defun counsel-git-grep (&optional cmd initial-input)
+  ;;     "Grep for a string in the current Git repository.
+  ;; When CMD is a string, use it as a \"git grep\" command.
+  ;; When CMD is non-nil, prompt for a specific \"git grep\" command.
+  ;; INITIAL-INPUT can be given as the initial minibuffer input."
+  ;;     (interactive "P")
+  ;;     (let ((proj-and-cmd (counsel--git-grep-cmd-and-proj cmd))
+  ;;           proj)
+  ;;       (setq proj (car proj-and-cmd))
+  ;;       (setq counsel-git-grep-cmd (cdr proj-and-cmd))
+  ;;       (counsel-require-program counsel-git-grep-cmd)
+  ;;       (let ((collection-function
+  ;;              (if proj
+  ;;                  #'counsel-git-grep-proj-function
+  ;;                #'counsel-git-grep-function))
+  ;;             (default-directory (if proj
+  ;;                                    (car proj)
+  ;;                                  (counsel-locate-git-root))))
+  ;;         (ivy-read "git grep: " collection-function
+  ;;                   :initial-input initial-input
+  ;;                   :dynamic-collection t
+  ;;                   :keymap counsel-git-grep-map
+  ;;                   :action #'counsel-git-grep-action
+  ;;                   :history 'counsel-git-grep-history
+  ;;                   :caller 'counsel-git-grep
+  ;;                   :unwind #'counsel--git-grep-unwind
+  ;;                   :update-fn #'counsel--git-grep-update-fn))))
 
   ;; (cl-pushnew 'counsel-git-grep ivy-highlight-grep-commands)
 
-;;   (cl-defun counsel-ag (&optional initial-input initial-directory extra-ag-args ag-prompt
-;;                                   &key caller)
-;;     "Grep for a string in the current directory using ag.
-;; INITIAL-INPUT can be given as the initial minibuffer input.
-;; INITIAL-DIRECTORY, if non-nil, is used as the root directory for search.
-;; EXTRA-AG-ARGS string, if non-nil, is appended to `counsel-ag-base-command'.
-;; AG-PROMPT, if non-nil, is passed as `ivy-read' prompt argument.
-;; CALLER is passed to `ivy-read'."
-;;     (interactive)
-;;     (setq counsel-ag-command counsel-ag-base-command)
-;;     (setq counsel--regex-look-around counsel--grep-tool-look-around)
-;;     (counsel-require-program counsel-ag-command)
-;;     (when current-prefix-arg
-;;       (setq initial-directory
-;;             (or initial-directory
-;;                 (read-directory-name (concat
-;;                                       (car (split-string counsel-ag-command))
-;;                                       " in directory: "))))
-;;       (setq extra-ag-args
-;;             (or extra-ag-args
-;;                 (read-from-minibuffer (format
-;;                                        "%s args: "
-;;                                        (car (split-string counsel-ag-command)))))))
-;;     (setq counsel-ag-command (counsel--format-ag-command (or extra-ag-args "") "%s"))
-;;     (let ((default-directory (or initial-directory
-;;                                  (counsel--git-root)
-;;                                  default-directory)))
-;;       (ivy-read (or ag-prompt
-;;                     (concat (car (split-string counsel-ag-command)) ": "))
-;;                 #'counsel-ag-function
-;;                 :initial-input initial-input
-;;                 :dynamic-collection t
-;;                 :keymap counsel-ag-map
-;;                 :history 'counsel-git-grep-history
-;;                 :action #'counsel-git-grep-action
-;;                 :caller (or caller 'counsel-ag)
-;;                 :unwind #'counsel--git-grep-unwind
-;;                 :update-fn #'counsel--git-grep-update-fn)))
+  ;;   (cl-defun counsel-ag (&optional initial-input initial-directory extra-ag-args ag-prompt
+  ;;                                   &key caller)
+  ;;     "Grep for a string in the current directory using ag.
+  ;; INITIAL-INPUT can be given as the initial minibuffer input.
+  ;; INITIAL-DIRECTORY, if non-nil, is used as the root directory for search.
+  ;; EXTRA-AG-ARGS string, if non-nil, is appended to `counsel-ag-base-command'.
+  ;; AG-PROMPT, if non-nil, is passed as `ivy-read' prompt argument.
+  ;; CALLER is passed to `ivy-read'."
+  ;;     (interactive)
+  ;;     (setq counsel-ag-command counsel-ag-base-command)
+  ;;     (setq counsel--regex-look-around counsel--grep-tool-look-around)
+  ;;     (counsel-require-program counsel-ag-command)
+  ;;     (when current-prefix-arg
+  ;;       (setq initial-directory
+  ;;             (or initial-directory
+  ;;                 (read-directory-name (concat
+  ;;                                       (car (split-string counsel-ag-command))
+  ;;                                       " in directory: "))))
+  ;;       (setq extra-ag-args
+  ;;             (or extra-ag-args
+  ;;                 (read-from-minibuffer (format
+  ;;                                        "%s args: "
+  ;;                                        (car (split-string counsel-ag-command)))))))
+  ;;     (setq counsel-ag-command (counsel--format-ag-command (or extra-ag-args "") "%s"))
+  ;;     (let ((default-directory (or initial-directory
+  ;;                                  (counsel--git-root)
+  ;;                                  default-directory)))
+  ;;       (ivy-read (or ag-prompt
+  ;;                     (concat (car (split-string counsel-ag-command)) ": "))
+  ;;                 #'counsel-ag-function
+  ;;                 :initial-input initial-input
+  ;;                 :dynamic-collection t
+  ;;                 :keymap counsel-ag-map
+  ;;                 :history 'counsel-git-grep-history
+  ;;                 :action #'counsel-git-grep-action
+  ;;                 :caller (or caller 'counsel-ag)
+  ;;                 :unwind #'counsel--git-grep-unwind
+  ;;                 :update-fn #'counsel--git-grep-update-fn)))
 
   (counsel-mode)
   :bind
@@ -346,7 +339,6 @@ from the project root, we can use `counsel-projectile-rg'."
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
   :init
-  
   (defun projectile-load-settings (&optional file)
     "Load project elisp settings from FILE.
 Look in active project root directory, or if in the case of
@@ -375,6 +367,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
       (rename-buffer (format "*git ls-files %s*" dir))))
 
   :config
+  ;; Why doesn't projectile have this as a default?
+  (projectile-register-project-type 'generic nil
+                                    :compile ""
+                                    :test ""
+                                    :test-suffix "_test")
   (projectile-register-project-type 'npm '("package.json")
                                     :compile "npm start"
                                     :test "npm test"
@@ -404,8 +401,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :config
   ;; When switching projects, go straight to dired in the project root.
   (setf (car counsel-projectile-switch-project-action) 4)
-  :hook
-  (projectile-mode . counsel-projectile-mode)
   :bind
   ("s-p" . counsel-projectile)
   ("s-P" . counsel-projectile-switch-project)
@@ -434,30 +429,39 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :defer 1
   :custom
   (company-dabbrev-ignore-case t)
-  :hook
-  (minibuffer-setup . company-mode)
+  :config
+  (global-company-mode)
+  ;; :hook
+  ;; TODO: Figure out how to make company-mode work in the minibuffer.
+  ;; (minibuffer-setup . company-mode)
+  ;; (minibuffer-setup . (lambda ()
+  ;;                       (local-set-key (kbd "M-/") 'completion-at-point)))
   :bind
-  (([remap dabbrev-expand] . company-complete)
+  (("M-/" . company-complete)
    :map company-active-map
    ("RET" . nil)
    ("<return>" . nil)
    ("C-e" . company-complete-selection)
-   ("M-." . company-show-location)))
+   ("M-." . company-show-location)
+   :map minibuffer-local-map
+   ("M-/" . completion-at-point)))
 
 (use-package prescient
-  :defer 2
+  :defer 1
   :config
   (prescient-persist-mode))
 
 (use-package ivy-prescient
+  :defer 1
   :after (prescient ivy)
-  :hook
-  (ivy-mode . ivy-prescient-mode))
+  :config
+  (ivy-prescient-mode))
 
 (use-package company-prescient
+  :defer 1
   :after (prescient company)
-  :hook
-  (company-mode . company-prescient-mode))
+  :config
+  (company-prescient-mode))
 
 (use-package dumb-jump
   :custom
@@ -473,15 +477,13 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-." . dumb-jump-go)
         ("s-J" . dumb-jump-quick-look)))
 
-;; (use-package flash-thing
-  ;; :load-path "src/flash-thing")
-  ;; :hook
-  ;; (after-init . flash-thing-mode))
-
-(use-package spotlight
-  :load-path "src/spotlight.el"
+(use-package spotlight.el
+  :git "https://github.com/cjp/spotlight.el.git"
   :commands
-  (spotlight spotlight-fast))
+  (spotlight spotlight-fast)
+  :bind
+  ("C-c M-s" . spotlight)
+  ("C-c M-S" . spotlight-fast))
 
 (bind-key "s-5" #'replace-regexp-entire-buffer)
 

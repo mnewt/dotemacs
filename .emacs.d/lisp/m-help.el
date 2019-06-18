@@ -6,19 +6,23 @@
 
 ;;; Code:
 
+;; Change yes/no prompts to y/n
+(defalias 'yes-or-no-p 'y-or-n-p)
+
+;; Show key bindings when the command is executed from `M-x'.
 (with-eval-after-load 'simple
   (setq suggest-key-bindings 5))
 
-(use-package paradox
-  :commands paradox-list-packages)
+;; Enable all commands without silly warnings.
+(with-eval-after-load 'novice
+  (setq disabled-command-function nil))
 
 (use-package help-at-pt
+  :defer 2
   :custom
   (help-at-pt-display-when-idle t)
   :config
   (help-at-pt-set-timer))
-
-;; (use-package help-fns+)
 
 (use-package helpful
   :bind
@@ -31,19 +35,26 @@
   ("C-h M-s" . helpful-symbol)
   ("C-h v" . helpful-variable))
 
-(use-package shr
-  :defer t
-  :custom
-  (shr-color-visible-luminance-min 60)
-  (shr-color-visible-distance-min 5)
-  (shr-use-colors nil))
+(with-eval-after-load 'shr
+  (setq shr-color-visible-luminance-min 60
+        shr-color-visible-distance-min 5
+        shr-use-colors nil))
 
-(add-hook 'after-init-hook #'global-eldoc-mode)
+(use-package eldoc
+  :defer 2
+  :config
+  (eldoc-add-command #'company-select-next)
+  (eldoc-add-command #'company-select-previous)
+  (eldoc-add-command #'keyboard-quit)
+  (global-eldoc-mode))
 
-(add-hook 'after-init-hook #'which-func-mode)
+(use-package which-func
+  :defer 2
+  :config
+  (which-function-mode))
 
 (use-package which-key
-  :defer t
+  :defer 2
   :config
   (which-key-mode)
   :bind
@@ -74,7 +85,7 @@
        man-page-path))))
 
 (use-package eg
-  :load-path "src/eg.el"
+  :git "https://github.com/mnewt/eg.el"
   :ensure-system-package
   (eg . "pip install eg")
   :bind
@@ -91,6 +102,9 @@
 (use-package counsel-dash
   :ensure-system-package sqlite3
   :init
+  ;; counsel-dash calls 'remove-duplicates, which is no longer available in
+  ;; Emacs master.
+  (defalias 'remove-duplicates 'cl-remove-duplicates)
   (defun dash-docs-update-all-docsets ()
     "Update all docsets."
     (interactive)
@@ -98,9 +112,22 @@
       (when (memq d (dash-docs-official-docsets))
         (dash-docs-install-docset d))))
 
+  (defun eww-other-window (url)
+    "Fetch URL and render the page.
+
+Open the `eww' buffer in another window."
+    (interactive
+     (let* ((uris (eww-suggested-uris))
+            (prompt (concat "Enter URL or keywords"
+                            (if uris (format " (default %s)" (car uris)) "")
+                            ": ")))
+       (list (read-string prompt nil 'eww-prompt-history uris))))
+    (switch-to-buffer-other-window (current-buffer))
+    (eww url t))
+
   :custom
   (dash-docs-docsets-path "~/.config/docsets")
-  (dash-docs-browser-func #'eww)
+  (dash-docs-browser-func #'eww-other-window)
   (dash-docs-common-docsets (dash-docs-installed-docsets))
   (dash-docs-enable-debugging nil)
   :commands
@@ -111,8 +138,9 @@
   ("M-s-." . counsel-dash-at-point))
 
 (use-package hydra
+  :defer 2
   :config
-  (use-package lv)
+  (use-package lv :demand t)
 
   (defun hydra-move-splitter-left (arg)
     "Move window splitter left by ARG characters."
@@ -179,17 +207,30 @@ DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  
     ("q" nil))
 
   (defhydra hydra-move (:hint nil)
-    "Move"
+    "
+_b_ backward-char     _f_ forward-char   _p_ previous-line     _n_ next-line
+_B_ backward-word     _F_ forward-word   _P_ previous-line-4   _N_ next-line-4
+_a_ beginning-of-line _A_ beg-of-defun   _e_ end-of-line       _E_ end-of-defun
+_,_ beginning-of-buf  _v_ scroll-down    _V_ scroll-up         _._ end-of-buf
+_l_ recenter                                                   _q_ quit"
     ("n" next-line)
+    ("N" next-line-4)
     ("p" previous-line)
+    ("P" previous-line-4)
     ("f" forward-char)
+    ("F" forward-word)
     ("b" backward-char)
-    ("a" beginning-of-line)
-    ("e" move-end-of-line)
+    ("B" backward-word)
+    ("a" mwim-beginning-of-code-or-line)
+    ("A" beginning-of-defun)
+    ("e" mwim-end-of-code-or-line)
+    ("E" end-of-defun)
+    ("," beginning-of-buffer)
+    ("." end-of-buffer)
     ("v" scroll-up-command)
-    ;; Converting M-v to V here by analogy.
     ("V" scroll-down-command)
-    ("l" recenter-top-bottom))
+    ("l" recenter-top-bottom)
+    ("q" nil))
 
   :commands
   (defhydra hydra-default-pre hydra-keyboard-quit
@@ -241,6 +282,9 @@ DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  
   :bind
   (:map occur-mode-map
         ("C-o" . hydra-occur-dwim/body)))
+
+(use-package paradox
+  :commands paradox-list-packages)
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)

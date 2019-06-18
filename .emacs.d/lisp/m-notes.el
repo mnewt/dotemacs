@@ -169,9 +169,11 @@
 ;;;; Reading
 
 (use-package pdf-tools
+  :mode "\\.pdf\\'"
   :magic ("%PDF" . pdf-view-mode)
+  :config
+  (pdf-loader-install)
   :hook
-  (after-init . pdf-loader-install)
   (pdf-view-mode . (lambda () (auto-revert-mode -1)))
   :bind
   (:map pdf-view-mode-map

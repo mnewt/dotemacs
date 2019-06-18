@@ -6,8 +6,33 @@
 
 ;;; Code:
 
+;; Store all backup and autosave files in their own directory since it is bad to
+;; clutter project directories.
+(with-eval-after-load 'files
+  (setq backup-directory-alist '((".*" . "~/.emacs.d/backup"))
+        ;; Automatic backup file housekeeping.
+        kept-new-versions 10
+        kept-old-versions 4
+        delete-old-versions t
+        ;; Don't clobber symlinks.
+        backup-by-copying t
+        ;; Don't break multiple hardlinks.
+        backup-by-copying-when-linked t
+        ;; Use version numbers for backup files.
+        version-control t
+        ;; Backup even if file is in vc.
+        vc-make-backup-files t
+        auto-save-list-file-prefix "~/.emacs.d/autosave/"
+        auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
+        ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
+        ;; generates too much activity from tools watching for changes during
+        ;; development.
+        create-lockfiles nil
+        ;; Increase undo limit to 5MB per buffer.
+        undo-limit 5242880))
+
 (use-package savehist
-  :defer 5
+  :defer 1
   :custom
   (savehist-autosave-interval 60)
   (history-length 200)
@@ -30,7 +55,7 @@
   (save-place-mode))
 
 (use-package recentf
-  :defer 5
+  :defer 1
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
@@ -54,42 +79,17 @@
 
   (defun recentf-cleanup-silent ()
     (let ((message-log-max nil))
-      (if shutup-p
+      (if (fboundp 'shut-up)
           (shut-up (recentf-cleanup))
         (recentf-cleanup))))
 
-  (recentf-mode)
-
+  (shut-up (recentf-mode))
   :hook
   (focus-out-hook . (recentf-save-list-silent recentf-cleanup-silent))
   (dired-mode . recentf-add-dired-directory))
 
-;; Store all backup and autosave files in their own directory since it is bad to
-;; clutter project directories.
-(setq backup-directory-alist '((".*" . "~/.emacs.d/backup"))
-      ;; Automatic backup file housekeeping.
-      kept-new-versions 10
-      kept-old-versions 4
-      delete-old-versions t
-      ;; Don't clobber symlinks.
-      backup-by-copying t
-      ;; Don't break multiple hardlinks.
-      backup-by-copying-when-linked t
-      ;; Use version numbers for backup files.
-      version-control t
-      ;; Backup even if file is in vc.
-      vc-make-backup-files t
-      auto-save-list-file-prefix "~/.emacs.d/autosave/"
-      auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
-      ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
-      ;; generates too much activity from tools watching for changes during
-      ;; development.
-      create-lockfiles nil
-      ;; Increase undo limit to 5MB per buffer.
-      undo-limit 5242880)
-
 (use-package autorevert
-  :defer 5
+  :defer 2
   :custom
   ;; Work in Dired.
   (global-auto-revert-non-file-buffers t)
@@ -99,7 +99,7 @@
   (global-auto-revert-mode))
 
 (use-package persistent-scratch
-  :defer 5
+  :defer 1
   :unless (or (null window-system)
               noninteractive)
   :config

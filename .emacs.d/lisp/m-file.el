@@ -10,9 +10,13 @@
 ;; `auto-compression-mode' doesn't load quite right, and then `find-library' and
 ;; friends can't locate elisp source. Setting up the mode explicitly seems to
 ;; fix it.
-(with-eval-after-load 'jka-cmpr-hook
-  (add-hook 'after-init-hook #'auto-compression-mode))
 
+(use-package jka-cmpr-hook
+  :defer 1
+  :ensure nil
+  :config
+  (auto-compression-mode))
+  
 (defun upsearch (filename &optional dir)
   "Recursively search up a directory tree for FILENAME.
 
@@ -44,7 +48,7 @@ It is always buffer local.")
                                (file-exists-p (expand-file-name "psync_config" d)))
                       d))))))
     (setq psync-directory default-directory)
-    (if (= 0 (shell-command-exit-code "psync"))
+    (if (= 0 (call-process-shell-command "psync"))
         (message "psync in directory %s finished." default-directory)
       (error "Synchronization with psync failed in directory: %s" default-directory))))
 
@@ -147,45 +151,27 @@ With a prefix ARG always prompt for command to use."
     (message "Opening %s..." file)
     (os-open-file file)))
 
-(with-eval-after-load 'dired
-  (setq dired-listing-switches "-aFhl"
-        dired-recursive-deletes 'always
-        dired-recursive-copies 'always
-        dired-dwim-target t
-        ;; `dired-omit-mode' is managed by `dired-filter'.
-        ;; (dired-omit-mode t)
-        dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*"
-        ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
-        ;; Emacs and can run into issues with certain characters in the file name.
-        insert-directory-program (or (executable-find "gls")
-                                     (executable-find "ls"))
-        ;; Don't prompt to kill buffers of deleted directories.
-        dired-clean-confirm-killing-deleted-buffers nil
-        find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
-  (bind-keys
-   :map dired-mode-map
-   ("." . hydra-dired/body)
-   ("C-c C-o" . dired-open-file)
-   ("T" . touch)
-   ("C-." . dired-omit-mode)
-   ("F" . tail-file)
-   (";" . dired-git-add)))
-
-
-(use-package dired-rsync
-  :bind
-  (:map dired-mode-map
-        ("C-c C-r" . dired-rsync)))
-
-(use-package disk-usage
-  :load-path "src/emacs-disk-usage"
-  :bind
-  (:map dired-mode-map
-        (")" . disk-usage-here)
-        ("C-)" . disk-usage)))
-
-(defhydra hydra-dired (:hint nil :color pink)
-  "
+(use-package dired
+  :demand t
+  :ensure nil
+  :custom
+  (dired-listing-switches "-aFhl")
+  (dired-recursive-deletes 'always)
+  (dired-recursive-copies 'always)
+  (dired-dwim-target t)
+  ;; `dired-omit-mode' is managed by `dired-filter'.
+  ;; (dired-omit-mode t)
+  (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
+  ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
+  ;; Emacs and can run into issues with certain characters in the file name.
+  (insert-directory-program (or (executable-find "gls")
+                                (executable-find "ls")))
+  ;; Don't prompt to kill buffers of deleted directories.
+  (dired-clean-confirm-killing-deleted-buffers nil)
+  (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
+  :config
+  (defhydra hydra-dired (:hint nil :color pink)
+    "
 _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
 _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
 _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
@@ -196,44 +182,64 @@ _A_ find regexp    _Q_ repl regexp                                      _q_ quit
 
 C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
 "
-  ("(" dired-hide-details-mode)
-  (")" dired-omit-mode)
-  ("+" dired-create-directory)
-  ("?" dired-summary)
-  ("A" dired-do-find-regexp)
-  ("C" dired-do-copy)        ;; Copy all marked files
-  ("D" dired-do-delete)
-  ("E" dired-mark-extension)
-  ("e" dired-ediff-files)
-  ("F" dired-do-find-marked-files)
-  ("G" dired-do-chgrp)
-  ("g" revert-buffer)        ;; read all directories again (refresh)
-  ("i" dired-maybe-insert-subdir)
-  ("l" dired-do-redisplay)   ;; relist the marked or single directory
-  ("M" dired-do-chmod)
-  ("m" dired-mark)
-  ("O" dired-display-file)
-  ("o" dired-find-file-other-window)
-  ("Q" dired-do-find-regexp-and-replace)
-  ("R" dired-do-rename)
-  ("r" dired-rsync)
-  ("S" dired-do-symlink)
-  ("s" dired-sort-toggle-or-edit)
-  ("t" dired-toggle-marks)
-  ("U" dired-unmark-all-marks)
-  ("u" dired-unmark)
-  ("v" dired-view-file)      ;; q to exit, s to search, = gets line #
-  ("w" dired-kill-subdir)
-  ("W" wdired-change-to-wdired-mode)
-  ("Y" dired-do-relsymlink)
-  ("z" dired-do-compress)
-  ("q" nil)
-  ("." nil :color blue))
+    ("(" dired-hide-details-mode)
+    (")" dired-omit-mode)
+    ("+" dired-create-directory)
+    ("?" dired-summary)
+    ("A" dired-do-find-regexp)
+    ("C" dired-do-copy)        ;; Copy all marked files
+    ("D" dired-do-delete)
+    ("E" dired-mark-extension)
+    ("e" dired-ediff-files)
+    ("F" dired-do-find-marked-files)
+    ("G" dired-do-chgrp)
+    ("g" revert-buffer)        ;; read all directories again (refresh)
+    ("i" dired-maybe-insert-subdir)
+    ("l" dired-do-redisplay)   ;; relist the marked or single directory
+    ("M" dired-do-chmod)
+    ("m" dired-mark)
+    ("O" dired-display-file)
+    ("o" dired-find-file-other-window)
+    ("Q" dired-do-find-regexp-and-replace)
+    ("R" dired-do-rename)
+    ("r" dired-rsync)
+    ("S" dired-do-symlink)
+    ("s" dired-sort-toggle-or-edit)
+    ("t" dired-toggle-marks)
+    ("U" dired-unmark-all-marks)
+    ("u" dired-unmark)
+    ("v" dired-view-file)      ;; q to exit, s to search, = gets line #
+    ("w" dired-kill-subdir)
+    ("W" wdired-change-to-wdired-mode)
+    ("Y" dired-do-relsymlink)
+    ("z" dired-do-compress)
+    ("q" nil)
+    ("." nil :color blue))
+  :hook
+  (dired-mode . dired-hide-details-mode)
+  (dired-mode . (lambda ()
+                  (unless (file-remote-p default-directory)
+                    (auto-revert-mode))))
+  :bind
+  (:map dired-mode-map
+        ("." . hydra-dired/body)
+        ("C-c C-o" . dired-open-file)
+        ("T" . touch)
+        ("C-." . dired-omit-mode)
+        ("F" . tail-file)
+        (";" . dired-git-add)))
 
-(add-hook 'dired-mode #'dired-hide-details-mode)
-(add-hook 'dired-mode (lambda ()
-                        (unless (file-remote-p default-directory)
-                          (auto-revert-mode))))
+(use-package dired-rsync
+  :bind
+  (:map dired-mode-map
+        ("C-c C-r" . dired-rsync)))
+
+(use-package emacs-disk-usage
+  :git "https://gitlab.com/ambrevar/emacs-disk-usage.git"
+  :bind
+  (:map dired-mode-map
+        (")" . disk-usage-here)
+        ("C-)" . disk-usage)))
 
 (use-package wdired
   :custom
@@ -247,7 +253,6 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 
 (use-package dired-hacks-utils
   :defer 5
-  :load-path "src/dired-hacks"
   :config
   (dired-utils-format-information-line-mode))
 
@@ -255,49 +260,51 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :defer 5
   :after dired-hacks-utils
   :config
-  (defface dired-rainbow-permissions-face '((t (:inherit default)))
+  (defface dired-rainbow-permissions '((t (:inherit default)))
     "Face for Dired permissions."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-inodes-face '((t (:inherit shadow)))
+  (defface dired-rainbow-inodes '((t (:inherit shadow)))
     "Face for Dired links."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-user-face '((t (:inherit default)))
+  (defface dired-rainbow-user '((t (:inherit default)))
     "Face for Dired user."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-group-face '((t (:inherit font-lock-comment-face)))
+  (defface dired-rainbow-group '((t (:inherit font-lock-comment-face)))
     "Face for Dired group."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-size-face '((t (:inherit default)))
+  (defface dired-rainbow-size '((t (:inherit default)))
     "Face for Dired file size."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-datetime-face
+  (defface dired-rainbow-datetime
     '((((background dark)) (:inherit default :foreground "#999"))
       (t (:inherit default :foreground "#777")))
     "Face for Dired timestamp."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-file-extension-face '((t (:inherit font-lock-comment-face)))
+  (defface dired-rainbow-file-extension '((t (:inherit default :foreground "gray")))
     "Face for Dired file extensions."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-file-decoration-face '((t (:inherit default)))
+  (defface dired-rainbow-file-decoration '((t (:inherit default)))
     "Face for file decoration."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-dash-face '((t (:inherit shadow)))
+  (defface dired-rainbow-dash
+    '((((background dark)) (:inherit default :foreground "#777"))
+      (t (:inherit default :foreground "#999")))
     "Face for file decoration."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-filetype-directory-face '((t (:inherit font-lock-function-name-face)))
+  (defface dired-rainbow-filetype-directory '((t (:inherit font-lock-function-name-face)))
     "Face for file decoration."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-filetype-link-face '((t (:inherit font-lock-string-face)))
+  (defface dired-rainbow-filetype-link '((t (:inherit font-lock-string-face)))
     "Face for file decoration."
     :group 'dired-rainbow)
 
@@ -358,26 +365,26 @@ It should be wrapped in an optional capture group."
                 dired-rainbow-size-regexp "\\)")
        (1 'font-lock-comment-face)
        (2 'default))
-      ("^ +\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +\\(d\\)" 1 'dired-rainbow-filetype-directory-face)
-      ("^ +\\(l\\)" 1 'dired-rainbow-filetype-link-face)
-      ("^ +.\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +..\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +...\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +....\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +.....\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +......\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +.......\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +........\\(-\\)" 1 'dired-rainbow-dash-face)
-      ("^ +.........\\(-\\)" 1 'dired-rainbow-dash-face)
+      ("^ +\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +\\(d\\)" 1 'dired-rainbow-filetype-directory)
+      ("^ +\\(l\\)" 1 'dired-rainbow-filetype-link)
+      ("^ +.\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +..\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +...\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +....\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +.....\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +......\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +.......\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +........\\(-\\)" 1 'dired-rainbow-dash)
+      ("^ +.........\\(-\\)" 1 'dired-rainbow-dash)
       (,dired-rainbow-details-regexp
-       (1 'dired-rainbow-permissions-face)
-       (2 'dired-rainbow-inodes-face)
-       (3 'dired-rainbow-user-face)
-       (4 'dired-rainbow-group-face)
-       (5 'dired-rainbow-size-face)
-       (6 'dired-rainbow-datetime-face))
-      (,dired-rainbow-file-extension-regexp 0 'dired-rainbow-file-extension-face t)))
+       (1 'dired-rainbow-permissions)
+       (2 'dired-rainbow-inodes)
+       (3 'dired-rainbow-user)
+       (4 'dired-rainbow-group)
+       (5 'dired-rainbow-size)
+       (6 'dired-rainbow-datetime))
+      (,dired-rainbow-file-extension-regexp 0 'dired-rainbow-file-extension t)))
 
   (define-minor-mode dired-rainbow-listing-mode
     "Toggle highlighting of file listing details in Dired."
@@ -428,7 +435,8 @@ It should be wrapped in an optional capture group."
 (use-package dired-list
   :defer 5
   :after dired-hacks-utils
-  :load-path "src/dired-hacks"
+  :git (:uri "https://github.com/Fuco1/dired-hacks.git"
+             :files "dired-list.el")
   :commands
   (dired-list-git-ls-files
    dired-list-locate

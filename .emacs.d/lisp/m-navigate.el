@@ -6,15 +6,49 @@
 
 ;;; Code:
 
-(defun next-line-4 ()
-  "Scroll 4 lines down."
-  (interactive)
-  (forward-line 4))
+(use-package evil
+  :init
+  (defun evil-mode-toggle ()
+    "Toggle `evil-mode'.
+It's necessary because it often forgets to change the cursor type back."
+    (interactive)
+    (if (bound-and-true-p evil-state)
+        (progn
+          (call-interactively #'turn-off-evil-mode)
+          (setq cursor-type 'box))
+      (call-interactively #'turn-on-evil-mode)))
+  :commands
+  (turn-on-evil-mode turn-off-evil-mode)
+  :bind
+  ("s-ESC" . evil-mode-toggle)
+  ("s-<escape>" . evil-mode-toggle))
 
-(defun previous-line-4 ()
-  "Scroll 4 lines up."
+(defun fullscreen ()
+  "Toggle fullscreen mode."
   (interactive)
-  (forward-line -4))
+  (set-frame-parameter nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
+
+(defun previous-line-margin ()
+  "Move point to the top of the window.
+
+If it's already there, scroll `scroll-margin' lines up."
+  (interactive)
+  (let ((line (line-number-at-pos))
+        (line-beg (line-number-at-pos (window-start))))
+    (if (= (- line line-beg) scroll-margin)
+        (forward-line (- scroll-margin))
+      (forward-line (+ (- line-beg line) scroll-margin)))))
+
+(defun next-line-margin ()
+  "Move point to the bottom of the window.
+
+If it's already there, scroll `scroll-margin' lines down."
+  (interactive)
+  (let ((line (line-number-at-pos))
+        (line-end (- (line-number-at-pos (window-end)) 2)))
+    (if (= (- line-end line) scroll-margin)
+        (forward-line scroll-margin)
+      (forward-line (- line-end line scroll-margin)))))
 
 (defvar scratch-other-modes
   '(lisp-interaction-mode js-mode js-jsx-mode)
@@ -212,8 +246,9 @@ return them in the Emacs format."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package winner
-  :hook
-  (after-init . winner-mode)
+  :defer 5
+  :config
+  (winner-mode)
   :bind
   (("C-c [" . winner-undo)
    ("s-[" . winner-undo)
@@ -222,22 +257,17 @@ return them in the Emacs format."
 
 (use-package buffer-move
   :bind
-  (("C-H-W" . buf-move-up)
-   ("C-H-S" . buf-move-down)
-   ("C-H-A" . buf-move-left)
-   ("C-H-D" . buf-move-right)))
-
-;; (use-package ace-window
-;;   :bind
-;;   ("M-o" . ace-window)
-;;   ("s-w" . ace-delete-window)
-;;   ("s-W" . ace-delete-other-windows))
+  ("C-H-W" . buf-move-up)
+  ("C-H-S" . buf-move-down)
+  ("C-H-A" . buf-move-left)
+  ("C-H-D" . buf-move-right))
 
 (use-package winum
+  :defer 3
   :custom
   (winum-auto-setup-mode-line nil)
-  :hook
-  (after-init . winum-mode)
+  :config
+  (winum-mode)
   :bind
   ("s-1" . winum-select-window-1)
   ("C-c 1" . winum-select-window-1)
@@ -261,11 +291,12 @@ return them in the Emacs format."
   ("C-c 0" . winum-select-window-0))
 
 (use-package eyebrowse
+  :defer 2
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
-  :hook
-  (after-init . eyebrowse-mode)
+  :config
+  (eyebrowse-mode)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -496,11 +527,10 @@ _q_ quit
   "Define a special version of `beginning-of-buffer' in MODE.
 
 The special function is defined such that the point first moves
-to `point-min' and then FORMS are evaluated.  If the point did
-not change because of the evaluation of FORMS, jump
-unconditionally to `point-min'.  This way repeated invocations
-toggle between real beginning and logical beginning of the
-buffer.
+to `point-min' and then FORMS are evaluated. If the point did not
+change because of the evaluation of FORMS, jump unconditionally
+to `point-min'. This way repeated invocations toggle between real
+beginning and logical beginning of the buffer.
 
 https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-special-mode-buffers-(dired-etc.).html"
   (declare (indent 1))
@@ -547,15 +577,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
                    (define-key ,mode-map
                      [remap end-of-buffer] ',fname))))))
 
-(specialize-beginning-of-buffer dired (while (not (ignore-errors (dired-get-filename)))
-                                        (dired-next-line 1)))
+(specialize-beginning-of-buffer dired
+  (while (not (ignore-errors (dired-get-filename))) (dired-next-line 1)))
 (specialize-end-of-buffer dired (dired-previous-line 1))
 
 (specialize-beginning-of-buffer occur (occur-next 1))
 (specialize-end-of-buffer occur (occur-prev 1))
 
-(specialize-beginning-of-buffer ivy-occur-grep-mode (ivy-occur-next-line 1))
-(specialize-end-of-buffer ivy-occur-grep-mode (ivy-occur-previous-line 1))
+(specialize-beginning-of-buffer ivy-occur-grep (ivy-occur-next-line 1))
+(specialize-end-of-buffer ivy-occur-grep (ivy-occur-previous-line 1))
 
 (specialize-beginning-of-buffer ibuffer (ibuffer-forward-line 1))
 (specialize-end-of-buffer ibuffer (ibuffer-backward-line 1))
@@ -566,8 +596,8 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer bs (bs-down 2))
 (specialize-end-of-buffer bs (bs-up 1) (bs-down 1))
 
-(specialize-beginning-of-buffer recentf-dialog (when (re-search-forward "^  \\[" nil t)
-                                                 (goto-char (match-beginning 0))))
+(specialize-beginning-of-buffer recentf-dialog
+  (when (re-search-forward "^  \\[" nil t) (goto-char (match-beginning 0))))
 (specialize-end-of-buffer recentf-dialog (re-search-backward "^  \\[" nil t))
 
 (specialize-beginning-of-buffer org-agenda (org-agenda-next-item 1))
@@ -711,7 +741,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-/" . comment-toggle)
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
-
  ("C-c U" . revert-buffer)
  ("C-c i" . os-reveal-file)
  ("s-<return>" . eval-last-sexp)
@@ -720,10 +749,13 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-N" . scratch-new-buffer-other-window)
  ("C-c C-n" . scratch-new-buffer)
  ("C-c M-n" . scratch-new-buffer-other-window)
- ("C-S-p" . previous-line-4)
- ("C-S-n" . next-line-4)
+ ("C-S-p" . previous-line-margin)
+ ("C-S-n" . next-line-margin)
  ("H-p" . "\C-u1\M-v")
  ("H-n" . "\C-u1\C-v")
+
+ ;; Full screen
+ ("C-s-f" . fullscreen)
 
  ;; Quick switch buffers
  ("C-x C-b" . ibuffer)

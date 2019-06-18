@@ -46,8 +46,9 @@
 
 (setq package-enable-at-startup nil
       package-user-dir "~/.emacs.d/packages/"
-      package-archives '(("melpa" . "http://melpa.milkbox.net/packages/")
-                         ("gnu" . "http://elpa.gnu.org/packages/"))
+      package-archives '(("org"   . "https://orgmode.org/elpa/")
+                         ("melpa" . "https://melpa.org/packages/")
+                         ("gnu" . "https://elpa.gnu.org/packages/"))
       custom-file "~/.emacs.d/custom.el")
 
 (eval-when-compile
@@ -72,6 +73,9 @@
 (use-package f :demand t)
 (use-package shut-up :demand t)
 
+;; TODO: A package requires this. Find out which.
+(defalias 'defun* 'cl-defun)
+
 ;;; Benchmark init
 
 (use-package benchmark-init
@@ -89,12 +93,13 @@
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Local elisp configuration files go here.")
 
+(load-file (concat elisp-directory "/use-package-git.el"))
+
 (dolist-with-progress-reporter
     (p
      '(environment
        persist
        appearance
-       ui
        help
        navigate
        search

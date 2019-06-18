@@ -6,8 +6,13 @@
 
 ;;; Code:
 
+(use-package comint
+  :ensure nil
+  :custom
+  (comint-buffer-maximum-size 20000)
+  (comint-prompt-read-only t))
+
 (use-package tramp
-  :defer t
   :config
   (defun tramp-cleanup-all ()
     "Clean up all tramp buffers and connections."
@@ -114,10 +119,11 @@
     (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
 
   (use-package fish-completion
+    :ensure-system-package fish
     :custom
     (fish-completion-fallback-on-bash-p t)
     :hook
-    (after-init . global-fish-completion-mode))
+    ((eshell-mode shell-mode) . fish-completion-mode))
 
   (use-package company-shell
     :config
@@ -126,18 +132,20 @@
      `(company-shell company-shell-env
                      ,(when (executable-find "fish") 'company-fish-shell))))
 
+  (add-hook 'comint-output-filter-functions #'shell-rename-buffer)
+  :commands
+  shell
   :hook
   (shell-mode . shell-dirtrack-mode)
+  (shell-mode . (lambda ()
+                  (local-set-key (kbd "M-r") #'counsel-shell-history)))
   :bind
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
-
-(defun shell-command-exit-code (program &rest args)
-  "Run PROGRAM with ARGS and return the exit code."
-  (with-temp-buffer
-    (apply 'call-process program nil (current-buffer) nil args)))
+  
+  
 
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
@@ -152,11 +160,14 @@
         (default-directory (format  "/ssh:%s:" host)))
     (shell (format "*ssh (dtach) %s*" host))))
 
+(defvar explicit-ssh-args nil
+  "Args for ssh run from `shell-mode'.")
+
 (defun ssh (host)
   "Open SSH connection to HOST and create or attach to dtach session."
   (interactive (list (ssh-choose-host "SSH to host: ")))
-  (let ((explicit-shell-file-name "bash")
-        (default-directory (format  "/ssh:%s:" host)))
+  (let ((explicit-shell-file-name "ssh")
+        (explicit-ssh-args (list host)))
     (shell (format "*ssh %s*" host))))
 
 (defun sudo-toggle--add-sudo (path)
@@ -245,19 +256,28 @@ predicate returns true."
 ;;                                 (lambda (f) (commandp (symbol-function f)))))
 ;;   (advice-add c :around #'maybe-with-sudo))
 
-
 ;; Load `vterm' if it's available.
-(ignore-errors
-  (let ((vterm-dir "~/.emacs.d/src/emacs-libvterm"))
-    (when (file-exists-p vterm-dir)
-      (add-to-list 'load-path vterm-dir)
-      (let (vterm-install)
-        (require 'vterm)))))
+(use-package vterm
+  :git "https://github.com/akermu/emacs-libvterm.git"
+  :init
+  (defun vterm--rename-buffer-as-title (title)
+    (rename-buffer (format "*vterm %s*" title) t))
+  (defun vterm--set-background-color ()
+    (make-local-variable 'ansi-color-names-vector)
+    (if (eq 'light (frame-parameter nil 'background-mode))
+        (aset ansi-color-names-vector 0 "#EFECEB")
+      (aset ansi-color-names-vector 0 "#202323")))
+  (defvar vterm-install t "Tell vterm to compile if necessary.")
+  :config
+  (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
+  :hook
+  (vterm-mode . vterm--set-background-color)
+  :bind
+  ("C-c t" . vterm))
 
 (use-package term
   :bind
-  (("C-c t" . vterm)
-   :map term-mode-map
+  (:map term-mode-map
    ("M-p" . term-send-up)
    ("M-n" . term-send-down)
    :map term-raw-map
@@ -315,9 +335,6 @@ predicate returns true."
   :hook
   (shell-mode . xterm-color-shell-setup)
   (compilation-start . xterm-color-apply-on-compile))
-
-(add-hook 'shell-mode #'shell-dirtrack-mode)
-(add-hook 'comint-output-filter-functions #'shell-rename-buffer)
 
 (defun pw (command)
   "Run `pw' command as COMMAND.

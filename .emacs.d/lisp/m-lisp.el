@@ -44,67 +44,69 @@ Interactively, reads the register using `register-read-with-preview'."
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
 
-(defun inf-clojure-start-lumo ()
-  "Start lumo as a subprocess and then connect to it over TCP.
-This is preferable to starting it directly because lumo has lots
-of problems in that context."
-  (interactive)
-  (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-  (inf-clojure-minor-mode)
-  (shell-command "pkill -f 'lumo -d -n 2000'")
-  (async-shell-command "lumo -d -n 2000")
-  (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
-
 (use-package clojure-mode
   :mode
   (("\\.clj\\'" . clojure-mode)
    ("\\.cljs\\'" . clojurescript-mode)
    ("\\.cljc\\'" . clojurec-mode))
   :interpreter
-  ("inlein" . clojure-mode))
+  ("inlein" . clojure-mode)
+  :config
+  (use-package clojure-mode-extra-font-locking :demand t)
 
-;; (use-package clojure-mode-extra-font-locking
-;;   :defer 1)
+  (use-package inf-clojure
+    :init
+    (defun inf-clojure-start-lumo ()
+      "Start lumo as a subprocess and then connect to it over TCP.
+This is preferable to starting it directly because lumo has lots
+of problems in that context."
+      (interactive)
+      (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
+      (inf-clojure-minor-mode)
+      (shell-command "pkill -f 'lumo -d -n 2000'")
+      (async-shell-command "lumo -d -n 2000")
+      (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
+    :bind
+    (:map inf-clojure-minor-mode-map
+          ("s-<return>" . inf-clojure-eval-last-sexp)
+          ("C-c C-k" . inf-clojure-eval-buffer)))
 
-(defun toggle-nrepl-buffer ()
-  "Toggle the nREPL REPL on and off."
-  (interactive)
-  (if (string-match "cider-repl" (buffer-name (current-buffer)))
-      (delete-window)
-    (cider-switch-to-repl-buffer)))
+  (use-package cider
+    :init
+    (defun toggle-nrepl-buffer ()
+      "Toggle the nREPL REPL on and off."
+      (interactive)
+      (if (string-match "cider-repl" (buffer-name (current-buffer)))
+          (delete-window)
+        (cider-switch-to-repl-buffer)))
 
-(defun cider-save-and-refresh ()
-  "Save the buffer and refresh CIDER."
-  (interactive)
-  (save-buffer)
-  (call-interactively 'cider-refresh))
+    (defun cider-save-and-refresh ()
+      "Save the buffer and refresh CIDER."
+      (interactive)
+      (save-buffer)
+      (call-interactively 'cider-refresh))
 
-(defun cider-eval-last-sexp-and-append ()
-  "Eval last sexp and append the result."
-  (interactive)
-  (cider-eval-last-sexp '(1)))
+    (defun cider-eval-last-sexp-and-append ()
+      "Eval last sexp and append the result."
+      (interactive)
+      (cider-eval-last-sexp '(1)))
 
-(use-package cider
-  :custom
-  ;; Always prompt for the jack in command.
-  (cider-edit-jack-in-command t)
-  :commands
-  (cider-jack-in cider-switch-to-repl-buffer)
-  :hook
-  ;; The standard advice function runs at the wrong time I guess? Anyway, it
-  ;; often gets set to the wrong color when switching themes via `theme-choose'.
-  (theme . (lambda () (when (fboundp 'cider-scale-background-color)
-                        (setq cider-stacktrace-frames-background-color
-                              (cider-scale-background-color)))))
-  :bind
-  (:map cider-mode-map
-        ("s-<return>" . cider-eval-last-sexp)))
+    :custom
+    ;; Always prompt for the jack in command.
+    (cider-edit-jack-in-command t)
 
-(use-package inf-clojure
-  :bind
-  (:map inf-clojure-minor-mode-map
-        ("s-<return>" . inf-clojure-eval-last-sexp)
-        ("C-c C-k" . inf-clojure-eval-buffer)))
+    :commands
+    (cider-jack-in cider-switch-to-repl-buffer)
+
+    :hook
+    ;; The standard advice function runs at the wrong time I guess? Anyway, it
+    ;; often gets set to the wrong color when switching themes via `theme-choose'.
+    (theme . (lambda () (when (fboundp 'cider-scale-background-color)
+                          (setq cider-stacktrace-frames-background-color
+                                (cider-scale-background-color)))))
+    :bind
+    (:map cider-mode-map
+          ("s-<return>" . cider-eval-last-sexp))))
 
 (use-package sly
   :custom
@@ -172,10 +174,13 @@ of problems in that context."
      (point) end)))
 
 (defun m-scheme-mode-setup ()
-  (setq font-lock-extend-region-functions
-        (cons 'm-scheme-region-extend-function font-lock-extend-region-functions)))
-
-(add-hook 'scheme-mode-hook #'m-scheme-mode-setup)
+  "Set up `scheme-mode'.")
+  
+(add-hook 'scheme-mode-hook
+          (lambda ()
+            (setq font-lock-extend-region-functions
+                  (cons 'm-scheme-region-extend-function
+                        font-lock-extend-region-functions))))
 
 (use-package geiser
   :custom
@@ -183,8 +188,6 @@ of problems in that context."
   (geiser-mode-eval-last-sexp-to-buffer t)
   (scheme-program-name "csi -:c")
   :config
-  (setq-default geiser-scheme-implementation 'chicken)
-
   ;; Indenting module body code at column 0
   (defun scheme-module-indent (state indent-point normal-indent) 0)
   (put 'module 'scheme-indent-function 'scheme-module-indent)

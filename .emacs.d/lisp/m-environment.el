@@ -13,9 +13,8 @@
 (defvar set-path-unix nil
   "Defines a list of path entries to add to *NIX systems.")
 
-(defvar set-path-windows
-  '("C:/bin"
-    "C:/Program Files/Emacs/bin")
+(defvar set-path-windows '("C:/bin"
+			   "C:/Program Files/Emacs/bin")
   "Defines a list of path entries to add to Windows systems.")
 
 (defvar set-path-user nil
@@ -65,16 +64,20 @@ Update environment variables from a shell source file."
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
 
-(add-hook 'after-init-hook #'server-start)
+(use-package server
+  :defer 10
+  :config
+  (unless (server-running-p) (server-start)))
 
 (use-package pinentry
+  :defer 10
   :unless (eq system-type 'windows-nt)
   :custom
   (password-cache-expiry nil)
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
-  :hook
-  (after-init . pinentry-start))
+  :config
+  (pinentry-start))
 
 (defvar os-open-file-executable nil
   "The executable used to open files in the host OS GUI.")
@@ -101,7 +104,6 @@ Update environment variables from a shell source file."
         ;; Open files from Finder in same frame.
         ns-pop-up-frames nil
         os-open-file-executable "open")
-  (when window-system (menu-bar-mode +1))
   (if (member "Input" (font-family-list))
       (set-face-font 'default "Input-14")
     (set-face-font 'default "Monaco-13"))
@@ -116,7 +118,6 @@ Update environment variables from a shell source file."
 
 (defun config-windows ()
   "Configure Emacs for Windows."
-  (menu-bar-mode -1)
   (setq w32-pass-lwindow-to-system nil
         w32-lwindow-modifier 'super
         w32-pass-rwindow-to-system nil

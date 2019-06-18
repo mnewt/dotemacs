@@ -6,6 +6,11 @@
 
 ;;; Code:
 
+;; Automate communication with services, such as nicserv.
+(use-package erc
+  :hook
+  (erc-connect-pre . erc-services-mode))
+
 (use-package url
   :config
   (defun public-ip ()
