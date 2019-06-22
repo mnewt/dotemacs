@@ -27,6 +27,7 @@
   (org-src-tab-acts-natively t)
   ;; Code highlighting in code blocks
   (org-src-fontify-natively t)
+  (org-hide-leading-stars t)
   ;; Customize todo keywords
   ;; (org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WIP(w)" "|" "DONE(d!)")))
   ;; (org-todo-keyword-faces '(("TODO" (:foreground "orange" :weight bold))

@@ -12,22 +12,29 @@
   (comint-buffer-maximum-size 20000)
   (comint-prompt-read-only t))
 
-(use-package tramp
-  :config
-  (defun tramp-cleanup-all ()
-    "Clean up all tramp buffers and connections."
-    (interactive)
-    (tramp-cleanup-all-buffers)
-    (tramp-cleanup-all-connections))
+(use-package ssh
+  :custom
+  (ssh-directory-tracking-mode 'ftp)
+  :commands
+  ssh)
 
-  (defun tramp-insert-remote-part ()
-    "Insert current tramp prefix at point."
-    (interactive)
-    (if-let* ((remote (file-remote-p default-directory)))
-        (insert remote)))
+(defun tramp-cleanup-all ()
+  "Clean up all tramp buffers and connections."
+  (interactive)
+  (tramp-cleanup-all-buffers)
+  (setq ivy-history
+        (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
+                    ivy-history)))
 
-  ;; Configure TRAMP to respect the PATH variable on the remote machine (for
-  ;; remote eshell sessions)
+(defun tramp-insert-remote-part ()
+  "Insert current tramp prefix at point."
+  (interactive)
+  (if-let* ((remote (file-remote-p default-directory)))
+      (insert remote)))
+
+;; Configure TRAMP to respect the PATH variable on the remote machine (for
+;; remote eshell sessions)
+(with-eval-after-load 'tramp
   (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
 
 (defun expand-environment-variable ()
@@ -85,8 +92,7 @@
                      (list-hosts-from-recentf)
                      (list-hosts-from-known-hosts)
                      (list-hosts-from-ssh-config)
-                     (list-hosts-from-etc-hosts)))
-                   nil t))
+                     (list-hosts-from-etc-hosts)))))
 
 (defun dired-tramp (host)
   "Choose an ssh HOST and then open it with dired."
@@ -144,8 +150,6 @@
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
-  
-  
 
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
@@ -256,17 +260,15 @@ predicate returns true."
 ;;                                 (lambda (f) (commandp (symbol-function f)))))
 ;;   (advice-add c :around #'maybe-with-sudo))
 
-;; Load `vterm' if it's available.
 (use-package vterm
   :git "https://github.com/akermu/emacs-libvterm.git"
   :init
   (defun vterm--rename-buffer-as-title (title)
-    (rename-buffer (format "*vterm %s*" title) t))
+    (rename-buffer (format "*VTerm %s*" title) t))
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
-    (if (eq 'light (frame-parameter nil 'background-mode))
-        (aset ansi-color-names-vector 0 "#EFECEB")
-      (aset ansi-color-names-vector 0 "#202323")))
+    (aset ansi-color-names-vector 0
+          (plist-get (face-spec-choose (theme-get-face 'default)) :background)))
   (defvar vterm-install t "Tell vterm to compile if necessary.")
   :config
   (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
@@ -330,6 +332,8 @@ predicate returns true."
         (remove 'ansi-color-process-output comint-output-filter-functions))
   (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
   (advice-add #'shell-command-on-region :after #'xterm-color-apply-on-shell-command-advice)
+  
+  (setq compilation-environment '("TERM=xterm-256color"))
   :commands
   (xterm-color-filter xterm-color-apply-on-minibuffer)
   :hook

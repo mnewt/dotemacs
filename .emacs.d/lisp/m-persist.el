@@ -83,7 +83,8 @@
           (shut-up (recentf-cleanup))
         (recentf-cleanup))))
 
-  (shut-up (recentf-mode))
+  ;; (shut-up (recentf-mode))
+  (recentf-mode)
   :hook
   (focus-out-hook . (recentf-save-list-silent recentf-cleanup-silent))
   (dired-mode . recentf-add-dired-directory))
@@ -98,24 +99,14 @@
   :config
   (global-auto-revert-mode))
 
-(use-package persistent-scratch
-  :defer 1
-  :unless (or (null window-system)
-              noninteractive)
-  :config
-  (persistent-scratch-autosave-mode)
-  (with-demoted-errors "Error: %S"
-    (persistent-scratch-setup-default))
-  :commands persistent-scratch-setup-default)
-
-(use-package desktop
-  :demand t
-  :custom
-  (desktop-dirname "~/.emacs.d")
-  :config
-  (dolist (v '(kill-ring read-expression-history theme-current-theme))
-    (add-to-list 'desktop-globals-to-save v))
-  (desktop-save-mode))
+;; (use-package desktop
+;;   :demand t
+;;   :custom
+;;   (desktop-dirname "~/.emacs.d")
+;;   :config
+;;   (dolist (v '(kill-ring read-expression-history theme-current-theme))
+;;     (add-to-list 'desktop-globals-to-save v))
+;;   (desktop-save-mode))
 
 (provide 'm-persist)
 

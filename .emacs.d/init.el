@@ -57,21 +57,22 @@
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
     (package-install 'use-package))
-  (require 'use-package)
-  (setq use-package-always-ensure t
-        use-package-always-defer t
-        use-package-enable-imenu-support t))
+  (custom-set-variables
+   '(use-package-always-ensure t)
+   '(use-package-always-defer t)
+   '(use-package-enable-imenu-support t))
+  (require 'use-package))
 
 (use-package use-package-ensure-system-package :defer 5)
 
 ;;; Emacs Lisp Extension Libraries
 
-(use-package seq :demand t)
-(use-package subr-x :demand t :ensure nil)
+(require 'seq)
+(require 'subr-x)
 (use-package dash :demand t)
 (use-package s :demand t)
 (use-package f :demand t)
-(use-package shut-up :demand t)
+(use-package shut-up :commands shut-up)
 
 ;; TODO: A package requires this. Find out which.
 (defalias 'defun* 'cl-defun)
@@ -92,6 +93,8 @@
 
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Local elisp configuration files go here.")
+
+(add-to-list 'load-path elisp-directory)
 
 (load-file (concat elisp-directory "/use-package-git.el"))
 

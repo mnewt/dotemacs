@@ -272,11 +272,10 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
       smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
       smart-yank))  ; Yank behavior depends on mode.
   :hook
-  ((clojure-mode emacs-lisp-mode hy-mode lisp-interaction-mode
-                 lisp-mode scheme-mode) . parinfer-mode)
-  ;; (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
-  ;; :commands
-  ;; (parinfer-strategy-add)
+  ((clojure-mode emacs-lisp-mode hy-mode lisp-interaction-mode lisp-mode scheme-mode) . parinfer-mode)
+  (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
+  :commands
+  (parinfer-strategy-add)
   :bind
   (:map parinfer-mode-map
         ("<tab>" . parinfer-smart-tab:dwim-right)
@@ -424,9 +423,10 @@ ID, ACTION, CONTEXT."
       (sp-backward-symbol)
       (sp-forward-slurp-sexp)))
 
-  ;; See https://github.com/Fuco1/smartparens/issues/80
   (defun sp-create-newline-and-enter-sexp (&rest _)
-    "Open a new brace or bracket expression, with relevant newlines and indent."
+    "Open a new brace or bracket expression, with relevant newlines and indent.
+
+See https://github.com/Fuco1/smartparens/issues/80."
     (message "sp-newline-etc")
     (newline)
     (indent-according-to-mode)
@@ -446,6 +446,7 @@ ID, ACTION, CONTEXT."
   ;; `use-package/:bind' to set them.
   (sp-base-key-bindings 'paredit)
   (sp-override-key-bindings '(("M-s" . nil)
+                              ("M-r" . nil)
                               ("M-s-s" . sp-splice-sexp)
                               ("C-S-d" . sp-down-sexp)
                               ("C-M-d" . sp-kill-symbol)
@@ -453,6 +454,9 @@ ID, ACTION, CONTEXT."
                               ("C-<backspace>" . sp-backward-kill-symbol)
                               ("C-M-<backspace>" . sp-backward-kill-sexp)
                               ("C-s-<backspace>" . sp-splice-sexp-killing-backward)))
+
+  ;; (defun sp--really-update-key-bindings ()
+  ;;   "Make `smartparens' really respect my key bindings.")
 
   :config
   (require 'smartparens-config)
@@ -523,37 +527,15 @@ ID, ACTION, CONTEXT."
   :commands
   (sp-local-pair sp-with-modes smartparens-global-mode show-smartparens-global-mode)
   :bind
-  (:map prog-mode-map
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline)
-        :map lisp-mode-shared-map
-        ([remap kill-line] . sp-kill-hybrid-sexp)
-        (";" . sp-comment))
+  (:map lisp-mode-shared-map
+   ("RET" . sp-newline)
+   ("<return>" . sp-newline)
+   ("C-k" . sp-kill-hybrid-sexp)
+   (";" . sp-comment))
   :bind*
   (:map smartparens-mode-map
         ("M-s" . nil)
         ("M-r" . nil)))
-
-(use-package hl-todo
-  :defer 6
-  :custom
-  (hl-todo-keyword-faces
-   '(("TODO" . "magenta")
-     ("NEXT" . "lime green")
-     ("NOTE" . "orange")
-     ("KLUDGE" . "orange")
-     ("HACK" . "orange")
-     ("TEMP" . "orange")
-     ("FIXME" . "magenta")
-     ("XXX+" . "orange")
-     ("\\?\\?\\?+" . "magenta")))
-  :config
-  (global-hl-todo-mode)
-  :bind
-  ("M-s h i" . hl-todo-insert)
-  ("M-s h p" . hl-todo-previous)
-  ("M-s h n" . hl-todo-next)
-  ("M-s h o" . hl-todo-occur))
 
 (defun indent-buffer-or-region (beg end &optional arg)
   "Indent the region from BEG to END.

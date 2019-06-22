@@ -91,9 +91,6 @@
   :bind
   ("C-h e" . eg))
 
-(defvar dash-docs-docsets-path "~/.config/docsets"
-  "Local path to save docsets.")
-
 (defun dash-docs-installed-docsets ()
   "Return a list of the currently installed docsets."
   (mapcar (lambda (f) (string-trim-right f ".docset"))
@@ -105,12 +102,30 @@
   ;; counsel-dash calls 'remove-duplicates, which is no longer available in
   ;; Emacs master.
   (defalias 'remove-duplicates 'cl-remove-duplicates)
+
+  (defvar dash-docs-docsets-path "~/.config/docsets"
+    "Local path to save docsets.")
+
+  (defun dash-docs-update-docsets-var (&optional _)
+    "Update `dash-docs-common-docsets' variable."
+    (interactive (list t))
+    (setq dash-docs-common-docsets (dash-docs-installed-docsets)))
+
+  (advice-add 'dash-docs-install-docset :after #'dash-docs-update-docsets-var)
+  (advice-add 'dash-docs-install-user-docset :after #'dash-docs-update-docsets-var)
+
   (defun dash-docs-update-all-docsets ()
-    "Update all docsets."
+    "Update all official and unofficial docsets."
     (interactive)
     (seq-doseq (d (dash-docs-installed-docsets))
-      (when (memq d (dash-docs-official-docsets))
-        (dash-docs-install-docset d))))
+      (cond
+       ((memq d (dash-docs-official-docsets))
+        (dash-docs-install-docset d))
+       ((memq d (dash-docs-unofficial-docsets))
+        (dash-docs-install-user-docset d))
+       (t
+        (message "Skipping manually installed docset: %s..." d))))
+    (dash-docs-update-docsets-var))
 
   (defun eww-other-window (url)
     "Fetch URL and render the page.
@@ -131,7 +146,8 @@ Open the `eww' buffer in another window."
   (dash-docs-common-docsets (dash-docs-installed-docsets))
   (dash-docs-enable-debugging nil)
   :commands
-  (counsel-dash counsel-dash-at-point counsel-dash-install-docset dash-docs-installed-docsets dash-docs-official-docsets)
+  (counsel-dash counsel-dash-at-point dash-docs-install-docset
+                dash-docs-official-docsets dash-docs-unofficial-docsets)
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)

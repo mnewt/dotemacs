@@ -6,6 +6,43 @@
 
 ;;; Code:
 
+(use-package dashboard
+  :demand t
+  :custom
+  (dashboard-center-content t)
+  (dashboard-set-footer nil)
+  (dashboard-items '((projects . 8)
+                     (recents  . 8)
+                     (registers . 8)
+                     (bookmarks . 8)))
+  (dashboard-set-navigator t)
+  (dashboard-navigator-buttons
+   `((("O" "Org Files" "~/org"
+       (lambda (&rest _) (dired "~/org")))
+      ("⚙" "Emacs Config" "dotemacs"
+       (lambda (&rest _) (dired-list-init-files)))
+      ("~" "Home Directory" "dotfiles"
+       (lambda (&rest _) (dired "~")))
+      ("↓" "Code Directory" "~/code"
+       (lambda (&rest _) (dired "~/code")))
+      ("↑" "Dropbox Code" "~/Dropbox/code"
+       (lambda (&rest _) (dired "~/Dropbox/Matt/code")))
+      ("?" "Info" "?/h"
+       (lambda (&rest _) (info) (delete-other-windows))))))
+  :config
+  (dashboard-insert-shortcut "j" "Projects:")
+  :hook
+  (after-init . #'dashboard-insert-startupify-lists)
+  (emacs-startup . (lambda ()
+                     (switch-to-buffer "*dashboard*")
+                     (dashboard-mode)
+                     (goto-char (point-min))
+                     (redisplay)))
+  :bind
+  (:map dashboard-mode-map
+        ("p" . dashboard-previous-line)
+        ("n" . dashboard-next-line)))
+
 (use-package evil
   :init
   (defun evil-mode-toggle ()
@@ -230,6 +267,9 @@ return them in the Emacs format."
   (message "%s" args)
   (apply f (cons (mapcar #'parse-colon-notation (car args)) (cdr args))))
 
+;; Make `emacsclient' support solon notation of line:column
+(advice-add 'server-visit-files :around #'wrap-colon-notation)
+
 (defun goto-line-with-feedback ()
   "Show line numbers temporarily, while prompting for line number N."
   (interactive)
@@ -250,10 +290,10 @@ return them in the Emacs format."
   :config
   (winner-mode)
   :bind
-  (("C-c [" . winner-undo)
-   ("s-[" . winner-undo)
-   ("C-c ]" . winner-redo)
-   ("s-]" . winner-redo)))
+  ("C-c [" . winner-undo)
+  ("s-[" . winner-undo)
+  ("C-c ]" . winner-redo)
+  ("s-]" . winner-redo))
 
 (use-package buffer-move
   :bind
@@ -337,9 +377,6 @@ return them in the Emacs format."
          (display-buffer-reuse-mode-window display-buffer-pop-up-window)
          (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
 
-;; Make `emacsclient' support solon notation of line:column
-(advice-add 'server-visit-files :around #'wrap-colon-notation)
-
 (with-eval-after-load 'ediff
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
@@ -351,12 +388,10 @@ return them in the Emacs format."
   (:map goto-address-highlight-keymap
         ("C-c C-o" . goto-address-at-point)))
 
-(defvar outline-minor-mode)
-
 (defun outline-show-current-sublevel ()
   "Show only the current top level section."
   (interactive)
-  (unless outline-minor-mode
+  (unless (bound-and-true-p 'outline-minor-mode)
     (outline-minor-mode t))
   (outline-hide-sublevels 1)
   (outline-show-subtree))
@@ -364,7 +399,7 @@ return them in the Emacs format."
 (defun outline-subtree-previous ()
   "Go to and expand previous sublevel."
   (interactive)
-  (unless outline-minor-mode
+  (unless (bound-and-true-p 'outline-minor-mode)
     (outline-minor-mode t))
   (outline-hide-sublevels 1)
   (outline-previous-visible-heading 1)
@@ -373,79 +408,85 @@ return them in the Emacs format."
 (defun outline-subtree-next ()
   "Go to and expand previous sublevel."
   (interactive)
-  (unless outline-minor-mode
+  (unless (bound-and-true-p 'outline-minor-mode)
     (outline-minor-mode t))
   (outline-hide-sublevels 1)
   (outline-next-visible-heading 1)
   (outline-show-subtree))
 
-(use-package outorg
-  :after outshine)
+;; (use-package outshine
+;;   :defer 4
+;;   :after outline
+;;   :custom
+;;   (outline-minor-mode-prefix "\M-#")
+;; :config
 
-(use-package outshine
-  :disabled t
-  :after (:or outline org-mode)
-  :custom
-  (outline-minor-mode-prefix "\M-#")
-  :config
-  ;; (put 'narrow-to-region 'disabled t)
-  ;; Narrowing now works within the headline rather than requiring to be on it
-  (advice-add 'outshine-narrow-to-subtree :before
-              (lambda (&rest _args) (unless (outline-on-heading-p t)
-                                      (outline-previous-visible-heading 1))))
+;; (put 'narrow-to-region 'disabled t)
+;;   (defun outshine-narrow-dwim (&rest _args)
+;;     (unless (outline-on-heading-p t)
+;;       (outline-previous-visible-heading 1)))
 
-  (defhydra hydra-outline (:color pink :hint nil)
-    "
-Outline
+;;   ;; Narrowing now works within the headline rather than requiring to be on it
+;;   (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
 
-^Hide^             ^Show^           ^Move
-^^^^^^------------------------------------------------------
-_s_ sublevels     _a_ all         _u_ up
-_t_ body          _e_ entry       _n_ next visible
-_o_ other         _i_ children    _p_ previous visible
-_c_ entry         _k_ branches    _f_ forward same level
-_l_ leaves        _s_ subtree     _b_ backward same level
-_d_ subtree
+;;   (defhydra hydra-outline (:color pink :hint nil)
+;;     "
+;; Outline
 
-"
-    ;; Hide
-    ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
-    ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
-    ("o" outline-hide-other)     ; Hide other branches
-    ("c" outline-hide-entry)     ; Hide this entry's body
-    ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
-    ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
-    ;; Show
-    ("a" outline-show-all)      ; Show (expand) everything
-    ("e" outline-show-entry)    ; Show this heading's body
-    ("i" outline-show-children) ; Show this heading's immediate child sub-headings
-    ("k" outline-show-branches) ; Show all sub-headings under this heading
-    ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
-    ;; Move
-    ("u" outline-up-heading)               ; Up
-    ("n" outline-next-visible-heading)     ; Next
-    ("p" outline-previous-visible-heading) ; Previous
-    ("f" outline-forward-same-level)       ; Forward - same level
-    ("b" outline-backward-same-level)      ; Backward - same level
-    ("q" nil "leave"))
+;; ^Hide^             ^Show^           ^Move
+;; ^^^^^^------------------------------------------------------
+;; _s_ sublevels     _a_ all         _u_ up
+;; _t_ body          _e_ entry       _n_ next visible
+;; _o_ other         _i_ children    _p_ previous visible
+;; _c_ entry         _k_ branches    _f_ forward same level
+;; _l_ leaves        _s_ subtree     _b_ backward same level
+;; _d_ subtree
+
+;; "
+;;     ;; Hide
+;;     ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
+;;     ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
+;;     ("o" outline-hide-other)     ; Hide other branches
+;;     ("c" outline-hide-entry)     ; Hide this entry's body
+;;     ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
+;;     ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
+;;     ;; Show
+;;     ("a" outline-show-all)      ; Show (expand) everything
+;;     ("e" outline-show-entry)    ; Show this heading's body
+;;     ("i" outline-show-children) ; Show this heading's immediate child sub-headings
+;;     ("k" outline-show-branches) ; Show all sub-headings under this heading
+;;     ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
+;;     ;; Move
+;;     ("u" outline-up-heading)               ; Up
+;;     ("n" outline-next-visible-heading)     ; Next
+;;     ("p" outline-previous-visible-heading) ; Previous
+;;     ("f" outline-forward-same-level)       ; Forward - same level
+;;     ("b" outline-backward-same-level)      ; Backward - same level
+;;     ("q" nil "leave"))
+
+;;   ;; (with-eval-after-load 'outline
+;;   ;;   (bind-keys (:map outline-minor-mode-map
+;;   ;;                    ("C-c #" . hydra-outline/body)
+;;   ;;                    ;; Don't shadow smarparens or org bindings
+;;   ;;                    ("M-<up>" . nil)
+;;   ;;                    ("M-<down>" . nil)
+;;   ;;                    ("<backtab>" . outshine-cycle-buffer)
+;;   ;;                    ("M-=" . outline-show-current-sublevel)
+;;   ;;                    ("M-p" . outline-subtree-previous)
+;;   ;;                    ("M-n" . outline-subtree-next))))
+
+;;   :hook
+;;   (outline-minor-mode . outshine-mode)
+;;   (prog-mode . outline-minor-mode))
   
-  :hook
-  ;; Required for outshine
-  (outline-minor-mode . outshine-mode)
-  (prog-mode . outline-minor-mode)
-  :bind
-  (:map outline-minor-mode-map
-        ("C-c #" . hydra-outline/body)
-        ;; Don't shadow smarparens or org bindings
-        ("M-<up>" . nil)
-        ("M-<down>" . nil)
-        ("<backtab>" . outshine-cycle-buffer)
-        ("M-=" . outline-show-current-sublevel)
-        ("M-p" . outline-subtree-previous)
-        ("M-n" . outline-subtree-next)))
+
+(use-package outorg
+  :defer 4
+  :after outshine)
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
+  :defer 4
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :config
@@ -747,10 +788,12 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-RET" . eval-last-sexp)
  ("s-n" . scratch-new-buffer)
  ("s-N" . scratch-new-buffer-other-window)
- ("C-c C-n" . scratch-new-buffer)
+ ("C-c C-n"f . scratch-new-buffer)
  ("C-c M-n" . scratch-new-buffer-other-window)
  ("C-S-p" . previous-line-margin)
  ("C-S-n" . next-line-margin)
+ ;; Scroll the buffer while the point remains stationary relative to the window.
+ ;; TODO: Retain column position.
  ("H-p" . "\C-u1\M-v")
  ("H-n" . "\C-u1\C-v")
 

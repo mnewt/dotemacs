@@ -16,7 +16,7 @@
   :ensure nil
   :config
   (auto-compression-mode))
-  
+
 (defun upsearch (filename &optional dir)
   "Recursively search up a directory tree for FILENAME.
 
@@ -286,7 +286,9 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
     "Face for Dired timestamp."
     :group 'dired-rainbow)
 
-  (defface dired-rainbow-file-extension '((t (:inherit default :foreground "gray")))
+  (defface dired-rainbow-file-extension
+    '((((background dark)) (:inherit default :foreground "#444"))
+      (t (:inherit default :foreground "#BBB")))
     "Face for Dired file extensions."
     :group 'dired-rainbow)
 
@@ -426,6 +428,7 @@ It should be wrapped in an optional capture group."
   (dired-rainbow-listing-mode))
 
 (use-package dired-filter
+  :disabled t
   :after dired-hacks-utils
   :custom
   (dired-filter-verbose nil)
@@ -476,7 +479,22 @@ It should be wrapped in an optional capture group."
 (defun dired-list-init-files ()
   "List Emacs init files."
   (interactive)
-  (dired (expand-file-name "~/.emacs.d/lisp" user-emacs-directory)))
+  (git-home-link "dotemacs")
+  (dired-list-git-ls-files user-emacs-directory)
+  (dired-omit-mode -1))
+  
+(defun dired-list-dotfiles ()
+  "List Emacs init files."
+  (interactive)
+  (git-home-link "dotfiles")
+  (dired-list-git-ls-files "~"))
+
+(use-package counsel-tramp
+  :hook
+  (counsel-tramp-pre-command . (lambda () (projectile-mode 0)))
+  (counsel-tramp-quit . projectile-mode)
+  :commands
+  counsel-tramp)
 
 (bind-keys
  ("C-x M-s" . psync-maybe)

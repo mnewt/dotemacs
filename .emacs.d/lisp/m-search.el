@@ -44,6 +44,7 @@
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
+  :defer 2
   :after
   wgrep-ag
   :ensure-system-package
@@ -332,6 +333,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-r" . counsel-minibuffer-history)))
 
 (use-package projectile
+  :defer 1
   :custom
   (projectile-keymap-prefix (kbd "C-c p"))
   (projectile-completion-system 'ivy)
@@ -393,6 +395,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-c {" . projectile-previous-project-buffer)))
 
 (use-package counsel-projectile
+  :defer 1
   :after (counsel projectile)
   :custom
   (counsel-projectile-remove-current-buffer t)
@@ -464,6 +467,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (company-prescient-mode))
 
 (use-package dumb-jump
+  :defer 5
   :custom
   (dumb-jump-selector 'ivy)
   (dumb-jump-prefer-searcher 'rg)
