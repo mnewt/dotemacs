@@ -32,12 +32,16 @@
 ;; Delete selection on insert or yank
 (use-package delsel
   :defer 1
+  :commands
+  delete-active-region
   :config
   (delete-selection-mode))
 
 ;; Automatically indent after RET
 (use-package electric
   :defer 1
+  :commands
+  electric-indent-mode
   :config
   (electric-indent-mode))
 
@@ -56,7 +60,14 @@ Bring the line below point up to the current line."
   (join-line -1))
 
 (use-package undo-tree
-  :init
+  :custom
+  (undo-tree-auto-save-history t)
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
+  (undo-tree-visualizer-timestamps t)
+  (undo-tree-visualizer-diff t)
+  :commands
+  undo-tree-keep-region
+  :config
   ;; Keep region when undoing in region.
   ;; http://whattheemacsd.com/my-misc.el-02.html
   (defun undo-tree-keep-region (f &rest args)
@@ -73,12 +84,7 @@ Call F with ARGS."
       (call-interactively f)))
 
   (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
-  :custom
-  (undo-tree-auto-save-history t)
-  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
-  (undo-tree-visualizer-timestamps t)
-  (undo-tree-visualizer-diff t)
-  :config
+
   (global-undo-tree-mode)
   :bind
   ("s-z" . undo-tree-undo)
@@ -164,6 +170,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :config
   (yas-global-mode)
   (with-eval-after-load 'sh-script
+    (eval-when-compile
+      (defvar sh-mode-map))
     (bind-keys :map sh-mode-map
                ("C-c C-s" . nil)
                ("C-c M-s" . sh-select)))
@@ -234,8 +242,9 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
     :fringe-face 'flycheck-fringe-info)
 
   (defhydra hydra-flycheck
-    (:pre (progn (setq hydra-lv t) (flycheck-list-errors))
-          :post (progn (setq hydra-lv nil) (quit-windows-on "*Flycheck errors*"))
+    (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
+          :post (progn (setq hydra-hint-display-type nil)
+                       (quit-windows-on "*Flycheck errors*"))
           :hint nil)
     "Errors"
     ("f"  flycheck-error-list-set-filter                            "Filter")
@@ -275,7 +284,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ((clojure-mode emacs-lisp-mode hy-mode lisp-interaction-mode lisp-mode scheme-mode) . parinfer-mode)
   (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
   :commands
-  (parinfer-strategy-add)
+  (parinfer-strategy-add parinfer--invoke-parinfer)
   :bind
   (:map parinfer-mode-map
         ("<tab>" . parinfer-smart-tab:dwim-right)
@@ -294,6 +303,9 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
 (use-package smartparens
   :defer 1
   :init
+  (eval-when-compile
+    (defvar sh-basic-offset))
+  
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -347,7 +359,7 @@ ID, ACTION, CONTEXT."
         (insert (format " in list; do\n%s\n" (s-repeat sh-basic-offset " ")))))
     (sp-sh-post-handler id action context))
 
-  (defun sp-sh-if-post-handler (id action context)
+  (defun sp-sh-if-post-handler (_id action _context)
     "Handler for bash if block insertions.
 ID, ACTION, CONTEXT."
     (when (equal action 'insert)
@@ -525,7 +537,12 @@ See https://github.com/Fuco1/smartparens/issues/80."
   :hook
   (after-init . sp--update-override-key-bindings)
   :commands
-  (sp-local-pair sp-with-modes smartparens-global-mode show-smartparens-global-mode)
+  (sp-local-pair sp-with-modes smartparens-global-mode
+                 show-smartparens-global-mode
+                 sp-point-in-string-or-comment sp-forward-slurp-sexp
+                 sp-backward-symbol sp-backward-symbol sp-down-sexp
+                 sp-forward-sexp sp-backward-sexp)
+                 
   :bind
   (:map lisp-mode-shared-map
    ("RET" . sp-newline)

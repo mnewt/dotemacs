@@ -130,6 +130,9 @@ because I dynamically rename the buffer according to
       (if (= p (point))
           (beginning-of-line))))
 
+  (eval-when-compile
+    (declare-function eshel-prompt-regexp))
+
   (defun eshell-quit-or-delete-char (arg)
     "Quit Eshell if `C-d' is specified, passing ARG on."
     (interactive "p")

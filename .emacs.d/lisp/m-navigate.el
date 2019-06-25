@@ -7,17 +7,17 @@
 ;;; Code:
 
 (use-package dashboard
-  :demand t
+  :defer 0.5
   :custom
   (dashboard-center-content t)
   (dashboard-set-footer nil)
-  (dashboard-items '((projects . 8)
-                     (recents  . 8)
+  (dashboard-items '((recents  . 8)
+                     (projects . 8)
                      (registers . 8)
                      (bookmarks . 8)))
   (dashboard-set-navigator t)
   (dashboard-navigator-buttons
-   `((("O" "Org Files" "~/org"
+   `((("*" "Org Files" "~/org"
        (lambda (&rest _) (dired "~/org")))
       ("⚙" "Emacs Config" "dotemacs"
        (lambda (&rest _) (dired-list-init-files)))
@@ -31,13 +31,18 @@
        (lambda (&rest _) (info) (delete-other-windows))))))
   :config
   (dashboard-insert-shortcut "j" "Projects:")
-  :hook
-  (after-init . #'dashboard-insert-startupify-lists)
-  (emacs-startup . (lambda ()
-                     (switch-to-buffer "*dashboard*")
-                     (dashboard-mode)
-                     (goto-char (point-min))
-                     (redisplay)))
+  (dashboard-insert-startupify-lists)
+  (switch-to-buffer "*dashboard*")
+  (dashboard-mode)
+  (goto-char (point-min))
+  (dashboard-next-section)
+  ;; :hook
+  ;; (after-init . #'dashboard-insert-startupify-lists)
+  ;; (emacs-startup . (lambda ()
+  ;;                    (switch-to-buffer "*dashboard*")
+  ;;                    (dashboard-mode)
+  ;;                    (goto-char (point-min))
+  ;;                    (dashboard-next-line 1)))
   :bind
   (:map dashboard-mode-map
         ("p" . dashboard-previous-line)

@@ -36,6 +36,10 @@
   ("C-h v" . helpful-variable))
 
 (with-eval-after-load 'shr
+  (eval-when-compile
+    (defvar shr-color-visible-luminance-min)
+    (defvar shr-color-visible-distance-min)
+    (defvar shr-use-colors))
   (setq shr-color-visible-luminance-min 60
         shr-color-visible-distance-min 5
         shr-use-colors nil))
@@ -91,6 +95,9 @@
   :bind
   ("C-h e" . eg))
 
+(defvar dash-docs-docsets-path "~/.config/docsets"
+  "Local path to save docsets.")
+
 (defun dash-docs-installed-docsets ()
   "Return a list of the currently installed docsets."
   (mapcar (lambda (f) (string-trim-right f ".docset"))
@@ -102,9 +109,6 @@
   ;; counsel-dash calls 'remove-duplicates, which is no longer available in
   ;; Emacs master.
   (defalias 'remove-duplicates 'cl-remove-duplicates)
-
-  (defvar dash-docs-docsets-path "~/.config/docsets"
-    "Local path to save docsets.")
 
   (defun dash-docs-update-docsets-var (&optional _)
     "Update `dash-docs-common-docsets' variable."
@@ -161,32 +165,28 @@ Open the `eww' buffer in another window."
   (defun hydra-move-splitter-left (arg)
     "Move window splitter left by ARG characters."
     (interactive "p")
-    (if (let ((windmove-wrap-around))
-          (windmove-find-other-window 'right))
+    (if (windmove-find-other-window 'right)
         (shrink-window-horizontally arg)
       (enlarge-window-horizontally arg)))
 
   (defun hydra-move-splitter-right (arg)
     "Move window splitter right by ARG characters."
     (interactive "p")
-    (if (let ((windmove-wrap-around))
-          (windmove-find-other-window 'right))
+    (if (windmove-find-other-window 'right)
         (enlarge-window-horizontally arg)
       (shrink-window-horizontally arg)))
 
   (defun hydra-move-splitter-up (arg)
     "Move window splitter up by ARG characters."
     (interactive "p")
-    (if (let ((windmove-wrap-around))
-          (windmove-find-other-window 'up))
+    (if (windmove-find-other-window 'up)
         (enlarge-window arg)
       (shrink-window arg)))
 
   (defun hydra-move-splitter-down (arg)
     "Move window splitter down by ARG characters."
     (interactive "p")
-    (if (let ((windmove-wrap-around))
-          (windmove-find-other-window 'up))
+    (if (windmove-find-other-window 'up)
         (shrink-window arg)
       (enlarge-window arg)))
 

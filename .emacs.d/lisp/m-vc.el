@@ -86,17 +86,17 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :config
   (use-package forge :demand t)
 
-  (use-package magit-todos
-    :custom
-    (magit-todos-scanner #'magit-todos--scan-with-git-grep)
-    :hook
-    (magit-mode . magit-todos-mode))
-
   :commands
   magit-call-git
   :bind
   ("C-x g" . magit-status)
   ("C-x C-g" . magit-dispatch))
+
+(use-package magit-todos
+  :custom
+  (magit-todos-scanner #'magit-todos--scan-with-git-grep)
+  :hook
+  (magit-mode . magit-todos-mode))
 
 (use-package git-timemachine
   :bind

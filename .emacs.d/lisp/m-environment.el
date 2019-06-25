@@ -13,8 +13,7 @@
 (defvar set-path-unix nil
   "Defines a list of path entries to add to *NIX systems.")
 
-(defvar set-path-windows '("C:/bin"
-			   "C:/Program Files/Emacs/bin")
+(defvar set-path-windows '("C:/bin" "C:/Program Files/Emacs/bin")
   "Defines a list of path entries to add to Windows systems.")
 
 (defvar set-path-user nil
@@ -50,12 +49,12 @@ Update environment variables from a shell source file."
          (sep (if (eq system-type 'windows-nt) ";" ":"))
          (old-path (split-string (getenv "PATH") sep))
          ;; De-dupe and validate new path
-         (new-path
-          (mapcar #'expand-file-name
-                  (cl-remove-if-not #'file-directory-p
-                                    (cl-remove-duplicates (append set-path-user
-                                                                  os-specific-paths
-								  old-path))))))
+         (new-path (mapcar #'expand-file-name
+			   (cl-remove-if-not #'file-directory-p
+					     (cl-remove-duplicates
+					      (append set-path-user
+						      os-specific-paths
+						      old-path))))))
     (setenv "PATH" (mapconcat #'identity new-path sep))
     ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))
@@ -66,6 +65,8 @@ Update environment variables from a shell source file."
 
 (use-package server
   :defer 10
+  :commands
+  (server-running-p server-start)
   :config
   (unless (server-running-p) (server-start)))
 

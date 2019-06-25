@@ -1,8 +1,9 @@
 ;;; Init.el --- Emacs init file --- -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; It's an Emacs init file. Uses `straight.el' for package management and
-;; use-package for as much package configuration as possible.
+;; It's an Emacs init file. Relies on use-package for as much package
+;; configuration as possible for its organization and performance
+;; characteristics.
 
 ;;; Code:
 
@@ -39,8 +40,17 @@
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
 
-;; Make the window dark while we are waiting for the theme to load.
-(set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
+;;; Initial appearance settings so loading is not as jarring.
+
+(when window-system
+  ;; Give the frame basic coloring are waiting for the theme to load. These colors
+  ;; are from spacemacs-dark and spacemacs-light.
+  (if (equal 'dark (frame-parameter nil 'background-mode))
+      (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
+    (set-face-attribute 'default nil :background "#fbf8ef" :foreground "#655370"))
+  ;; Default frame settings. This is actually maximized, not full screen.
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t)))
 
 ;;; Package Management
 
@@ -54,16 +64,13 @@
 (eval-when-compile
   (require 'package)
   (package-initialize)
+  (defvar use-package-always-ensure t)
+  (defvar use-package-always-defer t)
+  (defvar use-package-enable-imenu-support t)
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
     (package-install 'use-package))
-  (custom-set-variables
-   '(use-package-always-ensure t)
-   '(use-package-always-defer t)
-   '(use-package-enable-imenu-support t))
   (require 'use-package))
-
-(use-package use-package-ensure-system-package :defer 5)
 
 ;;; Emacs Lisp Extension Libraries
 
@@ -74,16 +81,13 @@
 (use-package f :demand t)
 (use-package shut-up :commands shut-up)
 
-;; TODO: A package requires this. Find out which.
-(defalias 'defun* 'cl-defun)
-
 ;;; Benchmark init
 
-(use-package benchmark-init
-  :demand t
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 ;;; Private settings
 
@@ -96,7 +100,9 @@
 
 (add-to-list 'load-path elisp-directory)
 
-(load-file (concat elisp-directory "/use-package-git.el"))
+(use-package use-package-git :demand t :ensure nil)
+
+(use-package use-package-ensure-system-package :demand t)
 
 (dolist-with-progress-reporter
     (p
@@ -110,8 +116,8 @@
        net
        vc
        edit
-       shell
-       eshell
+       ;;shell
+       ;;eshell
        notes
        lisp
        modes)

@@ -187,15 +187,15 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
     ("+" dired-create-directory)
     ("?" dired-summary)
     ("A" dired-do-find-regexp)
-    ("C" dired-do-copy)        ;; Copy all marked files
+    ("C" dired-do-copy) ;; Copy all marked files
     ("D" dired-do-delete)
     ("E" dired-mark-extension)
     ("e" dired-ediff-files)
     ("F" dired-do-find-marked-files)
     ("G" dired-do-chgrp)
-    ("g" revert-buffer)        ;; read all directories again (refresh)
+    ("g" revert-buffer) ;; read all directories again (refresh)
     ("i" dired-maybe-insert-subdir)
-    ("l" dired-do-redisplay)   ;; relist the marked or single directory
+    ("l" dired-do-redisplay) ;; relist the marked or single directory
     ("M" dired-do-chmod)
     ("m" dired-mark)
     ("O" dired-display-file)
@@ -208,7 +208,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
     ("t" dired-toggle-marks)
     ("U" dired-unmark-all-marks)
     ("u" dired-unmark)
-    ("v" dired-view-file)      ;; q to exit, s to search, = gets line #
+    ("v" dired-view-file) ;; q to exit, s to search, = gets line #
     ("w" dired-kill-subdir)
     ("W" wdired-change-to-wdired-mode)
     ("Y" dired-do-relsymlink)
@@ -253,6 +253,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 
 (use-package dired-hacks-utils
   :defer 5
+  :commands
+  dired-utils-format-information-line-mode
   :config
   (dired-utils-format-information-line-mode))
 
@@ -260,149 +262,6 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :defer 5
   :after dired-hacks-utils
   :config
-  (defface dired-rainbow-permissions '((t (:inherit default)))
-    "Face for Dired permissions."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-inodes '((t (:inherit shadow)))
-    "Face for Dired links."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-user '((t (:inherit default)))
-    "Face for Dired user."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-group '((t (:inherit font-lock-comment-face)))
-    "Face for Dired group."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-size '((t (:inherit default)))
-    "Face for Dired file size."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-datetime
-    '((((background dark)) (:inherit default :foreground "#999"))
-      (t (:inherit default :foreground "#777")))
-    "Face for Dired timestamp."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-file-extension
-    '((((background dark)) (:inherit default :foreground "#444"))
-      (t (:inherit default :foreground "#BBB")))
-    "Face for Dired file extensions."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-file-decoration '((t (:inherit default)))
-    "Face for file decoration."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-dash
-    '((((background dark)) (:inherit default :foreground "#777"))
-      (t (:inherit default :foreground "#999")))
-    "Face for file decoration."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-filetype-directory '((t (:inherit font-lock-function-name-face)))
-    "Face for file decoration."
-    :group 'dired-rainbow)
-
-  (defface dired-rainbow-filetype-link '((t (:inherit font-lock-string-face)))
-    "Face for file decoration."
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-permissions-regexp "[-dl][-rwxlsStT]\\{9\\}[.+-@]?"
-    "A regexp matching the permissions in the dired listing."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-inodes-regexp "[0-9]+"
-    "A regexp matching the number of links in the dired listing."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-user-or-group-regexp "[a-z_][a-z0-9_-]*"
-    "A regexp matching the user and group in the dired listing."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-size-regexp "[0-9.]+[kKmMgGtTpPi]\\{0,3\\}"
-    "A regexp matching the file size in the dired listing."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-file-extension-regexp "\\.[^./]*?$"
-    "A regexp matching file extensions."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defcustom dired-rainbow-file-decoration-regexp
-    "\\(?:[*/]\\| -> .*?\\(\\.*?\\)?\\)?"
-    "A regexp matching the file decoration in the dired listing.
-
-This is the `/', `*', or ` -> file_name' after the file name when
-the `ls -F' option is used.
-
-It should be wrapped in an optional capture group."
-    :type 'string
-    :group 'dired-rainbow)
-
-  (defvar dired-rainbow-details-regexp
-    (let ((sep "\\) +\\("))
-      (concat "^ +\\("
-              dired-rainbow-permissions-regexp sep
-              dired-rainbow-inodes-regexp sep
-              dired-rainbow-user-or-group-regexp sep
-              dired-rainbow-user-or-group-regexp sep
-              dired-rainbow-size-regexp sep
-              dired-hacks-datetime-regexp
-              "\\)")))
-
-  (defvar dired-rainbow-ending-regexp
-    (concat "\\("
-            dired-rainbow-file-extension-regexp "\\)\\("
-            dired-rainbow-file-decoration-regexp "\\)$"))
-
-  (defvar dired-rainbow-listing-keywords
-    `((,(concat "\\(total used in directory\\|available\\) +\\("
-                dired-rainbow-size-regexp "\\)")
-       (1 'font-lock-comment-face)
-       (2 'default))
-      ("^ +\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +\\(d\\)" 1 'dired-rainbow-filetype-directory)
-      ("^ +\\(l\\)" 1 'dired-rainbow-filetype-link)
-      ("^ +.\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +..\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +...\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +....\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +.....\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +......\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +.......\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +........\\(-\\)" 1 'dired-rainbow-dash)
-      ("^ +.........\\(-\\)" 1 'dired-rainbow-dash)
-      (,dired-rainbow-details-regexp
-       (1 'dired-rainbow-permissions)
-       (2 'dired-rainbow-inodes)
-       (3 'dired-rainbow-user)
-       (4 'dired-rainbow-group)
-       (5 'dired-rainbow-size)
-       (6 'dired-rainbow-datetime))
-      (,dired-rainbow-file-extension-regexp 0 'dired-rainbow-file-extension t)))
-
-  (define-minor-mode dired-rainbow-listing-mode
-    "Toggle highlighting of file listing details in Dired."
-    :group 'dired-rainbow
-    :lighter ""
-    (progn
-      (if dired-rainbow-listing-mode
-          (progn
-            (setq dired-rainbow-listing-mode t)
-            (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords 'end))
-        (font-lock-remove-keywords 'dired-mode dired-rainbow-listing-keywords))
-      (mapc (lambda (b) (with-current-buffer b
-                          (when (equal major-mode 'dired-mode)
-                            (font-lock-refresh-defaults))))
-            (buffer-list))))
-
   (dired-rainbow-define-chmod directory "#0074d9" "d.*" 'end)
   (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml") 'end)
   (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata") 'end)
@@ -423,8 +282,13 @@ It should be wrapped in an optional capture group."
   (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak") 'end)
   (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules") 'end)
   (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*" 'end)
-  (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end)
+  (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end))
 
+(use-package dired-rainbow-x
+  :defer 5
+  :after dired-rainbow
+  :ensure nil
+  :config
   (dired-rainbow-listing-mode))
 
 (use-package dired-filter
@@ -481,7 +345,7 @@ It should be wrapped in an optional capture group."
   (interactive)
   (git-home-link "dotemacs")
   (dired-list-git-ls-files user-emacs-directory)
-  (dired-omit-mode -1))
+  (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1)))
   
 (defun dired-list-dotfiles ()
   "List Emacs init files."
@@ -504,4 +368,4 @@ It should be wrapped in an optional capture group."
 
 (provide 'm-file)
 
-;;; m-dired.el ends here
+;;; m-file.el ends here

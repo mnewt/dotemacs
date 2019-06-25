@@ -24,11 +24,10 @@
         scroll-preserve-screen-position 1
         auto-window-vscroll nil)
 
-  ;; Default frame settings. This is actually maximized, not full screen.
-  (add-to-list 'default-frame-alist '(fullscreen . maximized))
-  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
-
-  (with-eval-after-load 'face-remap (setq text-scale-mode-step 1.1))
+  (with-eval-after-load 'face-remap
+    (eval-when-compile
+      (defvar text-scale-mode-step))
+    (setq text-scale-mode-step 1.1))
 
   ;; eww uses this as its default font, among others.
   (set-face-font 'variable-pitch "Georgia-18"))
@@ -68,12 +67,20 @@
 
 ;; (use-package solarized-theme)
 
+(use-package window-highlight
+  :if window-system
+  :defer 1
+  :git "https://github.com/dcolascione/emacs-window-highlight.git"
+  :config
+  (window-highlight-mode))
+
 (use-package spacemacs-theme
   :custom
   (spacemacs-theme-comment-bg nil))
 
-(use-package fiat
+(use-package fiat-color
   :demand t
+  :after window-highlight
   :ensure nil
   :custom
   (fiat-lux-theme 'spacemacs-light)
@@ -84,7 +91,7 @@
   (fiat-theme)
   (fiat-mode-line-mode)
   :commands
-  (fiat-theme fiat-lux fiat-nox)
+  (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
   :bind
   ("C-c C-t" . fiat-theme-choose)
   ("C-M-s-t" . fiat))
@@ -92,15 +99,11 @@
 (use-package flash-thing
   :defer 5
   :load-path "src/flash-thing"
+  :commands
+  (flash-thing-mode flash-window)
   :config
   (setq ring-bell-function #'flash-window)
   (flash-thing-mode))
-
-(use-package window-highlight
-  :defer 1
-  :git "https://github.com/dcolascione/emacs-window-highlight.git"
-  :config
-  (window-highlight-mode))
 
 (use-package page-break-lines
   :demand t

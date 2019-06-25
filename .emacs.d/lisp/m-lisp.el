@@ -23,7 +23,8 @@ If region is active, store that. Otherwise, store the sexp at
   (set-register register
                 (if (region-active-p)
                     (buffer-substring (mark) (point))
-                  (destructuring-bind (start . end) (bounds-of-thing-at-point 'sexp)
+                  (cl-destructuring-bind
+                      (start . end) (bounds-of-thing-at-point 'sexp)
                     (buffer-substring start end))))
   (setq deactivate-mark t)
   (when (called-interactively-p 'interactive) (indicate-copied-region)))
@@ -116,6 +117,9 @@ of problems in that context."
         ("M-h" . sly-documentation-lookup)))
 
 (with-eval-after-load 'scheme
+  (eval-when-compile
+    (defvar font-lock-beg)
+    (defvar font-lock-end))
   (defun m-scheme-region-extend-function ()
     (when (not (get-text-property (point) 'font-lock-multiline))
       (let* ((heredoc nil)
@@ -189,7 +193,7 @@ of problems in that context."
   (scheme-program-name "csi -:c")
   :config
   ;; Indenting module body code at column 0
-  (defun scheme-module-indent (state indent-point normal-indent) 0)
+  (defun scheme-module-indent (_state _indent-point _normal-indent) 0)
   (put 'module 'scheme-indent-function 'scheme-module-indent)
   (put 'and-let* 'scheme-indent-function 1)
   (put 'parameterize 'scheme-indent-function 1)

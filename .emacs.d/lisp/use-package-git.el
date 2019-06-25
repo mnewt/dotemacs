@@ -26,8 +26,31 @@
 
 ;;; Commentary:
 
-;; This package adds rudimentary support for installing packages directly from
-;; git repositories.
+;; This package adds support for installing packages directly from git
+;; repositories.
+
+;; When the :git keyword is specified and :ensure is non-nil, the given package
+;; will be cloned, byte compiled, and added to `load-path'.
+
+;; Upgrade functions are also provided:
+
+;; `use-package-git-upgrade-package' - Upgrade a package.
+
+;; `use-package-git-upgrade-all-packages' - Upgrade all packages.
+
+;;; Examples:
+
+;; (use-package package
+;;   :ensure t
+;;   :git "https://git.example.org/user/package")
+
+;; (use-package package
+;;   :ensure t
+;;   :git (:name package-name
+;;         :uri "https://git.example.org/user/package"
+;;         :dir "/path/to/local/copy/of/repo"
+;;         :files "*.el"
+;;         :ref "tags/1.0"))
 
 ;; It requires git 1.7.2.3 or higher.
 
@@ -41,41 +64,105 @@
   :group 'use-package-ensure
   :type 'string)
 
+(defvar use-package-git--packages nil
+  "Packages ensured by `use-package-git'.
+
+It is an Alist.
+
+CAR is the package's local name as a symbol.
+
+CDR is a Plist with the ")
+
+(defvar use-package-git--upgrade-package-history nil
+  "History for `use-package-git-upgrade-package' command.")
+
+(defvar use-package-git--previous-ensure-function nil
+  "The previous value of `use-package-ensure-function'.")
+
+(defun use-package-git--byte-compile-package (config)
+  "Byte compile Elisp for CONFIG."
+  (let* ((dir (plist-get config :dir))
+         (default-directory (if (file-name-absolute-p dir)
+                                dir
+                              (expand-file-name dir use-package-git-user-dir))))
+    (dolist (file (seq-mapcat #'file-expand-wildcards
+                              (plist-get config :files)))
+      (save-window-excursion (byte-compile-file file t)))))
+
+(defun use-package-git-upgrade-package (package)
+  "Upgrade PACKAGE.
+
+PACKAGE is a string, symbol, or config Plist."
+  (interactive
+   (list (completing-read
+          "Upgrade git package: "
+          (mapcar (lambda (p) (symbol-name (car p))) use-package-git--packages)
+          nil t nil use-package-git--upgrade-package-history)))
+  (when (stringp package) (setq package (intern package)))
+  (when (symbolp package) (setq package (alist-get package use-package-git--packages)))
+  (let ((dir (plist-get package :dir)))
+    (when (or (< 0 (length (shell-command-to-string
+                            (format "git -C %s status --porcelain" dir))))
+              (while (pcase (downcase
+                             (read-key (concat
+                                        "The package `"
+                                        (symbol-name (plist-get package :name))
+                                        "' with local repo at ["
+                                        dir
+                                        "] is dirty."
+                                        " Choose an action:\n"
+                                        "[R]eset to HEAD and continue\n"
+                                        "[S]kip repo and continue\n"
+                                        "[A]bort\n"
+                                        "? ")))
+                       (?r (= 0 (shell-command "git -C %s reset HEAD --hard")))
+                       (?s nil)
+                       (?a (user-error "Aborted package upgrade"))
+                       (_ t))))
+      (shell-command (format "git -C %s fetch" dir) "*use-package-git*")
+      (shell-command
+       (format "git -C %s checkout %s" dir (or (plist-get package :ref) "master"))
+       "*use-package-git*")
+      (use-package-git--byte-compile-package package))))
+
+(defun use-package-git-upgrade-all-packages ()
+  "Upgrade all git ensured packages."
+  (interactive)
+  (dolist (package use-package-git--packages)
+    (use-package-git-upgrade-package (cdr package))))
+
 (defun use-package-ensure-git (name config)
   "Ensure that the git package NAME is cloned.
 
-CONFIG is the PList supplied as the value to the :git key."
+CONFIG is the Plist supplied as the value to the :git key, then
+normalized with `use-package-normalize/:git'."
+  (add-to-list 'use-package-git--packages (cons name config))
   (unless (and (file-exists-p use-package-git-user-dir)
-               (car (file-attributes use-package-git-user-dir)))
+               (file-directory-p use-package-git-user-dir))
     (make-directory use-package-git-user-dir t))
   (let ((dir (expand-file-name (plist-get config :dir) use-package-git-user-dir)))
     (unless (file-exists-p dir)
       ;; Clone the repo.
-      (message "use-package-ensure-git is cloning package %s..." (symbol-name name))
+      (message "use-package-ensure-git is cloning package %s..." name)
       (shell-command (format "git -C %s clone %s %s"
                              use-package-git-user-dir
                              (plist-get config :uri)
-                             dir))
-
+                             dir)
+                     "*use-package-git*")
       ;; Check out the ref (should work for branch, hash, or tag).
-      ;; TODO: Create branch for tag?
       (when-let (ref (plist-get config :ref))
         (shell-command (format "git -C %s checkout %s" dir ref)))
-
-      ;; Byte compile Elisp.
-      (dolist (file (file-expand-wildcards (plist-get config :files)))
-        (with-suppressed-warnings (byte-compile-file file))))
+      (use-package-git--byte-compile-package config))
     (add-to-list 'load-path dir))
   name)
 
-(defun use-package-ensure-dispatch (name args state &optional no-refresh)
+(defun use-package-git--dispatch-ensure (name args state &optional no-refresh)
   "Dispatch package NAME to the git and elpa ensure functions.))))))
 
 ARGS, STATE, and NO-REFRESH are passed through."
   (unless (plist-get state :ensured)
     (use-package-ensure-elpa name args state no-refresh)))
 
-;;;###autoload
 (defun use-package-normalize/:git (name keyword args)
   "Normalize the :git property list for package NAME.
 
@@ -85,27 +172,32 @@ so... it's :git.
 ARGS is a list of forms following the KEYWORD--in this case a
 list of one."
   (use-package-only-one (symbol-name keyword) args
-    #'(lambda (_label config)
-        (cond
-         ((stringp config)
-          (list :dir (symbol-name name) :uri config :files "*.el"))
+    (lambda (_label config)
+      (cond
+       ((stringp config)
+        (list :name name
+              :uri config
+              :dir (expand-file-name (symbol-name name) use-package-git-user-dir)
+              :files '("*.el")))
+       ((and (listp config) (stringp (plist-get config :uri)))
+        (let (c config)
+          (setq c (plist-put c :name (or (plist-get c :name) name)))
+          (setq c (plist-put c :dir (or (plist-get c :dir)
+                                        (symbol-name name))))
+          (setq c (plist-put c :files (or (let ((d (plist-get c :files)))
+                                            (cond
+                                             ((stringp d) (list d))
+                                             ((listp d) d)
+                                             ((not d) '("*.el")))))))
+          c))
+       (t
+        (use-package-error
+         (concat ":git wants either a string or a Plist with a :uri key")))))))
 
-         ((and (listp config) (stringp (plist-get config :uri)))
-          (setq config (plist-put config :dir (or (plist-get config :dir)
-                                                  (symbol-name name))))
-          (setq config (plist-put config :files (or (plist-get config :files)
-                                                    "*.el")))
-          config)
-
-         (t
-          (use-package-error
-           (concat ":git wants either a string or a PList with a :uri key")))))))
-
-;;;###autoload
 (defun use-package-handler/:git (name _keyword config rest state)
   "Simply return `body' of package NAME.
 
-STATE is updated to tell `use-package-ensure-dispatch' that this
+STATE is updated to tell `use-package-git--dispatch-ensure' that this
 package is already ensured and does not need to dispatch to
 `ensure'.
 
@@ -124,7 +216,8 @@ NAME and REST are passed to `use-package-process-keywords'."
 
 (add-to-list 'use-package-keywords :git)
 
-(setq use-package-ensure-function #'use-package-ensure-dispatch)
+(setq use-package-git--previous-ensure-function use-package-ensure-function
+      use-package-ensure-function #'use-package-git--dispatch-ensure)
 
 (provide 'use-package-git)
 
