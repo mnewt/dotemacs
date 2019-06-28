@@ -152,7 +152,6 @@ With a prefix ARG always prompt for command to use."
     (os-open-file file)))
 
 (use-package dired
-  :demand t
   :ensure nil
   :custom
   (dired-listing-switches "-aFhl")
@@ -164,12 +163,12 @@ With a prefix ARG always prompt for command to use."
   (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
   ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
   ;; Emacs and can run into issues with certain characters in the file name.
-  (insert-directory-program (or (executable-find "gls")
-                                (executable-find "ls")))
+  (insert-directory-program (or (executable-find "gls"
+                                  (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
-  (dired-clean-confirm-killing-deleted-buffers nil)
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
   :config
+  (setq dired-clean-confirm-killing-deleted-buffers nil)
   (defhydra hydra-dired (:hint nil :color pink)
     "
 _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
@@ -216,10 +215,10 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
     ("q" nil)
     ("." nil :color blue))
   :hook
-  (dired-mode . dired-hide-details-mode)
-  (dired-mode . (lambda ()
-                  (unless (file-remote-p default-directory)
-                    (auto-revert-mode))))
+  (dired-mode-hook . dired-hide-details-mode)
+  (dired-mode-hook . (lambda ()
+                       (unless (file-remote-p default-directory)
+                         (auto-revert-mode))))
   :bind
   (:map dired-mode-map
         ("." . hydra-dired/body)
@@ -297,7 +296,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :custom
   (dired-filter-verbose nil)
   :hook
-  (dired-mode . dired-filter-mode))
+  (dired-mode-hook . dired-filter-mode))
 
 (use-package dired-list
   :defer 5
@@ -327,16 +326,16 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 (use-package dired-collapse
   :after dired-hacks-utils
   :hook
-  (dired-mode . dired-collapse-mode))
+  (dired-mode-hook . dired-collapse-mode))
 
 (use-package dired-sidebar
   :config
   (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
   (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
   :hook
-  (dired-sidebar-mode . (lambda ()
-                          (unless (file-remote-p default-directory)
-                            (auto-revert-mode))))
+  (dired-sidebar-mode-hook . (lambda ()
+                               (unless (file-remote-p default-directory)
+                                 (auto-revert-mode))))
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
 
@@ -355,8 +354,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 
 (use-package counsel-tramp
   :hook
-  (counsel-tramp-pre-command . (lambda () (projectile-mode 0)))
-  (counsel-tramp-quit . projectile-mode)
+  (counsel-tramp-pre-command-hook . (lambda () (projectile-mode 0)))
+  (counsel-tramp-quit-hook . projectile-mode)
   :commands
   counsel-tramp)
 

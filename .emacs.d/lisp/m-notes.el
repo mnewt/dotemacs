@@ -53,7 +53,8 @@
   (defun search-org-files ()
     "Search ~/org using `counsel-rg'."
     (interactive)
-    (counsel-rg nil org-directory))
+    (let ((default-directory org-directory))
+      (counsel-rg)))
 
   (defun org-todo-todo ()
     "Create or update Org todo entry to TODO status."
@@ -95,7 +96,7 @@
 
   (use-package org-download
     :hook
-    (dired-mode . org-download-enable))
+    (dired-mode-hook . org-download-enable))
 
   ;; (use-package ox-hugo
   ;;   :after ox)
@@ -107,9 +108,9 @@
    ("C-c a" . org-agenda)
    ("C-c c" . org-capture)
    ("C-c b" . org-switchb)
-   ("C-c s" . search-org-files)
-   ("C-c n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
-   ("C-c o" . (lambda () (interactive) (find-file org-directory)))
+   ("M-m s" . search-org-files)
+   ("M-m n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
+   ("M-m o" . (lambda () (interactive) (find-file org-directory)))
    :map org-mode-map
    ("s-;" . org-shiftright)
    :map visual-line-mode-map
@@ -175,7 +176,7 @@
   :config
   (pdf-loader-install)
   :hook
-  (pdf-view-mode . (lambda () (auto-revert-mode -1)))
+  (pdf-view-mode-hook . (lambda () (auto-revert-mode -1)))
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))

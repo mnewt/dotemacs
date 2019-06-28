@@ -58,6 +58,7 @@
   (which-function-mode))
 
 (use-package which-key
+  :demand t
   :defer 2
   :config
   (which-key-mode)
@@ -300,6 +301,8 @@ _l_ recenter                                                   _q_ quit"
         ("C-o" . hydra-occur-dwim/body)))
 
 (use-package paradox
+  :custom
+  (paradox-automatically-star t)
   :commands paradox-list-packages)
 
 (bind-keys

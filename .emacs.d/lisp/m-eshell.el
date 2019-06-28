@@ -97,10 +97,11 @@ because I dynamically rename the buffer according to
   ;; Fish-like autosuggestions.
   (use-package esh-autosuggest
     :hook
-    (eshell-mode . esh-autosuggest-mode)
-    (esh-autosuggest-mode . (lambda () (bind-key "C-e"
-                                                 #'company-complete-selection
-                                                 esh-autosuggest-active-map))))
+    (eshell-mode-hook . esh-autosuggest-mode)
+    (esh-autosuggest-mode-hook . (lambda ()
+                                   (bind-key "C-e"
+                                             #'company-complete-selection
+                                             esh-autosuggest-active-map))))
 
   (defun eshell/s (host)
     "Change directory to HOST via tramp."
@@ -375,8 +376,8 @@ Advise `eshell-ls-decorated-name'."
              '(((name 64 64 :left) " " (process 0 -1 :right)))))
 
   :hook
-  (eshell-mode . eshell/init)
-  (eshell-before-prompt . eshell-prompt-housekeeping)
+  (eshell-mode-hook . eshell/init)
+  (eshell-before-prompt-hook . eshell-prompt-housekeeping)
 
   :bind
   (("s-e" . eshell-switch-to-buffer)

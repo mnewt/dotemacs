@@ -129,7 +129,7 @@
     :custom
     (fish-completion-fallback-on-bash-p t)
     :hook
-    ((eshell-mode shell-mode) . fish-completion-mode))
+    ((eshell-mode-hook shell-mode-hook) . fish-completion-mode))
 
   (use-package company-shell
     :config
@@ -142,9 +142,7 @@
   :commands
   shell
   :hook
-  (shell-mode . shell-dirtrack-mode)
-  (shell-mode . (lambda ()
-                  (local-set-key (kbd "M-r") #'counsel-shell-history)))
+  (shell-mode-hook . shell-dirtrack-mode)
   :bind
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
@@ -265,17 +263,28 @@ predicate returns true."
   :init
   (defun vterm--rename-buffer-as-title (title)
     (rename-buffer (format "*VTerm %s*" title) t))
+  
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
-          (plist-get (face-spec-choose (theme-get-face 'default)) :background)))
-  (defvar vterm-install t "Tell vterm to compile if necessary.")
+          (plist-get (face-spec-choose (fiat-theme-face 'default)) :background)))
+  
+  (defun maybe-enable-hl-line-mode ()
+    (if (eq major-mode 'vterm-mode)
+        (global-hl-line-mode -1)
+      (global-hl-line-mode +1)))
+  
+  (defvar vterm-install t "Tell `vterm' to compile if necessary.")
   :config
   (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
   :hook
-  (vterm-mode . vterm--set-background-color)
+  (vterm-mode-hook . vterm--set-background-color)
+  (window-configuration-change-hook . maybe-enable-hl-line-mode)
   :bind
-  ("C-c t" . vterm))
+  ("s-t" . vterm)
+  ("C-c t" . vterm)
+  ("s-T" . vterm-other-window)
+  ("C-c T" . vterm-other-window))
 
 (use-package term
   :bind
@@ -290,23 +299,14 @@ predicate returns true."
 
 (use-package xterm-color
   :config
-  ;; Adapted from https://stackoverflow.com/a/42666026/1588358
-  (defun xterm-color-apply-on-minibuffer ()
-    "Apply xterm color filtering on minibuffer output."
-    (let ((bufs (cl-remove-if-not
-                 (lambda (x) (string-prefix-p " *Echo Area" (buffer-name x)))
-                 (buffer-list))))
-      (dolist (buf bufs)
-        (with-current-buffer buf
-          (xterm-color-colorize-buffer)))))
-
-  (defun xterm-color-apply-on-minibuffer-advice (_proc &rest _rest)
-    "Wrap `xterm-color-apply-on-minibuffer'."
-    (xterm-color-apply-on-minibuffer))
-
-  (defun xterm-color-apply-on-shell-command-advice (_proc &rest _rest)
-    "Apply xterm color filtering on shell command output."
-    (with-current-buffer "*Shell Command Output*" (xterm-color-colorize-buffer)))
+  (defun xterm-color-shell-command (&rest _rest)
+    "Colorize the output of `shell-command'."
+    (dolist (b (buffer-list))
+      (pcase (buffer-name b)
+        ("*Shell Command Output*"
+         (with-current-buffer b (xterm-color-colorize-buffer)))
+        (" *Echo Area 0*"
+         (with-current-buffer b (xterm-color-colorize-buffer))))))
 
   (defun xterm-color-apply-on-compile (proc)
     "Apply xterm color filtering on the `compilation-mode' running PROC."
@@ -330,15 +330,16 @@ predicate returns true."
 
   (setq comint-output-filter-functions
         (remove 'ansi-color-process-output comint-output-filter-functions))
-  (advice-add #'shell-command :after #'xterm-color-apply-on-minibuffer-advice)
-  (advice-add #'shell-command-on-region :after #'xterm-color-apply-on-shell-command-advice)
-  
-  (setq compilation-environment '("TERM=xterm-256color"))
+  (advice-add #'shell-command :after #'xterm-color-shell-command)
+  (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
+
+  (with-eval-after-load 'compile
+    (add-to-list 'compilation-environment "TERM=xterm-256color"))
   :commands
-  (xterm-color-filter xterm-color-apply-on-minibuffer)
+  (xterm-color-filter xterm-color-shell-command)
   :hook
-  (shell-mode . xterm-color-shell-setup)
-  (compilation-start . xterm-color-apply-on-compile))
+  (shell-mode-hook . xterm-color-shell-setup)
+  (compilation-start-hook . xterm-color-apply-on-compile))
 
 (defun pw (command)
   "Run `pw' command as COMMAND.

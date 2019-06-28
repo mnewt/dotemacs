@@ -54,6 +54,8 @@
 
 ;;; Package Management
 
+;;;; use-package
+
 (setq package-enable-at-startup nil
       package-user-dir "~/.emacs.d/packages/"
       package-archives '(("org"   . "https://orgmode.org/elpa/")
@@ -64,13 +66,65 @@
 (eval-when-compile
   (require 'package)
   (package-initialize)
-  (defvar use-package-always-ensure t)
-  (defvar use-package-always-defer t)
-  (defvar use-package-enable-imenu-support t)
+  (custom-set-variables
+   '(use-package-always-ensure t)
+   '(use-package-always-defer t)
+   '(use-package-enable-imenu-support t)
+   '(use-package-hook-name-suffix nil))
   (unless (package-installed-p 'use-package)
     (package-refresh-contents)
     (package-install 'use-package))
   (require 'use-package))
+
+;;;; leaf
+
+;; (prog1 "prepare leaf"
+;;   (prog1 "package"
+;;     (custom-set-variables
+;;      '(package-archives '(("org"   . "https://orgmode.org/elpa/")
+;;                           ("melpa" . "https://melpa.org/packages/")
+;;                           ("gnu"   . "https://elpa.gnu.org/packages/"))))
+;;     (package-initialize))
+
+;;   (prog1 "leaf"
+;;     (unless (package-installed-p 'leaf)
+;;       (unless (assoc 'leaf package-archive-contents)
+;;         (package-refresh-contents))
+;;       (condition-case err
+;;           (package-install 'leaf)
+;;         (error
+;;          (package-refresh-contents)     ; renew local melpa cache if fail
+;;          (package-install 'leaf))))
+
+;;     (leaf leaf
+;;       :custom ((leaf-defaults . '(:ensure t))))
+
+;;     (leaf leaf-keywords
+;;       :ensure t
+;;       :config (leaf-keywords-init)))
+
+;;   (prog1 "optional packages for leaf-keywords"
+;;     ;; optional packages if you want to use :hydra, :el-get,,,
+;;     (leaf hydra :ensure t)
+;;     (leaf el-get :ensure t
+;;       :custom ((el-get-git-shallow-clone  . t)))))
+
+;;; Benchmark init
+
+;; (use-package benchmark-init
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+
+(defvar elisp-directory "~/.emacs.d/lisp"
+  "Local elisp configuration files go here.")
+
+(add-to-list 'load-path elisp-directory)
+
+(use-package use-package-git :demand t :ensure nil)
+
+(use-package use-package-ensure-system-package :demand t)
 
 ;;; Emacs Lisp Extension Libraries
 
@@ -81,28 +135,11 @@
 (use-package f :demand t)
 (use-package shut-up :commands shut-up)
 
-;;; Benchmark init
-
-;; (use-package benchmark-init
-;;   :demand t
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
-
 ;;; Private settings
 
 (load "~/.emacs.d/m-private.el" t)
 
 ;;; Local Packages
-
-(defvar elisp-directory "~/.emacs.d/lisp"
-  "Local elisp configuration files go here.")
-
-(add-to-list 'load-path elisp-directory)
-
-(use-package use-package-git :demand t :ensure nil)
-
-(use-package use-package-ensure-system-package :demand t)
 
 (dolist-with-progress-reporter
     (p
@@ -116,8 +153,8 @@
        net
        vc
        edit
-       ;;shell
-       ;;eshell
+       shell
+       eshell
        notes
        lisp
        modes)

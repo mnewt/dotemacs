@@ -149,8 +149,9 @@ new file for the first time."
          "\\.html?\\'")
   :init
   ;; from web-mode FAQ to work with smartparens
-  (defun m-web-mode-hook ()
+  (defun web-mode-setup ()
     (setq web-mode-enable-auto-pairing nil))
+  
   (defun sp-web-mode-is-code-context (_id action _context)
     (and (eq action 'insert)
          (not (or (get-text-property (point) 'part-side)
@@ -173,7 +174,7 @@ new file for the first time."
     (web-mode . (lambda () (set (make-local-variable 'company-backends)
                                 (cons 'company-web-html company-backends)))))
   :hook
-  (web-mode . m-web-mode-hook))
+  (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
   :mode "\\.css\\'"
@@ -188,7 +189,8 @@ new file for the first time."
   :config
   (use-package company-restclient
     :hook
-    (restclient-mode . (lambda () (add-to-list 'company-backends 'company-restclient))))
+    (restclient-mode-hook
+     . (lambda () (add-to-list 'company-backends 'company-restclient))))
 
   (use-package know-your-http-well
     :commands
@@ -201,7 +203,11 @@ new file for the first time."
 
 (use-package add-node-modules-path
   :hook
-  ((css-mode graphql-mode js2-mode markdown-mode web-mode) . add-node-modules-path))
+  ((css-mode-hook
+    graphql-mode-hook
+    js2-mode-hook
+    markdown-mode-hook
+    web-mode-hook) . add-node-modules-path))
 
 (use-package js
   :mode "\\.jsx?\\'"
@@ -234,14 +240,16 @@ new file for the first time."
   :commands
   (tide-setup tide-hl-identifier-mode)
   :hook
-  ((js-mode js2-mode typescript-mode) . m-tide-setup))
+  ((js-mode-hook js2-mode-hook typescript-mode-hook) . m-tide-setup))
 
 (use-package prettier-js
   :defer 2
   :ensure-system-package
   (prettier . "npm i -g prettier")
   :hook
-  ((graphql-mode js-mode js2-mode json-mode sass-mode web-mode)  . prettier-js-mode))
+  ((graphql-mode-hook
+    js-mode-hook js2-mode-hook json-mode-hook
+    sass-mode-hook web-mode-hook)  . prettier-js-mode))
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
@@ -250,7 +258,7 @@ new file for the first time."
 ;;   :mode "\\.js\\'"
 ;;   (js2-basic-offset tab-width)
 ;;   :hook
-;;   (js2-mode . js2-imenu-extras-mode))
+;;   (js2-mode-hook . js2-imenu-extras-mode))
 
 ;; (use-package rjsx-mode
 ;;   :mode "\\.js[mx]\\'")
@@ -276,15 +284,16 @@ new file for the first time."
   ;; (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
   (use-package company-jedi
     :hook
-    (python-mode . (lambda () (set (make-local-variable 'company-backends
-                                                        '(company-jedi))))))
+    (python-mode-hook
+     . (lambda () (set (make-local-variable 'company-backends '(company-jedi))))))
   :commands
   (elpy-black-fix-code)
   :hook
-  (python-mode . (lambda ()
-                   (unless (bound-and-true-p elpy-version) (elpy-enable))
-                   (add-hook 'before-save-hook #'elpy-black-fix-code nil t)))
-  (python-mode . flycheck-mode)
+  (python-mode-hook
+   . (lambda ()
+       (unless (bound-and-true-p elpy-version) (elpy-enable))
+       (add-hook 'before-save-hook #'elpy-black-fix-code nil t)))
+  (python-mode-hook . flycheck-mode)
   :bind
   (:map python-mode-map
         ("s-<return>" . elpy-shell-send-statement)))
@@ -352,7 +361,7 @@ new file for the first time."
   :config
   (use-package inf-ruby
     :hook
-    (enh-ruby-mode . inf-ruby-minor-mode)
+    (enh-ruby-mode-hook . inf-ruby-minor-mode)
     (compilation-filter . inf-ruby-auto-enter)
     :commands
     (inf-ruby inf-ruby-console-auto)
@@ -371,7 +380,8 @@ new file for the first time."
   :config
   (use-package company-go
     :hook
-    (go-mode . (lambda () (set (make-local-variable 'company-backends) '(company-go))))))
+    (go-mode-hook
+     . (lambda () (set (make-local-variable 'company-backends) '(company-go))))))
 
 (use-package powershell
   :mode "\\.ps1\\'"
@@ -448,14 +458,14 @@ new file for the first time."
                   poly-restclient-elisp-multi-innermode))
 
   :hook
-  ((js-mode . poly-js-mode)
-   ;; (rjsx-mode . poly-rjsx-mode)
-   (web-mode . poly-web-mode)
-   (restclient-mode . poly-restclient-mode)))
+  ((js-mode-hook . poly-js-mode)
+   ;; (rjsx-mode-hook . poly-rjsx-mode)
+   (web-mode-hook . poly-web-mode)
+   (restclient-mode-hook . poly-restclient-mode)))
 
 (use-package poly-markdown
   :hook
-  (markdown-mode . poly-markdown-mode))
+  (markdown-mode-hook . poly-markdown-mode))
 
 (use-package fence-edit
   :git "https://github.com/aaronbieber/fence-edit.el.git"
@@ -469,7 +479,7 @@ new file for the first time."
     (add-to-list 'fence-edit-blocks e))
   :hook
   ;; Don't shadow the fence-edit binding
-  (markdown-mode . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
+  (markdown-mode-hook . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
   :bind
   ("C-c '" . fence-edit-dwim))
 

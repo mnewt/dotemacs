@@ -6,6 +6,10 @@
 
 ;;; Code:
 
+;; Define "M-m" as a prefix key.
+(global-set-key (kbd "M-m") nil)
+(define-prefix-command 'm-map)
+
 (use-package dashboard
   :defer 0.5
   :custom
@@ -36,13 +40,6 @@
   (dashboard-mode)
   (goto-char (point-min))
   (dashboard-next-section)
-  ;; :hook
-  ;; (after-init . #'dashboard-insert-startupify-lists)
-  ;; (emacs-startup . (lambda ()
-  ;;                    (switch-to-buffer "*dashboard*")
-  ;;                    (dashboard-mode)
-  ;;                    (goto-char (point-min))
-  ;;                    (dashboard-next-line 1)))
   :bind
   (:map dashboard-mode-map
         ("p" . dashboard-previous-line)
@@ -293,12 +290,24 @@ return them in the Emacs format."
 (use-package winner
   :defer 5
   :config
+  (defun winner-wrong-window ()
+    "Open the last opened buffer in the other window."
+    (interactive)
+    (let* ((current (window-list))
+           (previous (save-window-excursion (winner-undo) (window-list)))
+           (window (seq-some (lambda (w) (not (memq w previous))) current))
+           (buffer (window-buffer window)))
+      (winner-undo)
+      (other-window 1)
+      (switch-to-buffer buffer)))
+
   (winner-mode)
   :bind
   ("C-c [" . winner-undo)
   ("s-[" . winner-undo)
   ("C-c ]" . winner-redo)
-  ("s-]" . winner-redo))
+  ("s-]" . winner-redo)
+  ("C-c z" . winner-wrong-window))
 
 (use-package buffer-move
   :bind
@@ -387,7 +396,10 @@ return them in the Emacs format."
 
 (use-package goto-addr
   :hook
-  ((compilation-mode text-mode eshell-mode shell-mode) . goto-address-mode)
+  ((compilation-mode-hook
+    text-mode-hook
+    eshell-mode-hook
+    shell-mode-hook) . goto-address-mode)
   (prog-mode . goto-address-prog-mode)
   :bind
   (:map goto-address-highlight-keymap
@@ -481,8 +493,8 @@ return them in the Emacs format."
 ;;   ;;                    ("M-n" . outline-subtree-next))))
 
 ;;   :hook
-;;   (outline-minor-mode . outshine-mode)
-;;   (prog-mode . outline-minor-mode))
+;;   (outline-minor-mode-hook . outshine-mode)
+;;   (prog-mode-hook . outline-minor-mode))
   
 
 (use-package outorg
@@ -519,13 +531,11 @@ _q_ quit
   :bind
   (:map hs-minor-mode-map
         ("C-c @" . hydra-hs/body)
-        ("C-<tab>" . hs-toggle-hiding))
-  :hook
-  (hs-minor-mode . hs-hide-all))
+        ("C-<tab>" . hs-toggle-hiding)))
 
 (use-package symbol-overlay
   :hook
-  (prog-mode . symbol-overlay-mode)
+  (prog-mode-hook . symbol-overlay-mode)
   :bind
   ("C-s-n" . symbol-overlay-jump-next)
   ("C-s-p" . symbol-overlay-jump-prev)
@@ -547,7 +557,7 @@ _q_ quit
 
 (use-package rainbow-mode
   :hook
-  ((css-mode emacs-lisp-mode sass-mode) . rainbow-mode))
+  ((css-mode-hook emacs-lisp-mode-hook sass-mode-hook) . rainbow-mode))
 
 (use-package crux
   :bind

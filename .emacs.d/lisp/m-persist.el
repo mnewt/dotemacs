@@ -83,11 +83,46 @@
           (shut-up (recentf-cleanup))
         (recentf-cleanup))))
 
+  (defun grep-recent-files (filepattern pattern)
+    (interactive "sFiles regexp: \nsSearch regexp: ")
+    (let ((files (if filepattern
+                     (cl-remove-if-not (lambda (item) (string-match filepattern item))
+                                       recentf-list)
+                   recentf-list))
+          (limit 50)
+          (grep-use-null-device nil))
+      (if (> (length files) limit)
+          (seq-subseq files 0 limit))
+
+      (let* ((tempfile (make-temp-file "emacs"))
+             (orig compilation-finish-functions))
+        (add-to-list 'compilation-finish-functions
+                     (lambda (buf result)
+                       (setq font-lock-keywords-case-fold-search t)
+                       (highlight-regexp pattern 'hi-yellow)
+                       (delete-file tempfile) 
+                       (setq compilation-finish-functions orig)))
+
+        (write-region  (mapconcat 'identity files (char-to-string 0))
+                       nil tempfile)
+
+        (grep (format "%s %s | xargs -0 grep -n -i \"%s\" "
+                      (if (eq system-type 'windows-nt)
+                          "type"
+                        "cat")
+
+                      (if (eq system-type 'windows-nt)
+                          (replace-regexp-in-string "/" "\\\\" tempfile)
+                        tempfile)
+
+                      pattern)))))
+
   ;; (shut-up (recentf-mode))
   (recentf-mode)
   :hook
-  (focus-out-hook . (recentf-save-list-silent recentf-cleanup-silent))
-  (dired-mode . recentf-add-dired-directory))
+  (focus-out-hook . recentf-save-list-silent)
+  (focus-out-hook . recentf-cleanup-silent)
+  (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
   :defer 2

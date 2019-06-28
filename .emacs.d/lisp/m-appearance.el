@@ -96,14 +96,15 @@
   ("C-c C-t" . fiat-theme-choose)
   ("C-M-s-t" . fiat))
 
-(use-package flash-thing
-  :defer 5
-  :load-path "src/flash-thing"
-  :commands
-  (flash-thing-mode flash-window)
-  :config
-  (setq ring-bell-function #'flash-window)
-  (flash-thing-mode))
+;; (use-package flash-thing
+;;   :defer 5
+;;   :ensure nil
+;;   :load-path "src/flash-thing"
+;;   :commands
+;;   (flash-thing-mode flash-window)
+;;   :config
+;;   (setq ring-bell-function #'flash-window)
+;;   (flash-thing-mode))
 
 (use-package page-break-lines
   :demand t

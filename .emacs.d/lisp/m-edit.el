@@ -188,8 +188,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   (ispell-program-name "aspell")
   (ispell-extra-args '("--sug-mode=ultra"))
   :hook
-  (text-mode . (lambda () (shut-up (flyspell-mode))))
-  (prog-mode . (lambda () (shut-up (flyspell-prog-mode))))
+  (text-mode-hook . (lambda () (shut-up (flyspell-mode))))
+  (prog-mode-hook . (lambda () (shut-up (flyspell-prog-mode))))
   :bind
   (:map flyspell-mode-map
         ("C-," . nil)
@@ -255,23 +255,23 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
     ("q"  nil))
   
   :hook
-  (prog-mode . flycheck-mode)
+  (prog-mode-hook . flycheck-mode)
   :bind
   ("C-c ! !" . flycheck-mode))
 
 ;; Some modes have their own formatting configuration.
 (use-package format-all
   :hook
-  ((css-mode
-    dockerfile-mode
-    enh-ruby-mode
-    go-mode
-    ;; lua-mode ; Don't like the formatting.
-    php-mode
-    ruby-mode
-    toml-mode
-    web-mode
-    yaml-mode) . format-all-mode))
+  ((css-mode-hook
+    dockerfile-mode-hook
+    enh-ruby-mode-hook
+    go-mode-hook
+    ;; lua-mode-hook ; Don't like the formatting.
+    php-mode-hook
+    ruby-mode-hook
+    toml-mode-hook
+    web-mode-hook
+    yaml-mode-hook) . format-all-mode))
 
 (use-package parinfer
   :custom
@@ -280,9 +280,15 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
       pretty-parens ; different paren styles for different modes.
       smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
       smart-yank))  ; Yank behavior depends on mode.
+  :config
+  (parinfer-strategy-add 'default 'newline-and-indent)
   :hook
-  ((clojure-mode emacs-lisp-mode hy-mode lisp-interaction-mode lisp-mode scheme-mode) . parinfer-mode)
-  (parinfer-mode . (lambda () (parinfer-strategy-add 'default 'newline-and-indent)))
+  ((clojure-mode-hook
+    emacs-lisp-mode-hook
+    hy-mode-hook
+    lisp-interaction-mode-hook
+    lisp-mode-hook
+    scheme-mode-hook) . parinfer-mode)
   :commands
   (parinfer-strategy-add parinfer--invoke-parinfer)
   :bind
@@ -305,7 +311,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :init
   (eval-when-compile
     (defvar sh-basic-offset))
-  
+
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -454,22 +460,6 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ;; type over the closing delimiter as long as you didn't leave the
   ;; sexp entirely.)
   (sp-cancel-autoskip-on-backward-movement nil)
-  ;; smartparens does some weird stuff with bindings so you can't reliably use
-  ;; `use-package/:bind' to set them.
-  (sp-base-key-bindings 'paredit)
-  (sp-override-key-bindings '(("M-s" . nil)
-                              ("M-r" . nil)
-                              ("M-s-s" . sp-splice-sexp)
-                              ("C-S-d" . sp-down-sexp)
-                              ("C-M-d" . sp-kill-symbol)
-                              ("M-<backspace>" . sp-backward-kill-word)
-                              ("C-<backspace>" . sp-backward-kill-symbol)
-                              ("C-M-<backspace>" . sp-backward-kill-sexp)
-                              ("C-s-<backspace>" . sp-splice-sexp-killing-backward)))
-
-  ;; (defun sp--really-update-key-bindings ()
-  ;;   "Make `smartparens' really respect my key bindings.")
-
   :config
   (require 'smartparens-config)
   (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
@@ -535,24 +525,61 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ;; Damnit smartparens, quit binding `M-s'!
   ;; (bind-key "M-s" nil smartparens-mode-map)
   :hook
-  (after-init . sp--update-override-key-bindings)
+  (after-init-hook . sp--update-override-key-bindings)
   :commands
   (sp-local-pair sp-with-modes smartparens-global-mode
                  show-smartparens-global-mode
                  sp-point-in-string-or-comment sp-forward-slurp-sexp
                  sp-backward-symbol sp-backward-symbol sp-down-sexp
                  sp-forward-sexp sp-backward-sexp)
-                 
+
   :bind
   (:map lisp-mode-shared-map
-   ("RET" . sp-newline)
-   ("<return>" . sp-newline)
-   ("C-k" . sp-kill-hybrid-sexp)
-   (";" . sp-comment))
-  :bind*
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline)
+        ("C-k" . sp-kill-hybrid-sexp)
+        (";" . sp-comment))
   (:map smartparens-mode-map
         ("M-s" . nil)
-        ("M-r" . nil)))
+        ("M-r" . nil)
+        ("M-<up>" . nil)
+        ("M-<down>" . nil)
+        ("C-M-f" . sp-forward-sexp)
+        ("C-M-b" . sp-backward-sexp)
+        ("C-M-n" . sp-next-sexp)
+        ("C-M-p" . sp-previous-sexp)
+        ("M-a" . sp-beginning-of-sexp)
+        ("M-e" . sp-end-of-sexp)
+        ("C-M-i" . sp-down-sexp)
+        ("C-M-o" . sp-backward-up-sexp)
+        ("M-s-s" . sp-splice-sexp)
+        ("C-M-d" . sp-kill-symbol)
+        ("C-M-k" . sp-kill-sexp)
+        ("C-M-w" . sp-copy-sexp)
+        ("C-M-t" . sp-transpose-sexp)
+        ("C-M-SPC" . sp-mark-sexp)
+        ("M-<backspace>" . sp-backward-kill-word)
+        ("C-<backspace>" . sp-backward-kill-symbol)
+        ("C-M-<backspace>" . sp-backward-kill-sexp)
+        ("C-s-<backspace>" . sp-splice-sexp-killing-backward)
+        ("M-(" . sp-wrap-round)
+        ("M-[" . sp-wrap-square)
+        ("M-{" . sp-wrap-qurly)
+        ("M-<delete>" . sp-unwrap-sexp)
+        ("M-<backspace>" . sp-backward-delete-word)
+        ("C-)" . sp-forward-slurp-sexp)
+        ("C-}" . sp-forward-barf-sexp)
+        ("C-(" . sp-backward-slurp-sexp)
+        ("C-{" . sp-backward-barf-sexp)
+        ("M-k" . sp-split-sexp)
+        ("M-j" . sp-join-sexp)
+        ("C-c s a" . sp-absorb-sexp)
+        ("C-c s e" . sp-emit-sexp)
+        ("C-c s p" . sp-convolute-sexp)
+        ("C-c s t" . sp-transpose-hybrid-sexp)
+        ("C-c s (" . sp-rewrap-sexp)
+        ("C-c s r" . sp-change-inner)
+        ("C-c s s" . sp-change-encosing)))
 
 (defun indent-buffer-or-region (beg end &optional arg)
   "Indent the region from BEG to END.

@@ -96,7 +96,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :custom
   (magit-todos-scanner #'magit-todos--scan-with-git-grep)
   :hook
-  (magit-mode . magit-todos-mode))
+  (magit-mode-hook . magit-todos-mode))
 
 (use-package git-timemachine
   :bind
@@ -110,9 +110,9 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :commands
   (diff-hl-magit-post-refresh diff-hl-mode diff-hl-dired-mode)
   :hook
-  (magit-post-refresh . diff-hl-magit-post-refresh)
-  ((prog-mode markdown-mode) . diff-hl-mode)
-  (dired-mode . diff-hl-dired-mode))
+  (magit-post-refresh-hook . diff-hl-magit-post-refresh)
+  ((prog-mode-hook markdown-mode-hook) . diff-hl-mode)
+  (dired-mode-hook . diff-hl-dired-mode))
 
 ;; (use-package smerge-mode
 ;;   :config
@@ -150,14 +150,14 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;;     ("q" nil "cancel" :color blue))
   
 ;;   :hook
-;;   (magit-diff-visit-file . (lambda () (smerge-mode) (hydra-smerge/body)))
+;;   (magit-diff-visit-file-hook . (lambda () (smerge-mode) (hydra-smerge/body)))
 ;;   :bind
 ;;   (:map smerge-mode-map
 ;;         ("C-s-s" . hydra-smerge/body)))
 
 (bind-keys
- ("C-c M-l" . git-home-link)
- ("C-c M-u" . git-home-unlink)
+ ("M-m l" . git-home-link)
+ ("M-m u" . git-home-unlink)
  ("C-x G" . projectile-git-ls-files-dired)
  ("C-c ;" . git-add-current-file))
 

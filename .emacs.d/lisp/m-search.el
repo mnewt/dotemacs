@@ -28,7 +28,7 @@
   :config
   (use-package pcre2el
     :hook
-    ((emacs-lisp-mode lisp-interaction-mode reb-mode) . rxt-mode))
+    ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
   :bind
   ("C-c r" . re-builder))
 
@@ -54,7 +54,7 @@
   :config
   (rg-enable-default-bindings (kbd "C-r"))
   :hook
-  (rg-mode . wgrep-ag-setup))
+  (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
   :defer 0.5
@@ -257,7 +257,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
                                     :test-suffix "_test")
   (projectile-mode)
   :hook
-  (projectile-after-switch-project . projectile-load-settings)
+  (projectile-after-switch-project-hook . projectile-load-settings)
   :commands
   projectile-register-project-type
   :bind
@@ -298,10 +298,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (large-file-warning-threshold nil)
   :hook
   ;; Incrementally update TAGS file when the file is saved.
-  (prog-mode . (lambda ()
-                 (add-hook 'after-save-hook
-                           'counsel-etags-virtual-update-tags 'append 'local)))
-  ((js-mode js2-mode) . counsel-etags-setup-smart-rules)
+  (prog-mode-hook
+   . (lambda ()
+       (add-hook 'after-save-hook
+                 'counsel-etags-virtual-update-tags 'append 'local)))
+  ((js-mode-hook js2-mode-hook) . counsel-etags-setup-smart-rules)
   :commands
   (counsel-etags-find-tag-at-point counsel-etags-scan-code counsel-etags-list-tag))
 
@@ -314,13 +315,13 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ;; :hook
   ;; TODO: Figure out how to make company-mode work in the minibuffer.
   ;; (minibuffer-setup . company-mode)
-  ;; (minibuffer-setup . (lambda ()
-  ;;                       (local-set-key (kbd "M-/") 'completion-at-point)))
   :bind
   (("M-/" . company-complete)
    :map company-active-map
    ("RET" . nil)
    ("<return>" . nil)
+   ("<tab>" . company-complete-selection)
+   ("C-s" . company-filter-candidates)
    ("M-?" . company-complete-selection)
    ("M-." . company-show-location)
    :map minibuffer-local-map
@@ -351,7 +352,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (dumb-jump-selector 'ivy)
   (dumb-jump-prefer-searcher 'rg)
   :hook
-  (prog-mode . dumb-jump-mode)
+  (prog-mode-hook . dumb-jump-mode)
   ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
   (eshell-mode . (lambda () (dumb-jump-mode -1)))
   :bind

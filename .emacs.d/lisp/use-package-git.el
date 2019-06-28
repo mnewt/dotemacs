@@ -4,7 +4,7 @@
 ;; Maintainer: Matthew Sojourner Newton
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "24.3") (use-package "2.4"))
-;; Homepage: https://github.com/mnewt/use-package-git
+;; Homepage: https://github.com/mnewt/dotemacs
 ;; Keywords: dotemacs config package git
 
 
@@ -65,13 +65,12 @@
   :type 'string)
 
 (defvar use-package-git--packages nil
-  "Packages ensured by `use-package-git'.
-
-It is an Alist.
+  "Alist specifying packages ensured by `use-package-git'.
 
 CAR is the package's local name as a symbol.
 
-CDR is a Plist with the ")
+CDR is a Plist that contains the information needed to fetch the
+package via git.")
 
 (defvar use-package-git--upgrade-package-history nil
   "History for `use-package-git-upgrade-package' command.")
@@ -101,7 +100,7 @@ PACKAGE is a string, symbol, or config Plist."
   (when (stringp package) (setq package (intern package)))
   (when (symbolp package) (setq package (alist-get package use-package-git--packages)))
   (let ((dir (plist-get package :dir)))
-    (when (or (< 0 (length (shell-command-to-string
+    (when (or (= 0 (length (shell-command-to-string
                             (format "git -C %s status --porcelain" dir))))
               (while (pcase (downcase
                              (read-key (concat
