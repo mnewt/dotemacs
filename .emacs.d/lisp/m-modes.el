@@ -6,7 +6,39 @@
 
 ;;; Code:
 
-;;; Shell scripting
+(use-package reformatter
+  :defer 6
+  :config
+  (defvar m-black-command (executable-find "black"))
+  (reformatter-define black :program m-black-command)
+  
+  (defvar m-clojure-command (executable-find "clojure"))
+  (reformatter-define zprint :program m-clojure-command :args '("-A:zprint"))
+
+  (defvar m-gofmt-command (executable-find "gofmt"))
+  (reformatter-define gofmt :program m-gofmt-command)
+
+  (defvar m-luafmt-command (executable-find "luafmt"))
+  (reformatter-define luafmt :program m-luafmt-command :args '("--stdin"))
+
+  (defvar m-prettier-command (executable-find "prettier"))
+  (reformatter-define prettier :program m-prettier-command)
+
+  (defvar m-rufo-command (executable-find "rufo"))
+  (reformatter-define rufo :program m-rufo-command)
+
+  (defvar m-shfmt-command (executable-find "shfmt"))
+  (reformatter-define shfmt :program m-shfmt-command)
+  
+  :hook
+  (python-mode-hook . black-on-save-mode)
+  ((css-mode-hook graphql-mode-hook html-mode-hook js-mode-hook js2-mode-hook
+                  json-mode-hook mhtml-mode-hook sass-mode-hook nxhtml-mode-hook
+                  nxml-mode-hook web-mode-hook xml-mode-hook yaml-mode-hook)
+   . prettier-on-save-mode)
+  ((enh-ruby-mode-hook ruby-mode-hook) . rufo-on-save-mode)
+  (go-mode-hook . gofmt-on-save-mode)
+  (sh-mode-hook . shfmt-on-save-mode))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -50,8 +82,8 @@ new file for the first time."
                                       (1 'default t)
                                       (2 font-lock-variable-name-face t))))
   :hook
-  (before-save . maybe-reset-major-mode)
-  (after-save . executable-make-buffer-file-executable-if-script-p)
+  (before-save-hook . maybe-reset-major-mode)
+  (after-save-hook . executable-make-buffer-file-executable-if-script-p)
   :bind*
   (:map sh-mode-map
         ("<return>" . newline-and-indent)
@@ -114,8 +146,8 @@ new file for the first time."
   (use-package shr-tag-pre-highlight
     :after shr
     :hook
-    (eww-mode . (lambda () (add-to-list 'shr-external-rendering-functions
-                                        '(pre . shr-tag-pre-highlight))))
+    (eww-mode-hook . (lambda () (add-to-list 'shr-external-rendering-functions
+                                             '(pre . shr-tag-pre-highlight))))
     :commands
     (shr-tag-pre-highlight))
   :commands
@@ -151,7 +183,7 @@ new file for the first time."
   ;; from web-mode FAQ to work with smartparens
   (defun web-mode-setup ()
     (setq web-mode-enable-auto-pairing nil))
-  
+
   (defun sp-web-mode-is-code-context (_id action _context)
     (and (eq action 'insert)
          (not (or (get-text-property (point) 'part-side)
@@ -171,8 +203,8 @@ new file for the first time."
     :commands
     (company-web-html)
     :hook
-    (web-mode . (lambda () (set (make-local-variable 'company-backends)
-                                (cons 'company-web-html company-backends)))))
+    (web-mode-hook . (lambda () (set (make-local-variable 'company-backends)
+                                     (cons 'company-web-html company-backends)))))
   :hook
   (web-mode-hook . web-mode-setup))
 

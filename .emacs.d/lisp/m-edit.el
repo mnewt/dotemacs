@@ -259,20 +259,6 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :bind
   ("C-c ! !" . flycheck-mode))
 
-;; Some modes have their own formatting configuration.
-(use-package format-all
-  :hook
-  ((css-mode-hook
-    dockerfile-mode-hook
-    enh-ruby-mode-hook
-    go-mode-hook
-    ;; lua-mode-hook ; Don't like the formatting.
-    php-mode-hook
-    ruby-mode-hook
-    toml-mode-hook
-    web-mode-hook
-    yaml-mode-hook) . format-all-mode))
-
 (use-package parinfer
   :custom
   (parinfer-extensions
