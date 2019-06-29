@@ -7,7 +7,26 @@
 ;;; Code:
 
 (use-package eshell
-  :init
+  :custom
+  (eshell-banner-message "")
+  (eshell-buffer-shorthand t)
+  (eshell-scroll-to-bottom-on-input 'all)
+  (eshell-error-if-no-glob t)
+  (eshell-hist-ignoredups t)
+  (eshell-save-history-on-exit t)
+  (eshell-prompt-function 'm-eshell-prompt-function)
+  (eshell-prompt-regexp "^(#?) ")
+  (eshell-highlight-prompt nil)
+  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
+                                          "_history" "-history" ".tmp" "~"
+                                          "desktop.ini" "Icon\r" "Thumbs.db"
+                                          "$RECYCLE_BIN" "lost+found")))
+  :config
+  (defun eshell-prompt-housekeeping ()
+    "Housekeeping for Eshell prompt."
+    (setq xterm-color-preserve-properties t)
+    (rename-buffer (format "*Eshell: %s*" default-directory) t))
+
   (defun eshell-other-window (arg)
     "Opens an eshell in another window, creating a new one if ARG is specified."
     (interactive "p")
@@ -72,37 +91,6 @@ because I dynamically rename the buffer according to
     (interactive)
     (switch-to-buffer-by-mode 'eshell-mode))
 
-  :custom
-  (eshell-banner-message "")
-  (eshell-buffer-shorthand t)
-  (eshell-scroll-to-bottom-on-input 'all)
-  (eshell-error-if-no-glob t)
-  (eshell-hist-ignoredups t)
-  (eshell-save-history-on-exit t)
-  (eshell-prompt-function 'm-eshell-prompt-function)
-  (eshell-prompt-regexp "^(#?) ")
-  (eshell-highlight-prompt nil)
-  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
-                                          "_history" "-history" ".tmp" "~"
-                                          "desktop.ini" "Icon\r" "Thumbs.db"
-                                          "$RECYCLE_BIN" "lost+found")))
-  :config
-  ;; ElDoc and topical help in Eshell.
-  (use-package esh-help
-    :config
-    (setup-esh-help-eldoc)
-    :commands
-    (setup-esh-help-eldoc esh-help-run-help))
-
-  ;; Fish-like autosuggestions.
-  (use-package esh-autosuggest
-    :hook
-    (eshell-mode-hook . esh-autosuggest-mode)
-    (esh-autosuggest-mode-hook . (lambda ()
-                                   (bind-key "C-e"
-                                             #'company-complete-selection
-                                             esh-autosuggest-active-map))))
-
   (defun eshell/s (host)
     "Change directory to HOST via tramp."
     (eshell/cd (concat "/ssh:" host ":")))
@@ -132,7 +120,7 @@ because I dynamically rename the buffer according to
           (beginning-of-line))))
 
   (eval-when-compile
-    (declare-function eshel-prompt-regexp))
+    (defvar eshell-prompt-regexp))
 
   (defun eshell-quit-or-delete-char (arg)
     "Quit Eshell if `C-d' is specified, passing ARG on."
@@ -199,11 +187,6 @@ because I dynamically rename the buffer according to
                        "white")
         :weight bold))
      ""))
-
-  (defun eshell-prompt-housekeeping ()
-    "Housekeeping for Eshell prompt."
-    (setq xterm-color-preserve-properties t)
-    (rename-buffer (format "*Eshell: %s*" default-directory) t))
 
   (defun tramp-colon-prefix-expand (path)
     "Expand a colon prefix in PATH with the TRAMP remove prefix.
@@ -389,6 +372,23 @@ Advise `eshell-ls-decorated-name'."
    ("C-c M-e" . ibuffer-show-eshell-buffers)
    :map prog-mode-map
    ("M-P" . eshell-send-previous-input)))
+
+;; ElDoc and topical help in Eshell.
+(use-package esh-help
+  :config
+  (setup-esh-help-eldoc)
+  :commands
+  (setup-esh-help-eldoc esh-help-run-help))
+
+;; Fish-like autosuggestions.
+(use-package esh-autosuggest
+  :hook
+  (eshell-mode-hook . esh-autosuggest-mode)
+  (esh-autosuggest-mode-hook . (lambda ()
+                                 (bind-key "C-e"
+                                           #'company-complete-selection
+                                           esh-autosuggest-active-map))))
+
 
 (provide 'm-eshell)
 

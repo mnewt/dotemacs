@@ -23,18 +23,23 @@ EOF
 
 base="$HOME/.emacs.d/src"
 
-required=(autoconf texinfo libxml2 imagemagick librsvg gnutls gnupg libvterm
-          universal-ctags/universal-ctags/universal-ctags)
+required=(autoconf
+          texinfo
+          libxml2
+          imagemagick
+          librsvg
+          gnutls
+          gnupg
+          jansson
+          cairo
+          libvterm)
 required_casks=(mactex)
 
-configure_opts=(--without-dbus
-                --without-pop
-                --with-gnutls
+configure_opts=(--without-pop
                 --with-ns
                 --disable-ns-self-contained
-                --with-rsvg
+                --with-cairo
                 --with-imagemagick
-                --with-xml2
                 --with-modules
                 --program-transform-name='s/^ctags$/ctags.emacs/'
                 CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I /usr/local/opt/libxml2/include/libxml2')
@@ -46,27 +51,28 @@ heading() {
 contains() {
 	local e match="$1"
 	shift
-	for e; do [[ "$e" == "$match" ]] && return 0; done
+	for e in "$@"; do [ "$e" = "$match" ] && return 0; done
 	return 1
 }
 
 # Ensure the given homebrew packages are installed and up to date
 # brew_ensure [ cask ] dep1 [ dep2 ] [ ... ]
 brew_ensure() {
+  local prefix required missing outdated upgrade
   # Decide if we are operating on 'brew' or 'brew cask'
   prefix="brew "
   [ "$1" = "cask" ] && prefix="${prefix}cask " && shift
 
   # Get list of missing packages, install them
-  read -r -a installed < <(eval $prefix list -1)
+  readarray -t installed < <(eval $prefix list -1)
   required=("$@")
   missing=()
   for p in "${required[@]}"; do
-	  contains "$p" "${installed[@]}" || needed+=("$p")
+	  contains "$p" "${installed[@]}" || missing+=("$p")
   done
   if [ -n "${missing[*]}" ]; then
 	  echo "Installing packages: ${missing[*]}"
-	  $prefix install "${missing[@]}"
+	  eval $prefix install "${missing[@]}"
   fi
 
   # Get list of outdated packages, upgrade them
@@ -77,7 +83,7 @@ brew_ensure() {
   done
   if [ -n "${upgrade[*]}" ]; then
 	  echo "Upgrading packages: ${upgrade[*]}"
-	  $prefix upgrade "${upgrade[@]}"
+	  eval $prefix upgrade "${upgrade[@]}"
   fi
 }
 
@@ -86,6 +92,7 @@ install_deps() {
 
   brew_ensure "${required[@]}"
   brew_ensure cask "${required_casks[@]}"
+  brew install --HEAD universal-ctags/universal-ctags/universal-ctags
 }
 
 build_emacs() {
