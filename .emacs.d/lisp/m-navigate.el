@@ -65,9 +65,63 @@ It's necessary because it often forgets to change the cursor type back."
 (defun fullscreen ()
   "Toggle fullscreen mode."
   (interactive)
-  (set-frame-parameter nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
+  (set-frame-parameter
+   nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
 
-(defun previous-line-margin ()
+(defun scroll-handle-hscroll ()
+  "Ensure point stays on the proper column when scrolling."
+  (message "last-command: %s" last-command)
+  (if (and (consp temporary-goal-column)
+           (memq last-command
+                 `(next-line previous-line scroll-window-up
+                             scrollf-window-down ,this-command)))
+      ;; If so, there's no need to reset `temporary-goal-column',
+      ;; but we may need to hscroll.
+      (if (or (/= (cdr temporary-goal-column) hscroll)
+              (>  (cdr temporary-goal-column) 0))
+          (setq target-hscroll (cdr temporary-goal-column)))
+    ;; Otherwise, we should reset `temporary-goal-column'.
+    (let ((posn (posn-at-point))
+          x-pos)
+      (cond
+       ;; Handle the `overflow-newline-into-fringe' case
+       ;; (left-fringe is for the R2L case):
+       ((memq (nth 1 posn) '(right-fringe left-fringe))
+        (setq temporary-goal-column (cons (window-width) hscroll)))
+       ((car (posn-x-y posn))
+        (setq x-pos (- (car (posn-x-y posn)) lnum-width))
+        ;; In R2L lines, the X pixel coordinate is measured from the
+        ;; left edge of the window, but columns are still counted
+        ;; from the logical-order beginning of the line, i.e. from
+        ;; the right edge in this case.  We need to adjust for that.
+        (if (eq (current-bidi-paragraph-direction) 'right-to-left)
+            (setq x-pos (- (window-body-width nil t) 1 x-pos)))
+        (setq temporary-goal-column
+              (cons (/ (float x-pos)
+                       (frame-char-width))
+                    hscroll)))
+       (executing-kbd-macro
+        ;; When we move beyond the first/last character visible in
+        ;; the window, posn-at-point will return nil, so we need to
+        ;; approximate the goal column as below.
+        (setq temporary-goal-column
+              (mod (current-column) (window-text-width)))))))
+  (if target-hscroll (set-window-hscroll (selected-window) target-hscroll)))
+
+;; WIP
+(defun scroll-window-up ()
+  "Scroll the buffer up, keeping point in place relative to the window."
+  (interactive)
+  (scroll-down-command 1)
+  (scroll-handle-hscroll))
+
+(defun scroll-window-down ()
+  "Scroll the buffer up, keeping point in place relative to the window."
+  (interactive)
+  (scroll-down-command -1)
+  (scroll-handle-hscroll))
+
+(defun scroll-up-margin ()
   "Move point to the top of the window.
 
 If it's already there, scroll `scroll-margin' lines up."
@@ -78,7 +132,7 @@ If it's already there, scroll `scroll-margin' lines up."
         (forward-line (- scroll-margin))
       (forward-line (+ (- line-beg line) scroll-margin)))))
 
-(defun next-line-margin ()
+(defun scroll-down-margin ()
   "Move point to the bottom of the window.
 
 If it's already there, scroll `scroll-margin' lines down."
@@ -805,12 +859,10 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-N" . scratch-new-buffer-other-window)
  ("C-c C-n"f . scratch-new-buffer)
  ("C-c M-n" . scratch-new-buffer-other-window)
- ("C-S-p" . previous-line-margin)
- ("C-S-n" . next-line-margin)
- ;; Scroll the buffer while the point remains stationary relative to the window.
- ;; TODO: Retain column position.
- ("H-p" . "\C-u1\M-v")
- ("H-n" . "\C-u1\C-v")
+ ("C-S-p" . scroll-up-margin)
+ ("C-S-n" . scroll-down-margin)
+ ("H-p" . scroll-window-up)
+ ("H-n" . scroll-window-down)
 
  ;; Full screen
  ("C-s-f" . fullscreen)

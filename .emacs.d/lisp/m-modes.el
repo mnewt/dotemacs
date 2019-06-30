@@ -6,39 +6,29 @@
 
 ;;; Code:
 
-(use-package reformatter
-  :defer 6
-  :config
-  (defvar m-black-command (executable-find "black"))
-  (reformatter-define black :program m-black-command)
-  
-  (defvar m-clojure-command (executable-find "clojure"))
-  (reformatter-define zprint :program m-clojure-command :args '("-A:zprint"))
-
-  (defvar m-gofmt-command (executable-find "gofmt"))
-  (reformatter-define gofmt :program m-gofmt-command)
-
-  (defvar m-luafmt-command (executable-find "luafmt"))
-  (reformatter-define luafmt :program m-luafmt-command :args '("--stdin"))
-
-  (defvar m-prettier-command (executable-find "prettier"))
-  (reformatter-define prettier :program m-prettier-command)
-
-  (defvar m-rufo-command (executable-find "rufo"))
-  (reformatter-define rufo :program m-rufo-command)
-
-  (defvar m-shfmt-command (executable-find "shfmt"))
-  (reformatter-define shfmt :program m-shfmt-command)
-  
+(use-package lsp-mode
+  :commands
+  (lsp lsp-deferred)
   :hook
-  (python-mode-hook . black-on-save-mode)
-  ((css-mode-hook graphql-mode-hook html-mode-hook js-mode-hook js2-mode-hook
-                  json-mode-hook mhtml-mode-hook sass-mode-hook nxhtml-mode-hook
-                  nxml-mode-hook web-mode-hook xml-mode-hook yaml-mode-hook)
-   . prettier-on-save-mode)
-  ((enh-ruby-mode-hook ruby-mode-hook) . rufo-on-save-mode)
-  (go-mode-hook . gofmt-on-save-mode)
-  (sh-mode-hook . shfmt-on-save-mode))
+  ((c-mode-hook c++-mode-hook css-mode-hook go-mode-hook
+                java-mode-hook js-mode-hook php-mode-hook
+                powershell-mode-hook elpy-mode-hook
+                enh-ruby-mode-hook nxml-mode-hook rust-mode-hook
+                sass-mode-hook sh-mode-hook html-mode-hook
+                web-mode-hook xml-mode-hook) . lsp-deferred))
+
+(use-package lsp-ui :commands lsp-ui-mode)
+(use-package company-lsp :commands company-lsp)
+;; (use-package dap-mode)
+
+(use-package format-all
+  :commands
+  (format-all-buffer format-all-region)
+  :hook
+  ((css-mode-hook dockerfile-mode-hook enh-ruby-mode-hook
+    go-mode-hook lua-mode-hook php-mode-hook ruby-mode-hook
+    toml-mode-hook web-mode-hook yaml-mode-hook) .
+    format-all-mode))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -46,8 +36,8 @@
   :init
   (defun maybe-reset-major-mode ()
     "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving a
-new file for the first time."
+Mostly useful as a `before-save-hook', to guess mode when saving
+a new file for the first time."
     (when (and (buffer-file-name)
                (not (file-exists-p (buffer-file-name)))
                (eq major-mode 'fundamental-mode))
@@ -242,7 +232,7 @@ new file for the first time."
     web-mode-hook) . add-node-modules-path))
 
 (use-package js
-  :mode "\\.jsx?\\'"
+  :mode ("\\.jsx?\\'" . js-mode)
   :custom
   (js-indent-level tab-width))
 
@@ -256,32 +246,23 @@ new file for the first time."
   ;;   (indium-connect indium-launch))
 
 ;; Tide is for Typescript but it works great for js/react.
-(use-package tide
-  :defer 2
-  :init
-  (defun m-tide-setup ()
-    (tide-setup)
-    ;; Let tide do the symbol highlighting.
-    (symbol-overlay-mode -1)
-    (tide-hl-identifier-mode)
-    ;; Because we use prettier instead.
-    (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))
-  :custom
-  (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
-  (tide-default-mode "JS")
-  :commands
-  (tide-setup tide-hl-identifier-mode)
-  :hook
-  ((js-mode-hook js2-mode-hook typescript-mode-hook) . m-tide-setup))
-
-(use-package prettier-js
-  :defer 2
-  :ensure-system-package
-  (prettier . "npm i -g prettier")
-  :hook
-  ((graphql-mode-hook
-    js-mode-hook js2-mode-hook json-mode-hook
-    sass-mode-hook web-mode-hook)  . prettier-js-mode))
+;; (use-package tide
+;;   :defer 2
+;;   :init
+;;   (defun m-tide-setup ()
+;;     (tide-setup)
+;;     ;; Let tide do the symbol highlighting.
+;;     (symbol-overlay-mode -1)
+;;     (tide-hl-identifier-mode)
+;;     ;; Because we use prettier instead.
+;;     (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))
+;;   :custom
+;;   (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
+;;   (tide-default-mode "JS")
+;;   :commands
+;;   (tide-setup tide-hl-identifier-mode)
+;;   :hook
+;;   ((js-mode-hook js2-mode-hook typescript-mode-hook) . m-tide-setup))
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
@@ -405,7 +386,12 @@ new file for the first time."
 (use-package lua-mode
   :mode "\\.lua\\'"
   :custom
-  (lua-indent-level 4))
+  (lua-indent-level tab-width))
+
+(use-package rust-mode
+  :mode "\\.rs\\'"
+  :custom
+  (rust-indent-offset tab-width))
 
 (use-package go-mode
   :mode "\\.go\\'"

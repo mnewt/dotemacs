@@ -76,6 +76,14 @@
     (package-install 'use-package))
   (require 'use-package))
 
+;; (use-package quelpa-use-package
+;;   :demand t
+;;   :init
+;;   (defvar quelpa-use-package-inhibit-loading-quelpa t)
+;;   (defvar quelpa-update-melpa-p nil)
+;;   :config
+;;   (quelpa-use-package-activate-advice))
+
 ;;;; leaf
 
 ;; (prog1 "prepare leaf"

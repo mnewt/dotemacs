@@ -52,6 +52,13 @@
 
 (add-hook 'prog-mode-hook #'auto-fill-mode-init)
 
+(use-package unfill
+  :commands
+  (unfill-region unfill-paragraph)
+  :bind
+  (:map prog-mode-map
+        ("M-q" . unfill-toggle)))
+
 ;; http://whattheemacsd.com/key-bindings.el-03.html
 (defun delete-indentation-forward ()
   "Like `delete-indentation', but in the opposite direction.

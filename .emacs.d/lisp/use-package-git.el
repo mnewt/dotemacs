@@ -171,23 +171,23 @@ so... it's :git.
 ARGS is a list of forms following the KEYWORD--in this case a
 list of one."
   (use-package-only-one (symbol-name keyword) args
-    (lambda (_label config)
+    (lambda (label config)
       (cond
        ((stringp config)
         (list :name name
               :uri config
-              :dir (expand-file-name (symbol-name name) use-package-git-user-dir)
+              :dir (file-name-base config)
               :files '("*.el")))
        ((and (listp config) (stringp (plist-get config :uri)))
-        (let (c config)
+        (let ((c config))
           (setq c (plist-put c :name (or (plist-get c :name) name)))
           (setq c (plist-put c :dir (or (plist-get c :dir)
-                                        (symbol-name name))))
-          (setq c (plist-put c :files (or (let ((d (plist-get c :files)))
-                                            (cond
-                                             ((stringp d) (list d))
-                                             ((listp d) d)
-                                             ((not d) '("*.el")))))))
+                                        (file-name-base (plist-get c :uri)))))
+          (setq c (plist-put c :files (let ((d (plist-get c :files)))
+                                        (cond
+                                         ((stringp d) (list d))
+                                         ((listp d) d)
+                                         ((not d) '("*.el"))))))
           c))
        (t
         (use-package-error

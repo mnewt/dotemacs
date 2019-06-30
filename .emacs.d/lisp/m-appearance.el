@@ -140,9 +140,7 @@
   ("M-s h o" . hl-todo-occur))
 
 (defun font-lock-reset (&optional keywords)
-  "Reload font-locking for the buffer with KEYWORDS.
-
-TODO: Test this."
+  "Reload font-locking for the buffer with KEYWORDS."
   (interactive)
   (setq font-lock-keywords nil)
   (let ((mode major-mode))

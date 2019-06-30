@@ -233,7 +233,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
 
-(use-package emacs-disk-usage
+(use-package disk-usage
   :git "https://gitlab.com/ambrevar/emacs-disk-usage.git"
   :bind
   (:map dired-mode-map
@@ -304,7 +304,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :git (:uri "https://github.com/Fuco1/dired-hacks.git"
              :files "dired-list.el")
   :commands
-  (dired-list-git-ls-files
+  (dired-list
+   dired-list-git-ls-files
    dired-list-locate
    dired-list-find-file
    dired-list-find-name
