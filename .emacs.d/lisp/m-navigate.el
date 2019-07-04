@@ -347,6 +347,8 @@ return them in the Emacs format."
 
 (use-package winner
   :defer 5
+  :commands
+  winner-mode
   :config
   (defun winner-wrong-window ()
     "Open the last opened buffer in the other window."
@@ -378,6 +380,8 @@ return them in the Emacs format."
   :defer 3
   :custom
   (winum-auto-setup-mode-line nil)
+  :commands
+  winum-mode
   :config
   (winum-mode)
   :bind
@@ -407,6 +411,7 @@ return them in the Emacs format."
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
+  :commands eyebrowse-mode
   :config
   (eyebrowse-mode)
   :bind
@@ -564,6 +569,12 @@ return them in the Emacs format."
   :defer 4
   :custom
   (hs-hide-comments-when-hiding-all nil)
+  :commands
+  hs-show-all
+  hs-hide-all
+  hs-show-block
+  hs-hide-block
+  hs-hide-level
   :config
   (defhydra hydra-hs (:color pink :hint nil)
     "
@@ -707,20 +718,19 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer vc-dir (vc-dir-next-line 1))
 (specialize-end-of-buffer vc-dir (vc-dir-previous-line 1))
 
-(specialize-beginning-of-buffer bs (bs-down 2))
-(specialize-end-of-buffer bs (bs-up 1) (bs-down 1))
-
 (specialize-beginning-of-buffer recentf-dialog
   (when (re-search-forward "^  \\[" nil t) (goto-char (match-beginning 0))))
 (specialize-end-of-buffer recentf-dialog (re-search-backward "^  \\[" nil t))
+
+(declare-function org-agenda-next-item 'org-agenda)
+(declare-function org-agenda-previous-item 'org-agenda)
+(defvar org-agenda-mode-map)
 
 (specialize-beginning-of-buffer org-agenda (org-agenda-next-item 1))
 (specialize-end-of-buffer org-agenda (org-agenda-previous-item 1))
 
 (specialize-beginning-of-buffer rg (compilation-next-error 1))
 (specialize-end-of-buffer rg (compilation-previous-error 1))
-
-(specialize-end-of-buffer elfeed-search (forward-line -2))
 
 (defhydra hydra-ibuffer-main (:color pink :hint nil)
   "

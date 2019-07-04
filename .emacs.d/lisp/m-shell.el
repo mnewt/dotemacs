@@ -103,6 +103,8 @@
      (find-file (concat "/ssh:" host ":")))))
 
 (use-package shell
+  :commands
+  comint-delchar-or-maybe-eof
   :config
   ;; http://whattheemacsd.com/setup-shell.el-01.html
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -115,40 +117,38 @@
   (defun shell-rename-buffer (_)
     "Rename buffer to `default-directory'."
     (rename-buffer (format "*Shell: %s*" default-directory) t))
-
-  (use-package bash-completion
-    :custom
-    ;; So that it doesn't sometimes insert a space ('\ ') after completing the
-    ;; file name.
-    (bash-completion-nospace t)
-    :hook
-    (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
-
-  (use-package fish-completion
-    :ensure-system-package fish
-    :custom
-    (fish-completion-fallback-on-bash-p t)
-    :hook
-    ((eshell-mode-hook shell-mode-hook) . fish-completion-mode))
-
-  (use-package company-shell
-    :config
-    (add-to-list
-     'company-backends
-     `(company-shell company-shell-env
-                     ,(when (executable-find "fish") 'company-fish-shell))))
-
-  (add-hook 'comint-output-filter-functions #'shell-rename-buffer)
   :commands
   shell
   :hook
   (shell-mode-hook . shell-dirtrack-mode)
+  (comint-output-filter-functions . shell-rename-buffer)
   :bind
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
 
+(use-package bash-completion
+  :custom
+  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
+  ;; file name.
+  (bash-completion-nospace t)
+  :hook
+  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
+
+(use-package fish-completion
+  :ensure-system-package fish
+  :custom
+  (fish-completion-fallback-on-bash-p t)
+  :hook
+  ((eshell-mode-hook shell-mode-hook) . fish-completion-mode))
+
+(use-package company-shell
+  :config
+  (add-to-list
+   'company-backends
+   `(company-shell company-shell-env
+                   ,(when (executable-find "fish") 'company-fish-shell))))
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
 (defvar explicit-dtach-args
@@ -161,16 +161,6 @@
   (let ((explicit-shell-file-name "dtach")
         (default-directory (format  "/ssh:%s:" host)))
     (shell (format "*ssh (dtach) %s*" host))))
-
-(defvar explicit-ssh-args nil
-  "Args for ssh run from `shell-mode'.")
-
-(defun ssh (host)
-  "Open SSH connection to HOST and create or attach to dtach session."
-  (interactive (list (ssh-choose-host "SSH to host: ")))
-  (let ((explicit-shell-file-name "ssh")
-        (explicit-ssh-args (list host)))
-    (shell (format "*ssh %s*" host))))
 
 (defun sudo-toggle--add-sudo (path)
   "Add sudo to file PATH string."
@@ -298,6 +288,9 @@ predicate returns true."
    ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package xterm-color
+  :commands
+  xterm-color-colorize-buffer
+  xterm-color-filter
   :config
   (defun xterm-color-shell-command (&rest _rest)
     "Colorize the output of `shell-command'."
@@ -335,8 +328,6 @@ predicate returns true."
 
   (with-eval-after-load 'compile
     (add-to-list 'compilation-environment "TERM=xterm-256color"))
-  :commands
-  (xterm-color-filter xterm-color-shell-command)
   :hook
   (shell-mode-hook . xterm-color-shell-setup)
   (compilation-start-hook . xterm-color-apply-on-compile))

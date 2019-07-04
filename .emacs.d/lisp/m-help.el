@@ -21,6 +21,8 @@
   :defer 2
   :custom
   (help-at-pt-display-when-idle t)
+  :commands
+  help-at-pt-set-timer
   :config
   (help-at-pt-set-timer))
 
@@ -46,6 +48,9 @@
 
 (use-package eldoc
   :defer 2
+  :commands
+  eldoc-add-command
+  global-eldoc-mode
   :config
   (eldoc-add-command #'company-select-next)
   (eldoc-add-command #'company-select-previous)
@@ -54,12 +59,16 @@
 
 (use-package which-func
   :defer 2
+  :commands
+  which-function-mode
   :config
   (which-function-mode))
 
 (use-package which-key
   :demand t
   :defer 2
+  :commands
+  which-key-mode
   :config
   (which-key-mode)
   :bind
@@ -226,14 +235,14 @@ DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  
   (defhydra hydra-move (:hint nil)
     "
 _b_ backward-char     _f_ forward-char   _p_ previous-line     _n_ next-line
-_B_ backward-word     _F_ forward-word   _P_ previous-line-4   _N_ next-line-4
+_B_ backward-word     _F_ forward-word   _P_ scroll-up-margin  _N_ scroll-down-margin
 _a_ beginning-of-line _A_ beg-of-defun   _e_ end-of-line       _E_ end-of-defun
 _,_ beginning-of-buf  _v_ scroll-down    _V_ scroll-up         _._ end-of-buf
 _l_ recenter                                                   _q_ quit"
     ("n" next-line)
-    ("N" next-line-4)
+    ("N" scroll-down-margin)
     ("p" previous-line)
-    ("P" previous-line-4)
+    ("P" scroll-up-margin)
     ("f" forward-char)
     ("F" forward-word)
     ("b" backward-char)
@@ -260,6 +269,9 @@ _l_ recenter                                                   _q_ quit"
 
 (use-package replace
   :ensure nil
+  :commands
+  occur-next
+  occur-prev
   :config
   (defun occur-dwim ()
     "Call `occur' with a sane default, chosen as the thing under point or selected region."
@@ -273,6 +285,8 @@ _l_ recenter                                                   _q_ quit"
                 (regexp-quote sym))))
           regexp-history)
     (call-interactively 'occur))
+
+  (declare-function other-window-hydra-occur 'hydra)
 
   (advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
 
@@ -310,16 +324,12 @@ _l_ recenter                                                   _q_ quit"
  ("C-h M-i" . info-apropos)
  :map Info-mode-map
  ("j" . next-line)
- ("k" . previous-line)
- ("J" . next-line-4)
- ("K" . previous-line-4))
+ ("k" . previous-line))
 
 (seq-doseq (m '(Info-mode-map help-mode-map))
   (bind-keys :map (symbol-value m)
              ("j" . next-line)
-             ("k" . previous-line)
-             ("J" . next-line-4)
-             ("K" . previous-line-4)))
+             ("k" . previous-line)))
 
 (provide 'm-help)
 

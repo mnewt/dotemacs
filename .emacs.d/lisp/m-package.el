@@ -103,6 +103,13 @@
 
 (use-package use-package-ensure-system-package :demand t)
 
+;; TODO Need to make a common list of the files. git-ls?
+(defun byte-compile-dotemacs ()
+  "Byte compile all dotemacs Lisp files."
+  (interactive)
+  (dolist file ()))
+    
+
 (provide 'm-package)
 
 ;;; m-package.el ends here

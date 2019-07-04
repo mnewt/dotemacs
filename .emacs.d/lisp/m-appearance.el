@@ -52,6 +52,8 @@
 (use-package pixel-scroll
   :defer 1
   :ensure nil
+  :commands
+  pixel-scroll-mode
   :config
   (pixel-scroll-mode))
 
@@ -137,6 +139,8 @@
      ("TEMP" . "orange")
      ("XXX+" . "orange")
      ("NEXT" . "lime green")))
+  :commands
+  global-hl-todo-mode
   :config
   (global-hl-todo-mode)
   :bind

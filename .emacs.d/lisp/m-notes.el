@@ -48,6 +48,11 @@
      ("m" "TODO respond to email" entry
       (file ,(expand-file-name "TODO.org" org-directory))
       "* TODO %^{Description}\n%A\n%?\n")))
+  :commands
+  org-todo
+  org-entry-get
+  org-sort-entries
+  org-map-entries
   :config
   (require 'org-capture)
   
@@ -121,6 +126,8 @@
 ;;;; Calendar and Journal
 
 (use-package calendar
+  :commands
+  calendar-current-date
   :config
   (defun calendar-iso8601-date-string (date)
     "Create an ISO8601 date string from DATE."

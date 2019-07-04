@@ -54,6 +54,9 @@
 
 ;; It requires git 1.7.2.3 or higher.
 
+;; * TODO Generate package description
+;; * TODO Generate autoloads file
+
 ;;; Code:
 
 (require 'use-package-ensure)
@@ -172,7 +175,7 @@ so... it's :git.
 ARGS is a list of forms following the KEYWORD--in this case a
 list of one."
   (use-package-only-one (symbol-name keyword) args
-    (lambda (label config)
+    (lambda (_label config)
       (cond
        ((stringp config)
         (list :name name

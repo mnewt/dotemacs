@@ -51,63 +51,68 @@ Interactively, reads the register using `register-read-with-preview'."
    ("\\.cljs\\'" . clojurescript-mode)
    ("\\.cljc\\'" . clojurec-mode))
   :interpreter
-  ("inlein" . clojure-mode)
-  :config
-  (use-package clojure-mode-extra-font-locking :demand t)
+  ("inlein" . clojure-mode))
 
-  (use-package inf-clojure
-    :init
-    (defun inf-clojure-start-lumo ()
-      "Start lumo as a subprocess and then connect to it over TCP.
+(use-package clojure-mode-extra-font-locking
+  :after clojure-mode)
+
+(use-package inf-clojure
+  :commands
+  inf-clojure
+  inf-clojure-connect
+  inf-clojure-minor-mode
+  :config
+  (defun inf-clojure-start-lumo ()
+    "Start lumo as a subprocess and then connect to it over TCP.
 This is preferable to starting it directly because lumo has lots
 of problems in that context."
-      (interactive)
-      (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-      (inf-clojure-minor-mode)
-      (shell-command "pkill -f 'lumo -d -n 2000'")
-      (async-shell-command "lumo -d -n 2000")
-      (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
-    :bind
-    (:map inf-clojure-minor-mode-map
-          ("s-<return>" . inf-clojure-eval-last-sexp)
-          ("C-c C-k" . inf-clojure-eval-buffer)))
+    (interactive)
+    (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
+    (inf-clojure-minor-mode)
+    (shell-command "pkill -f 'lumo -d -n 2000'")
+    (async-shell-command "lumo -d -n 2000")
+    (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
+  :bind
+  (:map inf-clojure-minor-mode-map
+        ("s-<return>" . inf-clojure-eval-last-sexp)
+        ("C-c C-k" . inf-clojure-eval-buffer)))
 
-  (use-package cider
-    :init
-    (defun toggle-nrepl-buffer ()
-      "Toggle the nREPL REPL on and off."
-      (interactive)
-      (if (string-match "cider-repl" (buffer-name (current-buffer)))
-          (delete-window)
-        (cider-switch-to-repl-buffer)))
+(use-package cider
+  :config
+  (defun toggle-nrepl-buffer ()
+    "Toggle the nREPL REPL on and off."
+    (interactive)
+    (if (string-match "cider-repl" (buffer-name (current-buffer)))
+        (delete-window)
+      (cider-switch-to-repl-buffer)))
 
-    (defun cider-save-and-refresh ()
-      "Save the buffer and refresh CIDER."
-      (interactive)
-      (save-buffer)
-      (call-interactively 'cider-refresh))
+  (defun cider-save-and-refresh ()
+    "Save the buffer and refresh CIDER."
+    (interactive)
+    (save-buffer)
+    (call-interactively 'cider-refresh))
 
-    (defun cider-eval-last-sexp-and-append ()
-      "Eval last sexp and append the result."
-      (interactive)
-      (cider-eval-last-sexp '(1)))
+  (defun cider-eval-last-sexp-and-append ()
+    "Eval last sexp and append the result."
+    (interactive)
+    (cider-eval-last-sexp '(1)))
 
-    :custom
-    ;; Always prompt for the jack in command.
-    (cider-edit-jack-in-command t)
+  :custom
+  ;; Always prompt for the jack in command.
+  (cider-edit-jack-in-command t)
 
-    :commands
-    (cider-jack-in cider-switch-to-repl-buffer)
+  :commands
+  (cider-jack-in cider-switch-to-repl-buffer)
 
-    :hook
-    ;; The standard advice function runs at the wrong time I guess? Anyway, it
-    ;; often gets set to the wrong color when switching themes via `theme-choose'.
-    (theme . (lambda () (when (fboundp 'cider-scale-background-color)
-                          (setq cider-stacktrace-frames-background-color
-                                (cider-scale-background-color)))))
-    :bind
-    (:map cider-mode-map
-          ("s-<return>" . cider-eval-last-sexp))))
+  :hook
+  ;; The standard advice function runs at the wrong time I guess? Anyway, it
+  ;; often gets set to the wrong color when switching themes via `theme-choose'.
+  (theme . (lambda () (when (fboundp 'cider-scale-background-color)
+                        (setq cider-stacktrace-frames-background-color
+                              (cider-scale-background-color)))))
+  :bind
+  (:map cider-mode-map
+        ("s-<return>" . cider-eval-last-sexp)))
 
 (use-package sly
   :custom
@@ -116,11 +121,11 @@ of problems in that context."
   (:map sly-prefix-map
         ("M-h" . sly-documentation-lookup)))
 
-(with-eval-after-load 'scheme
-  (eval-when-compile
-    (defvar font-lock-beg)
-    (defvar font-lock-end))
-  (defun m-scheme-region-extend-function ()
+(use-package scheme
+  :config
+  (eval-when-compile (defvar font-lock-beg) (defvar font-lock-end))
+  
+  (defun scheme-region-extend-function ()
     (when (not (get-text-property (point) 'font-lock-multiline))
       (let* ((heredoc nil)
              (new-beg
@@ -149,14 +154,14 @@ of problems in that context."
             (put-text-property new-beg new-end 'font-lock-multiline t))
           (cons new-beg new-end)))))
 
-  (defun m-scheme-syntax-propertize-foreign (_ end)
+  (defun scheme-syntax-propertize-foreign (_ end)
     (save-match-data
       (when (search-forward "<#" end t)
         (with-silent-modifications
           (put-text-property (1- (point)) (point)
                              'syntax-table (string-to-syntax "> cn"))))))
 
-  (defun m-scheme-syntax-propertize-heredoc (_ end)
+  (defun scheme-syntax-propertize-heredoc (_ end)
     (save-match-data
       (let ((tag (match-string 2)))
         (when (and tag (re-search-forward (concat "^" (regexp-quote tag) "$") nil t))
@@ -172,9 +177,9 @@ of problems in that context."
       ("\\(#\\);"
        (1 (prog1 "< cn" (scheme-syntax-propertize-sexp-comment (point) end))))
       ("\\(#\\)>"
-       (1 (prog1 "< cn" (m-scheme-syntax-propertize-foreign (point) end))))
+       (1 (prog1 "< cn" (scheme-syntax-propertize-foreign (point) end))))
       ("\\(#\\)<[<#]\\(.*\\)$"
-       (1 (prog1 "< cn" (m-scheme-syntax-propertize-heredoc (point) end)))))
+       (1 (prog1 "< cn" (scheme-syntax-propertize-heredoc (point) end)))))
      (point) end)))
 
 (defun m-scheme-mode-setup ()
@@ -183,7 +188,7 @@ of problems in that context."
 (add-hook 'scheme-mode-hook
           (lambda ()
             (setq font-lock-extend-region-functions
-                  (cons 'm-scheme-region-extend-function
+                  (cons 'scheme-region-extend-function
                         font-lock-extend-region-functions))))
 
 (use-package geiser

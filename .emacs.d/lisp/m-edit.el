@@ -73,6 +73,7 @@ Bring the line below point up to the current line."
   (undo-tree-visualizer-timestamps t)
   (undo-tree-visualizer-diff t)
   :commands
+  global-undo-tree-mode
   undo-tree-keep-region
   :config
   ;; Keep region when undoing in region.

@@ -16,10 +16,10 @@
   :hook
   ((c-mode-hook c++-mode-hook css-mode-hook go-mode-hook
                 java-mode-hook js-mode-hook php-mode-hook
-                powershell-mode-hook elpy-mode-hook
-                enh-ruby-mode-hook nxml-mode-hook rust-mode-hook
-                sass-mode-hook sh-mode-hook html-mode-hook
-                web-mode-hook xml-mode-hook) . lsp-deferred)
+                powershell-mode-hook enh-ruby-mode-hook
+                nxml-mode-hook rust-mode-hook sass-mode-hook
+                sh-mode-hook html-mode-hook web-mode-hook
+                xml-mode-hook) . lsp-deferred)
   (lsp-after-open-hook . lsp-enable-imenu))
 
 (use-package lsp-ui :commands lsp-ui-mode
@@ -275,6 +275,10 @@ a new file for the first time."
   :bind
   (:map python-mode-map
         ("s-<return>" . python-shell-send-defun)))
+
+(use-package lsp-python-ms
+  :after lsp-mode
+  :hook (python-mode . lsp-deferred))
 
 ;;;; Other Modes
 

@@ -33,6 +33,8 @@
 
 (use-package savehist
   :defer 1
+  :commands
+  savehist-mode
   :custom
   (savehist-autosave-interval 60)
   (history-length 200)
@@ -51,11 +53,17 @@
 
 (use-package saveplace
   :defer 1
+  :commands
+  save-place-mode
   :config
   (save-place-mode))
 
 (use-package recentf
   :defer 1
+  :commands
+  recentf-save-list
+  recentf-cleanup
+  recentf-mode
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
@@ -97,10 +105,10 @@
       (let* ((tempfile (make-temp-file "emacs"))
              (orig compilation-finish-functions))
         (add-to-list 'compilation-finish-functions
-                     (lambda (buf result)
+                     (lambda (_buf _result)
                        (setq font-lock-keywords-case-fold-search t)
                        (highlight-regexp pattern 'hi-yellow)
-                       (delete-file tempfile) 
+                       (delete-file tempfile)
                        (setq compilation-finish-functions orig)))
 
         (write-region  (mapconcat 'identity files (char-to-string 0))
@@ -120,8 +128,8 @@
   ;; (shut-up (recentf-mode))
   (recentf-mode)
   :hook
-  (focus-out-hook . recentf-save-list-silent)
-  (focus-out-hook . recentf-cleanup-silent)
+  (after-focus-change-function . recentf-save-list-silent)
+  (after-focus-change-function . recentf-cleanup-silent)
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
@@ -131,6 +139,8 @@
   (global-auto-revert-non-file-buffers t)
   ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
+  :commands
+  global-auto-revert-mode
   :config
   (global-auto-revert-mode))
 

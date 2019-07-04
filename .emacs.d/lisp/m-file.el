@@ -14,6 +14,8 @@
 (use-package jka-cmpr-hook
   :defer 1
   :ensure nil
+  :commands
+  auto-compression-mode
   :config
   (auto-compression-mode))
 
@@ -167,8 +169,19 @@ With a prefix ARG always prompt for command to use."
                                                  (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
+  :commands
+  dired-summary
+  dired-do-delete
+  dired-mark
+  dired-display-file
+  dired-find-file-other-window
+  dired-sort-toggle-or-edit
+  dired-toggle-marks
+  dired-unmark-all-marks
+  dired-unmark
+  dired-view-file
+  dired-ediff-files
   :config
-  (setq dired-clean-confirm-killing-deleted-buffers nil)
   (defhydra hydra-dired (:hint nil :color pink)
     "
 _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
@@ -229,6 +242,10 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 
 (use-package dired-x
   :ensure nil
+  :after dired
+  :defer 6
+  :config
+  (setq dired-clean-confirm-killing-deleted-buffers nil)
   :bind
   (:map dired-mode-map
         ("C-." . dired-omit-mode)))
@@ -292,6 +309,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :defer 5
   :after dired-rainbow
   :ensure nil
+  :commands
+  dired-rainbow-listing-mode
   :config
   (dired-rainbow-listing-mode))
 
@@ -369,7 +388,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
  ("C-x M-s" . psync-maybe)
  ("C-c o" . os-open-file)
  ("C-c O" . os-reveal-file)
- ("C-c I" . dired-list-init-files))
+ ("M-m i" . dired-list-init-files))
 
 (provide 'm-file)
 

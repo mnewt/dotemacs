@@ -51,6 +51,8 @@
   (rg . ripgrep)
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
+  :commands
+  rg-enable-default-bindings
   :config
   (rg-enable-default-bindings (kbd "C-r"))
   :hook
@@ -64,7 +66,13 @@
   (ivy-count-format "[%d/%d] ")
   ;; Don't exit the minibuffer and pressing backspace on an empty line.
   (ivy-on-del-error-function (lambda (&rest _) nil))
-  :init
+  :commands
+  ivy-mode
+  ivy-set-index
+  ivy-set-actions
+  ivy-add-actions
+  ivy--reset-state
+  :config
   (defun ivy-quit-or-delete-char (arg)
     "Quit Ivy if `C-d' is pressed on empty line, otherwise pass ARG on."
     (interactive "p")
@@ -72,10 +80,8 @@
         (progn
           (abort-recursive-edit))
       (delete-char arg)))
-  :config
+
   (ivy-mode)
-  :commands
-  (ivy--reset-state ivy-add-actions)
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
@@ -102,6 +108,8 @@
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
    "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
+  :commands
+  counsel-mode
   :config
   
   (defun counsel-find-file-edit-path ()
@@ -230,7 +238,10 @@ force `counsel-rg' to search in `default-directory.'"
   (projectile-project-search-path (list code-directory))
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
-  :init
+  :commands
+  projectile-mode
+  projectile-project-root
+  :config
   (defun projectile-load-settings (&optional file)
     "Load project elisp settings from FILE.
 Look in active project root directory, or if in the case of
@@ -258,7 +269,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
       (dired (cons dir (projectile-git-ls-files dir)))
       (rename-buffer (format "*git ls-files %s*" dir))))
   
-  :config
   ;; Why doesn't projectile have this as a default?
   (projectile-register-project-type 'generic nil
                                     :compile ""
@@ -290,6 +300,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
   (compilation-scroll-output t)
+  :commands
+  counsel-projectile-mode
   :config
   ;; When switching projects, go straight to dired in the project root.
   (setf (car counsel-projectile-switch-project-action) 4)
@@ -326,6 +338,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :defer 1
   :custom
   (company-dabbrev-ignore-case t)
+  :commands
+  global-company-mode
   :config
   (global-company-mode)
   ;; :hook
@@ -347,18 +361,24 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 
 (use-package prescient
   :defer 1
+  :commands
+  prescient-persist-mode
   :config
   (prescient-persist-mode))
 
 (use-package ivy-prescient
   :defer 1
   :after (prescient ivy)
+  :commands
+  ivy-prescient-mode
   :config
   (ivy-prescient-mode))
 
 (use-package company-prescient
   :defer 1
   :after (prescient company)
+  :commands
+  company-prescient-mode
   :config
   (company-prescient-mode))
 

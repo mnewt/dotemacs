@@ -93,6 +93,8 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   ("C-x M-g" . magit-dispatch))
 
 (use-package magit-todos
+  :commands
+  magit-todos--scan-with-git-grep
   :custom
   (magit-todos-scanner #'magit-todos--scan-with-git-grep)
   :hook
