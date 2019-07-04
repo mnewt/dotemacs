@@ -7,6 +7,10 @@
 ;;; Code:
 
 (use-package lsp-mode
+  :custom
+  (lsp-auto-guess-project-root t)
+  (lsp-eldoc-render-all t)
+  (lsp-prefer-flymake nil)
   :commands
   (lsp lsp-deferred)
   :hook
@@ -15,10 +19,18 @@
                 powershell-mode-hook elpy-mode-hook
                 enh-ruby-mode-hook nxml-mode-hook rust-mode-hook
                 sass-mode-hook sh-mode-hook html-mode-hook
-                web-mode-hook xml-mode-hook) . lsp-deferred))
+                web-mode-hook xml-mode-hook) . lsp-deferred)
+  (lsp-after-open-hook . lsp-enable-imenu))
 
-(use-package lsp-ui :commands lsp-ui-mode)
+(use-package lsp-ui :commands lsp-ui-mode
+  :bind
+  (:map lsp-ui-mode-map
+        ("M-." . lsp-ui-peek-find-definitions)
+        ("M-?" . lsp-ui-peek-find-references)
+        ("C-h ." . lsp-ui-doc-mode)))
+
 (use-package company-lsp :commands company-lsp)
+
 ;; (use-package dap-mode)
 
 (use-package format-all
@@ -26,9 +38,10 @@
   (format-all-buffer format-all-region)
   :hook
   ((css-mode-hook dockerfile-mode-hook enh-ruby-mode-hook
-    go-mode-hook lua-mode-hook php-mode-hook ruby-mode-hook
-    toml-mode-hook web-mode-hook yaml-mode-hook) .
-    format-all-mode))
+                  go-mode-hook lua-mode-hook php-mode-hook
+                  python-mode-hook ruby-mode-hook toml-mode-hook
+                  web-mode-hook yaml-mode-hook) .
+                  format-all-mode))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -186,8 +199,9 @@ a new file for the first time."
   (web-mode-enable-css-colorization t)
   (web-mode-enable-current-element-highlight t)
   (web-mode-enable-current-column-highlight t)
-  (web-mode-ac-sources-alist '(("css" . (ac-source-css-property))
-                               ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
+  (web-mode-ac-sources-alist
+   '(("css" . (ac-source-css-property))
+     ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
   :config
   (use-package company-web
     :commands
@@ -204,6 +218,8 @@ a new file for the first time."
   (css-indent-offset tab-width))
 
 (use-package sass-mode
+  :ensure-system-package
+  (sass . "gem install sass")
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
 
 (use-package restclient
@@ -229,6 +245,7 @@ a new file for the first time."
     graphql-mode-hook
     js2-mode-hook
     markdown-mode-hook
+    sass-mode-hook
     web-mode-hook) . add-node-modules-path))
 
 (use-package js
@@ -236,81 +253,28 @@ a new file for the first time."
   :custom
   (js-indent-level tab-width))
 
-  ;; (use-package indium
-  ;;   :ensure-system-package
-  ;;   (indium . "npm i -g indium")
-  ;;   :custom
-  ;;   (indium-chrome-executable "/Applications/Chromium.app/Contents/MacOS/Chromium")
-  ;;   (indium-chrome-use-temporary-profile nil)
-  ;;   :commands
-  ;;   (indium-connect indium-launch))
-
-;; Tide is for Typescript but it works great for js/react.
-;; (use-package tide
-;;   :defer 2
-;;   :init
-;;   (defun m-tide-setup ()
-;;     (tide-setup)
-;;     ;; Let tide do the symbol highlighting.
-;;     (symbol-overlay-mode -1)
-;;     (tide-hl-identifier-mode)
-;;     ;; Because we use prettier instead.
-;;     (setq-local flycheck-checkers (remove 'jsx-tide flycheck-checkers)))
-;;   :custom
-;;   (tide-format-options `(:indentSize ,tab-width :tabSize ,tab-width))
-;;   (tide-default-mode "JS")
-;;   :commands
-;;   (tide-setup tide-hl-identifier-mode)
-;;   :hook
-;;   ((js-mode-hook js2-mode-hook typescript-mode-hook) . m-tide-setup))
-
-(use-package graphql-mode
-  :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
-
-;; (use-package js2-mode
-;;   :mode "\\.js\\'"
-;;   (js2-basic-offset tab-width)
-;;   :hook
-;;   (js2-mode-hook . js2-imenu-extras-mode))
-
-;; (use-package rjsx-mode
-;;   :mode "\\.js[mx]\\'")
-
 (use-package json-mode
   :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 
+(use-package graphql-mode
+  :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
+
 ;;;; Python
 
-(use-package elpy
+(use-package python
   :mode "\\.py\\'"
   :ensure-system-package
   ;; jedi doesn't have an executable and there's not one single path we can look
   ;; across OS and python versions, so just let it tag along.
-  ((flake8 . "pip install jedi flake8")
-   (black . "pip install black")
-   (yapf . "pip install yapf"))
-  :interpreter ("python3?" . python-mode)
+  ((black . "pip install black")
+   (python-language-server . "pip install python-language-server"))
+  :interpreter "python3?"
   :custom
   (gud-pdb-command-name "python -m pdb")
-  :config
-  ;; (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
-  (use-package company-jedi
-    :hook
-    (python-mode-hook
-     . (lambda () (set (make-local-variable 'company-backends '(company-jedi))))))
-  :commands
-  (elpy-black-fix-code)
-  :hook
-  (python-mode-hook
-   . (lambda ()
-       (unless (bound-and-true-p elpy-version) (elpy-enable))
-       (add-hook 'before-save-hook #'elpy-black-fix-code nil t)))
-  (python-mode-hook . flycheck-mode)
   :bind
   (:map python-mode-map
-        ("s-<return>" . elpy-shell-send-statement)))
-
+        ("s-<return>" . python-shell-send-defun)))
 
 ;;;; Other Modes
 
@@ -334,7 +298,7 @@ a new file for the first time."
 
 (use-package systemd
   :mode
-  "\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'")
+  ("\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'" . systemd-mode))
 
 ;; DNS
 (use-package dns-mode
@@ -417,6 +381,9 @@ a new file for the first time."
 ;;;; Utility
 
 (use-package polymode
+  :commands
+  pm--get-keylist.keymap-from-parent
+  pm--config-name
   :config
   ;; rjsx
   ;; (define-hostmode poly-rjsx-hostmode

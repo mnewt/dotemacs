@@ -57,6 +57,8 @@
 
 (use-package hl-line
   :defer 1
+  :commands
+  global-hl-line-mode
   :config
   (global-hl-line-mode))
 
@@ -71,6 +73,8 @@
   :if window-system
   :defer 1
   :git "https://github.com/dcolascione/emacs-window-highlight.git"
+  :commands
+  window-highlight-mode
   :config
   (window-highlight-mode))
 
@@ -108,6 +112,8 @@
 
 (use-package page-break-lines
   :demand t
+  :commands
+  global-page-break-lines-mode
   :config
   (global-page-break-lines-mode))
 

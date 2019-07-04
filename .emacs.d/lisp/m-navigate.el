@@ -1,4 +1,4 @@
-;;; m-navigation.el --- Navigation Functions -*- lexical-binding: t -*-
+;;; m-navigate.el --- Navigation Functions -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -7,43 +7,43 @@
 ;;; Code:
 
 ;; Define "M-m" as a prefix key.
-(global-set-key (kbd "M-m") nil)
+(bind-key "M-m" nil)
 (define-prefix-command 'm-map)
 
-(use-package dashboard
-  :defer 0.5
-  :custom
-  (dashboard-center-content t)
-  (dashboard-set-footer nil)
-  (dashboard-items '((recents  . 8)
-                     (projects . 8)
-                     (registers . 8)
-                     (bookmarks . 8)))
-  (dashboard-set-navigator t)
-  (dashboard-navigator-buttons
-   `((("*" "Org Files" "~/org"
-       (lambda (&rest _) (dired "~/org")))
-      ("⚙" "Emacs Config" "dotemacs"
-       (lambda (&rest _) (dired-list-init-files)))
-      ("~" "Home Directory" "dotfiles"
-       (lambda (&rest _) (dired "~")))
-      ("↓" "Code Directory" "~/code"
-       (lambda (&rest _) (dired "~/code")))
-      ("↑" "Dropbox Code" "~/Dropbox/code"
-       (lambda (&rest _) (dired "~/Dropbox/Matt/code")))
-      ("?" "Info" "?/h"
-       (lambda (&rest _) (info) (delete-other-windows))))))
-  :config
-  (dashboard-insert-shortcut "j" "Projects:")
-  (dashboard-insert-startupify-lists)
-  (switch-to-buffer "*dashboard*")
-  (dashboard-mode)
-  (goto-char (point-min))
-  (dashboard-next-section)
-  :bind
-  (:map dashboard-mode-map
-        ("p" . dashboard-previous-line)
-        ("n" . dashboard-next-line)))
+;; (use-package dashboard
+;;   :defer 0.5
+;;   :custom
+;;   ((dashboard-center-content t)
+;;    (dashboard-set-footer nil)
+;;    (dashboard-items '((recents  . 8)
+;;                       (projects . 8)
+;;                       (registers . 8)
+;;                       (bookmarks . 8)))
+;;    (dashboard-set-navigator t)
+;;    (dashboard-navigator-buttons
+;;     `((("*" "Org Files" "~/org"
+;;         (lambda (&rest _) (dired "~/org")))
+;;        ("⚙" "Emacs Config" "dotemacs"
+;;         (lambda (&rest _) (dired-list-init-files)))
+;;        ("~" "Home Directory" "dotfiles"
+;;         (lambda (&rest _) (dired "~")))
+;;        ("↓" "Code Directory" "~/code"
+;;         (lambda (&rest _) (dired "~/code")))
+;;        ("↑" "Dropbox Code" "~/Dropbox/code"
+;;         (lambda (&rest _) (dired "~/Dropbox/Matt/code")))
+;;        ("?" "Info" "?/h"
+;;         (lambda (&rest _) (info) (delete-other-windows)))))))
+;;   :config
+;;   (dashboard-insert-shortcut "j" "Projects:")
+;;   (dashboard-insert-startupify-lists)
+;;   (switch-to-buffer "*dashboard*")
+;;   (dashboard-mode)
+;;   (goto-char (point-min))
+;;   (dashboard-next-section)
+;;   :bind
+;;   ((:map dashboard-mode-map
+;;          ("p" . dashboard-previous-line)
+;;          ("n" . dashboard-next-line))))
 
 (use-package evil
   :init
@@ -69,56 +69,60 @@ It's necessary because it often forgets to change the cursor type back."
    nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
 
 (defun scroll-handle-hscroll ()
-  "Ensure point stays on the proper column when scrolling."
-  (message "last-command: %s" last-command)
-  (if (and (consp temporary-goal-column)
-           (memq last-command
-                 `(next-line previous-line scroll-window-up
-                             scrollf-window-down ,this-command)))
-      ;; If so, there's no need to reset `temporary-goal-column',
-      ;; but we may need to hscroll.
-      (if (or (/= (cdr temporary-goal-column) hscroll)
-              (>  (cdr temporary-goal-column) 0))
-          (setq target-hscroll (cdr temporary-goal-column)))
-    ;; Otherwise, we should reset `temporary-goal-column'.
-    (let ((posn (posn-at-point))
-          x-pos)
-      (cond
-       ;; Handle the `overflow-newline-into-fringe' case
-       ;; (left-fringe is for the R2L case):
-       ((memq (nth 1 posn) '(right-fringe left-fringe))
-        (setq temporary-goal-column (cons (window-width) hscroll)))
-       ((car (posn-x-y posn))
-        (setq x-pos (- (car (posn-x-y posn)) lnum-width))
-        ;; In R2L lines, the X pixel coordinate is measured from the
-        ;; left edge of the window, but columns are still counted
-        ;; from the logical-order beginning of the line, i.e. from
-        ;; the right edge in this case.  We need to adjust for that.
-        (if (eq (current-bidi-paragraph-direction) 'right-to-left)
-            (setq x-pos (- (window-body-width nil t) 1 x-pos)))
-        (setq temporary-goal-column
-              (cons (/ (float x-pos)
-                       (frame-char-width))
-                    hscroll)))
-       (executing-kbd-macro
-        ;; When we move beyond the first/last character visible in
-        ;; the window, posn-at-point will return nil, so we need to
-        ;; approximate the goal column as below.
-        (setq temporary-goal-column
-              (mod (current-column) (window-text-width)))))))
-  (if target-hscroll (set-window-hscroll (selected-window) target-hscroll)))
+  "Ensure point stays on the proper column when scrolling.
 
-;; WIP
+Ripped out of function `line-move-visual'."
+  (let ((hscroll (window-hscroll)))
+    (if (and (consp temporary-goal-column)
+             (memq last-command `(next-line previous-line scroll-window-up
+                                            scroll-window-down ,this-command)))
+        
+        (progn
+          (line-move-to-column (truncate (car temporary-goal-column)))
+          (message "moved col to %s" (car temporary-goal-column))
+          ;; If so, there's no need to reset `temporary-goal-column',
+          ;; but we may need to hscroll.
+          (when (or (/= (cdr temporary-goal-column) hscroll)
+                    (>  (cdr temporary-goal-column) 0))
+            (set-window-hscroll (selected-window) (cdr temporary-goal-column))))
+
+      ;; Otherwise, we should reset `temporary-goal-column'.
+      (let ((posn (posn-at-point))
+            x-pos)
+        (cond
+         ;; Handle the `overflow-newline-into-fringe' case
+         ;; (left-fringe is for the R2L case):
+         ((memq (nth 1 posn) '(right-fringe left-fringe))
+          (setq temporary-goal-column (cons (window-width) hscroll)))
+         ((car (posn-x-y posn))
+          (setq x-pos (- (car (posn-x-y posn)) (line-number-display-width t)))
+          ;; In R2L lines, the X pixel coordinate is measured from the
+          ;; left edge of the window, but columns are still counted
+          ;; from the logical-order beginning of the line, i.e. from
+          ;; the right edge in this case.  We need to adjust for that.
+          (if (eq (current-bidi-paragraph-direction) 'right-to-left)
+              (setq x-pos (- (window-body-width nil t) 1 x-pos)))
+          (setq temporary-goal-column
+                (cons (/ (float x-pos)
+                         (frame-char-width))
+                      hscroll)))
+         (executing-kbd-macro
+          ;; When we move beyond the first/last character visible in
+          ;; the window, posn-at-point will return nil, so we need to
+          ;; approximate the goal column as below.
+          (setq temporary-goal-column
+                (mod (current-column) (window-text-width)))))))))
+
 (defun scroll-window-up ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-down-command 1)
+  (scroll-up-command 1)
   (scroll-handle-hscroll))
 
 (defun scroll-window-down ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-down-command -1)
+  (scroll-down-command 1)
   (scroll-handle-hscroll))
 
 (defun scroll-up-margin ()
@@ -549,7 +553,7 @@ return them in the Emacs format."
 ;;   :hook
 ;;   (outline-minor-mode-hook . outshine-mode)
 ;;   (prog-mode-hook . outline-minor-mode))
-  
+
 
 (use-package outorg
   :defer 4
@@ -812,6 +816,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   ("<" ibuffer-filter-by-size-lt "size")
   ("/" ibuffer-filter-disable "disable")
   ("b" hydra-ibuffer-main/body "back" :color blue))
+
+(use-package matcha
+  :defer 7
+  :git "https://github.com/jojojames/matcha.git"
+  :custom
+  (matcha-mode-list
+   '(cider dired js json-mode lua-mode org
+           (:file projectile :autoloads matcha-projectile)
+           python restclient smerge-mode term vc-dir vc-git web-mode)))
 
 (with-eval-after-load 'ibuffer
   (bind-keys :map ibuffer-mode-map

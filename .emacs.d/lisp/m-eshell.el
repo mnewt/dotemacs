@@ -21,6 +21,14 @@
                                           "_history" "-history" ".tmp" "~"
                                           "desktop.ini" "Icon\r" "Thumbs.db"
                                           "$RECYCLE_BIN" "lost+found")))
+  :commands
+  eshell
+  eshell-previous-input
+  eshell-previous-prompt
+  eshell-next-prompt
+  eshell-ls-applicable
+  eshell/cd
+  eshell/pwd
   :config
   (defun eshell-prompt-housekeeping ()
     "Housekeeping for Eshell prompt."
@@ -135,6 +143,7 @@ because I dynamically rename the buffer according to
   (defun eshell-send-previous-input (&optional arg)
     "Re-run the previous command with ARG in the last used eshell buffer."
     (interactive "*p")
+    (eval-when-compile (require 'em-hist) (require 'esh-mode))
     (with-current-buffer
         (cl-some (lambda (b) (eq 'eshell-mode (with-current-buffer b major-mode)))
                  (buffer-list))
@@ -267,7 +276,7 @@ Call it a second time to print the prompt."
 
   (defun eshell/init ()
     "Initialize the Eshell environment."
-
+    (eval-when-compile (require 'em-term))
     (source-sh "~/.env")
     (setq eshell-path-env (getenv "PATH"))
     ;; Path to shell executable. Set it this way to work with tramp.

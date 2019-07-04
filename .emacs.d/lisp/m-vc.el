@@ -90,7 +90,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   magit-call-git
   :bind
   ("C-x g" . magit-status)
-  ("C-x C-g" . magit-dispatch))
+  ("C-x M-g" . magit-dispatch))
 
 (use-package magit-todos
   :custom

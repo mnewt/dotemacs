@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Note taking and Org
+;; Notes, to dos, reading, Org
 
 ;;; Code:
 
@@ -15,14 +15,14 @@
   :custom
   ;; This is already the default.
   (org-directory "~/org")
-  ;; Indent text according to the outline structure
+  ;; Indent text according to the outline structure.
   (org-startup-indented t)
-  ;; Smart C-a/e
   (org-special-ctrl-a/e t)
-  ;; Smart C-k
   (org-special-ctrl-k t)
   ;; Insert a row in tables
   (org-special-ctrl-o t)
+  ;; Quit adding 2 spaces to source block
+  (org-edit-src-content-indentation 0)
   ;; Tab in source blocks should act like in major mode
   (org-src-tab-acts-natively t)
   ;; Code highlighting in code blocks
@@ -175,7 +175,12 @@
   :mode "\\.pdf\\'"
   :magic ("%PDF" . pdf-view-mode)
   :config
-  (pdf-loader-install)
+  (let ((orig-path
+         (getenv "PKG_CONFIG_PATH")))
+    (when (memq window-system '(mac ns))
+      (setenv "PKG_CONFIG_PATH" "/usr/local/opt/libffi/lib/pkgconfig"))
+    (pdf-loader-install)
+    (setenv "PKG_CONFIG_PATH" orig-path))
   :hook
   (pdf-view-mode-hook . (lambda () (auto-revert-mode -1)))
   :bind

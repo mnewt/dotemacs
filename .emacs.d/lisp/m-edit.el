@@ -33,7 +33,7 @@
 (use-package delsel
   :defer 1
   :commands
-  delete-active-region
+  delete-selection-mode delete-active-region
   :config
   (delete-selection-mode))
 
@@ -125,6 +125,8 @@ Call F with ARGS."
   ("C-+" . er/contract-region))
 
 (use-package multiple-cursors
+  :commands
+  mc/add-cursor-on-click
   :config
   (defhydra hydra-multiple-cursors (:hint nil)
     "
@@ -174,6 +176,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :custom
   ;; Don't write messages at startup.
   (yas-verbosity 1)
+  :commands
+  yas-global-mode
   :config
   (yas-global-mode)
   (with-eval-after-load 'sh-script
@@ -194,6 +198,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :custom
   (ispell-program-name "aspell")
   (ispell-extra-args '("--sug-mode=ultra"))
+  :commands
+  flyspell-mode flyspell-prog-mode
   :hook
   (text-mode-hook . (lambda () (shut-up (flyspell-mode))))
   (prog-mode-hook . (lambda () (shut-up (flyspell-prog-mode))))
@@ -209,6 +215,13 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
   (flycheck-idle-change-delay 1)
   (flycheck-idle-buffer-switch-delay 1)
+  :commands
+  flycheck-define-error-level
+  flycheck-list-errors
+  flycheck-error-list-set-filter
+  flycheck-next-error
+  flycheck-previous-error
+  flycheck-first-error
   :config
   ;; Stolen from spacemacs
   (define-fringe-bitmap 'my-flycheck-fringe-indicator
@@ -301,10 +314,22 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
 
 (use-package smartparens
   :defer 1
-  :init
-  (eval-when-compile
-    (defvar sh-basic-offset))
-
+  :custom
+  ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
+  ;; the entire symbol, use `sp-kill-symbol'.
+  (sp-hybrid-kill-entire-symbol nil)
+  ;; Don't disable autoskip when point moves backwards. (This lets you
+  ;; open a sexp, type some things, delete some things, etc., and then
+  ;; type over the closing delimiter as long as you didn't leave the
+  ;; sexp entirely.)
+  (sp-cancel-autoskip-on-backward-movement nil)
+  :commands
+  sp-get-pair
+  sp--get-opening-regexp
+  sp--get-closing-regexp
+  :config
+  (eval-when-compile (require 'sh-script))
+  
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -444,17 +469,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
     (forward-line -1)
     (indent-according-to-mode))
 
-  :custom
-  ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
-  ;; the entire symbol, use `sp-kill-symbol'.
-  (sp-hybrid-kill-entire-symbol nil)
-  ;; Don't disable autoskip when point moves backwards. (This lets you
-  ;; open a sexp, type some things, delete some things, etc., and then
-  ;; type over the closing delimiter as long as you didn't leave the
-  ;; sexp entirely.)
-  (sp-cancel-autoskip-on-backward-movement nil)
-  :config
   (require 'smartparens-config)
+
   (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
                           js2-mode json-mode objc-mode java-mode web-mode)
     (sp-local-pair "{" nil

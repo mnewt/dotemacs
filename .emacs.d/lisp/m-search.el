@@ -103,6 +103,20 @@
   (counsel-grep-base-command
    "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
   :config
+  
+  (defun counsel-find-file-edit-path ()
+    "Make the path in `counsel-find-file' editable."
+    (interactive)
+    (let ((dir ivy--directory))
+      (setq ivy--old-cands nil)
+      (setq ivy--old-re nil)
+      (ivy-set-index 0)
+      (setq ivy--directory "")
+      (setq ivy--all-candidates nil)
+      (setq ivy-text "")
+      (delete-minibuffer-contents)
+      (insert dir)))
+
   (defun ivy--call-with-current-buffer-in-other-window-action (x)
     "Switch to other window and call command X."
     (switch-to-buffer-other-window (current-buffer)
@@ -196,13 +210,15 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-c M-o" . counsel-outline)
         ("M-s-v" . counsel-yank-pop)
         ("M-Y" . counsel-yank-pop)
+        ("s-r" . counsel-imenu)
         ;; Don't shadow default binding.
         ([remap yank-pop] . nil)
         ("M-Y" . counsel-yank-pop)
         ([remap find-file] . counsel-find-file))
   (:map ivy-minibuffer-map
-        ("M-y" . ivy-next-line-and-call)
-        ("C-c C-v" . counsel-git-grep-preview-toggle))
+        ("M-<backspace>" . counsel-up-directory)
+        ("M-DEL" . counsel-up-directory)
+        ("C-c C-f" . counsel-find-file-edit-path))
   (:map minibuffer-local-map
         ("C-r" . counsel-minibuffer-history)))
 
@@ -361,13 +377,13 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-." . dumb-jump-go)
         ("s-J" . dumb-jump-quick-look)))
 
-(use-package spotlight.el
-  :git "https://github.com/cjp/spotlight.el.git"
-  :commands
-  (spotlight spotlight-fast)
-  :bind
-  ("C-c M-s" . spotlight)
-  ("C-c M-S" . spotlight-fast))
+;; (use-package spotlight.el
+;;   :git "https://github.com/cjp/spotlight.el.git"
+;;   :commands
+;;   (spotlight spotlight-fast)
+;;   :bind
+;;   ("C-c M-s" . spotlight)
+;;   ("C-c M-S" . spotlight-fast))
 
 (bind-key "s-5" #'replace-regexp-entire-buffer)
 

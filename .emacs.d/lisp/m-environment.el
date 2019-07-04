@@ -71,10 +71,13 @@ Update environment variables from a shell source file."
   (unless (server-running-p) (server-start)))
 
 (use-package pinentry
-  :defer 10
+  :defer 4
   :unless (eq system-type 'windows-nt)
   :custom
-  (password-cache-expiry nil)
+  (password-cache-expiry 86400) ; one day
+  (epg-pinentry-mode 'loopback)
+  :commands
+  pinentry-start
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   :config

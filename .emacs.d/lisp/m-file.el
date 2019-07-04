@@ -164,7 +164,7 @@ With a prefix ARG always prompt for command to use."
   ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
   ;; Emacs and can run into issues with certain characters in the file name.
   (insert-directory-program (or (executable-find "gls"
-                                  (executable-find "ls"))))
+                                                 (executable-find "ls"))))
   ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
   :config
@@ -224,9 +224,14 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
         ("." . hydra-dired/body)
         ("C-c C-o" . dired-open-file)
         ("T" . touch)
-        ("C-." . dired-omit-mode)
         ("F" . tail-file)
         (";" . dired-git-add)))
+
+(use-package dired-x
+  :ensure nil
+  :bind
+  (:map dired-mode-map
+        ("C-." . dired-omit-mode)))
 
 (use-package dired-rsync
   :bind
