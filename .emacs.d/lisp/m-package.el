@@ -108,7 +108,19 @@
   "Byte compile all dotemacs Lisp files."
   (interactive)
   (dolist file ()))
-    
+
+(defun emacs-startup-message ()
+  (defconst emacs-load-time
+    (float-time (time-subtract (current-time) emacs-start-time)))
+
+  (message "Emacs loaded %d packages in %.1f seconds."
+           (+ (length package-activated-list) (length use-package-git--packages))
+           emacs-load-time))
+
+
+(add-hook 'emacs-startup-hook #'emacs-startup-message)
+
+
 
 (provide 'm-package)
 

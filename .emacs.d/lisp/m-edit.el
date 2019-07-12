@@ -153,6 +153,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
     ("<drag-mouse-1>" ignore))
 
   :bind
+  ("M-<down-mouse-1>" . mc/add-cursor-on-click)
   ("C-S-c C-S-c" . mc/edit-lines)
   ("M-s-m" . mc/edit-lines)
   ("C->" . mc/mark-next-like-this)
@@ -160,7 +161,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-M-<" . mc/mark-previous-like-this)
   ("C-M->" . mc/unmark-previous-like-this)
   ("C-c >" . mc/mark-all-dwim)
-  ("C-c C-a"  . mc/mark-all-dwim))
+  ("C-c C-a"  . mc/mark-all-dwim)
+  ("C-'" . mc-hide-unmatched-lines-mode))
 
 (use-package move-text
   :bind
@@ -183,7 +185,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   (yas-global-mode)
   (with-eval-after-load 'sh-script
     (eval-when-compile
-      (defvar sh-mode-map))
+      (defvar sh-mode-map)
+      (declare-function sh-select 'sh-script))
     (bind-keys :map sh-mode-map
                ("C-c C-s" . nil)
                ("C-c M-s" . sh-select)))
@@ -212,10 +215,12 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
         ("C-M-i" . nil)))
 
 (use-package flycheck
+  :defer 7
   :custom
   (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
   (flycheck-idle-change-delay 1)
   (flycheck-idle-buffer-switch-delay 1)
+  (flycheck-global-modes '(not lisp-interaction-mode))
   :commands
   flycheck-define-error-level
   flycheck-list-errors
@@ -268,17 +273,20 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
                        (quit-windows-on "*Flycheck errors*"))
           :hint nil)
     "Errors"
-    ("f"  flycheck-error-list-set-filter                            "Filter")
-    ("j"  flycheck-next-error                                       "Next")
-    ("k"  flycheck-previous-error                                   "Previous")
-    ("gg" flycheck-first-error                                      "First")
-    ("G"  (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
+    ("f"  flycheck-error-list-set-filter "Filter")
+    ("n"  flycheck-next-error "Next")
+    ("p"  flycheck-previous-error "Previous")
+    ("<" flycheck-first-error "First")
+    (">"  (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
     ("q"  nil))
+
+  (global-flycheck-mode)
   
-  :hook
-  (prog-mode-hook . flycheck-mode)
   :bind
-  ("C-c ! !" . flycheck-mode))
+  (("C-c ! !" . flycheck-mode)
+   :map flycheck-mode-map
+   ("C-C ! ." . hydra-flycheck/body)))
+  
 
 (use-package parinfer
   :custom
@@ -381,7 +389,7 @@ ID, ACTION, CONTEXT."
 ID, ACTION, CONTEXT."
     (when (equal action 'insert)
       (save-excursion
-        (insert (format " in list; do\n%s\n" (s-repeat sh-basic-offset " ")))))
+        (insert (format " in list; do\n%s\n" (make-string sh-basic-offset ?\s)))))
     (sp-sh-post-handler id action context))
 
   (defun sp-sh-if-post-handler (_id action _context)
@@ -389,7 +397,7 @@ ID, ACTION, CONTEXT."
 ID, ACTION, CONTEXT."
     (when (equal action 'insert)
       (save-excursion
-        (insert (format " ; then\n%s\n" (s-repeat sh-basic-offset " "))))))
+        (insert (format " ; then\n%s\n" (make-string sh-basic-offset ?\s))))))
 
   (defun sp-sh-case-post-handler (id action context)
     "Handler for bash case block insertions.
@@ -397,10 +405,12 @@ ID, ACTION, CONTEXT."
     (when (equal action 'insert)
       (save-excursion
         (insert (format " in\n%s\*)\n%s\n%s;;\n"
-                        (s-repeat sh-basic-offset " ")
-                        (s-repeat (* 2 sh-basic-offset) " ")
-                        (s-repeat (* 2 sh-basic-offset) " ")))))
+                        (make-string sh-basic-offset ?\s)
+                        (make-string (* 2 sh-basic-offset) ?\s)
+                        (make-string (* 2 sh-basic-offset) ?\s)))))
     (sp-sh-post-handler id action context))
+
+  (declare-function thing-at-point-looking-at 'thingatpt)
 
   (defun sp-sh-pre-handler (_id action _context)
     "Handler for sh slurp and barf.
@@ -720,8 +730,8 @@ If no region is selected, toggles comments for the line."
   (other-window -1))
 
 (bind-keys
- ("C-x r E" . expression-to-register)
- ("C-x r e" . eval-register)
+ ("C-M-}" . forward-sentence)
+ ("C-M-{" . backward-sentence)
  ("C-M-\\" . indent-buffer-or-region)
  ("C-\\" . indent-defun)
  ("C-^" . delete-indentation-forward)

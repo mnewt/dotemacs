@@ -145,6 +145,7 @@
     "Fetch URL and render the page.
 
 Open the `eww' buffer in another window."
+    (require 'eww)
     (interactive
      (let* ((uris (eww-suggested-uris))
             (prompt (concat "Enter URL or keywords"
@@ -167,11 +168,15 @@ Open the `eww' buffer in another window."
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
 
+(use-package lv
+  :commands
+  lv-message
+  lv-window
+  lv-delete-window)
+
 (use-package hydra
   :defer 2
   :config
-  (use-package lv :demand t)
-
   (defun hydra-move-splitter-left (arg)
     "Move window splitter left by ARG characters."
     (interactive "p")
@@ -234,15 +239,15 @@ DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  
 
   (defhydra hydra-move (:hint nil)
     "
-_b_ backward-char     _f_ forward-char   _p_ previous-line     _n_ next-line
-_B_ backward-word     _F_ forward-word   _P_ scroll-up-margin  _N_ scroll-down-margin
-_a_ beginning-of-line _A_ beg-of-defun   _e_ end-of-line       _E_ end-of-defun
-_,_ beginning-of-buf  _v_ scroll-down    _V_ scroll-up         _._ end-of-buf
-_l_ recenter                                                   _q_ quit"
+hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] [_,_ _._ _l_ _c_] _q_"
     ("n" next-line)
     ("N" scroll-down-margin)
     ("p" previous-line)
     ("P" scroll-up-margin)
+    ("v" scroll-up-command)
+    ("V" scroll-down-command)
+    ("u" scroll-window-up)
+    ("d" scroll-window-down)
     ("f" forward-char)
     ("F" forward-word)
     ("b" backward-char)
@@ -253,9 +258,8 @@ _l_ recenter                                                   _q_ quit"
     ("E" end-of-defun)
     ("," beginning-of-buffer)
     ("." end-of-buffer)
-    ("v" scroll-up-command)
-    ("V" scroll-down-command)
     ("l" recenter-top-bottom)
+    ("c" goto-last-change)
     ("q" nil))
 
   :commands

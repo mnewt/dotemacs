@@ -312,13 +312,16 @@ Emacs from barfing fruit salad on the screen."
 
 Insert spaces between the two so that the string is
 `window-total-width' columns wide."
-  (let ((left (apply #'concat "" left))
-        (right (apply #'concat "" right)))
+  (let* ((left (apply #'concat "" left))
+         (right (apply #'concat "" right))
+         (space (- (window-total-width) (length left) (length right)))
+         ;; Make sure space is even so right doesn't go off the screen.
+         (space (if (= 1 (mod space 2)) space (1- space))))
     ;; Start with a string so left can start with nil without breaking things.
     (concat ""
             left
             ;; ?\s is a space character
-            (make-string (- (window-total-width) (length left) (length right)) ?\s)
+            (make-string space ?\s)
             right)))
 
 (defun fiat-ml-concat (strings &optional separator outside)
@@ -426,7 +429,7 @@ Propertize the result with the specified PROPERTIES."
                     " "
                     t)
                    'face 'mode-line-emphasis)
-                  (propertize (s-pad-left 7 " " (format-mode-line " %l:%c "))
+                  (propertize (format-mode-line " %l:%c  ")
                               'face 'mode-line-buffer-id)))
               (fiat-render-mode-line
                ;; left

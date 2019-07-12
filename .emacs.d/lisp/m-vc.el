@@ -41,7 +41,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 (defun git-worktree-unlink (worktree)
   "Unlink git WORKTREE at GITDIR."
   (interactive (list (read-directory-name "Worktree: ")))
-  ;; Configure projectile back to default
+  ;; Configure projectile back to default, which looks for all non-ignored files
   (if (boundp 'projectile-git-command)
       (setq projectile-git-command "git ls-files -zco --exclude-standard"))
   ;; This does `git config --unset core.worktree'.  We don't actually

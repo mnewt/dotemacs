@@ -9,58 +9,17 @@
 ;; Define "M-m" as a prefix key.
 (bind-key "M-m" nil)
 (define-prefix-command 'm-map)
+(defvar m-map (make-sparse-keymap "M"))
 
-;; (use-package dashboard
-;;   :defer 0.5
-;;   :custom
-;;   ((dashboard-center-content t)
-;;    (dashboard-set-footer nil)
-;;    (dashboard-items '((recents  . 8)
-;;                       (projects . 8)
-;;                       (registers . 8)
-;;                       (bookmarks . 8)))
-;;    (dashboard-set-navigator t)
-;;    (dashboard-navigator-buttons
-;;     `((("*" "Org Files" "~/org"
-;;         (lambda (&rest _) (dired "~/org")))
-;;        ("⚙" "Emacs Config" "dotemacs"
-;;         (lambda (&rest _) (dired-list-init-files)))
-;;        ("~" "Home Directory" "dotfiles"
-;;         (lambda (&rest _) (dired "~")))
-;;        ("↓" "Code Directory" "~/code"
-;;         (lambda (&rest _) (dired "~/code")))
-;;        ("↑" "Dropbox Code" "~/Dropbox/code"
-;;         (lambda (&rest _) (dired "~/Dropbox/Matt/code")))
-;;        ("?" "Info" "?/h"
-;;         (lambda (&rest _) (info) (delete-other-windows)))))))
-;;   :config
-;;   (dashboard-insert-shortcut "j" "Projects:")
-;;   (dashboard-insert-startupify-lists)
-;;   (switch-to-buffer "*dashboard*")
-;;   (dashboard-mode)
-;;   (goto-char (point-min))
-;;   (dashboard-next-section)
-;;   :bind
-;;   ((:map dashboard-mode-map
-;;          ("p" . dashboard-previous-line)
-;;          ("n" . dashboard-next-line))))
+;; Prefix key "M-m i": Insert commands.
+(define-prefix-command 'm-insert-map)
+(global-set-key (kbd "M-m i") 'm-insert-map)
+(defvar m-insert-map (make-sparse-keymap "M-Insert"))
 
-(use-package evil
-  :init
-  (defun evil-mode-toggle ()
-    "Toggle `evil-mode'.
-It's necessary because it often forgets to change the cursor type back."
-    (interactive)
-    (if (bound-and-true-p evil-state)
-        (progn
-          (call-interactively #'turn-off-evil-mode)
-          (setq cursor-type 'box))
-      (call-interactively #'turn-on-evil-mode)))
-  :commands
-  (turn-on-evil-mode turn-off-evil-mode)
-  :bind
-  ("s-ESC" . evil-mode-toggle)
-  ("s-<escape>" . evil-mode-toggle))
+;; Prefix key "M-m w": Window configurations.
+(define-prefix-command 'm-window-map)
+(global-set-key (kbd "M-m w") 'm-window-map)
+(defvar m-insert-map (make-sparse-keymap "M-Window"))
 
 (defun fullscreen ()
   "Toggle fullscreen mode."
@@ -116,13 +75,13 @@ Ripped out of function `line-move-visual'."
 (defun scroll-window-up ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-up-command 1)
+  (scroll-down-command 1)
   (scroll-handle-hscroll))
 
 (defun scroll-window-down ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-down-command 1)
+  (scroll-up-command 1)
   (scroll-handle-hscroll))
 
 (defun scroll-up-margin ()
@@ -195,13 +154,12 @@ If ARG is provided then prompt for the buffer's mode. Try these
                                      :history 'new-scratch-buffer-history
                                      :caller 'scratch-new-buffer))
                  ;; :initial-input (car new-scratch-buffer-history)))
-                 major-mode))
+                 'org-mode))
          (name (format "<%s>" (symbol-name mode)))
          (win (get-buffer-window name)))
     (cond
      (win (select-window win))
      (t (switch-to-buffer (get-buffer-create name))
-        (setq buffer-file-name name)
         (funcall mode)))))
 
 (defun scratch-new-buffer-other-window ()
@@ -265,6 +223,14 @@ For for details see `scratch-new-buffer'."
 (defun find-file-at-point-with-line (&optional filename)
   "Open FILENAME at point and move point to line specified next to file name."
   (interactive)
+  (require 'ffap)
+  (eval-when-compile
+    (defvar ffap-url-fetcher)
+    (defvar ffap-pass-wildcards-to-dired)
+    (defvar ffap-dired-wildcards)
+    (defvar ffap-directory-finder)
+    (defvar ffap-file-finder)
+    (defvar ffap-newfile-prompt))
   (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
          (line-number
           (and (or (looking-at ".* line \\(\[0-9\]+\\)")
@@ -413,7 +379,26 @@ return them in the Emacs format."
   (eyebrowse-mode-line-separator " ")
   :commands eyebrowse-mode
   :config
+  (defvar eyebrowse-last-window-config nil
+    "Variable used to save and restore `eyebrowse' window
+configuration. Persistence is handled by `psession'.")
+  
+  (defun eyebrowse-restore-window-config ()
+    "Restore eyebrowse window config to variable.
+This is for restoration from disk by `psession'."
+    (when (bound-and-true-p eyebrowse-last-window-config)
+      (eyebrowse--set 'window-configs eyebrowse-last-window-config)))
+  
+  (defun eyebrowse-save-window-config ()
+    "Save eyebrowse window config to variable.
+This is for serialization to disk by `psession'."
+    (setq eyebrowse-last-window-config (eyebrowse--get 'window-configs)))
+
   (eyebrowse-mode)
+  (eyebrowse-restore-window-config)
+  :hook
+  (psession-autosave-mode-hook . eyebrowse-save-window-config)
+  (kill-emacs-hook . eyebrowse-save-window-config)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -454,115 +439,100 @@ return them in the Emacs format."
          (display-buffer-reuse-mode-window display-buffer-pop-up-window)
          (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
 
-(with-eval-after-load 'ediff
+(with-eval-after-load 'ediff-wind
+  (defvar ediff-window-setup-function)
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
-
-(use-package goto-addr
-  :hook
-  ((compilation-mode-hook
-    text-mode-hook
-    eshell-mode-hook
-    shell-mode-hook) . goto-address-mode)
-  (prog-mode . goto-address-prog-mode)
-  :bind
-  (:map goto-address-highlight-keymap
-        ("C-c C-o" . goto-address-at-point)))
-
-(defun outline-show-current-sublevel ()
-  "Show only the current top level section."
-  (interactive)
-  (unless (bound-and-true-p 'outline-minor-mode)
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-previous ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless (bound-and-true-p 'outline-minor-mode)
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-previous-visible-heading 1)
-  (outline-show-subtree))
-
-(defun outline-subtree-next ()
-  "Go to and expand previous sublevel."
-  (interactive)
-  (unless (bound-and-true-p 'outline-minor-mode)
-    (outline-minor-mode t))
-  (outline-hide-sublevels 1)
-  (outline-next-visible-heading 1)
-  (outline-show-subtree))
-
-;; (use-package outshine
-;;   :defer 4
-;;   :after outline
-;;   :custom
-;;   (outline-minor-mode-prefix "\M-#")
-;; :config
-
-;; (put 'narrow-to-region 'disabled t)
-;;   (defun outshine-narrow-dwim (&rest _args)
-;;     (unless (outline-on-heading-p t)
-;;       (outline-previous-visible-heading 1)))
-
-;;   ;; Narrowing now works within the headline rather than requiring to be on it
-;;   (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
-
-;;   (defhydra hydra-outline (:color pink :hint nil)
-;;     "
-;; Outline
-
-;; ^Hide^             ^Show^           ^Move
-;; ^^^^^^------------------------------------------------------
-;; _s_ sublevels     _a_ all         _u_ up
-;; _t_ body          _e_ entry       _n_ next visible
-;; _o_ other         _i_ children    _p_ previous visible
-;; _c_ entry         _k_ branches    _f_ forward same level
-;; _l_ leaves        _s_ subtree     _b_ backward same level
-;; _d_ subtree
-
-;; "
-;;     ;; Hide
-;;     ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
-;;     ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
-;;     ("o" outline-hide-other)     ; Hide other branches
-;;     ("c" outline-hide-entry)     ; Hide this entry's body
-;;     ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
-;;     ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
-;;     ;; Show
-;;     ("a" outline-show-all)      ; Show (expand) everything
-;;     ("e" outline-show-entry)    ; Show this heading's body
-;;     ("i" outline-show-children) ; Show this heading's immediate child sub-headings
-;;     ("k" outline-show-branches) ; Show all sub-headings under this heading
-;;     ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
-;;     ;; Move
-;;     ("u" outline-up-heading)               ; Up
-;;     ("n" outline-next-visible-heading)     ; Next
-;;     ("p" outline-previous-visible-heading) ; Previous
-;;     ("f" outline-forward-same-level)       ; Forward - same level
-;;     ("b" outline-backward-same-level)      ; Backward - same level
-;;     ("q" nil "leave"))
-
-;;   ;; (with-eval-after-load 'outline
-;;   ;;   (bind-keys (:map outline-minor-mode-map
-;;   ;;                    ("C-c #" . hydra-outline/body)
-;;   ;;                    ;; Don't shadow smarparens or org bindings
-;;   ;;                    ("M-<up>" . nil)
-;;   ;;                    ("M-<down>" . nil)
-;;   ;;                    ("<backtab>" . outshine-cycle-buffer)
-;;   ;;                    ("M-=" . outline-show-current-sublevel)
-;;   ;;                    ("M-p" . outline-subtree-previous)
-;;   ;;                    ("M-n" . outline-subtree-next))))
-
-;;   :hook
-;;   (outline-minor-mode-hook . outshine-mode)
-;;   (prog-mode-hook . outline-minor-mode))
-
 
 (use-package outorg
   :defer 4
-  :after outshine)
+  :init
+  (defvar outline-minor-mode-prefix "\M-#"))
+
+(use-package outshine
+  :defer 4
+  :after outline outorg
+  :config
+  ;; (put 'narrow-to-region 'disabled t)
+  
+  (defun outline-show-current-sublevel ()
+    "Show only the current top level section."
+    (interactive)
+    (unless (bound-and-true-p 'outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-hide-sublevels 1)
+    (outline-show-subtree))
+
+  (defun outline-subtree-previous ()
+    "Go to and expand previous sublevel."
+    (interactive)
+    (unless (bound-and-true-p outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-previous-visible-heading 1)
+    (outline-show-subtree))
+
+  (defun outline-subtree-next ()
+    "Go to and expand previous sublevel."
+    (interactive)
+    (unless (bound-and-true-p outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-next-visible-heading 1)
+    (outline-show-subtree))
+
+  (defun outshine-narrow-dwim (&rest _args)
+    (unless (outline-on-heading-p t)
+      (outline-previous-visible-heading 1)))
+
+  ;; Narrowing now works within the headline rather than requiring to be on it
+  (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
+
+  (defhydra hydra-outline (:color pink :hint nil)
+    "
+Outline
+
+^Hide^             ^Show^           ^Move
+^^^^^^------------------------------------------------------
+_s_ sublevels     _a_ all         _u_ up
+_t_ body          _e_ entry       _n_ next visible
+_o_ other         _i_ children    _p_ previous visible
+_c_ entry         _k_ branches    _f_ forward same level
+_l_ leaves        _s_ subtree     _b_ backward same level
+_d_ subtree
+
+"
+    ;; Hide
+    ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
+    ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
+    ("o" outline-hide-other)     ; Hide other branches
+    ("c" outline-hide-entry)     ; Hide this entry's body
+    ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
+    ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
+    ;; Show
+    ("a" outline-show-all)      ; Show (expand) everything
+    ("e" outline-show-entry)    ; Show this heading's body
+    ("i" outline-show-children) ; Show this heading's immediate child sub-headings
+    ("k" outline-show-branches) ; Show all sub-headings under this heading
+    ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
+    ;; Move
+    ("u" outline-up-heading)               ; Up
+    ("n" outline-next-visible-heading)     ; Next
+    ("p" outline-previous-visible-heading) ; Previous
+    ("f" outline-forward-same-level)       ; Forward - same level
+    ("b" outline-backward-same-level)      ; Backward - same level
+    ("q" nil "leave"))
+
+  :hook
+  (outline-minor-mode-hook . outshine-mode)
+  (prog-mode-hook . outline-minor-mode)
+  :bind
+  (:map outline-minor-mode-map
+        ("C-c #" . hydra-outline/body)
+        ;; Don't shadow smarparens or org bindings
+        ("M-<up>" . nil)
+        ("M-<down>" . nil)
+        ("<backtab>" . outshine-cycle-buffer)
+        ("M-=" . outline-show-current-sublevel)
+        ("M-p" . outline-subtree-previous)
+        ("M-n" . outline-subtree-next)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
@@ -840,6 +810,25 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (bind-keys :map ibuffer-mode-map
              ("." . hydra-ibuffer-main/body)))
 
+(defun window-config-mail-and-notes ()
+  "Set up mail and notes windows."
+  (interactive)
+  (eyebrowse-switch-to-window-config-1)
+  (delete-other-windows)
+  (mu4e)
+  (dired-other-window org-directory)
+  (other-window 1))
+
+(defun window-config-dotemacs ()
+  "Set up dotemacs window config."
+  (interactive)
+  (eyebrowse-switch-to-window-config-2)
+  (delete-other-windows)
+  (dired-list-init-files)
+  (switch-to-buffer-other-window (current-buffer))
+  (find-file "~/.emacs.d/TODO.org")
+  (other-window 1))
+
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
 ;; to work on Windows and Linux. That is why there are multiple bindings for
@@ -930,7 +919,11 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("C-c C-f" . find-file-at-point-with-line)
 
  :map ctl-x-4-map
- ("t" . toggle-window-split))
+ ("t" . toggle-window-split)
+
+ :map m-window-map
+ ("m" . window-config-mail-and-notes)
+ ("e" . window-config-dotemacs))
 
 (provide 'm-navigate)
 

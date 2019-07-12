@@ -21,7 +21,9 @@
 (defun tramp-cleanup-all ()
   "Clean up all tramp buffers and connections."
   (interactive)
-  (tramp-cleanup-all-buffers)
+  (cl-letf (((symbol-function #'password-reset)
+             (lambda ())))
+    (tramp-cleanup-all-connections))
   (setq ivy-history
         (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
                     ivy-history)))
@@ -327,27 +329,29 @@ predicate returns true."
   (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
 
   (with-eval-after-load 'compile
+    (eval-when-compile (defvar compilation-environment))
     (add-to-list 'compilation-environment "TERM=xterm-256color"))
   :hook
   (shell-mode-hook . xterm-color-shell-setup)
   (compilation-start-hook . xterm-color-apply-on-compile))
 
-(defun pw (command)
-  "Run `pw' command as COMMAND.
+(defun fpw (command)
+  "Run `fpw' command as COMMAND.
 
 Copy the result to the `kill-ring'. Call with a prefix argument
 to modify the args."
   (interactive (list (if current-prefix-arg
-                         (read-shell-command "Run pw (like this): "
-                                             "pw " 'pw-history)
-                       "pw")))
-  (let ((result (string-trim-right (shell-command-to-string command))))
+                         (read-shell-command "Run fpw (like this): "
+                                             "fpw " 'pw-history)
+                       "fpw")))
+  (let ((result
+         (replace-regexp-in-string "\n" "" (shell-command-to-string command))))
     (kill-new result)
     (message result)))
 
 (bind-keys ("C-c C-v" . expand-environment-variable)
            ("C-:" . tramp-insert-remote-part)
-           ("C-c C-x p" . pw))
+           ("M-m p" . pw))
 
 (provide 'm-shell)
 

@@ -11,7 +11,13 @@
 
 ;;;; Org
 
+;; Make package.el install Org from repo instead of using the built in version.
+(assq-delete-all 'org package--builtins)
+;; https://code.orgmode.org/bzg/org-mode.git
 (use-package org
+  :git (:uri  "https://code.orgmode.org/bzg/org-mode.git"
+              :files '("lisp/*.el"))
+  :load-path "git/org-mode/lisp"
   :custom
   ;; This is already the default.
   (org-directory "~/org")
@@ -48,14 +54,20 @@
      ("m" "TODO respond to email" entry
       (file ,(expand-file-name "TODO.org" org-directory))
       "* TODO %^{Description}\n%A\n%?\n")))
+  ;; Don't prompt to confirm if I want to evaluate a source block
+  (org-confirm-babel-evaluate nil)
   :commands
   org-todo
   org-entry-get
   org-sort-entries
   org-map-entries
+  org-capture
+  org-capture-refile
   :config
+  (add-to-list 'Info-additional-directory-list
+               (expand-file-name "org-mode/info" use-package-git-user-dir))
   (require 'org-capture)
-  
+
   (defun search-org-files ()
     "Search ~/org using `counsel-rg'."
     (interactive)
@@ -100,15 +112,6 @@
        (setq org-map-continue-from (outline-previous-heading)))
      "/DONE" 'file))
 
-  (use-package org-download
-    :hook
-    (dired-mode-hook . org-download-enable))
-
-  ;; (use-package ox-hugo
-  ;;   :after ox)
-
-  :commands
-  (org-capture org-capture-refile)
   :bind
   (("C-c l" . org-store-link)
    ("C-c a" . org-agenda)
@@ -118,10 +121,33 @@
    ("M-m n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
    ("M-m o" . (lambda () (interactive) (find-file org-directory)))
    :map org-mode-map
+   ("C-M-}" . org-forward-sentence)
+   ("C-M-{" . org-backward-sentence)
    ("s-;" . org-shiftright)
    :map visual-line-mode-map
    ;; Don't shadow mwim and org-mode bindings
    ([remap move-beginning-of-line] . nil)))
+
+(use-package org-download
+  :hook
+  (dired-mode-hook . org-download-enable))
+
+;; (use-package ox-hugo
+;;   :after ox)
+
+;; Required for Org html export
+(use-package htmlize
+  :commands
+  htmlize-file
+  htmlize-region
+  htmlize-buffer
+  htmlize-many-files
+  htmlize-many-files-dired
+  org-html-htmlize-generate-css)
+
+(use-package orglink
+  :hook
+  (prog-mode-hook . orglink-mode))
 
 ;;;; Calendar and Journal
 
@@ -131,7 +157,7 @@
   :config
   (defun calendar-iso8601-date-string (date)
     "Create an ISO8601 date string from DATE."
-    (destructuring-bind (month day year) date
+    (cl-destructuring-bind (month day year) date
                         (concat (format "%4i" year)
                                 "-"
                                 (format "%02i" month)
@@ -160,6 +186,8 @@
     (interactive)
     (insert (calendar-iso8601-date-string (calendar-current-date))))
 
+  (defvar journal-directory)
+
   (defun journal-new-entry ()
     "Create a new journal entry."
     (interactive)
@@ -174,7 +202,11 @@
   (calendar-gregorian-from-absolute
    new-journal-entry
    calendar-insert-date
-   calendar-choose-date))
+   calendar-choose-date)
+  :bind
+  ("M-m i d" . calendar-insert-date)
+  ("M-m i t" . calendar-insert-date-today)
+  ("M-m j" . journal-new-entry))
 
 ;;;; Reading
 

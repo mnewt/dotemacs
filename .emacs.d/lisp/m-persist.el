@@ -31,26 +31,6 @@
         ;; Increase undo limit to 5MB per buffer.
         undo-limit 5242880))
 
-(use-package savehist
-  :defer 1
-  :commands
-  savehist-mode
-  :custom
-  (savehist-autosave-interval 60)
-  (history-length 200)
-  (history-delete-duplicates t)
-  (savehist-additional-variables '(kill-ring
-                                   search-ring
-                                   regexp-search-ring
-                                   file-name-history
-                                   magit-read-rev-history
-                                   read-expression-history
-                                   command-history
-                                   extended-command-history
-                                   ivy-history))
-  :config
-  (savehist-mode))
-
 (use-package saveplace
   :defer 1
   :commands
@@ -78,18 +58,6 @@
            (if (= ?/ (aref dired-directory last-idx))
                (substring dired-directory 0 last-idx)
              dired-directory)))))
-
-  (defun recentf-save-list-silent ()
-    (let ((message-log-max nil))
-      (if (fboundp 'shut-up)
-          (shut-up (recentf-save-list))
-        (recentf-save-list))))
-
-  (defun recentf-cleanup-silent ()
-    (let ((message-log-max nil))
-      (if (fboundp 'shut-up)
-          (shut-up (recentf-cleanup))
-        (recentf-cleanup))))
 
   (defun grep-recent-files (filepattern pattern)
     (interactive "sFiles regexp: \nsSearch regexp: ")
@@ -125,11 +93,10 @@
 
                       pattern)))))
 
-  ;; (shut-up (recentf-mode))
-  (recentf-mode)
+  (shut-up (recentf-mode))
+  (run-with-idle-timer 10 t (lambda () (shut-up (recentf-save-list))))
+  (run-with-idle-timer 10 t (lambda () (shut-up (recentf-cleanup))))
   :hook
-  (after-focus-change-function . recentf-save-list-silent)
-  (after-focus-change-function . recentf-cleanup-silent)
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
@@ -144,14 +111,31 @@
   :config
   (global-auto-revert-mode))
 
-;; (use-package desktop
-;;   :demand t
-;;   :custom
-;;   (desktop-dirname "~/.emacs.d")
-;;   :config
-;;   (dolist (v '(kill-ring read-expression-history theme-current-theme))
-;;     (add-to-list 'desktop-globals-to-save v))
-;;   (desktop-save-mode))
+(use-package psession
+  :demand t
+  :git "git@github.com:mnewt/psession.git"
+  :custom
+  (psession-object-to-save-alist
+   '((command-history . "command-history.el")
+     (extended-command-history . "extended-command-history.el")
+     (ivy-history . "ivy-history.el")
+     (psession--save-buffers-alist . "psession-save-buffers-alist.el")
+     (regexp-search-ring . "regexp-search-ring.el")
+     (search-ring . "search-ring.el")
+     (file-name-history . "file-name-history.el")
+     (kill-ring . "kill-ring.el")
+     (kill-ring-yank-pointer . "kill-ring-yank-pointer.el")
+     (register-alist . "register-alist.el")
+     (psession--frameset-alist . "psession-frameset-alist.el")
+     (eyebrowse-last-window-config . "eyebrowse-last-window-config.el")))
+  :commands
+  psession-savehist-mode
+  psession-mode
+  psession-autosave-mode
+  :config
+  (psession-savehist-mode)
+  (psession-mode)
+  (psession-autosave-mode))
 
 (provide 'm-persist)
 

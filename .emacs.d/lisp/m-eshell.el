@@ -215,7 +215,7 @@ Examples:
   (defun tramp-colon-prefix-maybe-expand ()
     "If we just inserted a colon prefix, run `tramp-colon-prefix-expand' on it."
     (when (looking-back "\\_<:" nil)
-      (delete-char 1)
+      (delete-char -1)
       (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
 
   ;; Advise `eshell/*' functions to work with `:' prefix path syntax.

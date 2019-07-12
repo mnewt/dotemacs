@@ -215,7 +215,9 @@ of problems in that context."
  ("C-s-<return>" . eval-last-sexp-other-window)
  ("C-c C-k" . eval-buffer)
  ("C-x C-r" . eval-region)
- ("C-x M-e" . pp-macroexpand-last-sexp))
+ ("C-x M-e" . pp-macroexpand-last-sexp)
+ ("C-x r E" . expression-to-register)
+ ("C-x r e" . eval-register))
 
 (provide 'm-lisp)
 

@@ -56,6 +56,10 @@
 
 ;; * TODO Generate package description
 ;; * TODO Generate autoloads file
+;; * TODO :command keyword to support `org' make
+;; * TODO Add the directory of :files to `load-path'
+;; * TODO Install Info manual
+;; * TODO Install regular manual?
 
 ;;; Code:
 

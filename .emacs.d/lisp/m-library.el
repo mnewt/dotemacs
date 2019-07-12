@@ -30,7 +30,20 @@
 (use-package dash :demand t)
 (use-package s :demand t)
 (use-package f :demand t)
-(use-package shut-up :commands shut-up)
+(use-package shut-up
+  :commands shut-up
+  :config
+  (defun shut-up-advice-wrapper (symbol &rest args)
+    "Wrap the call to function named SYMBOL with `shut-up'."
+    (shut-up (apply symbol args)))
+
+  (defmacro shut-up-advice-add (symbol)
+    "Advise the function named SYMBOL to shut up."
+    `(advice-add ,symbol :around #'shut-up-advice-wrapper))
+
+  (defmacro shut-up-advice-add (symbol)
+    "Remove shut up advice for the function named SYMBOL."
+    `(advice-remove ,symbol #'shut-up-advice-wrapper)))
 
 (provide 'm-library)
 

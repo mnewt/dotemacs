@@ -24,6 +24,9 @@
         scroll-preserve-screen-position 1
         auto-window-vscroll nil)
 
+  ;; Blinking is NOT OK
+  (blink-cursor-mode -1)
+
   (with-eval-after-load 'face-remap
     (eval-when-compile
       (defvar text-scale-mode-step))
@@ -34,10 +37,7 @@
 
 (with-eval-after-load 'menu-bar (menu-bar-mode -1))
 
-(with-eval-after-load 'startup (setq inhibit-splash-screen t))
-
-;; Blinking is NOT OK
-(blink-cursor-mode -1)
+(custom-set-variables '(inhibit-splash-screen t))
 
 ;; Beeping is REALLY NOT OK
 (setq visible-bell t
@@ -103,13 +103,13 @@
   ("C-M-s-t" . fiat))
 
 ;; (use-package flash-thing
-;;   :defer 5
-;;   :ensure nil
-;;   :load-path "src/flash-thing"
+;;   :defer 6
+;;   :git "git@github.com:mnewt/flash-thing.git"
+;;   :custom
+;;   (ring-bell-function #'flash-window)
 ;;   :commands
 ;;   (flash-thing-mode flash-window)
 ;;   :config
-;;   (setq ring-bell-function #'flash-window)
 ;;   (flash-thing-mode))
 
 (use-package page-break-lines

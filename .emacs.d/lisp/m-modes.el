@@ -8,9 +8,11 @@
 
 (use-package lsp-mode
   :custom
-  (lsp-auto-guess-project-root t)
+  (lsp-enable-snippet t)
+  (lsp-auto-guess-root t)
   (lsp-eldoc-render-all t)
   (lsp-prefer-flymake nil)
+  (lsp-before-save-edits t)
   :commands
   (lsp lsp-deferred)
   :hook
@@ -27,7 +29,7 @@
   (:map lsp-ui-mode-map
         ("M-." . lsp-ui-peek-find-definitions)
         ("M-?" . lsp-ui-peek-find-references)
-        ("C-h ." . lsp-ui-doc-mode)))
+        ("C-h ." . lsp-ui-doc-show)))
 
 (use-package company-lsp :commands company-lsp)
 
@@ -39,9 +41,8 @@
   :hook
   ((css-mode-hook dockerfile-mode-hook enh-ruby-mode-hook
                   go-mode-hook lua-mode-hook php-mode-hook
-                  python-mode-hook ruby-mode-hook toml-mode-hook
-                  web-mode-hook yaml-mode-hook) .
-                  format-all-mode))
+                  ruby-mode-hook toml-mode-hook web-mode-hook
+                  yaml-mode-hook) . format-all-mode))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -263,13 +264,8 @@ a new file for the first time."
 ;;;; Python
 
 (use-package python
-  :mode "\\.py\\'"
-  :ensure-system-package
-  ;; jedi doesn't have an executable and there's not one single path we can look
-  ;; across OS and python versions, so just let it tag along.
-  ((black . "pip install black")
-   (python-language-server . "pip install python-language-server"))
-  :interpreter "python3?"
+  :mode ("\\.py\\'" . python-mode)
+  :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
   :bind
@@ -278,7 +274,8 @@ a new file for the first time."
 
 (use-package lsp-python-ms
   :after lsp-mode
-  :hook (python-mode . lsp-deferred))
+  :hook
+  (python-mode-hook . lsp-deferred))
 
 ;;;; Other Modes
 

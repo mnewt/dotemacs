@@ -63,6 +63,8 @@
   (if (equal 'dark (frame-parameter nil 'background-mode))
       (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
     (set-face-attribute 'default nil :background "#fbf8ef" :foreground "#655370"))
+  ;; mode-line-format will be set in `m-appearance'.
+  ;; (setq mode-line-format "")
   ;; Default frame settings. This is actually maximized, not full screen.
   (add-to-list 'default-frame-alist '(fullscreen . maximized))
   (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t)))
