@@ -35,8 +35,7 @@
 (defcustom fiat-theme nil
   "The theme to load by default.
 
-Non-nil\: Load this theme when calling `fiat-theme' without
-args.
+Non-nil\: Load this theme when calling `fiat-theme' without args.
 
 nil\: Read the last set theme from disk."
   :group 'fiat
@@ -251,7 +250,7 @@ to customize further."
       (sp-show-pair-match-face ((t :inherit highlight
                                    :foreground nil
                                    :background nil))))))
-                                   
+
 (defun fiat--save-config ()
   "Save the configuration to disk."
   (with-temp-file fiat-config-file
@@ -314,15 +313,8 @@ Insert spaces between the two so that the string is
 `window-total-width' columns wide."
   (let* ((left (apply #'concat "" left))
          (right (apply #'concat "" right))
-         (space (- (window-total-width) (length left) (length right)))
-         ;; Make sure space is even so right doesn't go off the screen.
-         (space (if (= 1 (mod space 2)) space (1- space))))
-    ;; Start with a string so left can start with nil without breaking things.
-    (concat ""
-            left
-            ;; ?\s is a space character
-            (make-string space ?\s)
-            right)))
+         (space (- (window-total-width nil 'ceiling) (length left) (length right))))
+    (concat left (make-string space ?\s) right)))
 
 (defun fiat-ml-concat (strings &optional separator outside)
   "Concatenate the given list of STRINGS.
@@ -380,7 +372,7 @@ Return nil if `evil-mode' is not active."
       (string-join
        (mapcar (lambda (s)
                  (if (= s current-slot)
-                     (propertize (number-to-string s) 'face 'mode-line-emphasis)
+                     (propertize (number-to-string s) 'face 'mode-line-buffer-id)
                    (number-to-string s)))
                (mapcar #'car (eyebrowse--get 'window-configs)))
        " "))))
@@ -411,14 +403,20 @@ Propertize the result with the specified PROPERTIES."
                   (fiat-ml-evil)
                   (when-propertize (fiat-ml-remote-hostname) 'face 'highlight)
                   (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
-                  (when (buffer-modified-p) " • ")
-                  (concat " " (format-mode-line mode-name) " "))
+                  (when (buffer-modified-p) " •")
+                  " "
+                  (format-mode-line mode-name)
+                  " "
+                  (when (memq major-mode '(compilation-mode shell-mode))
+                    (format-mode-line mode-line-process))
+                  (when (bound-and-true-p which-function-mode)
+                    (format-mode-line which-func-format)))
                  ;; right
                  (list
+                  (when-propertize (fiat-ml-term) 'face 'mode-line-emphasis)
                   (when (bound-and-true-p flycheck-mode)
                     (concat (substring (flycheck-mode-line-status-text) 1) " "))
-                  (when-propertize (fiat-ml-term) 'face 'mode-line-emphasis)
-                  (concat (fiat-eyebrowse-modeline) " ")
+                  " " (fiat-eyebrowse-modeline) " "
                   (when-propertize
                    (fiat-ml-concat
                     (list (when (boundp 'parinfer--mode)
@@ -437,10 +435,15 @@ Propertize the result with the specified PROPERTIES."
                 " "
                 (buffer-name)
                 " "
-                (when (buffer-modified-p) " • "))
+                (when (buffer-modified-p) " •")
+                " "
+                (when (memq major-mode '(compilation-mode shell-mode))
+                  (substring-no-properties
+                   (format-mode-line mode-line-process))))
                ;; right
-               (list "")))))))
-    (setq-default mode-line-format fiat--old-mode-line-format)))
+               nil))))))
+    (setq-default mode-line-format
+                  (or fiat--old-mode-line-format mode-line-format))))
 
 (defun fiat--set-os-dark-mode (darkp)
   "When DARKP is non-nil, change the OS to dark mode."
@@ -450,8 +453,9 @@ Propertize the result with the specified PROPERTIES."
            (mode (if darkp "true" "false")))
        (shell-command (format "osascript -e '
 tell application \"System Events\"
-  tell appearance preferences to set dark mode to %s
-end tell'" mode))))))
+tell appearance preferences to set dark mode to %s
+end tell'
+" mode))))))
 
 ;;;###autoload
 (defun fiat-lux ()
@@ -474,7 +478,7 @@ end tell'" mode))))))
   "Let the Emacs and OS themes be toggled."
   (interactive)
   (if (eq fiat-status 'nox) (fiat-lux) (fiat-nox)))
-          
+
 ;; TODO: Make it work reliably. Current problems:
 ;; [ ] Top of window and vertical border are in `default' not `fringe' color.
 ;; [ ] It often changes only after a couple seconds...?

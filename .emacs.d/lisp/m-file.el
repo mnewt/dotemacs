@@ -387,8 +387,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 (bind-keys
  ("C-x M-s" . psync-maybe)
  ("C-c o" . os-open-file)
- ("C-c O" . os-reveal-file)
- ("M-m i" . dired-list-init-files))
+ ("C-c O" . os-reveal-file))
 
 (provide 'm-file)
 

@@ -6,21 +6,6 @@
 
 ;;; Code:
 
-;; Define "M-m" as a prefix key.
-(bind-key "M-m" nil)
-(define-prefix-command 'm-map)
-(defvar m-map (make-sparse-keymap "M"))
-
-;; Prefix key "M-m i": Insert commands.
-(define-prefix-command 'm-insert-map)
-(global-set-key (kbd "M-m i") 'm-insert-map)
-(defvar m-insert-map (make-sparse-keymap "M-Insert"))
-
-;; Prefix key "M-m w": Window configurations.
-(define-prefix-command 'm-window-map)
-(global-set-key (kbd "M-m w") 'm-window-map)
-(defvar m-insert-map (make-sparse-keymap "M-Window"))
-
 (defun fullscreen ()
   "Toggle fullscreen mode."
   (interactive)
@@ -35,7 +20,7 @@ Ripped out of function `line-move-visual'."
     (if (and (consp temporary-goal-column)
              (memq last-command `(next-line previous-line scroll-window-up
                                             scroll-window-down ,this-command)))
-        
+
         (progn
           (line-move-to-column (truncate (car temporary-goal-column)))
           (message "moved col to %s" (car temporary-goal-column))
@@ -382,13 +367,13 @@ return them in the Emacs format."
   (defvar eyebrowse-last-window-config nil
     "Variable used to save and restore `eyebrowse' window
 configuration. Persistence is handled by `psession'.")
-  
+
   (defun eyebrowse-restore-window-config ()
     "Restore eyebrowse window config to variable.
 This is for restoration from disk by `psession'."
     (when (bound-and-true-p eyebrowse-last-window-config)
       (eyebrowse--set 'window-configs eyebrowse-last-window-config)))
-  
+
   (defun eyebrowse-save-window-config ()
     "Save eyebrowse window config to variable.
 This is for serialization to disk by `psession'."
@@ -453,7 +438,7 @@ This is for serialization to disk by `psession'."
   :after outline outorg
   :config
   ;; (put 'narrow-to-region 'disabled t)
-  
+
   (defun outline-show-current-sublevel ()
     "Show only the current top level section."
     (interactive)
@@ -587,6 +572,7 @@ _q_ quit
   (iy-go-to-char-backward ?b)
   :config
   (with-eval-after-load 'multiple-cursors
+    (defvar mc/cursor-specific-vars)
     (add-to-list 'mc/cursor-specific-vars 'iy-go-to-char-start-pos))
   :bind
   (("M-F" . iy-go-up-to-char)
@@ -594,21 +580,22 @@ _q_ quit
    ("C-M-\"" . iy-go-to-or-up-to-continue)
    ("C-M-:" . iy-go-to-or-up-to-continue-backward)))
 
+;; TODO: Fix highlighting of things like #12345
 (use-package rainbow-mode
   :hook
   ((css-mode-hook emacs-lisp-mode-hook sass-mode-hook) . rainbow-mode))
 
 (use-package crux
   :bind
-  ("C-c C-j" . crux-eval-and-replace)
-  ("s-<backspace>" . crux-kill-line-backwards)
-  ("C-M-X" . crux-indent-defun)
-  ("C-c D" . crux-delete-file-and-buffer)
-  ("C-c d" . crux-duplicate-current-line-or-region)
-  ("C-c R" . crux-rename-file-and-buffer)
-  ("C-c k" . crux-kill-other-buffers)
-  ("C-c C-o" . crux-open-with)
-  ("C-c S" . crux-find-shell-init-file))
+  (("C-c C-j" . crux-eval-and-replace)
+   ("M-s-<backspace>" . crux-kill-line-backwards)
+   ("C-s-c" . crux-duplicate-current-line-or-region)
+   ("C-c C-o" . crux-open-with)
+   :map m-window-map
+   ("k" . crux-kill-other-buffers)
+   :map m-file-map
+   ("d" . crux-delete-file-and-buffer)
+   ("r" . crux-rename-file-and-buffer)))
 
 (defun save-kill-buffers-and-quit ()
   "Kill all buffers, clean up tramp caches, and quit Emacs."
@@ -824,49 +811,19 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (interactive)
   (eyebrowse-switch-to-window-config-2)
   (delete-other-windows)
-  (dired-list-init-files)
+  ;; (dired-list-init-files)
+  (dired "~/.emacs.d/lisp/")
   (switch-to-buffer-other-window (current-buffer))
   (find-file "~/.emacs.d/TODO.org")
   (other-window 1))
 
-;; Key bindings to make moving between Emacs and other appliations a bit less
-;; jarring. These are mostly based on macOS defaults but an effor has been made
-;; to work on Windows and Linux. That is why there are multiple bindings for
-;; many commands. They can be overridden by the OS specific configurations
-;; below.
 (bind-keys
- ("s-o" . find-file)
- ("s-O" . find-file-other-window)
- ("s-s" . save-buffer)
- ("s-S" . write-file)
- ("s-q" . save-buffers-kill-emacs)
  ("M-s-q" . save-kill-buffers-and-quit)
- ("s-z" . undo)
- ("C-z" . undo)
  ("s-x" . kill-line-or-region)
  ("s-c" . copy-line-or-region)
  ("s-v" . clipboard-yank-and-indent)
- ("s-a" . mark-whole-buffer)
- ("s-g" . isearch-repeat-forward)
- ("s-G" . isearch-repeat-backward)
- ("C-S-s" . isearch-forward-symbol-at-point)
- ("s-l" . select-current-line)
- ("C-S-L" . select-current-line)
- ("M-o" . other-window)
- ("s-b" . switch-to-buffer)
- ("s-B" . switch-to-buffer-other-window)
- ("s-\`" . other-frame)
- ("C-\`" . other-frame)
- ("s-w" . delete-window)
- ("s-W" . delete-other-windows)
- ("s-C-w" . delete-frame)
  ("s-/" . comment-toggle)
- ("s-h" . ns-do-hide-emacs)
- ("s-H" . ns-do-hide-others)
- ("C-c U" . revert-buffer)
  ("C-c i" . os-reveal-file)
- ("s-<return>" . eval-last-sexp)
- ("s-RET" . eval-last-sexp)
  ("s-n" . scratch-new-buffer)
  ("s-N" . scratch-new-buffer-other-window)
  ("C-c C-n"f . scratch-new-buffer)

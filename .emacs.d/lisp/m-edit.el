@@ -52,6 +52,11 @@
 
 (add-hook 'prog-mode-hook #'auto-fill-mode-init)
 
+(use-package so-long
+  :defer 1
+  :config
+  (global-so-long-mode))
+
 (use-package unfill
   :commands
   (unfill-region unfill-paragraph)
@@ -198,96 +203,6 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
 (use-package yasnippet-snippets
   :defer 5)
 
-(use-package flyspell
-  :custom
-  (ispell-program-name "aspell")
-  (ispell-extra-args '("--sug-mode=ultra"))
-  :commands
-  flyspell-mode flyspell-prog-mode
-  :hook
-  (text-mode-hook . (lambda () (shut-up (flyspell-mode))))
-  (prog-mode-hook . (lambda () (shut-up (flyspell-prog-mode))))
-  :bind
-  (:map flyspell-mode-map
-        ("C-," . nil)
-        ("C-." . nil)
-        ("C-;" . nil)
-        ("C-M-i" . nil)))
-
-(use-package flycheck
-  :defer 7
-  :custom
-  (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
-  (flycheck-idle-change-delay 1)
-  (flycheck-idle-buffer-switch-delay 1)
-  (flycheck-global-modes '(not lisp-interaction-mode))
-  :commands
-  flycheck-define-error-level
-  flycheck-list-errors
-  flycheck-error-list-set-filter
-  flycheck-next-error
-  flycheck-previous-error
-  flycheck-first-error
-  :config
-  ;; Stolen from spacemacs
-  (define-fringe-bitmap 'my-flycheck-fringe-indicator
-    (vector #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00011100
-            #b00111110
-            #b00111110
-            #b00111110
-            #b00011100
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000))
-
-  (flycheck-define-error-level 'error
-    :severity 2
-    :overlay-category 'flycheck-error-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-error)
-
-  (flycheck-define-error-level 'warning
-    :severity 1
-    :overlay-category 'flycheck-warning-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-warning)
-
-  (flycheck-define-error-level 'info
-    :severity 0
-    :overlay-category 'flycheck-info-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-info)
-
-  (defhydra hydra-flycheck
-    (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
-          :post (progn (setq hydra-hint-display-type nil)
-                       (quit-windows-on "*Flycheck errors*"))
-          :hint nil)
-    "Errors"
-    ("f"  flycheck-error-list-set-filter "Filter")
-    ("n"  flycheck-next-error "Next")
-    ("p"  flycheck-previous-error "Previous")
-    ("<" flycheck-first-error "First")
-    (">"  (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-    ("q"  nil))
-
-  (global-flycheck-mode)
-  
-  :bind
-  (("C-c ! !" . flycheck-mode)
-   :map flycheck-mode-map
-   ("C-C ! ." . hydra-flycheck/body)))
-  
-
 (use-package parinfer
   :custom
   (parinfer-extensions
@@ -338,7 +253,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   sp--get-closing-regexp
   :config
   (eval-when-compile (require 'sh-script))
-  
+
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -482,24 +397,31 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   (require 'smartparens-config)
 
-  (sp-with-modes '(c-mode c++-mode css-mode graphql-mode javascript-mode js-mode
-                          js2-mode json-mode objc-mode java-mode web-mode)
+  (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
+                          javascript-mode js-mode js2-mode json-mode
+                          objc-mode java-mode web-mode)
     (sp-local-pair "{" nil
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
     (sp-local-pair "[" nil
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
     (sp-local-pair "(" nil
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
   (sp-with-modes 'python-mode
     (sp-local-pair "\"\"\"" "\"\"\""
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
   (sp-with-modes 'sh-mode
     (sp-local-pair "{" nil
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
-                                    sp-sh-post-handler))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
+                     sp-sh-post-handler))
     (sp-local-pair "(" nil
-                   :post-handlers '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
-                                    sp-sh-post-handler))
+                   :post-handlers
+                   '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)
+                     sp-sh-post-handler))
     (sp-local-pair "[" "]"
                    :actions '(wrap insert navigate)
                    :post-handlers '(sp-sh-insert-spaces sp-sh-post-handler))
@@ -542,17 +464,14 @@ See https://github.com/Fuco1/smartparens/issues/80."
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
   (smartparens-global-mode)
   (show-smartparens-global-mode)
-  ;; Damnit smartparens, quit binding `M-s'!
-  ;; (bind-key "M-s" nil smartparens-mode-map)
-  :hook
-  (after-init-hook . sp--update-override-key-bindings)
   :commands
-  (sp-local-pair sp-with-modes smartparens-global-mode
-                 show-smartparens-global-mode
-                 sp-point-in-string-or-comment sp-forward-slurp-sexp
-                 sp-backward-symbol sp-backward-symbol sp-down-sexp
-                 sp-forward-sexp sp-backward-sexp)
-
+  sp-local-pair
+  sp-with-modes
+  smartparens-global-mode
+  show-smartparens-global-mode
+  sp-point-in-string-or-comment sp-forward-slurp-sexp
+  sp-backward-symbol sp-backward-symbol sp-down-sexp
+  sp-forward-sexp sp-backward-sexp
   :bind
   (:map lisp-mode-shared-map
         ("RET" . sp-newline)

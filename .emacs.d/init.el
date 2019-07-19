@@ -18,11 +18,13 @@
     start
     package
     library
-    environment
+    bind
+    environ
     persist
     private
-    appearance
+    appear
     help
+    note
     navigate
     search
     file
@@ -31,9 +33,8 @@
     edit
     shell
     eshell
-    notes
     lisp
-    modes
+    mode
     ))
 
 (dolist-with-progress-reporter

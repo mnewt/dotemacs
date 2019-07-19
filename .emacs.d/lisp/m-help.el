@@ -26,6 +26,10 @@
   :config
   (help-at-pt-set-timer))
 
+(use-package goto-addr
+  :hook
+  ((prog-mode-hook text-mode-hook) . goto-address-mode))
+
 (use-package helpful
   :bind
   ("C-h ." . helpful-at-point)
@@ -56,13 +60,6 @@
   (eldoc-add-command #'company-select-previous)
   (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
-
-(use-package which-func
-  :defer 2
-  :commands
-  which-function-mode
-  :config
-  (which-function-mode))
 
 (use-package which-key
   :demand t

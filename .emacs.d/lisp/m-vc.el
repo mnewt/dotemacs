@@ -116,52 +116,53 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   ((prog-mode-hook markdown-mode-hook) . diff-hl-mode)
   (dired-mode-hook . diff-hl-dired-mode))
 
-;; (use-package smerge-mode
-;;   :config
-;;   (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
-;;     "
-;; ^Move^       ^Keep^               ^Diff^                 ^Other^
-;; ^^-----------^^-------------------^^---------------------^^-------
-;; _n_ext       _b_ase               _<_: upper/base        _C_ombine
-;; _p_rev       _u_pper              _=_: upper/lower       _r_esolve
-;; ^^           _l_ower              _>_: base/lower        _k_ill current
-;; ^^           _a_ll                _R_efine
-;; ^^           _RET_: current       _E_diff
-;; "
-;;     ("n" smerge-next)
-;;     ("p" smerge-prev)
-;;     ("b" smerge-keep-base)
-;;     ("u" smerge-keep-upper)
-;;     ("l" smerge-keep-lower)
-;;     ("a" smerge-keep-all)
-;;     ("RET" smerge-keep-current)
-;;     ("\C-m" smerge-keep-current)
-;;     ("<" smerge-diff-base-upper)
-;;     ("=" smerge-diff-upper-lower)
-;;     (">" smerge-diff-base-lower)
-;;     ("R" smerge-refine)
-;;     ("E" smerge-ediff)
-;;     ("C" smerge-combine-with-next)
-;;     ("r" smerge-resolve)
-;;     ("k" smerge-kill-current)
-;;     ("ZZ" (lambda ()
-;;             (interactive)
-;;             (save-buffer)
-;;             (bury-buffer))
-;;      "Save and bury buffer" :color blue)
-;;     ("q" nil "cancel" :color blue))
+(use-package smerge-mode
+  :config
+  (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
+    "
+^Move^       ^Keep^               ^Diff^                 ^Other^
+^^-----------^^-------------------^^---------------------^^-------
+_n_ext       _b_ase               _<_: upper/base        _C_ombine
+_p_rev       _u_pper              _=_: upper/lower       _r_esolve
+^^           _l_ower              _>_: base/lower        _k_ill current
+^^           _a_ll                _R_efine
+^^           _RET_: current       _E_diff
+"
+    ("n" smerge-next)
+    ("p" smerge-prev)
+    ("b" smerge-keep-base)
+    ("u" smerge-keep-upper)
+    ("l" smerge-keep-lower)
+    ("a" smerge-keep-all)
+    ("RET" smerge-keep-current)
+    ("\C-m" smerge-keep-current)
+    ("<" smerge-diff-base-upper)
+    ("=" smerge-diff-upper-lower)
+    (">" smerge-diff-base-lower)
+    ("R" smerge-refine)
+    ("E" smerge-ediff)
+    ("C" smerge-combine-with-next)
+    ("r" smerge-resolve)
+    ("k" smerge-kill-current)
+    ("ZZ" (lambda ()
+            (interactive)
+            (save-buffer)
+            (bury-buffer))
+     "Save and bury buffer" :color blue)
+    ("q" nil "cancel" :color blue))
   
-;;   :hook
-;;   (magit-diff-visit-file-hook . (lambda () (smerge-mode) (hydra-smerge/body)))
-;;   :bind
-;;   (:map smerge-mode-map
-;;         ("C-s-s" . hydra-smerge/body)))
+  :hook
+  (magit-diff-visit-file-hook . (lambda () (smerge-mode) (hydra-smerge/body)))
+  :bind
+  (:map smerge-mode-map
+        ("C-s-s" . hydra-smerge/body)))
 
 (bind-keys
  ("M-m l" . git-home-link)
  ("M-m u" . git-home-unlink)
  ("C-x G" . projectile-git-ls-files-dired)
- ("C-c ;" . git-add-current-file))
+ :map m-file-map
+ (";" . git-add-current-file))
 
 (provide 'm-vc)
 
