@@ -190,10 +190,46 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
   (reformatter-define shfmt
     :program m-shfmt-command)
   (add-to-list 'm-reformatters '(sh-mode . shfmt))
-  
+
   (cl-loop for (mode . sym) in m-reformatters do
            (add-hook (intern (concat (symbol-name mode) "-hook"))
-                     (intern (concat (symbol-name sym) "-on-save-mode")))))
+                     (intern (concat (symbol-name sym) "-on-save-mode"))))
+
+  (defun reformat-buffer ()
+    "Indent the buffer."
+    (interactive)
+    (indent-region (point-min) (point-max)))
+
+  (defun reformat-buffer-or-region (beg end)
+    "Indent the region from BEG to END.
+
+If no region is active, format the buffer.
+
+Prefix ARG is passed to `fill-paragraph'."
+    (interactive "rP")
+    (when (sp-point-in-string-or-comment) (fill-paragraph arg))
+    (call-interactively #'crux-cleanup-buffer-or-region)
+    (let ((f (or (alist-get major-mode m-reformatters) 'indent)))
+      (if (use-region-p)
+          (progn
+            (funcall-interactively (intern (concat (symbol-name f) "-region")) beg end)
+            (message "Formatted the region."))
+        (progn
+          (funcall-interactively (intern (concat (symbol-name f) "-buffer")))
+          (message "Formatted the buffer.")))))
+
+  (defun reformat-defun-or-region ()
+    "Indent the current defun or region."
+    (interactive)
+    (if (use-region-p)
+        (reformat-buffer-or-region (region-beginning) (region-end))
+      (save-excursion
+        (mark-defun)
+        (reformat-buffer-or-region (region-beginning) (region-end)))))
+  :bind
+  ("C-M-\\" . reformat-buffer-or-region)
+  ("C-\\" . reformat-defun))
+
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -630,7 +666,7 @@ a new file for the first time."
   "Display a very large indicator success/warning/error indicator.
 
 Use this in `compile' and `shell-command' finish hooks.")
-  
+
 
 (use-package compile
   :init)

@@ -520,32 +520,6 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("C-c s r" . sp-change-inner)
         ("C-c s s" . sp-change-encosing)))
 
-(defun indent-buffer-or-region (beg end &optional arg)
-  "Indent the region from BEG to END.
-
-If no region is active, format the buffer.
-
-Prefix ARG is passed to `fill-paragraph'."
-  (interactive "rP")
-  (when (sp-point-in-string-or-comment)
-    (fill-paragraph arg))
-  (call-interactively #'crux-cleanup-buffer-or-region)
-  (if (use-region-p)
-      (progn
-        (indent-region beg end)
-        (message "Region indented."))
-    (progn
-      (format-all-buffer)
-      (message "Buffer formatted."))))
-
-(defun indent-defun ()
-  "Indent the current defun."
-  (interactive)
-  (save-excursion
-    (mark-defun)
-    (indent-buffer-or-region (region-beginning) (region-end)))
-  (message "Defun indented."))
-
 (defun clipboard-yank-and-indent ()
   "Yank and then indent the newly formed region according to mode."
   (interactive)
@@ -651,8 +625,6 @@ If no region is selected, toggles comments for the line."
 (bind-keys
  ("C-M-}" . forward-sentence)
  ("C-M-{" . backward-sentence)
- ("C-M-\\" . indent-buffer-or-region)
- ("C-\\" . indent-defun)
  ("C-^" . delete-indentation-forward)
  ("s-C" . copy-line-or-region-to-other-window)
  ("s-X" . move-line-or-region-to-other-window)
