@@ -39,7 +39,7 @@
 
 (dolist-with-progress-reporter
     (s m-elisp-modules)
-    (message "hi")
+    (message "Loading modules...")
   (load-file (format "%s/m-%s.el" elisp-directory (symbol-name s))))
 
 (provide 'init)
