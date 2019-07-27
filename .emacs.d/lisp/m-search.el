@@ -87,7 +87,8 @@
         ("C-c C-r" . ivy-resume)
         :map ivy-minibuffer-map
         ("C-e" . ivy-partial-or-done)
-        ("C-d" . ivy-quit-or-delete-char)))
+        ("C-d" . ivy-quit-or-delete-char)
+        ("M-/" . ivy-done)))
 
 (use-package ivy-hydra
   :defer 1
@@ -111,7 +112,7 @@
   :commands
   counsel-mode
   :config
-  
+
   (defun counsel-find-file-edit-path ()
     "Make the path in `counsel-find-file' editable."
     (interactive)
@@ -148,7 +149,7 @@ force `counsel-rg' to search in `default-directory.'"
           (extra-rg-args (caddr args))
           (rg-prompt (or (cadddr args) (format "(%s) rg: " default-directory))))
       (funcall f initial-input initial-directory extra-rg-args rg-prompt)))
-  
+
   (advice-add #'counsel-rg :around #'counsel-rg-default-directory)
 
   (defun reloading (cmd)
@@ -268,7 +269,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
     (let ((dir (or dir (projectile-project-root))))
       (dired (cons dir (projectile-git-ls-files dir)))
       (rename-buffer (format "*git ls-files %s*" dir))))
-  
+
   ;; Why doesn't projectile have this as a default?
   (projectile-register-project-type 'generic nil
                                     :compile ""
@@ -341,6 +342,14 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :commands
   global-company-mode
   :config
+  (setq company-backends '(company-semantic
+                           company-clang
+                           company-xcode
+                           company-cmake
+                           company-capf
+                           company-files
+                           (company-dabbrev-code company-gtags company-etags company-keywords)
+                           company-dabbrev))
   (global-company-mode)
   ;; :hook
   ;; TODO: Figure out how to make company-mode work in the minibuffer.

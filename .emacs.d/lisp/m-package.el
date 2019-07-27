@@ -32,7 +32,10 @@
       package-user-dir "~/.emacs.d/packages/"
       package-archives '(("org"   . "https://orgmode.org/elpa/")
                          ("melpa" . "https://melpa.org/packages/")
-                         ("gnu" . "https://elpa.gnu.org/packages/"))
+                         ("elpa" . "https://elpa.gnu.org/packages/"))
+      package-archive-priorities '(("org" . 30)
+                                   ("melpa" . 20)
+                                   ("elpa" . 10))
       custom-file "~/.emacs.d/custom.el")
 
 (eval-when-compile
@@ -119,8 +122,6 @@
 
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)
-
-
 
 (provide 'm-package)
 

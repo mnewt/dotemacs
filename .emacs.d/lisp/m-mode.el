@@ -145,7 +145,6 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
   (add-to-list 'm-reformatters '(clojure-mode . zprint))
   (add-to-list 'm-reformatters '(clojurec-mode . zprint))
   (add-to-list 'm-reformatters '(clojurescript-mode . zprint))
-
   (defvar m-prettier-command (executable-find "prettier"))
   (reformatter-define prettier-babel
     :program m-prettier-command
@@ -196,12 +195,12 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
                      (intern (concat (symbol-name sym) "-on-save-mode"))))
 
   (defun reformat-buffer ()
-    "Indent the buffer."
+    "Reformat the buffer."
     (interactive)
     (indent-region (point-min) (point-max)))
 
   (defun reformat-buffer-or-region (beg end)
-    "Indent the region from BEG to END.
+    "Reformat the region from BEG to END.
 
 If no region is active, format the buffer.
 
@@ -209,7 +208,7 @@ Prefix ARG is passed to `fill-paragraph'."
     (interactive "rP")
     (when (sp-point-in-string-or-comment) (fill-paragraph arg))
     (call-interactively #'crux-cleanup-buffer-or-region)
-    (let ((f (or (alist-get major-mode m-reformatters) 'indent)))
+    (let ((f (or (alist-get major-mode m-reformatters) 'reformat)))
       (if (use-region-p)
           (progn
             (funcall-interactively (intern (concat (symbol-name f) "-region")) beg end)
@@ -219,7 +218,7 @@ Prefix ARG is passed to `fill-paragraph'."
           (message "Formatted the buffer.")))))
 
   (defun reformat-defun-or-region ()
-    "Indent the current defun or region."
+    "Reformat the current defun or region."
     (interactive)
     (if (use-region-p)
         (reformat-buffer-or-region (region-beginning) (region-end))
@@ -569,6 +568,12 @@ a new file for the first time."
 
 (use-package csharp-mode
   :mode "\\.cs\\'")
+
+(use-package omnisharp
+  ;; Use `omnisharp-install-server' to set things up after installing the
+  ;; package.
+  :hook
+  (csharp-mode-hook . omnisharp-mode))
 
 ;;;; Utility
 
