@@ -4,6 +4,7 @@
 ;; Maintainer: Matthew Sojourner Newton
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "24.3") (use-package "2.4"))
+;; Requires: ((git "1.7.2.3"))
 ;; Homepage: https://github.com/mnewt/dotemacs
 ;; Keywords: dotemacs config package git
 
@@ -52,7 +53,6 @@
 ;;         :files "*.el"
 ;;         :ref "tags/1.0"))
 
-;; It requires git 1.7.2.3 or higher.
 
 ;; * TODO Generate package description
 ;; * TODO Generate autoloads file

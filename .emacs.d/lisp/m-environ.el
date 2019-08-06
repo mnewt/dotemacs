@@ -1,4 +1,4 @@
-;;; m-environment.el --- Operating System and environment -*- lexical-binding: t -*-
+;;; m-environ.el --- Operating System and environment -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -138,4 +138,4 @@ Update environment variables from a shell source file."
 
 (provide 'm-environment)
 
-;;; m-environment.el ends here
+;;; m-environ.el ends here

@@ -24,7 +24,7 @@
         vc-make-backup-files t
         auto-save-list-file-prefix "~/.emacs.d/autosave/"
         auto-save-file-name-transforms '((".*" "~/.emacs.d/autosave/" t))
-        ;; Don't create `#filename' lockfiles in $PWD. Lockfiles are useful but it
+        ;; Don't create `#file-name' lockfiles in $PWD. Lockfiles are useful but it
         ;; generates too much activity from tools watching for changes during
         ;; development.
         create-lockfiles nil
@@ -93,7 +93,7 @@
 
                       pattern)))))
 
-  (shut-up (recentf-mode))
+  (recentf-mode)
   (run-with-idle-timer 10 t (lambda () (shut-up (recentf-save-list))))
   (run-with-idle-timer 10 t (lambda () (shut-up (recentf-cleanup))))
   :hook
@@ -113,7 +113,6 @@
 
 (use-package psession
   :demand t
-  :git "git@github.com:mnewt/psession.git"
   :custom
   (psession-object-to-save-alist
    '((command-history . "command-history.el")
@@ -136,6 +135,37 @@
   (psession-savehist-mode)
   (psession-mode)
   (psession-autosave-mode))
+
+(defvar persistent-scratch-directory
+  "~/.emacs.d/persistent-scratch"
+  "Location of scratch file contents for persistent-scratch.")
+
+(defvar persistent-scratch-backup-directory
+  "~/.emacs.d/persistent-scratch-backups"
+  "Location of backups of the *scratch* file contents.")
+
+(defun save-persistent-scratch ()
+  "Save the contents of all scratch buffers."
+  (make-directory persistent-scratch-directory)
+  (dolist (f (cddr (directory-files persistent-scratch-directory)))
+    (rename-file (expand-file-name f persistent-scratch-directory)
+                 (expand-file-name (format "%s-%s" f (format-time-string "%Y-%m-%dT%T"))
+                                   persistent-scratch-backup-directory)))
+  (dolist (b (filter-buffers-by-name "\\*scratch"))
+    (with-current-buffer b
+      (write-region (point-min) (point-max)
+                    (expand-file-name (buffer-name) persistent-scratch-directory)))))
+
+(defun load-persistent-scratch ()
+  "Load the contents of PERSISTENT-SCRATCH-FILENAME into the
+  scratch buffer, clearing its contents first."
+  (if (file-exists-p persistent-scratch-filename)
+      (with-current-buffer (get-buffer "*scratch*")
+        (delete-region (point-min) (point-max))
+        (shell-command (format "cat %s" persistent-scratch-filename) (current-buffer)))))
+
+;; (run-with-timer 1 nil #'load-persistent-scratch)
+;; (add-hook 'kill-emacs-hook #'save-persistent-scratch)
 
 (provide 'm-persist)
 

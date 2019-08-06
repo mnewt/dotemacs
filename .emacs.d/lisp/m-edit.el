@@ -37,6 +37,11 @@
   :config
   (delete-selection-mode))
 
+(use-package hungry-delete
+  :defer 1
+  :config
+  (global-hungry-delete-mode))
+
 ;; Automatically indent after RET
 (use-package electric
   :defer 1
@@ -96,7 +101,7 @@ Call F with ARGS."
           (set-marker m nil))
       (call-interactively f)))
 
-  (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
+  ;; (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
 
   (global-undo-tree-mode)
   :bind
@@ -106,7 +111,7 @@ Call F with ARGS."
   ("M-s-z" . undo-tree-visualize))
 
 (use-package goto-chg
-  :after undo-tree
+  :defer 1
   :bind
   ("C-." . goto-last-change)
   ("C-;" . goto-last-change-reverse))
@@ -396,6 +401,12 @@ See https://github.com/Fuco1/smartparens/issues/80."
     (indent-according-to-mode))
 
   (require 'smartparens-config)
+
+  ;; Smartparens is broken in `cc-mode' as of Emacs 27. See
+  ;; https://github.com/Fuco1/smartparens/issues/963
+  (when (version<= "27" emacs-version)
+    (dolist (fun '(c-electric-paren c-electric-brace))
+      (add-to-list 'sp--special-self-insert-commands fun)))
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
                           javascript-mode js-mode js2-mode json-mode

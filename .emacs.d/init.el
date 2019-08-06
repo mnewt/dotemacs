@@ -17,7 +17,7 @@
   '(
     start
     package
-    library
+    lib
     bind
     environ
     persist
@@ -45,3 +45,4 @@
 (provide 'init)
 
 ;;; init.el ends here
+(put 'narrow-to-region 'disabled nil)

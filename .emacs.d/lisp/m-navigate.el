@@ -123,37 +123,33 @@ It actually does not list them all because I don't know how to do
                                      auto-mode-alist
                                      magic-fallback-mode-alist))))
 
-(defun scratch-new-buffer ()
+(defun scratch-new-buffer (arg)
+  "Create or go to a scratch buffer.
+
+If ARG is provided then create a new buffer regardless of whether
+one exists already."
+  (interactive "P")
+  (let* ((default-directory "/tmp")
+         (uniquify-buffer-name-style nil)
+         (buffer (if arg
+                     (generate-new-buffer "*scratch*")
+                   (get-buffer-create "*scratch*")))
+         (win (get-buffer-window buffer)))
+    (if win
+        (select-window win)
+      (progn (switch-to-buffer buffer)
+             (funcall-interactively initial-major-mode)))))
+
+(defun scratch-new-buffer-other-window (arg)
   "Create or go to a scratch buffer in the current mode.
 
-If ARG is provided then prompt for the buffer's mode. Try these
-  things in succession\:
+If ARG is provided then create a new buffer regardless of whether
+one exists already.
 
-1. Select an existing window containing the scratch buffer.
-2. Switch to an existing scratch buffer.
-3. Create a new scratch buffer and switch to it."
-  (interactive)
-  (let* ((mode (if current-prefix-arg
-                   (intern (ivy-read "New scratch buffer with mode: "
-                                     (append scratch-other-modes (list-major-modes))
-                                     :history 'new-scratch-buffer-history
-                                     :caller 'scratch-new-buffer))
-                 ;; :initial-input (car new-scratch-buffer-history)))
-                 'org-mode))
-         (name (format "<%s>" (symbol-name mode)))
-         (win (get-buffer-window name)))
-    (cond
-     (win (select-window win))
-     (t (switch-to-buffer (get-buffer-create name))
-        (funcall mode)))))
-
-(defun scratch-new-buffer-other-window ()
-  "Create or go to a scratch buffer in ther current mode.
-
-For for details see `scratch-new-buffer'."
-  (interactive)
+See `scratch-new-buffer'."
+  (interactive "P")
   (switch-to-buffer-other-window (current-buffer))
-  (scratch-new-buffer))
+  (scratch-new-buffer arg))
 
 (defun switch-to-buffer-by-mode (mode)
   "Interactively choose a major MODE, then choose a buffer of that mode."
@@ -414,7 +410,7 @@ This is for serialization to disk by `psession'."
 
 ;; scratch
 (setq initial-scratch-message nil
-      initial-major-mode 'lisp-interaction-mode)
+      initial-major-mode 'org-mode)
 
 ;; Try to re-use help buffers of different sorts
 (setq display-buffer-alist
@@ -791,27 +787,43 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (matcha-mode-list
    '(cider dired js json-mode lua-mode org
            (:file projectile :autoloads matcha-projectile)
-           python restclient smerge-mode term vc-dir vc-git web-mode)))
+           python restclient smerge-mode term vc-dir vc-git web-mode))
+  :config
+  (matcha-setup))
 
 (with-eval-after-load 'ibuffer
   (bind-keys :map ibuffer-mode-map
              ("." . hydra-ibuffer-main/body)))
 
-(defun window-config-mail-and-notes ()
-  "Set up mail and notes windows."
-  (interactive)
-  (eyebrowse-switch-to-window-config-1)
-  (delete-other-windows)
-  (mu4e)
-  (dired-other-window org-directory)
-  (other-window 1))
+;; (defvar-local hidden-mode-line-mode nil)
+
+(define-minor-mode hidden-mode-line-mode
+  "Minor mode to hide the mode-line in the current buffer."
+  :init-value nil
+  :global t
+  :variable hidden-mode-line-mode
+  :group 'editing-basics
+  (if hidden-mode-line-mode
+      (setq hide-mode-line mode-line-format
+            mode-line-format nil)
+    (setq mode-line-format hide-mode-line
+          hide-mode-line nil))
+  (force-mode-line-update)
+  ;; Apparently force-mode-line-update is not always enough to
+  ;; redisplay the mode-line
+  (redraw-display)
+  (when (and (called-interactively-p 'interactive)
+             hidden-mode-line-mode)
+    (run-with-idle-timer
+     0 nil 'message
+     (concat "Hidden Mode Line Mode enabled.  "
+             "Use M-x hidden-mode-line-mode to make the mode-line appear."))))
 
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
   (interactive)
-  (eyebrowse-switch-to-window-config-2)
+  (eyebrowse-switch-to-window-config-1)
   (delete-other-windows)
-  ;; (dired-list-init-files)
   (dired "~/.emacs.d/lisp/")
   (switch-to-buffer-other-window (current-buffer))
   (find-file "~/.emacs.d/TODO.org")
@@ -879,8 +891,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("t" . toggle-window-split)
 
  :map m-window-map
- ("m" . window-config-mail-and-notes)
- ("e" . window-config-dotemacs))
+ ("e" . window-config-dotemacs)
+
+ :map m-toggle-map
+ ("e" . toggle-debug-on-error)
+ ("q" . toggle-debug-on-quit)
+ ("f" . auto-fill-mode)
+ ("l" . toggle-truncate-lines)
+ ("m" . hidden-mode-line-mode)
+ ("w" . whitespace-mode))
 
 (provide 'm-navigate)
 

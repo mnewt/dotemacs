@@ -150,11 +150,11 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
     :program m-prettier-command
     :args '("--parser" "babel"))
   (add-to-list 'm-reformatters '(js-mode . prettier-babel))
-  (add-to-list 'm-reformatters '(js-jsx-mode . prettier-babel))
-  (reformatter-define prettier-json
-    :program m-prettier-command
-    :args '("--parser" "json"))
-  (add-to-list 'm-reformatters '(json-mode . prettier-json))
+  ;; (add-to-list 'm-reformatters '(js-jsx-mode . prettier-babel))
+  ;; (reformatter-define prettier-json
+  ;;   :program m-prettier-command
+  ;;   :args '("--parser" "json"))
+  ;; (add-to-list 'm-reformatters '(json-mode . prettier-json))
   (reformatter-define prettier-css
     :program m-prettier-command
     :args '("--parser" "css"))
@@ -194,41 +194,57 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
            (add-hook (intern (concat (symbol-name mode) "-hook"))
                      (intern (concat (symbol-name sym) "-on-save-mode"))))
 
-  (defun reformat-buffer ()
-    "Reformat the buffer."
-    (interactive)
-    (indent-region (point-min) (point-max)))
+  (defun reformat-region (beg end)
+    "Reformat the region.
 
-  (defun reformat-buffer-or-region (beg end)
+This is a fallback in case we can't find a dedicated reformatter
+for the buffer."
+    (interactive)
+    (indent-region beg end))
+
+  (defun reformat-buffer ()
+    "Reformat the buffer.
+
+This is a fallback in case we can't find a dedicated reformatter
+for the buffer."
+    (interactive)
+    (reformat-region (point-min) (point-max)))
+
+  (defun reformat-buffer-or-region (beg end &optional thing)
     "Reformat the region from BEG to END.
 
 If no region is active, format the buffer.
 
 Prefix ARG is passed to `fill-paragraph'."
-    (interactive "rP")
-    (when (sp-point-in-string-or-comment) (fill-paragraph arg))
-    (call-interactively #'crux-cleanup-buffer-or-region)
+    (interactive "r")
+    (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
+    ;; (call-interactively #'crux-cleanup-buffer-or-region)
     (let ((f (or (alist-get major-mode m-reformatters) 'reformat)))
       (if (use-region-p)
           (progn
-            (funcall-interactively (intern (concat (symbol-name f) "-region")) beg end)
-            (message "Formatted the region."))
+            (funcall-interactively (intern (concat (symbol-name f) "-region"))
+                                   (region-beginning) (region-end))
+            (message "Formatted the %s." (or thing "region")))
         (progn
-          (funcall-interactively (intern (concat (symbol-name f) "-buffer")))
+          (let ((maybe-format-buffer (intern (concat (symbol-name f) "-buffer"))))
+            (if (foundp maybe-format-buffer)
+                (funcall-interactively maybe-format-buffer)
+              (funcall-interactively )))
+          (if (fboundp))
+          (funcall-interactively (or f))
           (message "Formatted the buffer.")))))
 
   (defun reformat-defun-or-region ()
     "Reformat the current defun or region."
     (interactive)
     (if (use-region-p)
-        (reformat-buffer-or-region (region-beginning) (region-end))
+        (reformat-buffer-or-region (region-beginning) (region-end) "region")
       (save-excursion
         (mark-defun)
-        (reformat-buffer-or-region (region-beginning) (region-end)))))
+        (reformat-buffer-or-region (region-beginning) (region-end) "defun"))))
   :bind
   ("C-M-\\" . reformat-buffer-or-region)
-  ("C-\\" . reformat-defun))
-
+  ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -443,6 +459,8 @@ a new file for the first time."
 (use-package json-mode
   :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
+  ;; :hook
+  ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
@@ -463,6 +481,25 @@ a new file for the first time."
   :after lsp-mode
   :hook
   (python-mode-hook . lsp-deferred))
+
+;;;; Applescript
+
+(use-package apples-mode
+  :mode "\\.\\(applescri\\|sc\\)pt\\'"
+  :commands
+  apples-open-scratch)
+
+;; Allow editing of binary .scpt files (applescript) on mac.
+;; https://www.emacswiki.org/emacs/AppleScript
+(add-to-list 'jka-compr-compression-info-list
+             `["\\.scpt\\'"
+               "converting text applescript to binary applescript "
+               ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
+               "converting binary applescript to text applescprit "
+               ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
+               nil t "FasdUAS"])
+;;It is necessary to perform an update!
+(jka-compr-update)
 
 ;;;; Other Modes
 
@@ -566,14 +603,34 @@ a new file for the first time."
   :git "https://github.com/nibrahim/IOS-config-mode.git"
   :mode "\\.cfg\\'")
 
+(use-package cc-mode
+  :custom
+  (c-basic-offset tab-width)
+  (c-default-style "ellemtel"))
+
 (use-package csharp-mode
-  :mode "\\.cs\\'")
+  :mode "\\.cs\\'"
+  :bind
+  ("<" . c-electric-lt-gt)
+  (">" . c-electric-lt-gt))
 
 (use-package omnisharp
   ;; Use `omnisharp-install-server' to set things up after installing the
   ;; package.
+  :config
+  (defun m-csharp-mode-setup ()
+    "Set up C# mode."
+    (omnisharp-mode)
+    (add-to-list 'company-backends #'company-omnisharp)
+    (add-hook 'before-save-hook #'omnisharp-code-format-entire-file)
+    (setq c-syntactic-indentation t)
+    (c-set-style "ellemtel")
+    (setq c-basic-offset tab-width)
+    (setq truncate-lines t)
+    (setq tab-width tab-width)
+    (add-to-list 'm-reformatters '(csharp-mode . omnisharp-code-format-entire-file)))
   :hook
-  (csharp-mode-hook . omnisharp-mode))
+  (csharp-mode-hook . m-csharp-mode-setup))
 
 ;;;; Utility
 
@@ -582,6 +639,7 @@ a new file for the first time."
   pm--get-keylist.keymap-from-parent
   pm--config-name
   :config
+
   ;; rjsx
   ;; (define-hostmode poly-rjsx-hostmode
   ;;   :mode 'rjsx-mode)
@@ -641,6 +699,25 @@ a new file for the first time."
     :innermodes '(poly-restclient-elisp-single-innermode
                   poly-restclient-elisp-multi-innermode))
 
+  ;; applescript
+  (defun match-string-delimiter (ahead)
+    "Match the delimiter of a string, forward if AHEAD is positive.
+Backward if AHEAD is negative."
+    (let ((re "[^\\]\""))
+      (when (or (looking-at re)
+                (if (> ahead 0)
+                    (re-search-forward re)
+                  (re-search-backward re)))
+        (cons (match-beginning 0) (match-end 0)))))
+  
+  (define-innermode poly-emacs-lisp-apples-innermode
+    :mode 'apples-mode
+    :head-matcher "do-applescript\s-*.*\""
+    :tail-matcher #'match-string-delimiter)
+  (define-polymode poly-emacs-lisp-mode
+    :hostmode 'poly-emacs-lisp-hostmode
+    :innermodes '(poly-emacs-lisp-apples-innermode))
+
   :hook
   ((js-mode-hook . poly-js-mode)
    ;; (rjsx-mode-hook . poly-rjsx-mode)
@@ -654,28 +731,21 @@ a new file for the first time."
 (use-package fence-edit
   :git "https://github.com/aaronbieber/fence-edit.el.git"
   :config
-  (seq-doseq (e '(("---" "---" yaml)
+  (setq fence-edit-blocks
+        (append '(("---" "---" yaml)
                   ("+++" "+++" toml)
                   ("graphql[ \t\n]*(?`" "`" graphql)
                   ("<svg" "</svg>" nxml t)
                   ("<html" "</html>" web t)
-                  ("<div" "</div>" web t)))
-    (add-to-list 'fence-edit-blocks e))
+                  ("<div" "</div>" web t)
+                  ;; TODO: How to ignore escaped double quotes? (`\"')
+                  ("do-applescript\s-*.*\"" "\"" apples))
+                fence-edit-blocks))
   :hook
   ;; Don't shadow the fence-edit binding
   (markdown-mode-hook . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
   :bind
   ("C-c '" . fence-edit-dwim))
-
-(defun compile-stoplight ()
-  "Display a very large indicator success/warning/error indicator.
-
-Use this in `compile' and `shell-command' finish hooks.")
-
-
-(use-package compile
-  :init)
-
 
 (provide 'm-mode)
 

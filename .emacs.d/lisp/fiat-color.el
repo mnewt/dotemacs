@@ -1,29 +1,5 @@
 ;;; fiat-color.el --- Fiat Lux! -*- lexical-binding: t -*-
 
-;; Author: Matthew Sojourner Newton
-;; Maintainer: Matthew Sojourner Newton
-;; Version: 0.1
-;; Package-Requires: (( emacs "24.3"))
-;; Homepage: https://github.com/mnewt/fiat-color
-;; Keywords: theme
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
 ;; Fiat Lux, Fiat Nox, Fiat Color!
@@ -451,11 +427,16 @@ Propertize the result with the specified PROPERTIES."
     ('darwin
      (let ((default-directory "~") ; In case we are in a tramp session
            (mode (if darkp "true" "false")))
-       (shell-command (format "osascript -e '
-tell application \"System Events\"
-tell appearance preferences to set dark mode to %s
-end tell'
-" mode))))))
+       (do-applescript (format "
+       tell application \"System Events\"
+           tell appearance preferences to set dark mode to %s
+       end tell
+       " mode))
+       (do-applescript "
+       tell application \"FirefoxDeveloperEdition\" to activate
+       tell application \"System Events\" to keystroke \"d\" using {shift down, option down}
+       tell application \"Emacs\" to activate
+")))))
 
 ;;;###autoload
 (defun fiat-lux ()

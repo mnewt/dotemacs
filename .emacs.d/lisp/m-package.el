@@ -1,25 +1,5 @@
 ;;; m-package.el --- Package management -*- lexical-binding: t -*-
 
-;; Author: Matthew Sojourner Newton
-;; Maintainer: Matthew Sojourner Newton
-
-
-;; This file is not part of GNU Emacs
-
-;; This file is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 3, or (at your option)
-;; any later version.
-
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; For a full copy of the GNU General Public License
-;; see <http://www.gnu.org/licenses/>.
-
-
 ;;; Commentary:
 
 ;; Emacs Package Management
@@ -94,11 +74,11 @@
 
 ;;; Benchmark init
 
-;; (use-package benchmark-init
-;;   :demand t
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+(use-package benchmark-init
+  :demand t
+  :config
+  ;; To disable collection of benchmark data after init is done.
+  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 (add-to-list 'load-path elisp-directory)
 
@@ -106,20 +86,26 @@
 
 (use-package use-package-ensure-system-package :demand t)
 
-;; TODO Need to make a common list of the files. git-ls?
+(defun git-ls-files (&optional directory)
+  "Return a list of the files from `git ls-files DIRECTORY'."
+  (split-string (shell-command-to-string
+                 (concat "git ls-files " (or directory default-directory)))))
+
 (defun byte-compile-dotemacs ()
   "Byte compile all dotemacs Lisp files."
   (interactive)
-  (dolist file ()))
+  (let ((default-directory "~/.emacs.d/lisp"))
+    (dolist (filename (git-ls-files))
+      (byte-compile-file filename))))
 
 (defun emacs-startup-message ()
+  "Display a message after Emacs startup."
   (defconst emacs-load-time
     (float-time (time-subtract (current-time) emacs-start-time)))
 
   (message "Emacs loaded %d packages in %.1f seconds."
            (+ (length package-activated-list) (length use-package-git--packages))
            emacs-load-time))
-
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)
 

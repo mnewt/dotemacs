@@ -56,9 +56,10 @@
   eldoc-add-command
   global-eldoc-mode
   :config
-  (eldoc-add-command #'company-select-next)
-  (eldoc-add-command #'company-select-previous)
-  (eldoc-add-command #'keyboard-quit)
+  (eldoc-add-command #'company-select-next
+                     #'company-select-previous
+                     #'keyboard-quit
+                     #'outshine-self-insert-command)
   (global-eldoc-mode))
 
 (use-package which-key

@@ -1,4 +1,4 @@
-;;; m-appearance.el --- Appearance Related Configuration -*- lexical-binding: t -*-
+;;; m-appear.el --- Appearance Related Configuration -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -74,7 +74,10 @@
   :commands
   window-highlight-mode
   :config
-  (window-highlight-mode))
+  (window-highlight-mode)
+  ;; Apparently this is sometimes necessary to initialize the goofy font-locking
+  ;; setup.
+  (window-highlight--after-focus-change-function))
 
 (use-package spacemacs-theme
   :custom
@@ -96,7 +99,8 @@
   (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
   :bind
   ("C-c C-t" . fiat-theme-choose)
-  ("C-M-s-t" . fiat))
+  ("C-M-s-t" . fiat)
+  ("M-m t t" . fiat))
 
 ;; (use-package flash-thing
 ;;   :defer 6
@@ -117,9 +121,8 @@
 
 (use-package darkroom
   :bind
-  ("C-c C-d" . darkroom-mode)
-  :commands
-  (darkroom-mode))
+  (:map m-toggle-map
+        ("d" . darkroom-mode)))
 
 (use-package hl-todo
   :defer 6
@@ -164,4 +167,4 @@
 
 (provide 'm-appearance)
 
-;;; m-appearance.el ends here
+;;; m-appear.el ends here
