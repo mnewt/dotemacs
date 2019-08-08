@@ -6,6 +6,9 @@
 
 ;;; Code:
 
+;; WIP
+;; (use-package elisp-format)
+
 (add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
 
 (defun eval-last-sexp-other-window (arg)

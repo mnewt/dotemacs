@@ -780,20 +780,21 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   ("/" ibuffer-filter-disable "disable")
   ("b" hydra-ibuffer-main/body "back" :color blue))
 
-(use-package matcha
-  :defer 7
-  :git "https://github.com/jojojames/matcha.git"
-  :custom
-  (matcha-mode-list
-   '(cider dired js json-mode lua-mode org
-           (:file projectile :autoloads matcha-projectile)
-           python restclient smerge-mode term vc-dir vc-git web-mode))
-  :config
-  (matcha-setup))
+;; (use-package matcha
+;;   :defer 7
+;;   :git "https://github.com/jojojames/matcha.git"
+;;   :custom
+;;   (matcha-mode-list
+;;    '(cider dired js json-mode lua-mode org
+;;            (:file projectile :autoloads matcha-projectile)
+;;            python restclient smerge-mode term vc-dir vc-git web-mode))
+;;   :config
+;;   (matcha-setup))
 
-(with-eval-after-load 'ibuffer
-  (bind-keys :map ibuffer-mode-map
-             ("." . hydra-ibuffer-main/body)))
+(use-package ibuffer
+  :bind
+  (:map ibuffer-mode-map
+        ("." . hydra-ibuffer-main/body)))
 
 ;; (defvar-local hidden-mode-line-mode nil)
 
@@ -822,7 +823,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
   (interactive)
-  (eyebrowse-switch-to-window-config-1)
   (delete-other-windows)
   (dired "~/.emacs.d/lisp/")
   (switch-to-buffer-other-window (current-buffer))

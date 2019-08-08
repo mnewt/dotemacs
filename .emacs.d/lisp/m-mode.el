@@ -218,7 +218,7 @@ If no region is active, format the buffer.
 Prefix ARG is passed to `fill-paragraph'."
     (interactive "r")
     (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
-    ;; (call-interactively #'crux-cleanup-buffer-or-region)
+    (call-interactively #'crux-cleanup-buffer-or-region)
     (let ((f (or (alist-get major-mode m-reformatters) 'reformat)))
       (if (use-region-p)
           (progn
@@ -227,11 +227,9 @@ Prefix ARG is passed to `fill-paragraph'."
             (message "Formatted the %s." (or thing "region")))
         (progn
           (let ((maybe-format-buffer (intern (concat (symbol-name f) "-buffer"))))
-            (if (foundp maybe-format-buffer)
+            (if (fboundp maybe-format-buffer)
                 (funcall-interactively maybe-format-buffer)
-              (funcall-interactively )))
-          (if (fboundp))
-          (funcall-interactively (or f))
+              (reformat-buffer)))
           (message "Formatted the buffer.")))))
 
   (defun reformat-defun-or-region ()
@@ -459,8 +457,8 @@ a new file for the first time."
 (use-package json-mode
   :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
-  ;; :hook
-  ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
+;; :hook
+;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
@@ -709,7 +707,7 @@ Backward if AHEAD is negative."
                     (re-search-forward re)
                   (re-search-backward re)))
         (cons (match-beginning 0) (match-end 0)))))
-  
+
   (define-innermode poly-emacs-lisp-apples-innermode
     :mode 'apples-mode
     :head-matcher "do-applescript\s-*.*\""

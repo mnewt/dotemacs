@@ -68,7 +68,7 @@
 
   ;; (require 'org-capture)
 
-  (defun search-org-files ()
+  (defun org-search-org-directory ()
     "Search ~/org using `counsel-rg'."
     (interactive)
     (let ((default-directory org-directory))
@@ -111,8 +111,6 @@
        (org-archive-subtree)
        (setq org-map-continue-from (outline-previous-heading)))
      "/DONE" 'file))
-
-  (defvar org-fontify-emphasis-markers t)
 
   (defface org-emphasis-marker-face '((t (:inherit shadow)))
     "Face for Org emphasis markers"
@@ -160,11 +158,10 @@
                 (add-text-properties (match-beginning 2) (match-end 2)
                                      '(font-lock-multiline t org-emphasis t)))
 
-              (when org-fontify-emphasis-markers
-                (font-lock-prepend-text-property
-                 (match-end 4) (match-beginning 5) 'face 'org-emphasis-marker-face)
-                (font-lock-prepend-text-property
-                 (match-beginning 3) (match-end 3) 'face 'org-emphasis-marker-face))
+              (font-lock-prepend-text-property
+               (match-beginning 3) (match-end 3) 'face 'org-emphasis-marker-face)
+              (font-lock-prepend-text-property
+               (match-end 4) (match-beginning 5) 'face 'org-emphasis-marker-face)
 
               (when org-hide-emphasis-markers
                 (add-text-properties (match-end 4) (match-beginning 5)
@@ -178,13 +175,14 @@
    ("C-c a" . org-agenda)
    ("C-c c" . org-capture)
    ("C-c b" . org-switchb)
-   ("M-m s" . search-org-files)
+   ("M-m s" . org-search-org-directory)
    ("M-m n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
    ("M-m o" . (lambda () (interactive) (find-file org-directory)))
    :map org-mode-map
    ("C-M-}" . org-forward-sentence)
    ("C-M-{" . org-backward-sentence)
-   ("s-;" . org-shiftright)
+   ("s->" . org-shiftright)
+   ("s-<" . org-shiftleft)
    :map visual-line-mode-map
    ;; Don't shadow mwim and org-mode bindings
    ([remap move-beginning-of-line] . nil)))

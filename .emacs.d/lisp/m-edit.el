@@ -37,11 +37,6 @@
   :config
   (delete-selection-mode))
 
-(use-package hungry-delete
-  :defer 1
-  :config
-  (global-hungry-delete-mode))
-
 ;; Automatically indent after RET
 (use-package electric
   :defer 1
