@@ -54,6 +54,8 @@
 
 (use-package so-long
   :defer 1
+  :if (>= emacs-major-version 27)
+  :straight nil
   :config
   (global-so-long-mode))
 
@@ -71,39 +73,28 @@ Bring the line below point up to the current line."
   (interactive)
   (join-line -1))
 
-(use-package undo-tree
-  :custom
-  (undo-tree-auto-save-history t)
-  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo-tree")))
-  (undo-tree-visualizer-timestamps t)
-  (undo-tree-visualizer-diff t)
-  :commands
-  global-undo-tree-mode
-  undo-tree-keep-region
-  :config
-  ;; Keep region when undoing in region.
-  ;; http://whattheemacsd.com/my-misc.el-02.html
-  (defun undo-tree-keep-region (f &rest args)
-    "Keep region after `undo-tree-undo'.
-Call F with ARGS."
-    (if (use-region-p)
-        (let ((m (set-marker (make-marker) (mark)))
-              (p (set-marker (make-marker) (point))))
-          (apply f args)
-          (goto-char p)
-          (set-mark m)
-          (set-marker p nil)
-          (set-marker m nil))
-      (call-interactively f)))
-
-  ;; (advice-add 'undo-tree-undo :around #'undo-tree-keep-region)
-
-  (global-undo-tree-mode)
+(use-package undo-redo
+  :straight (undo-redo :type git :host github :repo "clemera-dev/undo-redo")
   :bind
-  ("s-z" . undo-tree-undo)
-  ("s-Z" . undo-tree-redo)
-  ("s-y" . undo-tree-redo)
-  ("M-s-z" . undo-tree-visualize))
+  ("s-z" . undo-modern)
+  ("s-Z" . redo))
+
+(use-package undohist
+  :straight (undohist :type git :host github :repo "clemera-dev/undohist")
+  :defer 1
+  :config
+  (undohist-initialize))
+
+(use-package undo-propose
+  :bind
+  ("M-s-z" . undo-propose))
+
+(use-package volatile-highlights
+  :defer 2
+  :config
+  (vhl/define-extension 'undo-redo 'undo-modern 'undo)
+  (vhl/install-extension 'undo-redo)
+  (volatile-highlights-mode t))
 
 (use-package goto-chg
   :defer 1
@@ -111,10 +102,10 @@ Call F with ARGS."
   ("C-." . goto-last-change)
   ("C-;" . goto-last-change-reverse))
 
-;; (use-package easy-kill
-;;   :bind
-;;   (([remap kill-ring-save] . easy-kill)
-;;    ([remap mark-sexp] . easy-mark)))
+(use-package easy-kill
+  :bind
+  (([remap kill-ring-save] . easy-kill)
+   ([remap mark-sexp] . easy-mark)))
 
 (use-package mwim
   :bind
@@ -188,13 +179,6 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   yas-global-mode
   :config
   (yas-global-mode)
-  (with-eval-after-load 'sh-script
-    (eval-when-compile
-      (defvar sh-mode-map)
-      (declare-function sh-select 'sh-script))
-    (bind-keys :map sh-mode-map
-               ("C-c C-s" . nil)
-               ("C-c M-s" . sh-select)))
   :bind
   (:map yas-minor-mode-map
         ("s-'" . yas-expand)

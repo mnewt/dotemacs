@@ -94,8 +94,8 @@
                       pattern)))))
 
   (recentf-mode)
-  (run-with-idle-timer 10 t (lambda () (shut-up (recentf-save-list))))
-  (run-with-idle-timer 10 t (lambda () (shut-up (recentf-cleanup))))
+  (run-with-idle-timer 10 t #'recentf-save-list)
+  (run-with-idle-timer 10 t #'recentf-cleanup)
   :hook
   (dired-mode-hook . recentf-add-dired-directory))
 
@@ -111,58 +111,61 @@
   :config
   (global-auto-revert-mode))
 
-(use-package psession
-  :demand t
-  :custom
-  (psession-object-to-save-alist
-   '((command-history . "command-history.el")
-     (extended-command-history . "extended-command-history.el")
-     (ivy-history . "ivy-history.el")
-     (psession--save-buffers-alist . "psession-save-buffers-alist.el")
-     (regexp-search-ring . "regexp-search-ring.el")
-     (search-ring . "search-ring.el")
-     (file-name-history . "file-name-history.el")
-     (kill-ring . "kill-ring.el")
-     (kill-ring-yank-pointer . "kill-ring-yank-pointer.el")
-     (register-alist . "register-alist.el")
-     (psession--frameset-alist . "psession-frameset-alist.el")
-     (eyebrowse-last-window-config . "eyebrowse-last-window-config.el")))
-  :commands
-  psession-savehist-mode
-  psession-mode
-  psession-autosave-mode
-  :config
-  (psession-savehist-mode)
-  (psession-mode)
-  (psession-autosave-mode))
+;; (use-package psession
+;;   :demand t
+;;   :custom
+;;   (psession-object-to-save-alist
+;;    '((command-history . "command-history.el")
+;;      (extended-command-history . "extended-command-history.el")
+;;      (ivy-history . "ivy-history.el")
+;;      (psession--save-buffers-alist . "psession-save-buffers-alist.el")
+;;      (regexp-search-ring . "regexp-search-ring.el")
+;;      (search-ring . "search-ring.el")
+;;      (file-name-history . "file-name-history.el")
+;;      (kill-ring . "kill-ring.el")
+;;      (kill-ring-yank-pointer . "kill-ring-yank-pointer.el")
+;;      (register-alist . "register-alist.el")
+;;      (psession--frameset-alist . "psession-frameset-alist.el")
+;;      (eyebrowse-last-window-config . "eyebrowse-last-window-config.el")))
+;;   :commands
+;;   psession-savehist-mode
+;;   psession-mode
+;;   psession-autosave-mode
+;;   :config
+;;   (psession-savehist-mode)
+;;   (psession-mode)
+;;   (psession-autosave-mode))
 
-(defvar persistent-scratch-directory
-  "~/.emacs.d/persistent-scratch"
-  "Location of scratch file contents for persistent-scratch.")
+;; TODO: Think about the mechanics of what I want and then do that.
+;; (defvar persistent-scratch-directory
+;;   "~/.emacs.d/persistent-scratch"
+;;   "Location of scratch file contents for persistent-scratch.")
 
-(defvar persistent-scratch-backup-directory
-  "~/.emacs.d/persistent-scratch-backups"
-  "Location of backups of the *scratch* file contents.")
+;; (defvar persistent-scratch-backup-directory
+;;   "~/.emacs.d/persistent-scratch-backups"
+;;   "Location of backups of the *scratch* file contents.")
 
-(defun save-persistent-scratch ()
-  "Save the contents of all scratch buffers."
-  (make-directory persistent-scratch-directory)
-  (dolist (f (cddr (directory-files persistent-scratch-directory)))
-    (rename-file (expand-file-name f persistent-scratch-directory)
-                 (expand-file-name (format "%s-%s" f (format-time-string "%Y-%m-%dT%T"))
-                                   persistent-scratch-backup-directory)))
-  (dolist (b (filter-buffers-by-name "\\*scratch"))
-    (with-current-buffer b
-      (write-region (point-min) (point-max)
-                    (expand-file-name (buffer-name) persistent-scratch-directory)))))
+;; (defun save-persistent-scratch ()
+;;   "Save the contents of all scratch buffers."
+;;   (make-directory persistent-scratch-directory)
+;;   ;; `cddr' to drop `.' and `..'
+;;   (dolist (f (cddr (directory-files persistent-scratch-directory)))
+;;     (rename-file (expand-file-name f persistent-scratch-directory)
+;;                  (expand-file-name (format "%s-%s" f (format-time-string "%Y-%m-%dT%T"))
+;;                                    persistent-scratch-backup-directory)))
+;;   (dolist (b (filter-buffers-by-name "\\*scratch"))
+;;     (with-current-buffer b
+;;       (write-region (point-min) (point-max)
+;;                     (expand-file-name (buffer-name) persistent-scratch-directory)))))
 
-(defun load-persistent-scratch ()
-  "Load the contents of PERSISTENT-SCRATCH-FILENAME into the
-  scratch buffer, clearing its contents first."
-  (if (file-exists-p persistent-scratch-filename)
-      (with-current-buffer (get-buffer "*scratch*")
-        (delete-region (point-min) (point-max))
-        (shell-command (format "cat %s" persistent-scratch-filename) (current-buffer)))))
+;; (defun load-persistent-scratch ()
+;;   "Create buffers for each saved scratch file."
+;;   (dolist (f (cddr (directory-files persistent-scratch-directory)))
+;;     (with-current-buffer (get-buffer-create )))
+;;   (if (file-exists-p persistent-scratch-filename)
+;;       (with-current-buffer (get-buffer "*scratch*")
+;;         (delete-region (point-min) (point-max))
+;;         (shell-command (format "cat %s" persistent-scratch-filename) (current-buffer)))))
 
 ;; (run-with-timer 1 nil #'load-persistent-scratch)
 ;; (add-hook 'kill-emacs-hook #'save-persistent-scratch)

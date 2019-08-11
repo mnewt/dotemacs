@@ -6,8 +6,21 @@
 
 ;;; Code:
 
+(use-package server
+  :defer 10
+  :config
+  (unless (server-running-p) (server-start)))
+
+(use-package pinentry
+  :defer 4
+  :custom
+  (password-cache-expiry 86400)
+  (epg-pinentry-mode 'loopback)
+  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
+  (pinentry-start))
+
 (use-package comint
-  :ensure nil
+  :straight nil
   :custom
   (comint-buffer-maximum-size 20000)
   (comint-prompt-read-only t))
@@ -251,7 +264,7 @@ predicate returns true."
 ;;   (advice-add c :around #'maybe-with-sudo))
 
 (use-package vterm
-  :git "https://github.com/akermu/emacs-libvterm.git"
+  :straight (vterm :type git :host github :repo "akermu/emacs-libvterm")
   :init
   (defun vterm--rename-buffer-as-title (title)
     (rename-buffer (format "*VTerm %s*" title) t))

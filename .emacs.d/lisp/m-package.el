@@ -6,38 +6,46 @@
 
 ;;; Code:
 
-;;;; use-package
+;;;; package.el
 
 (setq package-enable-at-startup nil
-      package-user-dir "~/.emacs.d/packages/"
-      package-archives '(("org"   . "https://orgmode.org/elpa/")
-                         ("melpa" . "https://melpa.org/packages/")
-                         ("elpa" . "https://elpa.gnu.org/packages/"))
-      package-archive-priorities '(("org" . 30)
-                                   ("melpa" . 20)
-                                   ("elpa" . 10))
       custom-file "~/.emacs.d/custom.el")
 
-(eval-when-compile
-  (require 'package)
-  (package-initialize)
-  (custom-set-variables
-   '(use-package-always-ensure t)
-   '(use-package-always-defer t)
-   '(use-package-enable-imenu-support t)
-   '(use-package-hook-name-suffix nil))
-  (unless (package-installed-p 'use-package)
-    (package-refresh-contents)
-    (package-install 'use-package))
-  (require 'use-package))
+;;;; Quelpa
 
-;; (use-package quelpa-use-package
-;;   :demand t
-;;   :init
-;;   (defvar quelpa-use-package-inhibit-loading-quelpa t)
-;;   (defvar quelpa-update-melpa-p nil)
-;;   :config
-;;   (quelpa-use-package-activate-advice))
+;; (unless (require 'quelpa nil t)
+;;   (with-temp-buffer
+;;     (url-insert-file-contents "https://framagit.org/steckerhalter/quelpa/raw/master/bootstrap.el")
+;;     (eval-buffer)))
+
+;;;; straight.el
+
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(straight-use-package 'use-package)
+
+(custom-set-variables
+ '(straight-use-package-by-default t)
+ '(straight-cache-autoloads t)
+ '(use-package-enable-imenu-support t)
+ '(use-package-hook-name-suffix nil))
+
+;; (unless (package-installed-p 'use-package)
+;;   (package-refresh-contents)
+;;   (package-install 'use-package))
+;; (require 'use-package)
+  
 
 ;;;; leaf
 
@@ -82,7 +90,7 @@
 
 (add-to-list 'load-path elisp-directory)
 
-(use-package use-package-git :demand t :ensure nil)
+;; (use-package use-package-git :demand t :ensure nil)
 
 (use-package use-package-ensure-system-package :demand t)
 
@@ -104,7 +112,7 @@
     (float-time (time-subtract (current-time) emacs-start-time)))
 
   (message "Emacs loaded %d packages in %.1f seconds."
-           (+ (length package-activated-list) (length use-package-git--packages))
+           (hash-table-count straight--recipe-cache)
            emacs-load-time))
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)

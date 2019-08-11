@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; All modes which don't fit into a larger category
+;; All modes and mode related stuff which doesn't fit into a larger category.
 
 ;;; Code:
 
@@ -127,16 +127,20 @@
 ;; (use-package dap-mode)
 
 (use-package reformatter
-  :defer 9
+  :defer 7
   :commands
   reformatter-define
   :config
+
   (defvar m-reformatters nil
     "Alist mapping major mode to formatter commands.
 
-Key is a major mode symbol.
+KEY is a major mode symbol.
 
-Value is a `reformatter' symbol, e.g. `zprint'.")
+VALUE is a `reformatter' symbol which is either the symbol from a
+`reformatter-define' statement (e.g. `zprint') or the symbol
+referencing a format region function, which takes two arguments:
+`beginning' and `end' (e.g. `format-region').")
 
   (defvar m-clojure-command (executable-find "clojure"))
   (reformatter-define zprint
@@ -145,16 +149,12 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
   (add-to-list 'm-reformatters '(clojure-mode . zprint))
   (add-to-list 'm-reformatters '(clojurec-mode . zprint))
   (add-to-list 'm-reformatters '(clojurescript-mode . zprint))
+  
   (defvar m-prettier-command (executable-find "prettier"))
   (reformatter-define prettier-babel
     :program m-prettier-command
     :args '("--parser" "babel"))
   (add-to-list 'm-reformatters '(js-mode . prettier-babel))
-  ;; (add-to-list 'm-reformatters '(js-jsx-mode . prettier-babel))
-  ;; (reformatter-define prettier-json
-  ;;   :program m-prettier-command
-  ;;   :args '("--parser" "json"))
-  ;; (add-to-list 'm-reformatters '(json-mode . prettier-json))
   (reformatter-define prettier-css
     :program m-prettier-command
     :args '("--parser" "css"))
@@ -180,11 +180,13 @@ Value is a `reformatter' symbol, e.g. `zprint'.")
     :program m-prettier-command
     :args '("--parser" "yaml"))
   (add-to-list 'm-reformatters '(yaml-mode . prettier-yaml))
+  
   (defvar m-black-command (executable-find "black"))
   (reformatter-define black
     :program m-black-command
     :args '("-q" "--line-length" "80"))
   (add-to-list 'm-reformatters '(python-mode . black))
+
   (defvar m-shfmt-command (executable-find "shfmt"))
   (reformatter-define shfmt
     :program m-shfmt-command)
@@ -219,18 +221,16 @@ Prefix ARG is passed to `fill-paragraph'."
     (interactive "r")
     (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
     (call-interactively #'crux-cleanup-buffer-or-region)
-    (let ((f (or (alist-get major-mode m-reformatters) 'reformat)))
-      (if (use-region-p)
-          (progn
-            (funcall-interactively (intern (concat (symbol-name f) "-region"))
-                                   (region-beginning) (region-end))
-            (message "Formatted the %s." (or thing "region")))
-        (progn
-          (let ((maybe-format-buffer (intern (concat (symbol-name f) "-buffer"))))
-            (if (fboundp maybe-format-buffer)
-                (funcall-interactively maybe-format-buffer)
-              (reformat-buffer)))
-          (message "Formatted the buffer.")))))
+    (let ((format-region-fn (let ((f (alist-get major-mode m-reformatters)))
+                              (cl-some (lambda (x) (when (fboundp x) x))
+                                       (list f
+                                             (intern (format "%s-region" f))
+                                             'reformat-region))))
+          (beg (or beg (if (use-region-p) (region-beginning) (point-min))))
+          (end (or end (if (use-region-p) (region-end) (point-max))))
+          (thing (or thing (if (use-region-p) "region" "buffer"))))
+      (funcall-interactively format-region-fn beg end)
+      (message "Formatted the %s." thing)))
 
   (defun reformat-defun-or-region ()
     "Reformat the current defun or region."
@@ -240,6 +240,12 @@ Prefix ARG is passed to `fill-paragraph'."
       (save-excursion
         (mark-defun)
         (reformat-buffer-or-region (region-beginning) (region-end) "defun"))))
+
+  (defun reformat-line ()
+    "Reformat the current line."
+    (interactive)
+    (reformat-buffer-or-region (line-beginning-position) (line-end-position) "line"))
+
   :bind
   ("C-M-\\" . reformat-buffer-or-region)
   ("C-\\" . reformat-defun-or-region))
@@ -288,10 +294,14 @@ a new file for the first time."
   :hook
   (before-save-hook . maybe-reset-major-mode)
   (after-save-hook . executable-make-buffer-file-executable-if-script-p)
-  :bind*
+  :bind
   (:map sh-mode-map
         ("<return>" . newline-and-indent)
-        ("RET" . newline-and-indent)))
+        ("RET" . newline-and-indent)
+        ("C-c m" . executable-set-magic)
+        ;; Don't shadow `yasnippet'.
+        ("C-c C-s" . nil)
+        ("C-c M-s" . sh-select)))
 
 ;;;; Log Files
 
@@ -598,7 +608,7 @@ a new file for the first time."
   :mode "\\.php\\'")
 
 (use-package IOS-config-mode
-  :git "https://github.com/nibrahim/IOS-config-mode.git"
+  :straight (IOS-config-mode :type git :host github :repo "nibrahim/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
@@ -633,6 +643,7 @@ a new file for the first time."
 ;;;; Utility
 
 (use-package polymode
+  :defer 8
   :commands
   pm--get-keylist.keymap-from-parent
   pm--config-name
@@ -727,7 +738,7 @@ Backward if AHEAD is negative."
   (markdown-mode-hook . poly-markdown-mode))
 
 (use-package fence-edit
-  :git "https://github.com/aaronbieber/fence-edit.el.git"
+  :straight (fence-edit :type git :host github :repo "aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks
         (append '(("---" "---" yaml)

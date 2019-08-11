@@ -6,37 +6,6 @@
 
 ;;; Code:
 
-;; Configure the frame
-(when window-system
-  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-  (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
-  (setq frame-resize-pixelwise t
-        ;; We don't set a frame title because Emacs on macOS renders the frame title
-        ;; face terribly. No rendering is better than terrible rendering.
-        frame-title-format nil
-        ;; No icon in the titlebar
-        ns-use-proxy-icon nil
-        ;; Smoother and nicer scrolling
-        scroll-margin 6
-        scroll-step 1
-        scroll-conservatively 10000
-        scroll-preserve-screen-position 1
-        auto-window-vscroll nil)
-
-  ;; Blinking is NOT OK
-  (blink-cursor-mode -1)
-
-  (with-eval-after-load 'face-remap
-    (eval-when-compile
-      (defvar text-scale-mode-step))
-    (setq text-scale-mode-step 1.1))
-
-  ;; eww uses this as its default font, among others.
-  (set-face-font 'variable-pitch "Georgia-18"))
-
-(with-eval-after-load 'menu-bar (menu-bar-mode -1))
-
 (custom-set-variables '(inhibit-splash-screen t))
 
 ;; Beeping is REALLY NOT OK
@@ -45,20 +14,99 @@
       ;; buffer.
       echo-keystrokes 0.01)
 
-;; No GUI dialogs
-(setq use-dialog-box nil)
+;; Configure the frame
+(if window-system
+    (progn
+      (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+      (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+      (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
+      (setq frame-resize-pixelwise t
+            ;; We don't set a frame title because Emacs on macOS renders the frame title
+            ;; face terribly. No rendering is better than terrible rendering.
+            frame-title-format nil
+            ;; No icon in the titlebar
+            ns-use-proxy-icon nil
+            ;; Smoother and nicer scrolling
+            scroll-margin 6
+            scroll-step 1
+            scroll-conservatively 10000
+            scroll-preserve-screen-position 1
+            auto-window-vscroll nil)
 
-(with-eval-after-load 'mwheel
-  (setq mouse-wheel-follow-mouse 't
-        mouse-wheel-scroll-amount '(1 ((shift) . 1))))
+      ;; Blinking is NOT OK
+      (blink-cursor-mode -1)
 
-(use-package pixel-scroll
-  :defer 1
-  :ensure nil
-  :commands
-  pixel-scroll-mode
-  :config
-  (pixel-scroll-mode))
+      (with-eval-after-load 'face-remap
+        (eval-when-compile
+          (defvar text-scale-mode-step))
+        (setq text-scale-mode-step 1.1))
+
+      (defun some-font (font-list)
+        "Return a 'Font-Size' combination from FONT-LIST.
+
+The first one which is available in the current environment is
+returned."
+        (cl-some (lambda (font-pitch)
+                   (string-match "\\`\\([^-]+\\)" font-pitch)
+                   (when (member (substring font-pitch
+                                            (match-beginning 1)
+                                            (match-end 1))
+                                 (font-family-list))
+                     font-pitch))
+                 font-list))
+
+      ;; Set default fonts.
+      (defvar m-fixed-pitch-font
+        (some-font '("Input-14" "Monaco-13" "Lucida Console-12" "DejaVu Sans-12"
+                     "Inconsolata-14"))
+        "My default font to use for fixed pitch applications.")
+      
+      (defvar m-variable-pitch-font
+        (some-font '("Avenir-15" "Calibri" "Helvetica Neue" "Helvetica" "Georgia-15"))
+        "My default font to use for variable pitch applications.")
+
+      (dolist (face '(default fixed-pitch))
+        (set-face-font face m-fixed-pitch-font))
+      
+      (set-face-font 'variable-pitch m-variable-pitch-font)
+
+      (add-hook 'text-mode-hook 'variable-pitch-mode)
+
+      ;; Wrap text at the end of a line like a word processor.
+      (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
+
+      ;; No GUI dialogs
+      (setq use-dialog-box nil)
+
+      (with-eval-after-load 'mwheel
+        (setq mouse-wheel-follow-mouse 't
+              mouse-wheel-scroll-amount '(1 ((shift) . 1))))
+
+      (use-package pixel-scroll
+        :defer 1
+        :straight nil
+        :commands
+        pixel-scroll-mode
+        :config
+        (pixel-scroll-mode))
+
+      (use-package window-highlight
+        :defer 0.1
+        :if window-system
+        :straight (window-highlight :type git :host github
+                                    :repo "dcolascione/emacs-window-highlight")
+        :commands
+        window-highlight-mode
+        :config
+        (window-highlight-mode))
+
+      (use-package spacemacs-theme
+        :defer 0.1
+        :custom
+        (spacemacs-theme-comment-bg nil)))
+
+  ;; No GUI
+  (menu-bar-mode -1))
 
 (use-package hl-line
   :defer 1
@@ -67,26 +115,10 @@
   :config
   (global-hl-line-mode))
 
-(use-package window-highlight
-  :if window-system
-  :defer 1
-  :git "https://github.com/dcolascione/emacs-window-highlight.git"
-  :commands
-  window-highlight-mode
-  :config
-  (window-highlight-mode)
-  ;; Apparently this is sometimes necessary to initialize the goofy font-locking
-  ;; setup.
-  (window-highlight--after-focus-change-function))
-
-(use-package spacemacs-theme
-  :custom
-  (spacemacs-theme-comment-bg nil))
-
 (use-package fiat-color
   :demand t
   :after window-highlight
-  :ensure nil
+  :straight nil
   :custom
   (fiat-lux-theme 'spacemacs-light)
   (fiat-nox-theme 'spacemacs-dark)

@@ -13,7 +13,7 @@
 
 (use-package jka-cmpr-hook
   :defer 1
-  :ensure nil
+  :straight nil
   :commands
   auto-compression-mode
   :config
@@ -154,7 +154,7 @@ With a prefix ARG always prompt for command to use."
     (os-open-file file)))
 
 (use-package dired
-  :ensure nil
+  :straight nil
   :custom
   (dired-listing-switches "-aFhl")
   (dired-recursive-deletes 'always)
@@ -241,7 +241,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
         (";" . dired-git-add)))
 
 (use-package dired-x
-  :ensure nil
+  :straight nil
   :after dired
   :defer 6
   :config
@@ -256,7 +256,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
         ("C-c C-r" . dired-rsync)))
 
 (use-package disk-usage
-  :git "https://gitlab.com/ambrevar/emacs-disk-usage.git"
+  :straight (disk-usage :type git :host gitlab :repo "ambrevar/emacs-disk-usage")
   :bind
   (:map dired-mode-map
         (")" . disk-usage-here)
@@ -308,7 +308,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 (use-package dired-rainbow-x
   :defer 5
   :after dired-rainbow
-  :ensure nil
+  :straight nil
   :commands
   dired-rainbow-listing-mode
   :config
@@ -325,8 +325,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 (use-package dired-list
   :defer 5
   :after dired-hacks-utils
-  :git (:uri "https://github.com/Fuco1/dired-hacks.git"
-             :files "dired-list.el")
+  :straight (dired-list :type git :host github :repo "Fuco1/dired-hacks"
+             :files ("dired-list.el"))
   :commands
   (dired-list
    dired-list-git-ls-files
@@ -336,17 +336,17 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
    dired-list-grep))
 
 (use-package dired-subtree
-  :after dired-hacks-utils
-  :bind
-  (:map dired-mode-map
-        ("I" . dired-subtree-cycle)
-        ("TAB" . dired-subtree-cycle)
-        ("C-, i" . dired-subtree-insert)
-        ("C-, r" . dired-subtree-remove)
-        ("C-, R" . dired-subtree-revert)
-        ("C-, n" . dired-subtree-narrow)
-        ("C-, ^" . dired-subtree-up)
-        ("C-, v" . dired-subtree-down)))
+   :after dired-hacks-utils
+   :bind
+   (:map dired-mode-map
+         ("I" . dired-subtree-cycle)
+         ("TAB" . dired-subtree-cycle)
+         ("C-, i" . dired-subtree-insert)
+         ("C-, r" . dired-subtree-remove)
+         ("C-, R" . dired-subtree-revert)
+         ("C-, n" . dired-subtree-narrow)
+         ("C-, ^" . dired-subtree-up)
+         ("C-, v" . dired-subtree-down)))
 
 (use-package dired-collapse
   :after dired-hacks-utils

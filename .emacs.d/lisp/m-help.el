@@ -97,7 +97,7 @@
        man-page-path))))
 
 (use-package eg
-  :git "https://github.com/mnewt/eg.el"
+  :straight (eg :type git :host github :repo "mnewt/eg.el")
   :ensure-system-package
   (eg . "pip install eg")
   :bind
@@ -270,7 +270,7 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c w" . hydra-window/body))
 
 (use-package replace
-  :ensure nil
+  :straight nil
   :commands
   occur-next
   occur-prev

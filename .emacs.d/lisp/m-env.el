@@ -6,6 +6,8 @@
 
 ;;; Code:
 
+(require 'cl-seq)
+
 (defvar datetime-timezone)
 (setq datetime-timezone 'US/Pacific)
 
@@ -49,12 +51,14 @@ Update environment variables from a shell source file."
          (sep (if (eq system-type 'windows-nt) ";" ":"))
          (old-path (split-string (getenv "PATH") sep))
          ;; De-dupe and validate new path
-         (new-path (mapcar #'expand-file-name
-			   (cl-remove-if-not #'file-directory-p
-					     (cl-remove-duplicates
-					      (append set-path-user
-						      os-specific-paths
-						      old-path))))))
+         (new-path
+	  (mapcar
+	   #'expand-file-name
+           (cl-remove-if-not #'file-directory-p
+                 (cl-remove-duplicates
+                  (append set-path-user
+                    os-specific-paths
+                    old-path))))))
     (setenv "PATH" (mapconcat #'identity new-path sep))
     ;; (message "New path: %s" new-path)
     (setq exec-path new-path)))
@@ -62,26 +66,6 @@ Update environment variables from a shell source file."
 (source-sh "~/.env")
 (source-sh "~/.bin/start-ssh-agent")
 (set-path)
-
-(use-package server
-  :defer 10
-  :commands
-  (server-running-p server-start)
-  :config
-  (unless (server-running-p) (server-start)))
-
-(use-package pinentry
-  :defer 4
-  :unless (eq system-type 'windows-nt)
-  :custom
-  (password-cache-expiry 86400) ; one day
-  (epg-pinentry-mode 'loopback)
-  :commands
-  pinentry-start
-  :config
-  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
-  :config
-  (pinentry-start))
 
 (defvar os-open-file-executable nil
   "The executable used to open files in the host OS GUI.")
@@ -92,8 +76,7 @@ Update environment variables from a shell source file."
 
 (defun config-linux ()
   "Configure Emacs for Linux."
-  (config-unix)
-  (set-face-font 'default "DejaVu Sans-12"))
+  (config-unix))
 
 (defun config-macos ()
   "Configure Emacs for macOS."
@@ -107,10 +90,7 @@ Update environment variables from a shell source file."
         ns-function-modifier 'hyper
         ;; Open files from Finder in same frame.
         ns-pop-up-frames nil
-        os-open-file-executable "open")
-  (if (member "Input" (font-family-list))
-      (set-face-font 'default "Input-14")
-    (set-face-font 'default "Monaco-13"))
+        os-open-file-executable "open")  
   ;; Use system trash
   (setq delete-by-moving-to-trash t
         trash-directory "~/.Trash"))
@@ -126,8 +106,7 @@ Update environment variables from a shell source file."
         w32-lwindow-modifier 'super
         w32-pass-rwindow-to-system nil
         w32-rwindow-modifier 'super
-        os-open-file-executable "explorer")
-  (set-face-font 'default "Lucida Console-12"))
+        os-open-file-executable "explorer"))
 
 ;; OS specific configuration
 (pcase system-type

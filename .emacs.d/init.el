@@ -8,7 +8,7 @@
 
 (defconst emacs-start-time (current-time))
 
-(setq debug-on-error t)
+;; (setq debug-on-error t)
 
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Local elisp configuration files go here.")
@@ -16,10 +16,10 @@
 (defvar m-elisp-modules
   '(
     start
+    env
     package
     lib
     bind
-    environ
     persist
     private
     appear
@@ -46,3 +46,4 @@
 
 ;;; init.el ends here
 (put 'narrow-to-region 'disabled nil)
+(put 'upcase-region 'disabled nil)

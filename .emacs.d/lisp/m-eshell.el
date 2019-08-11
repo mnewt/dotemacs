@@ -127,9 +127,6 @@ because I dynamically rename the buffer according to
       (if (= p (point))
           (beginning-of-line))))
 
-  (eval-when-compile
-    (defvar eshell-prompt-regexp))
-
   (defun eshell-quit-or-delete-char (arg)
     "Quit Eshell if `C-d' is specified, passing ARG on."
     (interactive "p")
@@ -143,7 +140,8 @@ because I dynamically rename the buffer according to
   (defun eshell-send-previous-input (&optional arg)
     "Re-run the previous command with ARG in the last used eshell buffer."
     (interactive "*p")
-    (eval-when-compile (require 'em-hist) (require 'esh-mode))
+    (require 'em-hist)
+    (require 'esh-mode)
     (with-current-buffer
         (cl-some (lambda (b) (eq 'eshell-mode (with-current-buffer b major-mode)))
                  (buffer-list))
@@ -276,7 +274,7 @@ Call it a second time to print the prompt."
 
   (defun eshell/init ()
     "Initialize the Eshell environment."
-    (eval-when-compile (require 'em-term))
+    (require 'em-term)
     (source-sh "~/.env")
     (setq eshell-path-env (getenv "PATH"))
     ;; Path to shell executable. Set it this way to work with tramp.

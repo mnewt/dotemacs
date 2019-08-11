@@ -6,22 +6,22 @@
 
 ;;; Code:
 
-;; visual-line-mode
-(add-hook 'text-mode-hook #'turn-on-visual-line-mode)
-
 ;;;; Org
 
 ;; Make package.el install Org from repo instead of using the built in version.
 (assq-delete-all 'org package--builtins)
 (unless (file-expand-wildcards (concat package-user-dir "/org-[0-9]*"))
-  (package-install (elt (cdr (assoc 'org package-archive-contents)) 0)))
+ (package-install (elt (cdr (assoc 'org package-archive-contents)) 0)))
 ;; We have to be really sure something doesn't load `org' before this, or we get
 ;; the version that ships with Emacs.
 
 (use-package org
+  :mode ("\\.org\\'" . org-mode)
   :custom
   ;; This is already the default.
   (org-directory "~/org")
+  ;; Modules to load immediately.
+  ;; (org-modules nil)
   ;; Indent text according to the outline structure.
   (org-startup-indented t)
   (org-special-ctrl-a/e t)
@@ -40,7 +40,7 @@
   (org-todo-keywords '((sequence "TODO(t)" "WIP (w)" "|" "DONE(d!)")))
   (org-todo-keyword-faces '(("TODO" (:foreground "magenta" :weight bold))
                             ("WIP" (:foreground "hot pink" :weight bold))
-                            ("DONE" (:foreground "gray"))))
+                            ("DONE" (:foreground "gray" :weight bold))))
   (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
@@ -63,10 +63,6 @@
   org-capture
   org-capture-refile
   :config
-  ;; (add-to-list 'Info-additional-directory-list
-  ;;              (expand-file-name "org-mode/info" use-package-git-user-dir))
-
-  ;; (require 'org-capture)
 
   (defun org-search-org-directory ()
     "Search ~/org using `counsel-rg'."
@@ -116,6 +112,20 @@
     "Face for Org emphasis markers"
     :group 'org-faces)
 
+  (defun m-adjoin-to-list-or-symbol (element list-or-symbol)
+    (let ((list (if (not (listp list-or-symbol))
+                    (list list-or-symbol)
+                  list-or-symbol)))
+      (require 'cl-lib)
+      (cl-adjoin element list)))
+
+  (dolist (face '(org-code org-block org-table org-date org-verbatim))
+    (set-face-attribute face nil :inherit
+                        (m-adjoin-to-list-or-symbol
+                         'fixed-pitch
+                         (face-attribute face :inherit))))
+
+  ;; TODO Follow up with Org mailing list on this approach.
   (defun org-do-emphasis-faces (limit)
     "Run through the buffer and emphasize strings."
     (let ((quick-re (format "\\([%s]\\|^\\)\\([~=*/_+]\\)"
@@ -170,6 +180,21 @@
                                      '(invisible org-link))))
             (throw :exit t))))))
 
+  (use-package org-download
+    :after org
+    :hook
+    (dired-mode-hook . org-download-enable))
+
+  ;; Required for Org html export
+  (use-package htmlize
+    :commands
+    htmlize-file
+    htmlize-region
+    htmlize-buffer
+    htmlize-many-files
+    htmlize-many-files-dired
+    org-html-htmlize-generate-css)
+
   :bind
   (("C-c l" . org-store-link)
    ("C-c a" . org-agenda)
@@ -181,26 +206,13 @@
    :map org-mode-map
    ("C-M-}" . org-forward-sentence)
    ("C-M-{" . org-backward-sentence)
+   ("M-S-<up>" . org-move-subtree-up)
+   ("M-S-<down>" . org-move-subtree-down)
    ("s->" . org-shiftright)
    ("s-<" . org-shiftleft)
    :map visual-line-mode-map
    ;; Don't shadow mwim and org-mode bindings
    ([remap move-beginning-of-line] . nil)))
-
-(use-package org-download
-  :after org
-  :hook
-  (dired-mode-hook . org-download-enable))
-
-;; Required for Org html export
-(use-package htmlize
-  :commands
-  htmlize-file
-  htmlize-region
-  htmlize-buffer
-  htmlize-many-files
-  htmlize-many-files-dired
-  org-html-htmlize-generate-css)
 
 (use-package poporg
   :bind
