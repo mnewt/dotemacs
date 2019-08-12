@@ -68,7 +68,9 @@
   "Delete all packages in `package-user-dir'.
 
 We do this to get rid of any stale packages and force a reinstall
-on the next startup.")
+on the next startup."
+  (interactive)
+  (shell-command (concat "rm -rf " package-user-dir)))
 
 (defun git-ls-files (&optional directory)
   "Return a list of the files from `git ls-files DIRECTORY'."
@@ -79,7 +81,7 @@ on the next startup.")
   "Byte compile all Emacs Lisp files in DIRECTORY."
   (interactive (read-directory-name "Byte compile directory: "))
   (let ((default-directory directory))
-    (dolist (filename (git-ls-files))
+    (dolist (filename (file-expand-wildcards "*.el"))
       (byte-compile-file filename))))
 
 (defun byte-compile-init-files ()
