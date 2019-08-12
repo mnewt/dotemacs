@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: getopts
+# key: getopts
+# --
+while getopts ":$1" opt; do
+  case $opt in
+    -o)
+      $0
+      ;;
+    *)
+      echo "usage: $(basename \$0) [+-f} [--] ARGS..."
+      exit 2
+  esac
+done
+shift $(expr $OPTIND - 1)
+OPTIND=1

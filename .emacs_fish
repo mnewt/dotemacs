@@ -1,6 +1,0 @@
-#!/usr/bin/env fish
-
-function fish_prompt
-  echo $PWD
-  echo "> "
-end

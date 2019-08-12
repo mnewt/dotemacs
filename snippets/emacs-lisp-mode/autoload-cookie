@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: autoload-cookie
+# key: alc
+# --
+;;;###autoload

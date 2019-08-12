@@ -1,0 +1,66 @@
+* An Emacs configuration
+This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but may have more bugs) with running from a terminal, Linux, and Windows.
+
+** Goals
+*** The appearance should be functional but attractive.
+For maximum concentration and ergonomics, there should be no extraneous information.
+*** Keep things fast and responsive.
+*** Optimize startup time.
+Slow startup is a barrier to tweaking this config.
+*** All interfaces should be uniform. 
+[[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
+*** Use normal Emacs key bindings, enhance where appropriate. 
+Then mix in macos key bindings so things like "s-c" and "s-w" work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
+*** Extensive customization but no excess.
+If I'm not using a package, it's out.
+*** Custom Emacs build.
+Check out the =setup= script. Drivers include performance, macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][js-jsx-mode]].
+*** Frequent updates.
+I update frequently and often pick up new functionality from Emacs master.
+*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and =package.el= for as much configuration as possible. Defer loading packages until they are needed. I have tried other package managers and they work great. But they have lots of features I don't want and are slow compared to =package.el=. For the few packages outside of ELPA and MELPA, I have a custom solution in =use-package-git=. It is a very simple =use-package= extension that adds a =:git= keyword. I prefer this because I can specifically pull chosen packages via git. For the rest, =package.el= works great.
+** Features
+*** Custom mode-line.
+Inspired by [[https://github.com/itchyny/lightline.vim][vim-lightline]].
+*** Custom theming system.
+Quickly (and completely!) switch between light and dark, or any other themes. A key part of this is realizing that many packages have dependencies on the theme so it is not nearly enough to call `load-theme`.
+*** Editing
+Highlights include
+**** Clemera's [[https://github.com/clemera-dev/undo-redo][undo-redo]]
+**** [[https://github.com/magnars/multiple-cursors.el][Multiple cursors]]
+**** [[https://github.com/DogLooksGood/parinfer-mode][Parinfer]]
+**** [[https://github.com/Fuco1/smartparens][Smartparens]] with lots of customization
+*** Environment support.
+macOS doesn't hand its applications much in terms of standard UNIX environment configuration. I have a customized setup to initialize the environment by running `bash --login` and pulling in its environment variables.
+*** Eshell.
+There is nothing like Eshell. It is truly amazing simple tasks and for remote systems administration. There are extensive customizations to make it seamless with the rest of the environment and UI.
+*** File operations and Dired.
+Make the uniquely powerful Dired more comfortable, more informative, and more reliable.
+*** Persistence.
+Persist buffers, undo, command completions, recent files, etc.
+*** Navigation.
+Some innovative intra- and extra- buffer navigation strategies. Check out =winner-wrong-window=.
+*** Version control.
+[[https://magit.vc/][Magit]] and more.
+*** Language support.
+**** Emacs Lisp of course, many enhancements.
+**** Clojure and Clojurescript, Scheme, and Common Lisp
+**** [[https://github.com/emacs-lsp/lsp-mode][lsp-mode]]
+**** Org
+Some light Org customizations.
+**** [[https://github.com/purcell/reformatter.el][reformatter]]
+**** flycheck
+**** log viewing
+**** docker
+**** Bash and friends
+**** Web, Javascript and React development
+**** Python
+**** Lua
+**** Ruby
+**** Embedded language support with [[https://github.com/polymode/polymode][polymode]] and [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
+** Supported Emacs versions
+*** 24.3+
+*** A few features are 27.1 (master) only.
+** To Do
+See TODO.org for some of the things I'm working on.
+** License
+The Free Software Foundation may control certain pieces of this by virtue of them being contributed to Emacs or a package in ELPA or MELPA. The rest is basically in the public domain. See the LICENSE file for details.

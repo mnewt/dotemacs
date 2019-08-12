@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: trap
+# key: trap
+# --
+${1:touch /tmp/temp_file}
+
+function cleanup {
+  ${0:rm -rf /tmp/temp_file}
+}
+
+trap cleanup EXIT

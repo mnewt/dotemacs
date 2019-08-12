@@ -1,0 +1,1377 @@
+#    -*- mode: org -*-
+
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Automatically create/update =TAGS= file when =xref-find-definitions= is called
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-03 Wed 07:24]
+How does =xref-find-definitions decide whether or not to use =TAGS= file? It doesn't seem to use it for elisp.
+I think I will not do this for now
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Ugh, broke Windows Emacs again. [4/4]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-03 Wed 07:23]
+** DONE sly - Make it compatible or else don't load it on Windows
+- State "DONE"       from "TODO"       [2018-09-08 Sat 22:57]
+** DONE Remove =mac-key-mode-map= references in main config file. Time to properly clean it up?
+- State "DONE"       from "TODO"       [2018-09-08 Sat 18:31]
+** DONE Fix Eshell
+- State "DONE"       from "TODO"       [2018-09-08 Sat 22:57]
+** DONE Make super key bindings work with Windows
+- State "DONE"       from "WIP"        [2018-10-03 Wed 07:23]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Try emacs-geeknote fork
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-03 Wed 07:22]
+https://github.com/vxe/emacs-geeknote
+I give up
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix modeline sometimes getting stuck on old colors when theme is switched
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-02 Tue 21:45]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Org sorting
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-02 Tue 21:44]
+Read all suggestions
+https://emacs.stackexchange.com/questions/9585/org-how-to-sort-headings-by-todo-and-then-by-priority
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Backup changes to saved files and restore them with a diff view
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-10-02 Tue 21:35]
+See comments from NateEag and github-alphapapa in this thread:
+https://www.reddit.com/r/emacs/comments/9hfo51/idea_periodically_save_file_changes_to_cache_file/
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make =C-k= in =ivy-switch-buffer= kill the buffer, refresh the list, and stay in =ivy-switch-buffer=.
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-10-02 Tue 21:40]
+Can't seem to get this to work but the workaround is to use =C-o a k=
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Try ivy features [2/2]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-10-02 Tue 02:08]
+** DONE ivy-hydra
+- State "DONE"       from "WIP"        [2018-10-02 Tue 01:54]
+** DONE ivy-overlay
+- State "DONE"       from "WIP"        [2018-10-02 Tue 02:08]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE fix rubygems-update issue
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Migrate fish plugin manager to fisher
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE aliases: move to ~ and make compatible with fish, bash, zsh so
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+they all use the same aliases file
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE do the same for private.fish
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE fix arch sed error
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE install.sh: colorize output
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix bash_prompt
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Migrate zlogin to bash aliases
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Port start-ssh-agent.fish to bash and zsh
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Vim and Emacs updates shouldn't make repo dirty -- don't store packages themselves in repo
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Catch-22 for running =fisher= for first time: It both requires and installs =bass=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix tmux line length bug in =fish_prompt= -- probably not stripping all control characters out when measuring the line length
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+(=bash_prompt= does not have this problem)
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE prompt - direnv
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE bash prompt sometimes exibits weird behavior
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+Moving the start of the prompt to the middle of the line or even the previous line. Guessing there are special characters not being printed properly, or maybe the normal escape sequence isn't clearing everything
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make tmux status bar more like vim's
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+(https://github.com/edkolev/tmuxline.vim)
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Finish emacs tmuxline-ification
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make =PS1= fallback look like =bash_prompt=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Only update packages lists if =--save= flag is set so that repo stays clean after =update= [3/3]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- [X] Move all fish config to plugin
+- [X] =update-fish=: problematic because fisher updates
+  ~/.config/fish/functions/*
+- [X] All the rest
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Better manage vim and nvim configs
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: Is =./install -f= removing dirs during =link_children=?
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Remove noise from atom status bar
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Get rid of =basic.vim=? No, it has some nice settings.
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE with_color escape sequences sometimes dont' work over ssh/tmux. should also be way faster
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: update-python on arch overwrites packages that are managed by pacman, causing pacman updates to fail
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: On interactive login:
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+=set: Tried to change the read-only variable '_'= Has something to dowith adding "/usr/local/opt/coreutils/libexec/gnubin" to PATH
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: Error message is displayed from prompt when tmux is not in path
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Move prompt to its own plugin/repo - teleprompt
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: =install=: Don't create files with literal name of '*' in created directories (=link-children=) - only happens when specifying source path on command line?
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: Why does it always link .parinfer-file-extentions.txt?
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: =inf-clojure= sets =comint-send-input= on every shell
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: dired+ often doesn't work or doesn't work completely (details not hidden and/or highlighting not working)
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Emacs: macos proced doesn't show all columns
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Get =diff-hl= to work
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Get =gist= to work
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE tramp: add hostname to mode-line when connected via tramp
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Re-enable company-mode in tramp and optimize
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Move any requires in =init.el= to use-package
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Add =eless= to aliases
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Move =path.fish= to =env=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE install / install.settings should use arrays, not lists, for variables
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE BUG: =ignore= in =install.settings= is getting ignored
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Move to bare git repo
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+(https://developer.atlassian.com/blog/2016/02/best-way-to-store-dotfiles-git-bare-repo/)
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Talk about eshell in README
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Move README to org format
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Finish source
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make bare repo setup compatible with magit and projectile. Could use a `link' and `unlink' function to create a temporary $HOME/.git file. See example: https://github.com/magit/magit/issues/460#issuecomment-36139308 and https://gitorious.org/magit/skangas-detached-worktree#more
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make yanking indentation work on a newline inside a form in parinfer (mac-key-mode's =clipboard-yank-and-indent= needs to work with parinfer's =parinfer-smart-yank:yank=. 
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+Maybe advise the latter? Could turn on parinfer-paren-mode while yanking)
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Update readme with new non-bare repo setup
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix Windows problems
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE eshell should have a way to cd relative to tramp path
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+Example:
+pwd: =/sshx:host:/some/path=
+=cd :/other/path= => =/sshx:host:/other/path=
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix yank-pop deleting a bunch more than the previous yank        :bug:
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+What are repro steps? Does this happen only when there are characters on
+the line after point? 
+
+Thinking we should use a temp buffer to build the yanked text using parinfer
+as normal, then insert it at point. 
+
+All that sounded great, but when I removed the kludgey advice I had created,
+everything seemed to work. Not sure what changed but super.
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make solarized theme colors work with eshell
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix org-mode <s expansion                                        :bug:
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+Had to do with running HEAD version of org-mode. Stopped that.
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Improve and unify persistence
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Add script to set up new computer
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:49
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Eshell copy and kill output
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE =find= in eshell runs elisp function find. It should run the system =find= utility.
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE use org/outline to fold top level sections
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix search in Notes
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Eshell read-only prompt
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Eshell import aliases from bash
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE M-x shell bash completion
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+** https://github.com/szermatt/emacs-bash-completion
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE outline-minor-mode should not trample on key binding "M-<up>"
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Advise =eshell/cd= such that paths starting with "/" and "~" are interpreted relative to the remote host [2/2]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-08-22 Wed 09:01]
+** DONE cd
+- State "DONE"       from "TODO"       [2018-08-22 Wed 08:47]
+** DONE e, ee
+- State "DONE"       from "TODO"       [2018-08-22 Wed 09:01]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE "s-n" should create a new scratch buffer
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Add git-ls-files command
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+https://stackoverflow.com/questions/24993868/how-do-you-list-tracked-files-git-ls-files-in-magit#25227438
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Add to =org-todo-keywords= and =org-todo-keyword-faces=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-08-19 Sun 08:29]
+** "WIP"
+** "NEXT"
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE How to manage package version pinning in =straight.el=?
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-22 Wed 15:39]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Package regression: clojure-mode: =end-of-defun= skips two top level forms
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "DONE"       [2018-08-22 Wed 15:39]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Package regression: org-mode: easy templates don't expand
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-22 Wed 15:40]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE w3m easily view buffer in appropriate mode
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-22 Wed 20:53]
+Such as displaying a markdown file in `markdown-mode`. Maybe just copy the buffer to another buffer and change mode based on the original buffer's file name?
+NOTE: This isn't completely done, but =language-detection= does most of what we want.
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Add indicators to modeline for: [3/3] 
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-23 Thu 12:56]
+** DONE outline-minor-mode
+- State "DONE"       from "TODO"       [2018-08-23 Thu 11:57]
+** DONE hs-minor-mode
+- State "DONE"       from "TODO"       [2018-08-23 Thu 12:56]
+** DONE Narrowing
+- State "DONE"       from "TODO"       [2018-08-23 Thu 12:56]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE =ssh= Can't run commands at all
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-26 Sun 08:47]
+Error: =Wrong type argument, stringp, nil=
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Make function to search =~/org=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-30 Thu 11:56]
+"C-c s"
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix tldr.el
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-08-30 Thu 11:58]
+Apparently the issue can be worked around by first running =tldr-update-docs=
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Fix Eshell / tramp tab completion adding a space after the file name
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-09-05 Wed 13:20]
+- State "DONE"       from "WIP"        [2018-08-23 Thu 15:16]
+This is a result of my config. Maybe the Eshell completion packages?
+It's either:
+** DONE bash-completion
+- State "DONE"       from "TODO"       [2018-09-05 Wed 13:19]
+** DONE fish-completion
+- State "DONE"       from "TODO"       [2018-09-05 Wed 13:20]
+Yes, it was fish-completion
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Organize or even get rid of mac-key-mode
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-09-08 Sat 18:31]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Finish =org-todo-cycle=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-10-01 Mon 03:49]
+This is =org=shiftleft=
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Create binding for =org-todo= -> TODO
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "WIP"        [2018-10-01 Mon 03:44]
+
+Archived entries from file /Users/mn/TODO.org
+
+
+* DONE Try moody
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2018-10-03 Wed 07:50
+  :ARCHIVE_FILE: ~/TODO.org
+  :ARCHIVE_OLPATH: Dotfiles TODO List
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+- State "DONE"       from "TODO"       [2018-10-01 Mon 03:21]
+
+* DONE =shell= doesn't output anything!
+:PROPERTIES:
+:ARCHIVE_TIME: 2018-10-09 Tue 17:19
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "NEXT"       [2018-10-06 Sat 18:04]
+
+* DONE Make ssh with =dtach= actually work
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:14
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-11-18 Sun 18:04]
+See https://github.com/Ambrevar/dotfiles/blob/master/.emacs.d/lisp/package-eshell-detach.el
+
+* DONE ~man~ should select the window
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+
+* DONE ~man~ should be able to search manpages on remote system (default to this when using tramp?)
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+https://emacs.stackexchange.com/questions/20524/can-emacs-eshell-show-remote-man-pages-in-tramp-mode?rq=1
+https://stackoverflow.com/questions/22957137/how-to-make-emacs-man-work-over-tramp#22962342
+
+* DONE Make command to tail a file [2/2]
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+** DONE command
+** DONE key binding in dired
+
+* DONE WIP Emacs recoll
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+No longer using recoll--use spotlight instead
+https://oremacs.com/2015/07/27/counsel-recoll/
+https://opensourceprojects.eu/p/recoll1/tickets/61/
+
+* DONE Get tldr to work
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-11-18 Sun 18:04]
+
+* DONE Eshell =rm= hangs when pressing =RET=
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:15
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: TODO
+:END:
+- State "DONE"       from "TODO"       [2019-08-10 Sat 09:40]
+- State "DONE"       from "TODO"       [2019-08-10 Sat 09:39]
+Actually, it is working, it just takes a long time and gives zero feedback. This is especially problematic when working over slow links and performing bulk operations. Can we fix this?
+** Takes too long
+** Gives zero feedback (doesn't even go to new line when pressing =RET= until it is completely done)
+** Outputs =t= for each file deleted. It should give the same feedback as =*rm=.
+
+* DONE Find and squash causes of unresponsiveness in remote contexts [2/2]
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:16
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+** DONE Editing
+** DONE Eshell
+
+* DONE =copy-region-other-window= and =move-region-other-window= should also copy the line if no region is selected
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:16
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+
+* Takes too long
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:20
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Eshell =rm= hangs when pressing =RET=
+:ARCHIVE_CATEGORY: TODO
+:END:
+
+* Gives zero feedback (doesn't even go to new line when pressing =RET= until it is completely done)
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:20
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Eshell =rm= hangs when pressing =RET=
+:ARCHIVE_CATEGORY: TODO
+:END:
+
+* Outputs =t= for each file deleted. It should give the same feedback as =*rm=.
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:20
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Eshell =rm= hangs when pressing =RET=
+:ARCHIVE_CATEGORY: TODO
+:END:
+
+* DONE Re-compile with new changes
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Mojave issues
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-10-02 Tue 21:33]
+
+* DONE Inserting characters is slow (try holding down a key--it doesn't keep up with repeat rate)
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Mojave issues
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-11-18 Sun 18:05]
+This seems to be fixed for most buffers but Org buffers are still terrible
+
+* DONE Scrolling is slow
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Mojave issues
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-11-18 Sun 18:05]
+
+* DONE For the user
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Get Eshell/tramp to cache and/or save passwords
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+
+* DONE For sudo/sudoers - alias for su/sudo?
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_OLPATH: Get Eshell/tramp to cache and/or save passwords
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+
+* DONE Get =pointhistory= to work
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2018-11-18 Sun 18:05]
+Right now it jumps around in a way I don't understand. Maybe something to do with ring mechanics?
+
+* DONE Make Eshell prompt look good with a light theme
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+
+* DONE term-mode filter out escape sequence
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+This happens when running =fish= in =shell-mode=:
+=]0;fish=
+Guessing this is the (remains of the?) xterm sequence to set the title?
+
+* DONE Fix Eshell/shell/term bouncing shell output up and down [3/3]
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+Not sure if these are all the same issue. Fix term first, see if it affects the others.
+Not a complete fix, but turned off xterm features.
+** DONE term - it isn't the same issue. It was the mouse scroll settings that appear to be completely unnecessary anyway. Removed them and it helped term-mode updates a lot. Did not affect shell/eshell bouncing.
+- State "DONE"       from "TODO"       [2018-08-31 Fri 11:03]
+** DONE shell
+** DONE eshell
+
+* DONE Investigate Crux
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-05-15 Wed 09:23
+:ARCHIVE_FILE: ~/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+https://github.com/bbatsov/crux/blob/master/crux.el

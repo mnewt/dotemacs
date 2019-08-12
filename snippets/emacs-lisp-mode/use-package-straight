@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: use-package-straight
+# key: ups
+# --
+:straight
+(:type ${1:git} :host ${2:github} :repo "${3:user/repo}")
+$0)

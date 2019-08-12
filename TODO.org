@@ -1,0 +1,18 @@
+* DONE Test clemera's undo config
+- State "DONE"       from "TODO"       [2019-08-12 Mon 14:24]
+* TODO =flash-thing=
+* TODO Figure out magit wip modes
+* TODO Get Eshell/tramp to cache and/or save passwords [0/2]
+Enable logging with =(setq auth-source-DEBUG T)=
+** TODO What about when sudo is called in other ways, such as from a script? it doesn't seem to cache the password then.
+** TODO How to ignore password prompting for just for a specific command?
+SEE:
+#+BEGIN_SRC EMACS-LISP
+(ADD-HOOK 'COMINT-OUTPUT-FILTER-FUNCTIONS
+          'COMINT-WATCH-FOR-PASSWORD-PROMPT)
+#+END_SRC
+THIS IS ALREADY ADDED. DO WE HAVE TO DO SOMETHING ELSE?
+* TODO IMPLEMENT =GRC= IN ELISP =highlight-things.el= [0/1]
+* TODO dired-rainbow-x
+** TODO Fix remaining bugs
+** TODO Show to Fuco1

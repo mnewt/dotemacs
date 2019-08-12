@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: case
+# key: case
+# --
+case ${1:thing} in
+  ${2:option1})
+    ${0:thing_to_do}
+    ;;
+esac

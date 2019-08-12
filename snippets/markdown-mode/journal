@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: journal
+# key: journal
+# expand-env: ((journal-date (file-name-base buffer-file-name)))
+# --
+---
+title: `journal-date`
+date: `journal-date`
+number: $1
+---
+$0

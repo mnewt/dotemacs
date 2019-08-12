@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: React#classComponent
+# key: rcc
+# expand-env: ((name (file-name-nondirectory (file-name-sans-extension (buffer-file-name)))))
+# --
+import React from 'react';
+
+export default class ${1:`name`} extends React.Component {
+constructor(props) {
+super(props);
+}
+render() {
+return (
+$0
+);
+}
+}
