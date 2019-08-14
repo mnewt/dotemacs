@@ -1,6 +1,7 @@
 ;;; init.el --- Emacs init file --- -*- lexical-binding: t -*-
 
 ;;; Commentary:
+
 ;; It's an Emacs init file. Relies on heavily on use-package for its
 ;; organization and performance features.
 
@@ -35,7 +36,7 @@
 
 (dolist-with-progress-reporter
     (s init-files)
-    (message "Loading modules...")
+    (message "Loading init files...")
   (load (concat "~/.emacs.d/init/" (symbol-name s)) nil t))
 
 (provide 'init)

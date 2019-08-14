@@ -58,10 +58,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
                                       (directory-files git-home-repo-dir nil "^[^.]")
                                       nil t)))
   (setq repo (expand-file-name repo git-home-repo-dir))
-  ;; "Fix" repositories that were created with --bare.
-  ;; (let ((default-directory (file-name-as-directory repo)))
-  ;;   (magit-set "false" "core.bare"))
-  ;; Regular link.
   (git-worktree-link repo (getenv "HOME"))
   (message "Linked repo at %s" repo))
 
@@ -135,7 +131,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
     ("l" smerge-keep-lower)
     ("a" smerge-keep-all)
     ("RET" smerge-keep-current)
-    ("\C-m" smerge-keep-current)
+    ("C-m" smerge-keep-current)
     ("<" smerge-diff-base-upper)
     ("=" smerge-diff-upper-lower)
     (">" smerge-diff-base-lower)
@@ -151,8 +147,6 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
      "Save and bury buffer" :color blue)
     ("q" nil "cancel" :color blue))
   
-  :hook
-  (magit-diff-visit-file-hook . (lambda () (smerge-mode) (hydra-smerge/body)))
   :bind
   (:map smerge-mode-map
         ("C-s-s" . hydra-smerge/body)))

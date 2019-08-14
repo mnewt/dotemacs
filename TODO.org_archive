@@ -1375,3 +1375,12 @@ Not a complete fix, but turned off xterm features.
 :ARCHIVE_TODO: DONE
 :END:
 https://github.com/bbatsov/crux/blob/master/crux.el
+
+* DONE Test clemera's undo config
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-08-13 Tue 12:47
+:ARCHIVE_FILE: ~/.emacs.d/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "TODO"       [2019-08-12 Mon 14:24]

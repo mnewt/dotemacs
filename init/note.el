@@ -8,6 +8,10 @@
 
 ;;;; Org
 
+(use-package mixed-pitch
+  :hook
+  (text-mode-hook . mixed-pitch-mode))
+
 ;; Make package.el install Org from repo instead of using the built in version.
 (assq-delete-all 'org package--builtins)
 (unless (file-expand-wildcards (concat package-user-dir "/org-[0-9]*"))
@@ -37,9 +41,9 @@
   (org-hide-leading-stars t)
   (org-export-with-section-numbers nil)
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WIP (w)" "|" "DONE(d!)")))
+  (org-todo-keywords '((sequence "TODO(t)" "WIP (w)" "DONE(d!)")))
   (org-todo-keyword-faces '(("TODO" (:foreground "magenta" :weight bold))
-                            ("WIP" (:foreground "hot pink" :weight bold))
+                            ;; ("WIP" (:foreground "hot pink" :weight bold))
                             ("DONE" (:foreground "gray" :weight bold))))
   (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
   (org-catch-invisible-edits 'show-and-error)
@@ -107,25 +111,6 @@
        (org-archive-subtree)
        (setq org-map-continue-from (outline-previous-heading)))
      "/DONE" 'file))
-
-  (defun org-adjoin-to-list-or-symbol (element list-or-symbol)
-    (let ((list (if (not (listp list-or-symbol))
-                    (list list-or-symbol)
-                  list-or-symbol)))
-      (require 'cl-lib)
-      (cl-adjoin element list)))
-
-  (defun org-enable-fixed-width-blocks ()
-    "Use fixed width font for code blocks and tables.
-
-This is useful when variable pitch fonts are used for text.
-
-https://yoo2080.wordpress.com/2013/05/30/monospace-font-in-tables-and-source-code-blocks-in-org-mode-proportional-font-in-other-parts/"
-    (dolist (face '(org-code org-block org-table org-date org-verbatim))
-      (set-face-attribute face nil :inherit
-                          (org-adjoin-to-list-or-symbol
-                           'fixed-pitch
-                           (face-attribute face :inherit)))))
 
   (defface org-emphasis-marker-face '((t (:inherit shadow)))
     "Face for Org emphasis markers"
@@ -205,9 +190,6 @@ https://yoo2080.wordpress.com/2013/05/30/monospace-font-in-tables-and-source-cod
   (use-package org-preview-html
     :commands
     org-preview-html-mode)
-
-  :hook
-  (org-mode-hook . org-enable-fixed-width-blocks)
 
   :bind
   (("C-c l" . org-store-link)
@@ -299,44 +281,29 @@ https://yoo2080.wordpress.com/2013/05/30/monospace-font-in-tables-and-source-cod
 
 ;;;; Reading
 
-;; (use-package pdf-tools
-;;   :git "https://github.com/politza/pdf-tools.git"
-;;   :mode ("\\.pdf\\'" . pdf-view-mode)
-;;   :magic ("%PDF" . pdf-view-mode)
-;;   :config
-;;   (let ((orig-path (getenv "PKG_CONFIG_PATH")))
-;;     (when (memq window-system '(mac ns))
-;;       (let ((poppler-prefix
-;;              (shell-command-to-string "printf %s \"$(brew --prefix poppler)\"")))
-;;         (setenv "AR" (executable-find "ar"))
-;;         (setenv "RANLIB" (executable-find "ranlib"))
-;;         (setenv "CC" (executable-find "cc"))
-;;         (setenv "CXX" (executable-find "c++"))
-;;         (setenv "poppler_LIBS"
-;;                 (concat "-L" (mapconcat #'identity
-;;                                         (file-expand-wildcards
-;;                                          (format "%s/*/lib" poppler-prefix))
-;;                                         ":")))
-;;         (apply #'path-add (split-string (format "%s/*/bin" poppler-prefix)))
-;;         (setenv "PKG_CONFIG_PATH"
-;;                 (concat
-;;                  orig-path
-;;                  ":"
-;;                  (shell-command-to-string "printf %s \"$(brew --prefix libffi)\"")
-;;                  "/lib/pkgconfig"
-;;                  ":"
-;;                  poppler-prefix
-;;                  "/lib/pkgconfig"
-;;                  ":"
-;;                  (shell-command-to-string "printf %s \"$(brew --prefix glib)\"")
-;;                  "/lib/pkgconfig")))
-;;       (pdf-loader-install)
-;;       (setenv "PKG_CONFIG_PATH" orig-path)))
-;;   :hook
-;;   (pdf-view-mode-hook . (lambda () (auto-revert-mode -1)))
-;;   :bind
-;;   (:map pdf-view-mode-map
-;;         ("s-f" . isearch-forward)))
+(defun brew-prefix (package)
+  "Get the `homebrew' install prefix for PACKAGE."
+  (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
+
+(use-package pdf-tools
+  :mode ("\\.pdf\\'" . pdf-view-mode)
+  :magic ("%PDF" . pdf-view-mode)
+  :config
+  ;; Might need to download, make, and install poppler from source.
+
+  (let ((orig (getenv "PKG_CONFIG_PATH")))
+    (setenv "PKG_CONFIG_PATH"
+            (concat "" orig
+                    ":" (brew-prefix "poppler") "/lib/pkgconfig"
+                    ":" (brew-prefix "libffi") "/lib/pkgconfig"
+                    ":" (brew-prefix "glib") "/lib/pkgconfig"
+                    ":" (brew-prefix "pcre") "/lib/pkgconfig"
+                    ":" (brew-prefix "libpng") "/lib/pkgconfig"))
+    (pdf-loader-install)
+    (setenv "PKG_CONFIG_PATH" orig))
+  :bind
+  (:map pdf-view-mode-map
+        ("s-f" . isearch-forward)))
 
 (use-package nov
   :mode ("\\.epub\\'" . nov-mode))

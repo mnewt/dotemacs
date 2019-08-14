@@ -62,8 +62,29 @@
 
 (use-package use-package-ensure-system-package :demand t)
 
+;;;; use-package-list -- track defined packages
+
+(add-to-list 'use-package-keywords :list)
+
+(add-to-list 'use-package-defaults
+             '(:list t t))
+
+(defvar use-package-list nil
+  "Packages defined by `use-package'.")
+
+(defun use-package-normalize/:list (_name _keyword _args)
+  "Serves no function; here only as boilerplate."
+  (list t))
+
+(defun use-package-handler/:list (name _keyword _ensure rest state)
+  "Add the package NAME to the list."
+  (let* ((body (use-package-process-keywords name rest state)))
+    (add-to-list 'use-package-list name)
+    body))
+
 ;; TODO Develop a better way to ensure only currently configured packages are
-;; installed.
+;; installed. Use `use-package-list'.
+;; See https://yoo2080.wordpress.com/2014/05/16/how-to-list-emacs-package-dependencies/
 (defun package-delete-all ()
   "Delete all packages in `package-user-dir'.
 
@@ -71,6 +92,53 @@ We do this to get rid of any stale packages and force a reinstall
 on the next startup."
   (interactive)
   (shell-command (concat "rm -rf " package-user-dir)))
+
+(defvar package-dependencies-alist nil
+  "List of packages and their dependencies.")
+
+(defun package-refresh-dependencies-alist ()
+  "Refresh `package-dependencies-alist'."
+  (setq package-dependencies-alist
+        (cl-loop for pkg in package-activated-list
+                 for pkg-vec = (cadr (assq pkg package-alist))
+                 when pkg-vec
+                 collect (cons pkg
+                               (cl-loop for req in (package-desc-reqs pkg-vec)
+                                        for req-name = (car req)
+                                        when (memq req-name package-activated-list)
+                                        collect req-name))))
+  package-dependencies-alist)
+
+(defun find-duplicates (list)
+  "Get the duplicate elements from LIST."
+  (cl-loop for (item . count) in
+           (let ((counts '())
+                 place)
+             (dolist (el list)
+               (setq place (assoc el counts))
+               (if place
+                   (cl-incf (cdr place))
+                 (push (cons el 1) counts)))
+             counts)
+           if (> count 1)
+           collect item))
+
+(defun package-delete-unused ()
+  "Delete unused packages."
+  (interactive)
+  (let* ((default-directory package-user-dir)
+         ;; Could do this from `package-alist' / package-desc but what we really
+         ;; care about is what is on disk, so go straight to it.
+         installed-package-alist duplicates)
+    (dolist (dir (file-expand-wildcards "*-*"))
+      (when (file-directory-p dir)
+        (push (cons (intern (replace-regexp-in-string "-[0-9\\.]+\\'" "" dir))
+                    dir)
+              installed-package-alist)))
+    (setq duplicates (find-duplicates (mapcar #'car installed-package-alist)))
+    ;; TODO: Delete all but newest duplicate.
+
+    (pp (car duplicates))))
 
 (defun git-ls-files (&optional directory)
   "Return a list of the files from `git ls-files DIRECTORY'."
