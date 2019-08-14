@@ -102,7 +102,11 @@ returned."
       (use-package spacemacs-theme
         :defer 0.1
         :custom
-        (spacemacs-theme-comment-bg nil)))
+        (spacemacs-theme-comment-bg nil))
+
+      (use-package mixed-pitch
+        :hook
+        (text-mode-hook . mixed-pitch-mode)))
 
   ;; No GUI
   (menu-bar-mode -1))
@@ -163,12 +167,13 @@ returned."
      ("FIXME" . "magenta")
      ("\\?\\?\\?+" . "magenta")
      ("WIP" . "hot pink")
-     ("NOTE" . "orange")
+     ("NOTE" . "blue")
      ("KLUDGE" . "orange")
      ("HACK" . "orange")
      ("TEMP" . "orange")
      ("XXX+" . "orange")
-     ("NEXT" . "lime green")))
+     ("NEXT" . "lime green")
+     ("DONE" . "gray")))
   :commands
   global-hl-todo-mode
   :config

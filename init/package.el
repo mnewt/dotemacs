@@ -135,15 +135,18 @@ on the next startup."
         (push (cons (intern (replace-regexp-in-string "-[0-9\\.]+\\'" "" dir))
                     dir)
               installed-package-alist)))
-    (setq duplicates (find-duplicates (mapcar #'car installed-package-alist)))
+    (setq duplicates
+          (mapcar (lambda (dup) (sort (seq-filter
+                                       (lambda (e) (equal dup (car e)))
+                                       installed-package-alist)
+                                      (lambda (a b)
+                                        (string-greaterp (cdr a) (cdr b)))))
+                  (find-duplicates (mapcar #'car installed-package-alist))))
+    ;;     (dolist (dup duplicates))))
+    ;; \      (pp (concat "rm -rf " (string-join old-files " "))))))
     ;; TODO: Delete all but newest duplicate.
 
     (pp (car duplicates))))
-
-(defun git-ls-files (&optional directory)
-  "Return a list of the files from `git ls-files DIRECTORY'."
-  (split-string (shell-command-to-string
-                 (concat "git ls-files " (or directory default-directory)))))
 
 (defun byte-compile-directory (directory)
   "Byte compile all Emacs Lisp files in DIRECTORY."

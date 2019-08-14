@@ -7,16 +7,40 @@
 ;;; Code:
 
 ;; WIP
-;; (use-package elisp-format)
+;; Sadly, it is just not very good.
+;; (use-package elisp-format
+;;   :commands
+;;   elisp-format-buffer
+;;   elisp-format-file
+;;   elisp-format-region
+;;   elisp-format-library
+;;   elisp-format-directory
+;;   elisp-format-file-batch
+;;   elisp-format-directory-batch
+;;   elisp-format-dired-mark-files)
+
+(use-package srefactor
+  :config
+  (require 'srefactor-lisp)
+  :hook
+  ((c-mode-hook c++-mode-hook emacs-lisp-mode-hook) . semantic-mode)
+  :bind
+  ("C-c s RET" . srefactor-refactor-at-point))
+
+(defun srefactor-lisp-format-region (beg end)
+  "Format the region between BEG and END."
+  (interactive "r")
+  (narrow-to-region beg end)
+  (srefactor-lisp-format-buffer)
+  (widen))
 
 (add-to-list 'auto-mode-alist '("Cask\\'" emacs-lisp-mode))
 
 (defun eval-last-sexp-other-window (arg)
   "Run `eval-last-sexp' with ARG in the other window."
   (interactive "P")
-  (save-window-excursion
-    (other-window 1)
-    (eval-last-sexp arg)))
+  (save-window-excursion (other-window 1)
+                         (eval-last-sexp arg)))
 
 (defun expression-to-register (register)
   "Interactively store an Emacs Lisp expression in a REGISTER.
@@ -125,6 +149,7 @@ of problems in that context."
         ("M-h" . sly-documentation-lookup)))
 
 (use-package scheme
+  :mode ("\\.scheme\\'" . scheme-mode)
   :config
   (eval-when-compile (defvar font-lock-beg) (defvar font-lock-end))
   
@@ -183,16 +208,20 @@ of problems in that context."
        (1 (prog1 "< cn" (scheme-syntax-propertize-foreign (point) end))))
       ("\\(#\\)<[<#]\\(.*\\)$"
        (1 (prog1 "< cn" (scheme-syntax-propertize-heredoc (point) end)))))
-     (point) end)))
+     (point) end))
 
-(defun m-scheme-mode-setup ()
-  "Set up `scheme-mode'.")
-  
-(add-hook 'scheme-mode-hook
-          (lambda ()
-            (setq font-lock-extend-region-functions
-                  (cons 'scheme-region-extend-function
-                        font-lock-extend-region-functions))))
+  (defun scheme-mode-setup ()
+    "Set up `scheme-mode'."
+    
+    (add-hook 'scheme-mode-hook
+              (lambda ()
+                (setq font-lock-extend-region-functions
+                      (cons 'scheme-region-extend-function
+                            font-lock-extend-region-functions)))))
+  :hook
+  (scheme-mode-hook . scheme-mode-setup))
+
+
 
 (use-package geiser
   :custom

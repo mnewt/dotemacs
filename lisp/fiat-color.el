@@ -109,6 +109,7 @@ This is used to determine whether the current window is active."
   "Return whether the current window is active."
   (eq fiat-selected-window (selected-window)))
 
+;; TODO: Fix `alist-get-all', then fix its dependents.
 (defun alist-get-all (key alist &optional default testfn)
   "Return a list of *all* the elements of ALIST with matching KEY.
 

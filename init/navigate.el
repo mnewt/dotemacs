@@ -820,6 +820,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
      (concat "Hidden Mode Line Mode enabled.  "
              "Use M-x hidden-mode-line-mode to make the mode-line appear."))))
 
+(defun window-config-org ()
+  "Set up Org window config."
+  (interactive)
+  (delete-other-windows)
+  (dired org-directory)
+  (switch-to-buffer-other-window (current-buffer))
+  (find-file (expand-file-name "TODO.org" org-directory))
+  (other-window 1))
+
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
   (interactive)
@@ -881,9 +890,8 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-," . pop-global-mark)
  ("C-c C-," . pop-global-mark)
 
- ;; Tags
+ ;; Xref
  ("s-R" . xref-find-definitions-other-window)
- ("C-c M-r" . xref-find-definitions-other-window)
 
  ("C-c C-f" . find-file-at-point-with-line)
 
@@ -891,6 +899,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("t" . toggle-window-split)
 
  :map m-window-map
+ ("o" . window-config-org)
  ("e" . window-config-dotemacs)
 
  :map m-toggle-map

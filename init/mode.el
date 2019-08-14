@@ -22,6 +22,13 @@
         ("C-;" . nil)
         ("C-M-i" . nil)))
 
+(use-package flyspell-correct-ivy
+  :after flyspell
+  :bind
+  (:map flyspell-mode-map
+        ([remap flyspell-correct-word-before-point] .
+         flyspell-correct-previous-word-generic)))
+
 (use-package flycheck
   :defer 7
   :custom
@@ -149,7 +156,7 @@ referencing a format region function, which takes two arguments:
   (add-to-list 'm-reformatters '(clojure-mode . zprint))
   (add-to-list 'm-reformatters '(clojurec-mode . zprint))
   (add-to-list 'm-reformatters '(clojurescript-mode . zprint))
-  
+
   (defvar m-prettier-command (executable-find "prettier"))
   (reformatter-define prettier-babel
     :program m-prettier-command
@@ -180,7 +187,7 @@ referencing a format region function, which takes two arguments:
     :program m-prettier-command
     :args '("--parser" "yaml"))
   (add-to-list 'm-reformatters '(yaml-mode . prettier-yaml))
-  
+
   (defvar m-black-command (executable-find "black"))
   (reformatter-define black
     :program m-black-command
@@ -726,6 +733,11 @@ Backward if AHEAD is negative."
   (define-polymode poly-emacs-lisp-mode
     :hostmode 'poly-emacs-lisp-hostmode
     :innermodes '(poly-emacs-lisp-apples-innermode))
+
+  ;; WIP
+  ;; (define-innermode poly-emacs-lisp-Info-innermode
+  ;;   :mode 'Info-mode
+  ;;   :)
 
   :hook
   ((js-mode-hook . poly-js-mode)

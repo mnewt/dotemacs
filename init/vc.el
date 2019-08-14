@@ -6,6 +6,11 @@
 
 ;;; Code:
 
+(defun git-ls-files (&optional directory)
+  "Return a list of the files from `git ls-files DIRECTORY'."
+  (split-string (shell-command-to-string
+                 (concat "git ls-files " (or directory default-directory)))))
+
 (defun git-add-current-file (file)
   "Run `git add' on the FILE visited in the current buffer."
   (interactive (list (buffer-file-name)))

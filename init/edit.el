@@ -113,6 +113,7 @@ Bring the line below point up to the current line."
   ([remap move-end-of-line] . mwim-end-of-code-or-line))
 
 (use-package expand-region
+  :after org
   :custom
   (expand-region-fast-keys-enabled nil)
   :bind
@@ -508,7 +509,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("C-c s t" . sp-transpose-hybrid-sexp)
         ("C-c s (" . sp-rewrap-sexp)
         ("C-c s r" . sp-change-inner)
-        ("C-c s s" . sp-change-encosing)))
+        ("C-c s s" . sp-change-enclosing)))
 
 (defun clipboard-yank-and-indent ()
   "Yank and then indent the newly formed region according to mode."

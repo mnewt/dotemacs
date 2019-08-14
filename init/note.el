@@ -8,10 +8,6 @@
 
 ;;;; Org
 
-(use-package mixed-pitch
-  :hook
-  (text-mode-hook . mixed-pitch-mode))
-
 ;; Make package.el install Org from repo instead of using the built in version.
 (assq-delete-all 'org package--builtins)
 (unless (file-expand-wildcards (concat package-user-dir "/org-[0-9]*"))
@@ -22,10 +18,7 @@
 (use-package org
   :mode ("\\.org\\'" . org-mode)
   :custom
-  ;; This is already the default.
   (org-directory "~/org")
-  ;; Modules to load immediately.
-  ;; (org-modules nil)
   ;; Indent text according to the outline structure.
   (org-startup-indented t)
   (org-special-ctrl-a/e t)
@@ -41,11 +34,10 @@
   (org-hide-leading-stars t)
   (org-export-with-section-numbers nil)
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WIP (w)" "DONE(d!)")))
+  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
   (org-todo-keyword-faces '(("TODO" (:foreground "magenta" :weight bold))
-                            ;; ("WIP" (:foreground "hot pink" :weight bold))
+                            ("WIP" (:foreground "hot pink" :weight bold))
                             ("DONE" (:foreground "gray" :weight bold))))
-  (org-agenda-files '(org-directory (expand-file-name "TODO.org" org-directory)))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
@@ -81,13 +73,14 @@
 
   (defun org-todo-to-int (todo)
     "Get the number of the TODO based on its status."
-    (first (cl-remove nil
-                      (mapcar (lambda (keywords)
-                                (let ((todo-seq
-                                       (mapcar (lambda (x) (first (split-string  x "(")))
-                                               (rest keywords))))
-                                  (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
-                              org-todo-keywords))))
+    (car (cl-remove
+          nil
+          (mapcar (lambda (keywords)
+                    (let ((todo-seq
+                           (mapcar (lambda (x) (car (split-string  x "(")))
+                                   (cdr keywords))))
+                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
+                  org-todo-keywords))))
 
   (defun org-sort-entries--todo-status-key ()
     "Sort Org TODO entries by their status."
@@ -196,9 +189,11 @@
    ("C-c a" . org-agenda)
    ("C-c c" . org-capture)
    ("C-c b" . org-switchb)
-   ("M-m s" . org-search-org-directory)
-   ("M-m n" . (lambda () (interactive) (find-file (expand-file-name "new-note.org"))))
-   ("M-m o" . (lambda () (interactive) (find-file org-directory)))
+   :map m-map
+   ("s" . org-search-org-directory)
+   ("n" . (lambda () (interactive)
+            (find-file (expand-file-name "new-note.org"))))
+   ("o" . (lambda () (interactive) (find-file org-directory)))
    :map org-mode-map
    ("C-M-}" . org-forward-sentence)
    ("C-M-{" . org-backward-sentence)

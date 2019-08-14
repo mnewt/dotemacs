@@ -9,7 +9,7 @@
 
 (defconst emacs-start-time (current-time))
 
-;; (setq debug-on-error t)
+(setq debug-on-error t)
 
 (defconst init-files
   '(start

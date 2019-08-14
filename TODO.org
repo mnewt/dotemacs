@@ -1,3 +1,5 @@
+* TODO Add link type for Service Now requests (e.g. SER0242292)
+* TODO Font-lock source code blocks in Info pages
 * TODO =flash-thing=
 * TODO Figure out magit wip modes
 * TODO Get Eshell/tramp to cache and/or save passwords [0/2]
