@@ -6,14 +6,14 @@ This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so 
 
 ** Goals
 *** Always fast and responsive.
-Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] have been ironed out through heavy use.
-*** The appearance should be functional but attractive.
-For maximum concentration and ergonomics, there should be no extraneous information. Also strip away any ugliness.
+Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] and =ssh= have been ironed out through heavy use.
+*** The appearance should be functional and attractive.
+    For maximum concentration and ergonomics, there should be no extraneous information. Strip away any distracting lines or unnecessary UI elements.
 *** Optimize startup time.
-Slow startup is a barrier to tweaking this config. On my machine Emacs starts this config in about 2 seconds.
-*** All interfaces should be uniform. 
-[[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
-*** Use normal Emacs key bindings, enhance where appropriate. 
+    Slow startup is a barrier to improving this config. On my machine Emacs starts it up in about 2 seconds.
+*** All interfaces should be uniform.
+    [[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
+*** Use normal Emacs key bindings, enhance where appropriate.
 Then mix in macos key bindings so things like =s-c= and =s-w= work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
 *** Extensive customization but no excess.
 If I'm not using a package, it's out. But I guess I use a lot of packages. About 180 at last count.
@@ -27,7 +27,7 @@ You should be able to get a fulling working config by doing:
 4. Wait a couple minutes for packages to install
 *** Frequent updates.
 I update frequently and often pick up new functionality from Emacs master.
-*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Packages.html][package.el]] for as much configuration as possible. 
+*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Packages.html][package.el]] for as much configuration as possible.
 Defer loading packages until they are needed. I have tried other package managers and they work great. But they have lots of features I don't want and are slow compared to =package.el=. For the few packages outside of ELPA and MELPA, I have a custom solution in =use-package-git=. It is a very simple =use-package= extension that adds a =:git= keyword. I prefer this because I can specifically pull chosen packages via git. For the rest, =package.el= works great.
 ** Features
 *** Custom mode-line.

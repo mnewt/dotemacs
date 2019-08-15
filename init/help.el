@@ -26,10 +26,6 @@
   :config
   (help-at-pt-set-timer))
 
-(use-package goto-addr
-  :hook
-  ((prog-mode-hook text-mode-hook) . goto-address-mode))
-
 (use-package helpful
   :bind
   ("C-h ." . helpful-at-point)

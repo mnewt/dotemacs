@@ -19,14 +19,14 @@
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
-  ;; Indent text according to the outline structure.
+  ;; Indent text according to the outline structure (`org-indent-mode')
   (org-startup-indented t)
+  ;; Quit adding 2 spaces to source block
+  (org-edit-src-content-indentation 0)
   (org-special-ctrl-a/e t)
   (org-special-ctrl-k t)
   ;; Insert a row in tables
   (org-special-ctrl-o t)
-  ;; Quit adding 2 spaces to source block
-  (org-edit-src-content-indentation 0)
   ;; Tab in source blocks should act like in major mode
   (org-src-tab-acts-natively t)
   ;; Code highlighting in code blocks

@@ -292,6 +292,49 @@ return them in the Emacs format."
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
 
+(use-package goto-addr
+  :hook
+  ((prog-mode-hook text-mode-hook) . goto-address-mode))
+
+(use-package bug-reference
+  :custom
+  (bug-reference-bug-regexp
+   "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
+  :config
+  (defvar bug-reference-dispatch-alist nil
+    "Alist where CAR is a regexp to match the type and CADR is a
+    URL format string.
+
+Example\:
+'(("SER" "https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sysparm_query=SER%s"))")
+
+  (defun bug-reference-dispatch-url-github-or-gitlab (type ref)
+    "With Bug TYPE and REF, return a complete URL."
+    (when (vc-git-root (or (buffer-file-name) default-directory))
+      (let ((remote (shell-command-to-string "git ls-remote --get-url")))
+        (when (string-match "\\(git\\(?:hu\\|la\\)b.com\\)[/:]\\(.+?\\)\\(\\.git\\)?$"
+                            remote)
+          (format "https://%s/%s/issues/%s"
+                  (match-string-no-properties 1 remote)
+                  (match-string-no-properties 2 remote)
+                  ref)))))
+
+  (defun bug-reference-dispatch-url ()
+    "Get the bug reference URL using `match-string' contents."
+    (let ((type (match-string-no-properties 1))
+          (ref (match-string-no-properties 2)))
+      (or (cl-some (lambda (entry)
+                     (cond
+                      ((and (stringp (car entry)) (string-match-p (car entry) type))
+                       (format (cadr entry) ref))))
+                   bug-reference-dispatch-alist)
+          (bug-reference-dispatch-url-github-or-gitlab type ref))))
+
+  (setq bug-reference-url-format #'bug-reference-dispatch-url)
+  :hook
+  (prog-mode-hook . bug-reference-prog-mode)
+  ((org-mode-hook text-mode-hook) . bug-reference-mode))
+
 (use-package winner
   :defer 5
   :commands
