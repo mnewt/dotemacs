@@ -1,10 +1,16 @@
 * An Emacs configuration
 This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but may have more bugs) with running from a terminal, Linux, and Windows.
 
+#+CAPTION: README and Magit
+#+ATTR_HTML: width="100%"
+#+ATTR_ORG: :width 800
+[[file:screenshots/screen1.png]]
+
 ** Goals
+*** Always fast and responsive.
+Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] have been ironed out through heavy use.
 *** The appearance should be functional but attractive.
-For maximum concentration and ergonomics, there should be no extraneous information.
-*** Keep things fast and responsive.
+For maximum concentration and ergonomics, there should be no extraneous information. Also strip away any ugliness.
 *** Optimize startup time.
 Slow startup is a barrier to tweaking this config.
 *** All interfaces should be uniform. 
@@ -15,9 +21,16 @@ Then mix in macos key bindings so things like "s-c" and "s-w" work like in the r
 If I'm not using a package, it's out.
 *** Custom Emacs build.
 Check out the =setup= script. Drivers include performance, macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][js-jsx-mode]].
+*** Reproducible and portable configuration
+You should be able to get a fulling working config by doing:
+1. Clone this repo
+2. Run =setup=, which will build and install Emacs
+3. Start Emacs
+4. Wait a couple minutes for packages to install
 *** Frequent updates.
 I update frequently and often pick up new functionality from Emacs master.
-*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and =package.el= for as much configuration as possible. Defer loading packages until they are needed. I have tried other package managers and they work great. But they have lots of features I don't want and are slow compared to =package.el=. For the few packages outside of ELPA and MELPA, I have a custom solution in =use-package-git=. It is a very simple =use-package= extension that adds a =:git= keyword. I prefer this because I can specifically pull chosen packages via git. For the rest, =package.el= works great.
+*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Packages.html][package.el]] for as much configuration as possible. 
+Defer loading packages until they are needed. I have tried other package managers and they work great. But they have lots of features I don't want and are slow compared to =package.el=. For the few packages outside of ELPA and MELPA, I have a custom solution in =use-package-git=. It is a very simple =use-package= extension that adds a =:git= keyword. I prefer this because I can specifically pull chosen packages via git. For the rest, =package.el= works great.
 ** Features
 *** Custom mode-line.
 Inspired by [[https://github.com/itchyny/lightline.vim][vim-lightline]].

@@ -368,6 +368,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
    :map minibuffer-local-completion-map
    ("M-/" . completion-at-point)))
 
+(use-package company-posframe
+  :defer 1
+  :config
+  (company-posframe-mode))
+
 (use-package prescient
   :defer 1
   :commands

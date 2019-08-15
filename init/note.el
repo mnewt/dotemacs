@@ -51,6 +51,7 @@
       "* TODO %^{Description}\n%A\n%?\n")))
   ;; Don't prompt to confirm if I want to evaluate a source block
   (org-confirm-babel-evaluate nil)
+  (org-image-actual-width nil)
   :commands
   org-todo
   org-entry-get
