@@ -1384,3 +1384,12 @@ https://github.com/bbatsov/crux/blob/master/crux.el
 :ARCHIVE_TODO: DONE
 :END:
 - State "DONE"       from "TODO"       [2019-08-12 Mon 14:24]
+
+* DONE Add link type for Service Now requests (e.g. SER0242292)
+:PROPERTIES:
+:ARCHIVE_TIME: 2019-08-15 Thu 11:42
+:ARCHIVE_FILE: ~/.emacs.d/TODO.org
+:ARCHIVE_CATEGORY: TODO
+:ARCHIVE_TODO: DONE
+:END:
+- State "DONE"       from "WIP"        [2019-08-15 Thu 11:42]
