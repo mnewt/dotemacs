@@ -1,9 +1,7 @@
 * An Emacs configuration
 This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but may have more bugs) with running from a terminal, Linux, and Windows.
 
-#+CAPTION: README and Magit
-#+ATTR_HTML: width="100%"
-#+ATTR_ORG: :width 800
+#+CAPTION: Emacs frame with README and Magit windows
 [[file:screenshots/screen1.png]]
 
 ** Goals
@@ -12,13 +10,13 @@ Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases
 *** The appearance should be functional but attractive.
 For maximum concentration and ergonomics, there should be no extraneous information. Also strip away any ugliness.
 *** Optimize startup time.
-Slow startup is a barrier to tweaking this config.
+Slow startup is a barrier to tweaking this config. On my machine Emacs starts this config in about 2 seconds.
 *** All interfaces should be uniform. 
 [[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
 *** Use normal Emacs key bindings, enhance where appropriate. 
-Then mix in macos key bindings so things like "s-c" and "s-w" work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
+Then mix in macos key bindings so things like =s-c= and =s-w= work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
 *** Extensive customization but no excess.
-If I'm not using a package, it's out.
+If I'm not using a package, it's out. But I guess I use a lot of packages. About 180 at last count.
 *** Custom Emacs build.
 Check out the =setup= script. Drivers include performance, macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][js-jsx-mode]].
 *** Reproducible and portable configuration
@@ -73,7 +71,7 @@ Some light Org customizations.
 ** Supported Emacs versions
 *** 24.3+
 *** A few features are 27.1 (master) only.
-** To Do
+** TODO
 See TODO.org for some of the things I'm working on.
 ** License
 The Free Software Foundation may control certain pieces of this by virtue of them being contributed to Emacs or a package in ELPA or MELPA. The rest is basically in the public domain. See the LICENSE file for details.
