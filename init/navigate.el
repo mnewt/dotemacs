@@ -306,8 +306,9 @@ return them in the Emacs format."
     URL format string.
 
 Example\:
-'(("SER" "https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sysparm_query=SER%s"))")
-
+'((\"SER\" \"https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sysparm_query=SER%s\"))")
+  
+  ;; Idea stolen from https://github.com/arnested/bug-reference-github
   (defun bug-reference-dispatch-url-github-or-gitlab (type ref)
     "With Bug TYPE and REF, return a complete URL."
     (when (vc-git-root (or (buffer-file-name) default-directory))
