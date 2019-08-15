@@ -90,6 +90,11 @@ returned."
         :config
         (pixel-scroll-mode))
 
+      (use-package spacemacs-theme
+        :defer 0.1
+        :custom
+        (spacemacs-theme-comment-bg nil))
+
       (use-package window-highlight
         :defer 0.1
         :if window-system
@@ -99,10 +104,24 @@ returned."
         :config
         (window-highlight-mode))
 
-      (use-package spacemacs-theme
-        :defer 0.1
+      (use-package fiat-color
+        :defer 0.2
+        :demand t
+        :ensure nil
         :custom
-        (spacemacs-theme-comment-bg nil))
+        (fiat-lux-theme 'spacemacs-light)
+        (fiat-nox-theme 'spacemacs-dark)
+        (fiat-themes '((spacemacs-light) (spacemacs-dark)))
+        (fiat-specs-common '((cursor ((t :background "magenta")))))
+        :config
+        (fiat-theme)
+        (fiat-mode-line-mode)
+        :commands
+        (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
+        :bind
+        ("C-c C-t" . fiat-theme-choose)
+        ("C-M-s-t" . fiat)
+        ("M-m t t" . fiat))
 
       (use-package mixed-pitch
         :hook
@@ -117,25 +136,6 @@ returned."
   global-hl-line-mode
   :config
   (global-hl-line-mode))
-
-(use-package fiat-color
-  :demand t
-  :after window-highlight
-  :ensure nil
-  :custom
-  (fiat-lux-theme 'spacemacs-light)
-  (fiat-nox-theme 'spacemacs-dark)
-  (fiat-themes '((spacemacs-light) (spacemacs-dark)))
-  (fiat-specs-common '((cursor ((t :background "magenta")))))
-  :config
-  (fiat-theme)
-  (fiat-mode-line-mode)
-  :commands
-  (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
-  :bind
-  ("C-c C-t" . fiat-theme-choose)
-  ("C-M-s-t" . fiat)
-  ("M-m t t" . fiat))
 
 ;; (use-package flash-thing
 ;;   :defer 6

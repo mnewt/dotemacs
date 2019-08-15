@@ -17,6 +17,11 @@ nil\: Read the last set theme from disk."
   :group 'fiat
   :type 'symbol)
 
+(defcustom fiat-theme-fallback 'adwaita
+  "The theme to load if nothing is configured."
+  :group 'fiat
+  :type 'symbol)
+
 (defcustom fiat-source-faces
   '(default mode-line-emphasis mode-line-highlight compilation-mode-line-fail)
   "The faces fiat-theme uses to style the mode-line."
@@ -236,11 +241,12 @@ to customize further."
 
 (defun fiat--load-config ()
   "Load the configuration from disk."
-  (with-temp-buffer
-    (insert-file-contents fiat-config-file)
-    (goto-char (point-min))
-    (cl-loop for (symbol . value) in (read (current-buffer)) do
-             (set symbol value))))
+  (when (file-exists-p fiat-config-file)
+    (with-temp-buffer
+      (insert-file-contents fiat-config-file)
+      (goto-char (point-min))
+      (cl-loop for (symbol . value) in (read (current-buffer)) do
+               (set symbol value)))))
 
 ;;;###autoload
 (defun fiat-theme (&optional theme)
@@ -249,7 +255,10 @@ to customize further."
 Handle some housekeeping that comes with switching themes. Set
 face specs specific to the theme. Having done that try to prevent
 Emacs from barfing fruit salad on the screen."
-  (setq theme (or theme fiat-theme (progn (fiat--load-config) fiat-theme)))
+  (setq theme (or theme
+                  fiat-theme
+                  (progn (fiat--load-config) fiat-theme)
+                  fiat-theme-fallback))
   (if theme
       (progn
         (mapc #'funcall fiat-before-hook)

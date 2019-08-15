@@ -16,3 +16,5 @@ transient
 undohist
 url
 init/private.el
+srecode-map.el
+semanticdb

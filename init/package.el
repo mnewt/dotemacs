@@ -11,6 +11,8 @@
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Local elisp configuration files go here.")
 
+(add-to-list 'load-path elisp-directory)
+
 (setq package-enable-at-startup nil
       package-user-dir "~/.emacs.d/packages/"
       package-archives '(("org"   . "https://orgmode.org/elpa/")
