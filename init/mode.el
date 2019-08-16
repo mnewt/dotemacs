@@ -230,8 +230,8 @@ Prefix ARG is passed to `fill-paragraph'."
     (call-interactively #'crux-cleanup-buffer-or-region)
     (let ((format-region-fn (let ((f (alist-get major-mode m-reformatters)))
                               (cl-some (lambda (x) (when (fboundp x) x))
-                                       (list f
-                                             (intern (format "%s-region" f))
+                                       (list (intern (format "%s-region" f))
+                                             f
                                              'reformat-region))))
           (beg (or beg (if (use-region-p) (region-beginning) (point-min))))
           (end (or end (if (use-region-p) (region-end) (point-max))))
@@ -621,13 +621,18 @@ a new file for the first time."
 (use-package cc-mode
   :custom
   (c-basic-offset tab-width)
-  (c-default-style "ellemtel"))
+  (c-default-style "ellemtel")
+  :bind
+  (:map c-mode-map
+        ("<" . c-electric-lt-gt)
+        (">" . c-electric-lt-gt)))
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
   :bind
-  ("<" . c-electric-lt-gt)
-  (">" . c-electric-lt-gt))
+  (:map csharp-mode-map
+        ("<" . c-electric-lt-gt)
+        (">" . c-electric-lt-gt)))
 
 (use-package omnisharp
   ;; Use `omnisharp-install-server' to set things up after installing the

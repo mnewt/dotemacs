@@ -19,6 +19,10 @@
   :config
   (auto-compression-mode))
 
+(use-package epg
+  :custom
+  (epg-pinentry-mode 'loopback))
+
 (defun upsearch (filename &optional dir)
   "Recursively search up a directory tree for FILENAME.
 

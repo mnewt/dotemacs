@@ -12,9 +12,9 @@ usage: ./setup [ TASK ]
 
   Where TASK is one of:
 
-  all    Run deps and build tasks
+  all    Run deps and build tasks (default)
 
-  build  Build Emacs and modules
+  emacs  Build Emacs and modules
 
   deps   Install and update OS dependencies
 
@@ -37,6 +37,8 @@ required=(
   libvterm)
 required_casks=(mactex)
 
+# The ctags bit is to rename the ctags binary so it doesn't conflict with an
+# existing, non-emacs ctags installation
 configure_opts=(
   --without-pop
   --with-ns
@@ -45,7 +47,9 @@ configure_opts=(
   --with-imagemagick
   --with-modules
   --program-transform-name='s/^ctags$/ctags.emacs/'
-  CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I /usr/local/opt/libxml2/include/libxml2')
+  CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I/usr/local/opt/libxml2/include/libxml2'
+  PKG_CONFIG_PATH="PKG_CONFIG_PATH:/usr/local/opt/gnutls/lib/pkgconfig:/usr/local/opt/nettle/lib/pkgconfig:/usr/local/opt/libtasn1/lib/pkgconfig:/usr/local/opt/p11-kit/lib/pkgconfig"
+)
 
 heading() {
   printf "\033[38;5;013m %s  \033[0m  \n" "$*"
@@ -67,13 +71,12 @@ brew_ensure() {
   [ "$1" = "cask" ] && prefix="${prefix}cask " && shift
 
   # Get list of missing packages, install them
-  readarray -t installed < <(eval $prefix list -1)
+  installed=($(eval $prefix list -1))
   required=("$@")
-  missing=()
   for p in "${required[@]}"; do
     contains "$p" "${installed[@]}" || missing+=("$p")
   done
-  if [ -n "${missing[*]}" ]; then
+  if [ -n "${missing[*]:-}" ]; then
     echo "Installing packages: ${missing[*]}"
     eval $prefix install "${missing[@]}"
   fi
@@ -84,7 +87,7 @@ brew_ensure() {
   for p in "${required[@]}"; do
     contains "$p" "${outdated[@]}" && upgrade+=("$p")
   done
-  if [ -n "${upgrade[*]}" ]; then
+  if [ -n "${upgrade[*]:-}" ]; then
     echo "Upgrading packages: ${upgrade[*]}"
     eval $prefix upgrade "${upgrade[@]}"
   fi
@@ -96,6 +99,9 @@ install_deps() {
   brew_ensure "${required[@]}"
   brew_ensure cask "${required_casks[@]}"
   brew install --HEAD universal-ctags/universal-ctags/universal-ctags
+
+  # Apparently gnutls is bottled now.
+  which gnutls || PATH="$(brew --prefix gnutls):$PATH"
 }
 
 build_emacs() {
@@ -104,21 +110,18 @@ build_emacs() {
   mkdir -p "$base"
   pushd "$base"
 
-  [ -d "./emacs" ] || git clone "https://git.savannah.gnu.org/git/emacs.git"
-  pushd "./emacs"
+  [ -d "$base/emacs" ] || git clone "https://git.savannah.gnu.org/git/emacs.git"
+  pushd "$base/emacs"
 
   git pull
   # git reset HEAD --hard
   ./autogen.sh
-  # The ctags bit is to rename the ctags binary so it doesn't conflict with an
-  # existing, non-emacs ctags installation
   ./configure "${configure_opts[@]}"
-  # ./configure --without-dbus --without-pop --with-gnutls --with-ns --disable-ns-self-contained --with-rsvg --with-imagemagick --with-json --with-xml2 --with-modules CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I /usr/local/opt/libxml2/include/libxml2' --program-transform-name='s/^ctags$/ctags.emacs/'
-  # Even though we move the binary ourselves, we still need to install to get the
-  # Emacs Lisp source in the right place.
   make
 
   heading "Installing Emacs..."
+  # Even though we move the binary ourselves, we still need to install to get the
+  # Emacs Lisp source in the right place.
   make install
   rm -rf "$HOME/Applications/Emacs.app"
   mv nextstep/Emacs.app "$HOME/Applications/"

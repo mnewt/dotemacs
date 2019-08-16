@@ -27,7 +27,7 @@
   async-start-process
   async-let
   :config
-  (dired-async-mode 1)
+  ;; (dired-async-mode 1)
   (async-bytecomp-package-mode 1))
 
 (provide 'm-library)

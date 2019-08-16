@@ -18,3 +18,5 @@ url
 init/private.el
 srecode-map.el
 semanticdb
+.persistent-scratch
+persistent-scratch

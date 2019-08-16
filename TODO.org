@@ -1,5 +1,8 @@
 * TODO Add =psync_config=
 * TODO Font-lock source code blocks in Info pages
+#+begin_src emacs-lisp
+(like this)
+#+end_src
 * TODO =flash-thing=
 * TODO Figure out magit wip modes
 * TODO Get Eshell/tramp to cache and/or save passwords [0/2]

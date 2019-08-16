@@ -10,7 +10,7 @@ Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases
 *** The appearance should be functional and attractive.
     For maximum concentration and ergonomics, there should be no extraneous information. Strip away any distracting lines or unnecessary UI elements.
 *** Optimize startup time.
-    Slow startup is a barrier to improving this config. On my machine Emacs starts it up in about 2 seconds.
+    Slow startup is a barrier to improving this config. On my machine Emacs starts it up in about 2 seconds. Of course with [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Saving-Emacs-Sessions.html][desktop]] the actual startup time can be much longer because it has to activate all the modes associated the restored buffers.
 *** All interfaces should be uniform.
     [[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
 *** Use normal Emacs key bindings, enhance where appropriate.

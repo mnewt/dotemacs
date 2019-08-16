@@ -288,16 +288,17 @@
   :config
   ;; Might need to download, make, and install poppler from source.
 
-  (let ((orig (getenv "PKG_CONFIG_PATH")))
-    (setenv "PKG_CONFIG_PATH"
-            (concat "" orig
-                    ":" (brew-prefix "poppler") "/lib/pkgconfig"
-                    ":" (brew-prefix "libffi") "/lib/pkgconfig"
-                    ":" (brew-prefix "glib") "/lib/pkgconfig"
-                    ":" (brew-prefix "pcre") "/lib/pkgconfig"
-                    ":" (brew-prefix "libpng") "/lib/pkgconfig"))
-    (pdf-loader-install)
-    (setenv "PKG_CONFIG_PATH" orig))
+  ;; (let ((orig (getenv "PKG_CONFIG_PATH")))
+  ;;   (setenv "PKG_CONFIG_PATH"
+  ;;           (concat "" orig
+  ;;                   ":" (brew-prefix "poppler") "/lib/pkgconfig"
+  ;;                   ":" (brew-prefix "libffi") "/lib/pkgconfig"
+  ;;                   ":" (brew-prefix "glib") "/lib/pkgconfig"
+  ;;                   ":" (brew-prefix "pcre") "/lib/pkgconfig"
+  ;;                   ":" (brew-prefix "libpng") "/lib/pkgconfig"))
+  ;;   (pdf-loader-install)
+  ;;   (setenv "PKG_CONFIG_PATH" orig))
+  (pdf-loader-install)
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
