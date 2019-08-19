@@ -255,6 +255,7 @@ See `scratch-new-buffer'."
 
 (defun parse-colon-notation (filename)
   "Parse FILENAME in the format expected by `server-visit-files'.
+
 Modify it so that `filename:line:column' is is reformatted the
 way Emacs expects."
   (let ((name (car filename)))
@@ -267,6 +268,7 @@ way Emacs expects."
 
 (defun wrap-colon-notation (f &rest args)
   "Wrap F (`server-visit-files') and modify ARGS to support colon notation.
+
 Open files with emacsclient with cursors according to colon
 notation. When the file name has line numbers and optionally
 columns specified like `filename:line:column', parse those and
@@ -274,7 +276,7 @@ return them in the Emacs format."
   (message "%s" args)
   (apply f (cons (mapcar #'parse-colon-notation (car args)) (cdr args))))
 
-;; Make `emacsclient' support solon notation of line:column
+;; Make `emacsclient' support line:column notation.
 (advice-add 'server-visit-files :around #'wrap-colon-notation)
 
 (defun goto-line-with-feedback ()
@@ -299,7 +301,7 @@ return them in the Emacs format."
 (use-package bug-reference
   :custom
   (bug-reference-bug-regexp
-   "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
+   "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
   :config
   (defvar bug-reference-dispatch-alist nil
     "Alist where CAR is a regexp to match the type and CADR is a
@@ -398,11 +400,10 @@ Example\:
   ("C-c 0" . winum-select-window-0))
 
 (use-package eyebrowse
-  :defer 2
+  :demand t
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
-  :commands eyebrowse-mode
   :config
   (defvar eyebrowse-last-window-config nil
     "Variable used to save and restore `eyebrowse' window
@@ -419,8 +420,6 @@ This is for restoration from disk by `psession'."
 This is for serialization to disk by `psession'."
     (setq eyebrowse-last-window-config (eyebrowse--get 'window-configs)))
 
-  (eyebrowse-mode)
-  (eyebrowse-restore-window-config)
   :hook
   (psession-autosave-mode-hook . eyebrowse-save-window-config)
   (kill-emacs-hook . eyebrowse-save-window-config)
@@ -445,6 +444,13 @@ This is for serialization to disk by `psession'."
   ("C-c C-9" . eyebrowse-switch-to-window-config-9)
   ("H-0" . eyebrowse-switch-to-window-config-0)
   ("C-c C-0" . eyebrowse-switch-to-window-config-0))
+
+(defun eyebrowse-activate ()
+  "Enable `eyebrowse-mode' and restore the last window-config."
+  (eyebrowse-mode)
+  (eyebrowse-restore-window-config))
+
+(add-hook 'emacs-startup-hook #'eyebrowse-activate 'append)
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward

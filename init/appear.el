@@ -95,15 +95,6 @@ returned."
         :custom
         (spacemacs-theme-comment-bg nil))
 
-      (use-package window-highlight
-        :defer 0.1
-        :if window-system
-        :git "https://github.com/dcolascione/emacs-window-highlight"
-        :commands
-        window-highlight-mode
-        :config
-        (window-highlight-mode))
-
       (use-package fiat-color
         :defer 0.2
         :demand t
@@ -119,9 +110,22 @@ returned."
         :commands
         (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
         :bind
-        ("C-c C-t" . fiat-theme-choose)
+        ("C-M-s-S-t" . fiat-theme-choose)
         ("C-M-s-t" . fiat)
-        ("M-m t t" . fiat))
+        (:map m-toggle-map
+              ("t" . fiat)
+              ("c" . fiat-show-flycheck-toggle)
+              ("l" . fiat-show-line-and-column-toggle)))
+
+      (use-package window-highlight
+        :defer 0.3
+        :demand t
+        :if window-system
+        :git "https://github.com/dcolascione/emacs-window-highlight"
+        :commands
+        window-highlight-mode
+        :config
+        (window-highlight-mode))
 
       (use-package mixed-pitch
         :hook

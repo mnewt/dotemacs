@@ -8,6 +8,13 @@
 
 ;;; Code:
 
+(require 'color)
+(require 'dash)
+
+
+
+;;; Custom
+
 (defcustom fiat-theme nil
   "The theme to load by default.
 
@@ -43,6 +50,16 @@ nil\: Read the last set theme from disk."
   "The theme activated when calling `fiat-lux'."
   :group 'fiat
   :type 'symbol)
+
+(defcustom fiat-show-flycheck nil
+  "When non-nil, show flycheck status in mode-line."
+  :group 'fiat
+  :type 'boolean)
+
+(defcustom fiat-show-line-and-column nil
+  "When non-nil, show line number and column in mode-line."
+  :group 'fiat
+  :type 'boolean)
 
 (defcustom fiat-themes (mapcar #'list (custom-available-themes))
   "Alist where car is the theme and cdr can be:
@@ -92,6 +109,12 @@ It is used to load the last used settings without the need for
 
 (defvar fiat-selected-window (frame-selected-window)
   "Selected window.")
+
+(defvar fiat--old-mode-line-format nil
+  "Save the old `mode-line-format'.")
+
+
+;;; Functions
 
 (defun fiat--set-selected-window ()
   "Set the variable `fiat-selected-window' appropriately.
@@ -248,6 +271,189 @@ to customize further."
       (cl-loop for (symbol . value) in (read (current-buffer)) do
                (set symbol value)))))
 
+(defun fiat-render-mode-line (left right)
+  "Return a string string concatenating LEFT and RIGHT.
+
+Insert spaces between the two so that the string is
+`window-total-width' columns wide."
+  (let* ((left (apply #'concat "" left))
+         (right (apply #'concat "" right))
+         (space (- (window-total-width nil 'ceiling) (length left) (length right))))
+    (concat left (make-string space ?\s) right)))
+
+(defun fiat-ml-concat (strings &optional separator outside)
+  "Concatenate the given list of STRINGS.
+Optionally interpose with SEPARATOR and surround with OUTSIDE."
+  (let* ((separator (or separator " "))
+         (outside (when outside separator))
+         (inside (string-join (cl-remove-if-not (lambda (s) (and s (> (length s) 0)))
+                                                strings)
+                              separator)))
+    (when (> (length inside) 0)
+      (concat outside inside outside))))
+
+(declare-function tramp-file-name-host 'tramp)
+(declare-function tramp-dissect-file-name 'tramp)
+
+(defun fiat-ml-remote-hostname ()
+  "Return the remote hostname for the current buffer.
+Return nil if the buffer is local."
+  (when (file-remote-p default-directory)
+    (format " %s " (tramp-file-name-host (tramp-dissect-file-name default-directory)))))
+
+(declare-function term-in-char-mode 'term)
+(declare-function term-in-line-mode 'term)
+
+(defun fiat-ml-term ()
+  "Return the input mode for the buffer if in `term-mode'.
+Return nil if otherwise."
+  (when (eq major-mode 'term-mode)
+    (cond
+     ((term-in-char-mode) " [char] ")
+     ((term-in-line-mode) " [line] "))))
+
+(defun fiat-ml-evil ()
+  "Return a mode line string indicating `evil-mode' status.
+Return nil if `evil-mode' is not active."
+  (when (bound-and-true-p evil-state)
+    (cl-case evil-state
+      (normal (propertize " NORMAL " 'face
+                          `(:foreground
+                            "black"
+                            :background
+                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 2))))
+      (insert (propertize " INSERT " 'face
+                          `(:foreground
+                            "white"
+                            :background
+                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 4))))
+      (t (propertize      "  EVIL  " 'face
+                          `(:foreground
+                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 0)
+                            :background
+                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 7)))))))
+
+(declare-function eyebrowse--get 'eyebrowse)
+
+(defun fiat-eyebrowse-modeline ()
+  "Return a mode line string with status for `eyebrowse-mode'."
+  (when (bound-and-true-p eyebrowse-mode)
+    (let ((current-slot (eyebrowse--get 'current-slot))
+          (border (propertize " " 'face 'mode-line-emphasis)))
+      (concat border
+              (string-join
+               (mapcar (lambda (s)
+                         (if (= s current-slot)
+                             (propertize (number-to-string s) 'face 'mode-line-buffer-id)
+                           (propertize (number-to-string s) 'face 'mode-line-emphasis)))
+                       (mapcar #'car (eyebrowse--get 'window-configs)))
+               border)
+              border))))
+
+(defun when-propertize (exp &rest properties)
+  "Evaluate EXP, which should return a string or nil..
+Propertize the result with the specified PROPERTIES."
+  (when exp (apply #'propertize exp properties)))
+
+(defun fiat--set-os-dark-mode (darkp)
+  "When DARKP is non-nil, change the OS to dark mode."
+  (pcase system-type
+    ('darwin
+     (let ((default-directory "~") ; In case we are in a tramp session
+           (mode (if darkp "true" "false")))
+       (do-applescript (format "
+       tell application \"System Events\"
+           tell appearance preferences to set dark mode to %s
+       end tell
+       " mode))
+       (do-applescript "
+       tell application \"FirefoxDeveloperEdition\" to activate
+       tell application \"System Events\" to keystroke \"d\" using {shift down, option down}
+       tell application \"Emacs\" to activate
+")))))
+
+(defmacro fiat-make-toggle (variable)
+  "Make a command to toggle a VARIABLE."
+  `(defun ,(intern (concat (symbol-name variable) "-toggle")) (arg)
+     ,(format "Toggle the variable %s between `nil' and `t'." variable)
+     (interactive "P")
+     (setq ,variable
+           (if arg
+               (read-from-minibuffer (format "New value for variable %s: "
+                                             ,variable)
+                                     nil nil t)
+             (not ,variable)))))
+
+(defun fiat-mode-line--enable ()
+  "Enable `fiat-mode-line-mode'."
+  (fiat-make-toggle fiat-show-flycheck)
+  (fiat-make-toggle fiat-show-line-and-column)
+  (setq fiat--old-mode-line-format mode-line-format)
+  (setq-default
+   mode-line-format
+   '((:eval
+      (if (fiat-window-active-p)
+          (fiat-render-mode-line
+           ;; left
+           (list
+            (fiat-ml-evil)
+            (when-propertize (fiat-ml-remote-hostname) 'face 'highlight)
+            (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
+            (when (buffer-modified-p) " •")
+            " "
+            (format-mode-line mode-name)
+            " "
+            (when (memq major-mode '(compilation-mode shell-mode))
+              (format-mode-line mode-line-process))
+            (when (bound-and-true-p which-function-mode)
+              (format-mode-line which-func-format)))
+           ;; right
+           (list
+            (when-propertize (fiat-ml-term) 'face 'mode-line-emphasis)
+            (when (and fiat-show-flycheck
+                       (bound-and-true-p flycheck-mode))
+              (concat (substring (flycheck-mode-line-status-text) 1) " "))
+            (when (bound-and-true-p workgroups-mode)
+              (wg-mode-line-string))
+            (fiat-eyebrowse-modeline)
+            (when-propertize
+             (fiat-ml-concat
+              (list ""
+                    (when (bound-and-true-p parinfer-mode)
+                      (if (eq 'paren parinfer--mode) "🄟" "P↹"))
+                    (when (buffer-narrowed-p) "⒩")
+                    (when (bound-and-true-p hs-minor-mode) "⒣")
+                    (when (bound-and-true-p outline-minor-mode) "⦿"))
+              " "
+              t)
+             'face 'mode-line-buffer-id)
+            (when fiat-show-line-and-column
+              (propertize (format-mode-line " %l:%c ") 'face 'mode-line-buffer-id))
+            (propertize " " 'face 'mode-line-buffer-id)))
+        (fiat-render-mode-line
+         ;; left
+         (list
+          " "
+          (buffer-name)
+          " "
+          (when (buffer-modified-p) " •")
+          " "
+          (when (memq major-mode '(compilation-mode shell-mode))
+            (substring-no-properties
+             (format-mode-line mode-line-process))))
+         ;; right
+         nil))))))
+
+(defun fiat-mode-line--disable ()
+  "Disable `fiat-mode-line-mode'."
+  (setq-default mode-line-format
+                (or fiat--old-mode-line-format mode-line-format))
+  (fmakunbound 'fiat-show-flycheck-toggle)
+  (fmakunbound 'fiat-show-line-and-column-toggle))
+
+
+;;; Commands
+
 ;;;###autoload
 (defun fiat-theme (&optional theme)
   "Switch the current Emacs theme to THEME.
@@ -292,161 +498,14 @@ Emacs from barfing fruit salad on the screen."
                                       'fiat-choose-history)))
   (fiat-theme (intern theme)))
 
-(defun fiat-render-mode-line (left right)
-  "Return a string string concatenating LEFT and RIGHT.
-
-Insert spaces between the two so that the string is
-`window-total-width' columns wide."
-  (let* ((left (apply #'concat "" left))
-         (right (apply #'concat "" right))
-         (space (- (window-total-width nil 'ceiling) (length left) (length right))))
-    (concat left (make-string space ?\s) right)))
-
-(defun fiat-ml-concat (strings &optional separator outside)
-  "Concatenate the given list of STRINGS.
-Optionally interpose with SEPARATOR and surround with OUTSIDE."
-  (let* ((separator (or separator " "))
-         (outside (when outside separator))
-         (inside (string-join (cl-remove-if-not (lambda (s) (and s (> (length s) 0)))
-                                                strings)
-                              separator)))
-    (when (> (length inside) 0)
-      (concat outside inside outside))))
-
-(defun fiat-ml-remote-hostname ()
-  "Return the remote hostname for the current buffer.
-Return nil if the buffer is local."
-  (when (file-remote-p default-directory)
-    (format " %s " (tramp-file-name-host (tramp-dissect-file-name default-directory)))))
-
-(declare-function term-in-char-mode 'term)
-(declare-function term-in-line-mode 'term)
-
-(defun fiat-ml-term ()
-  "Return the input mode for the buffer if in `term-mode'.
-Return nil if otherwise."
-  (when (eq major-mode 'term-mode)
-    (cond
-     ((term-in-char-mode) " [char] ")
-     ((term-in-line-mode) " [line] "))))
-
-(defun fiat-ml-evil ()
-  "Return a mode line string indicating `evil-mode' status.
-Return nil if `evil-mode' is not active."
-  (when (bound-and-true-p evil-state)
-    (cl-case evil-state
-      (normal (propertize " NORMAL " 'face
-                          `(:foreground
-                            "black"
-                            :background
-                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 2))))
-      (insert (propertize " INSERT " 'face
-                          `(:foreground
-                            "white"
-                            :background
-                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 4))))
-      (t (propertize      "  EVIL  " 'face
-                          `(:foreground
-                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 0)
-                            :background
-                            ,(aref (fiat-theme-get-value 'ansi-color-names-vector) 7)))))))
-
-(defun fiat-eyebrowse-modeline ()
-  "Return a mode line string with status for `eyebrowse-mode'."
-  (when (bound-and-true-p eyebrowse-mode)
-    (let ((current-slot (eyebrowse--get 'current-slot)))
-      (string-join
-       (mapcar (lambda (s)
-                 (if (= s current-slot)
-                     (propertize (number-to-string s) 'face 'mode-line-buffer-id)
-                   (number-to-string s)))
-               (mapcar #'car (eyebrowse--get 'window-configs)))
-       " "))))
-
-(defun when-propertize (exp &rest properties)
-  "Evaluate EXP, which should return a string or nil..
-Propertize the result with the specified PROPERTIES."
-  (when exp (apply #'propertize exp properties)))
-
-(defvar fiat--old-mode-line-format nil
-  "Save the old `mode-line-format'.")
-
 ;;;###autoload
 (define-minor-mode fiat-mode-line-mode
   "Make a mode line whose aesthetics are inspired by vim's lightline."
   :group 'fiat
   :lighter nil
   (if fiat-mode-line-mode
-      (progn
-        (setq fiat--old-mode-line-format mode-line-format)
-        (setq-default
-         mode-line-format
-         '((:eval
-            (if (fiat-window-active-p)
-                (fiat-render-mode-line
-                 ;; left
-                 (list
-                  (fiat-ml-evil)
-                  (when-propertize (fiat-ml-remote-hostname) 'face 'highlight)
-                  (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
-                  (when (buffer-modified-p) " •")
-                  " "
-                  (format-mode-line mode-name)
-                  " "
-                  (when (memq major-mode '(compilation-mode shell-mode))
-                    (format-mode-line mode-line-process))
-                  (when (bound-and-true-p which-function-mode)
-                    (format-mode-line which-func-format)))
-                 ;; right
-                 (list
-                  (when-propertize (fiat-ml-term) 'face 'mode-line-emphasis)
-                  (when (bound-and-true-p flycheck-mode)
-                    (concat (substring (flycheck-mode-line-status-text) 1) " "))
-                  " " (fiat-eyebrowse-modeline) " "
-                  (when-propertize
-                   (fiat-ml-concat
-                    (list (when (boundp 'parinfer--mode)
-                            (if (eq 'paren parinfer--mode) "🄟" "P↹"))
-                          (when (buffer-narrowed-p) "⒩")
-                          (when (bound-and-true-p hs-minor-mode) "⒣")
-                          (when (bound-and-true-p outline-minor-mode) "⦿"))
-                    " "
-                    t)
-                   'face 'mode-line-emphasis)
-                  (propertize (format-mode-line " %l:%c  ")
-                              'face 'mode-line-buffer-id)))
-              (fiat-render-mode-line
-               ;; left
-               (list
-                " "
-                (buffer-name)
-                " "
-                (when (buffer-modified-p) " •")
-                " "
-                (when (memq major-mode '(compilation-mode shell-mode))
-                  (substring-no-properties
-                   (format-mode-line mode-line-process))))
-               ;; right
-               nil))))))
-    (setq-default mode-line-format
-                  (or fiat--old-mode-line-format mode-line-format))))
-
-(defun fiat--set-os-dark-mode (darkp)
-  "When DARKP is non-nil, change the OS to dark mode."
-  (pcase system-type
-    ('darwin
-     (let ((default-directory "~") ; In case we are in a tramp session
-           (mode (if darkp "true" "false")))
-       (do-applescript (format "
-       tell application \"System Events\"
-           tell appearance preferences to set dark mode to %s
-       end tell
-       " mode))
-       (do-applescript "
-       tell application \"FirefoxDeveloperEdition\" to activate
-       tell application \"System Events\" to keystroke \"d\" using {shift down, option down}
-       tell application \"Emacs\" to activate
-")))))
+      (fiat-mode-line--enable)
+    (fiat-mode-line--disable)))
 
 ;;;###autoload
 (defun fiat-lux ()
@@ -507,4 +566,4 @@ Propertize the result with the specified PROPERTIES."
 
 (provide 'fiat-color)
 
-;;; fiat.el ends here
+;;; fiat-color.el ends here

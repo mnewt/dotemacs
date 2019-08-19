@@ -109,19 +109,26 @@
   :config
   (global-auto-revert-mode))
 
-(use-package desktop
+(use-package psession
   :demand t
   :custom
-  (desktop-dirname "~/.emacs.d")
+  (psession-object-to-save-alist
+   '((command-history . "command-history.el")
+     (extended-command-history . "extended-command-history.el")
+     (ivy-history . "ivy-history.el")
+     (psession--save-buffers-alist . "psession-save-buffers-alist.el")
+     (regexp-search-ring . "regexp-search-ring.el")
+     (search-ring . "search-ring.el")
+     (file-name-history . "file-name-history.el")
+     (kill-ring . "kill-ring.el")
+     (kill-ring-yank-pointer . "kill-ring-yank-pointer.el")
+     (register-alist . "register-alist.el")
+     (psession--frameset-alist . "psession-frameset-alist.el")
+     (eyebrowse-last-window-config . "eyebrowse-last-window-config.el")))
   :config
-  (dolist (v '(kill-ring read-expression-history theme-current-theme))
-    (add-to-list 'desktop-globals-to-save v))
-  (desktop-save-mode))
-
-(use-package persistent-scratch
-  :defer 1
-  :config
-  (persistent-scratch-setup-default))
+  (psession-mode)
+  (psession-savehist-mode)
+  (psession-autosave-mode))
 
 (provide 'm-persist)
 

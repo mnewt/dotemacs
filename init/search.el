@@ -171,6 +171,11 @@ force `counsel-rg' to search in `default-directory.'"
     "Delete FILE with confirmation."
     (dired-delete-file file 'confirm-each-subdirectory))
 
+  (defun counsel-git-grep-other-window-action (x)
+    "Switch to other window and call `counsel-git-grep-action'."
+    (switch-to-buffer-other-window (current-buffer))
+    (counsel-git-grep-action x))
+
   (ivy-add-actions
    'counsel-M-x
    `(("j" ivy--call-with-current-buffer-in-other-window-action "other window")))
@@ -189,11 +194,9 @@ force `counsel-rg' to search in `default-directory.'"
      ("j" ivy--switch-buffer-other-window-action "other window")
      ("k" ivy--kill-buffer-action "kill")
      ("r" ivy--rename-buffer-action "rename")))
-  ;; TODO: Adapt these functions for `counsel-rg'. See `counsel-git-grep-action'.
-  ;; (ivy-add-actions
-  ;;  'counsel-rg
-  ;;  '(("f" ivy--find-file-action "find file")
-  ;;    ("j" ivy--call-with-other-window-action "other window")))
+  (ivy-add-actions
+   'counsel-rg
+   '(("j" counsel-git-grep-other-window-action "other window")))
   (ivy-set-actions
    'counsel-register
    '(("d" counsel-register-action-delete "delete")
