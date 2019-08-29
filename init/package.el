@@ -176,6 +176,13 @@ on the next startup."
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)
 
+(use-package paradox
+  :custom
+  (paradox-automatically-star t)
+  :commands
+  paradox-list-packages
+  paradox-upgrade-packages)
+
 (provide 'm-package)
 
 ;;; package.el ends here

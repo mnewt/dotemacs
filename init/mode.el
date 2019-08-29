@@ -188,6 +188,12 @@ referencing a format region function, which takes two arguments:
     :args '("--parser" "yaml"))
   (add-to-list 'm-reformatters '(yaml-mode . prettier-yaml))
 
+  (defvar m-xmllint-command (executable-find "xmllint"))
+  (reformatter-define xmllint
+    :program m-xmllint-command
+    :args '("--format" "-"))
+  (add-to-list 'm-reformatters '(nxml-mode . xmllint))
+
   (defvar m-black-command (executable-find "black"))
   (reformatter-define black
     :program m-black-command
@@ -441,12 +447,12 @@ a new file for the first time."
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
 
 (use-package restclient
-  :mode "\\.restclient\\'"
+  :mode ("\\.restclient\\'" . restclient-mode)
   :config
   (use-package company-restclient
     :hook
-    (restclient-mode-hook
-     . (lambda () (add-to-list 'company-backends 'company-restclient))))
+    (restclient-mode-hook . (lambda ()
+                              (add-to-list 'company-backends 'company-restclient))))
 
   (use-package know-your-http-well
     :commands

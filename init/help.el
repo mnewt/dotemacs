@@ -265,57 +265,20 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-s-v" . hydra-move/body)
   ("C-c w" . hydra-window/body))
 
-(use-package replace
-  :ensure nil
-  :commands
-  occur-next
-  occur-prev
-  :config
-  (defun occur-dwim ()
-    "Call `occur' with a sane default, chosen as the thing under point or selected region."
-    (interactive)
-    (push (if (region-active-p)
-              (buffer-substring-no-properties
-               (region-beginning)
-               (region-end))
-            (let ((sym (thing-at-point 'symbol)))
-              (when (stringp sym)
-                (regexp-quote sym))))
-          regexp-history)
-    (call-interactively 'occur))
-
-  (declare-function other-window-hydra-occur 'hydra)
-
-  (advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
-
-  ;; Focus on *Occur* window right away.
-  (add-hook 'occur-hook (lambda () (other-window 1)))
-
-  (defun reattach-occur ()
-    "Switch to Occur buffer and launch the hydra."
-    (if (get-buffer "*Occur*")
-        (switch-to-buffer-other-window "*Occur*")
-      (hydra-occur-dwim/body)))
-
-  ;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
-  ;; focus on the *Occur* window and hides upon request in case needed later.
-  (defhydra hydra-occur-dwim ()
-    "Occur mode"
-    ("o" occur-dwim "Start occur-dwim" :color red)
-    ("j" occur-next "Next" :color red)
-    ("k" occur-prev "Prev":color red)
-    ("h" delete-window "Hide" :color blue)
-    ("r" (reattach-occur) "Re-attach" :color red)
-    ("q" nil))
-
-  :bind
-  (:map occur-mode-map
-        ("C-o" . hydra-occur-dwim/body)))
-
-(use-package paradox
+(use-package counsel-ffdata
   :custom
-  (paradox-automatically-star t)
-  :commands paradox-list-packages)
+  (counsel-ffdata-database-path
+   "/Users/mn/Library/Application Support/Firefox/Profiles/pmgg09p8.dev-edition-default/places.sqlite")
+  :bind
+  ("C-c F h" . counsel-ffdata-firefox-history)
+  ("C-c F b" . counsel-ffdata-firefox-bookmarks))
+
+(use-package stack-answers
+  :ensure nil
+  :hook
+  (stack-answers-mode-hook . mixed-pitch-mode)
+  :bind
+  ("M-m s" . stack-answers))
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)

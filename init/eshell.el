@@ -272,6 +272,63 @@ Call it a second time to print the prompt."
     (shell-command ". ~/.env && . ~/.aliases && alias | sed -E \"s/^alias ([^=]+)='(.*)'$/alias \\1 \\2 \\$*/g; s/'\\\\''/'/g;\""
                    "*bash aliases*"))
 
+  ;; Redefine `eshell-exec-visual' to by TRAMP aware for ssh
+  ;; https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb
+  (defun eshell-exec-visual (&rest args)
+    "Run the specified PROGRAM in a terminal emulation buffer.
+ ARGS are passed to the program.  At the moment, no piping of input is
+ allowed."
+    (let* (eshell-interpreter-alist
+           (original-args args)
+           (interp (eshell-find-interpreter (car args) (cdr args)))
+           (in-ssh-tramp (and (tramp-tramp-file-p default-directory)
+                              (equal (tramp-file-name-method
+                                      (tramp-dissect-file-name default-directory))
+                                     "ssh")))
+           (program (if in-ssh-tramp
+                        "ssh"
+                      (car interp)))
+           (args (if in-ssh-tramp
+                     (let ((dir-name (tramp-dissect-file-name default-directory)))
+                       (eshell-flatten-list
+                        (list
+                         "-t"
+                         (tramp-file-name-host dir-name)
+                         (format
+                          "export TERM=xterm-256color; cd %s; exec %s"
+                          (tramp-file-name-localname dir-name)
+                          (string-join
+                           (append
+                            (list (tramp-file-name-localname (tramp-dissect-file-name (car interp))))
+                            (cdr args))
+                           " ")))))
+                   (eshell-flatten-list
+                    (eshell-stringify-list (append (cdr interp)
+                                                   (cdr args))))))
+           (term-buf
+            (generate-new-buffer
+             (concat "*"
+                     (if in-ssh-tramp
+                         (format "%s %s" default-directory (string-join original-args " "))
+                       (file-name-nondirectory program))
+                     "*")))
+           (eshell-buf (current-buffer)))
+      (save-current-buffer
+        (switch-to-buffer term-buf)
+        (term-mode)
+        (set (make-local-variable 'term-term-name) eshell-term-name)
+        (make-local-variable 'eshell-parent-buffer)
+        (setq eshell-parent-buffer eshell-buf)
+        (term-exec term-buf program program nil args)
+        (let ((proc (get-buffer-process term-buf)))
+          (if (and proc (eq 'run (process-status proc)))
+              (set-process-sentinel proc 'eshell-term-sentinel)
+            (error "Failed to invoke visual command")))
+        (term-char-mode)
+        (if eshell-escape-control-x
+            (term-set-escape-char ?\C-x))))
+    nil)
+
   (defun eshell/init ()
     "Initialize the Eshell environment."
     (require 'em-term)
@@ -396,6 +453,9 @@ Advise `eshell-ls-decorated-name'."
                                            #'company-complete-selection
                                            esh-autosuggest-active-map))))
 
+(use-package eshell-bookmark
+  :hook
+  (eshell-mode-hook . eshell-bookmark-setup))
 
 (provide 'm-eshell)
 

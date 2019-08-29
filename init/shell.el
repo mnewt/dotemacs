@@ -342,16 +342,19 @@ Copy the result to the `kill-ring'. Call with a prefix argument
 to modify the args."
   (interactive (list (if current-prefix-arg
                          (read-shell-command "Run fpw (like this): "
-                                             "fpw " 'pw-history)
+                                             "fpw " 'fpw-history)
                        "fpw")))
   (let ((result
          (replace-regexp-in-string "\n" "" (shell-command-to-string command))))
     (kill-new result)
     (message result)))
 
-(bind-keys ("C-c C-v" . expand-environment-variable)
-           ("C-:" . tramp-insert-remote-part)
-           ("M-m p" . pw))
+(bind-keys
+ ("C-c C-v" . expand-environment-variable)
+ ("C-:" . tramp-insert-remote-part)
+ ("M-m p" . pw)
+ :map m-toggle-map
+ ("s" . sudo-toggle))
 
 (provide 'm-shell)
 

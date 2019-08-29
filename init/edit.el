@@ -161,11 +161,58 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-c C-a"  . mc/mark-all-dwim)
   ("C-'" . mc-hide-unmatched-lines-mode))
 
+(use-package replace
+  :ensure nil
+  :commands
+  occur-next
+  occur-prev
+  :config
+  (defun occur-dwim ()
+    "Call `occur' with a sane default, chosen as the thing under point or selected region."
+    (interactive)
+    (push (if (region-active-p)
+              (buffer-substring-no-properties
+               (region-beginning)
+               (region-end))
+            (let ((sym (thing-at-point 'symbol)))
+              (when (stringp sym)
+                (regexp-quote sym))))
+          regexp-history)
+    (call-interactively 'occur))
+
+  (declare-function other-window-hydra-occur 'hydra)
+
+  (advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
+
+  ;; Focus on *Occur* window right away.
+  (add-hook 'occur-hook (lambda () (other-window 1)))
+
+  (defun reattach-occur ()
+    "Switch to Occur buffer and launch the hydra."
+    (if (get-buffer "*Occur*")
+        (switch-to-buffer-other-window "*Occur*")
+      (hydra-occur-dwim/body)))
+
+  ;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
+  ;; focus on the *Occur* window and hides upon request in case needed later.
+  (defhydra hydra-occur-dwim ()
+    "Occur mode"
+    ("o" occur-dwim "Start occur-dwim" :color red)
+    ("j" occur-next "Next" :color red)
+    ("k" occur-prev "Prev":color red)
+    ("h" delete-window "Hide" :color blue)
+    ("r" (reattach-occur) "Re-attach" :color red)
+    ("q" nil))
+
+  :bind
+  (:map occur-mode-map
+   ("C-o" . hydra-occur-dwim/body)))
+
 (use-package move-text
   :bind
   (:map prog-mode-map
-        ("M-S-<up>" . move-text-up)
-        ("M-S-<down>" . move-text-down)))
+   ("M-S-<up>" . move-text-up)
+   ("M-S-<down>" . move-text-down)))
 
 (use-package string-inflection
   :bind
@@ -480,10 +527,10 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("C-M-p" . sp-previous-sexp)
         ("M-a" . sp-beginning-of-sexp)
         ("M-e" . sp-end-of-sexp)
-        ("C-M-i" . sp-down-sexp)
-        ("C-M-o" . sp-backward-up-sexp)
+        ("C-M-d" . sp-down-sexp)
+        ("C-M-u" . sp-backward-up-sexp)
         ("M-s-s" . sp-splice-sexp)
-        ("C-M-d" . sp-kill-symbol)
+        ("C-S-d" . sp-kill-symbol)
         ("C-M-k" . sp-kill-sexp)
         ("C-M-w" . sp-copy-sexp)
         ("C-M-t" . sp-transpose-sexp)

@@ -6,6 +6,13 @@
 
 ;;; Code:
 
+;; make sure vc stuff is not making tramp slower
+(use-package vc
+  :custom
+  (vc-ignore-dir-regexp (format "%s\\|%s"
+                                vc-ignore-dir-regexp
+                                tramp-file-name-regexp)))
+
 (defun git-ls-files (&optional directory)
   "Return a list of the files from `git ls-files DIRECTORY'."
   (split-string (shell-command-to-string

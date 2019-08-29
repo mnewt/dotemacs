@@ -846,8 +846,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
 
-;; (defvar-local hidden-mode-line-mode nil)
-
 (define-minor-mode hidden-mode-line-mode
   "Minor mode to hide the mode-line in the current buffer."
   :init-value nil
@@ -870,15 +868,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
      (concat "Hidden Mode Line Mode enabled.  "
              "Use M-x hidden-mode-line-mode to make the mode-line appear."))))
 
-(defun window-config-org ()
-  "Set up Org window config."
-  (interactive)
-  (delete-other-windows)
-  (dired org-directory)
-  (switch-to-buffer-other-window (current-buffer))
-  (find-file (expand-file-name "TODO.org" org-directory))
-  (other-window 1))
-
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
   (interactive)
@@ -886,6 +875,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (dired "~/.emacs.d/init")
   (switch-to-buffer-other-window (current-buffer))
   (find-file "~/.emacs.d/TODO.org")
+  (other-window 1))
+
+(defun window-config-org ()
+  "Set up Org window config."
+  (interactive)
+  (delete-other-windows)
+  (dired org-directory)
+  (switch-to-buffer-other-window (current-buffer))
+  (find-file (expand-file-name "TODO.org" org-directory))
   (other-window 1))
 
 (bind-keys

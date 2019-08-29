@@ -90,13 +90,10 @@ returned."
         :config
         (pixel-scroll-mode))
 
-      (use-package spacemacs-theme
-        :defer 0.1
-        :custom
-        (spacemacs-theme-comment-bg nil))
+      (use-package spacemacs-common
+        :ensure spacemacs-theme)
 
       (use-package fiat-color
-        :defer 0.2
         :demand t
         :ensure nil
         :custom
@@ -113,12 +110,11 @@ returned."
         ("C-M-s-S-t" . fiat-theme-choose)
         ("C-M-s-t" . fiat)
         (:map m-toggle-map
-              ("t" . fiat)
-              ("c" . fiat-show-flycheck-toggle)
-              ("l" . fiat-show-line-and-column-toggle)))
+         ("t" . fiat)
+         ("c" . fiat-show-flycheck-toggle)
+         ("l" . fiat-show-line-and-column-toggle)))
 
       (use-package window-highlight
-        :defer 0.3
         :demand t
         :if window-system
         :git "https://github.com/dcolascione/emacs-window-highlight"
@@ -129,7 +125,11 @@ returned."
 
       (use-package mixed-pitch
         :hook
-        (text-mode-hook . mixed-pitch-mode)))
+        (text-mode-hook . mixed-pitch-mode))
+
+      (use-package fontify-face
+        :hook
+        (emacs-lisp-mode-hook . fontify-face-mode)))
 
   ;; No GUI
   (menu-bar-mode -1))

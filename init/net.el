@@ -28,6 +28,10 @@
   :commands
   (public-ip url-retrieve))
 
+(use-package request
+  :commands
+  request)
+
 (defun dis (hostname)
   "Resolve a HOSTNAME to its IP address."
   (interactive "MHostname: ")

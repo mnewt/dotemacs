@@ -11,6 +11,11 @@
 ;; friends can't locate elisp source. Setting up the mode explicitly seems to
 ;; fix it.
 
+(use-package files
+  :ensure nil
+  :custom
+  (remote-file-name-inhibit-cache nil))
+
 (use-package jka-cmpr-hook
   :defer 1
   :ensure nil
@@ -373,7 +378,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   (git-home-link "dotemacs")
   (dired-list-git-ls-files user-emacs-directory)
   (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1)))
-  
+
 (defun dired-list-dotfiles ()
   "List Emacs init files."
   (interactive)
@@ -390,7 +395,9 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
 (bind-keys
  ("C-x M-s" . psync-maybe)
  ("C-c o" . os-open-file)
- ("C-c O" . os-reveal-file))
+ ("C-c O" . os-reveal-file)
+ :map m-toggle-map
+  ("r" . auto-revert-mode))
 
 (provide 'm-file)
 

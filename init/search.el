@@ -242,6 +242,7 @@ force `counsel-rg' to search in `default-directory.'"
   (projectile-project-search-path (list code-directory))
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
+  (projectile-mode-line nil)
   :commands
   projectile-mode
   projectile-project-root
