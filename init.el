@@ -37,7 +37,7 @@
 (dolist-with-progress-reporter
     (s init-files)
     (message "Loading init files...")
-  (load (concat "~/.emacs.d/init/" (symbol-name s)) nil t))
+  (load (concat "~/.emacs.d/init/" (symbol-name s)) t t nil t))
 
 (provide 'init)
 

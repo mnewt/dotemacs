@@ -97,6 +97,34 @@
 (use-package swiper
   :defer 0.5
   :after ivy
+  :config
+  (defvar minibuffer-this-command nil
+    "Command minibuffer started with.")
+
+  (add-hook 'minibuffer-setup-hook
+            (defun minibuffer-set-this-command ()
+              (setq minibuffer-this-command real-this-command)))
+
+  (define-key minibuffer-local-map (kbd "C-u") 'minibuffer-restart-with-prefix)
+  (define-key ivy-minibuffer-map (kbd "C-u") 'minibuffer-restart-with-prefix)
+  (defun minibuffer-restart-with-prefix ()
+    "Restart current minibuffer/ivy command with prefix argument.
+
+https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr5?utm_source=share&utm_medium=web2x"
+    (interactive)
+    (let ((input (ivy--input)))
+      (cond ((memq  #'ivy--queue-exhibit post-command-hook)
+             (ivy-quit-and-run
+               (let ((current-prefix-arg '(4))
+                     (ivy-initial-inputs-alist `((,(ivy-state-caller ivy-last) . ,input))))
+                 (call-interactively (ivy-state-caller ivy-last)))))
+            (t
+             (ivy-quit-and-run
+               (let ((current-prefix-arg '(4)))
+                 (minibuffer-with-setup-hook (lambda ()
+                                               (insert input)
+                                               (minibuffer-message "C-u"))
+                   (call-interactively minibuffer-this-command))))))))
   :bind
   (:map ivy-minibuffer-map
         ("C-c C-c" . ivy-toggle-calling)
@@ -178,7 +206,7 @@ force `counsel-rg' to search in `default-directory.'"
 
   (ivy-add-actions
    'counsel-M-x
-   `(("j" ivy--call-with-current-buffer-in-other-window-action "other window")))
+   '(("j" ivy--call-with-current-buffer-in-other-window-action "other window")))
   (ivy-add-actions
    'counsel-find-file
    `(("c" ,(given-file #'copy-file "Copy") "copy")
@@ -293,10 +321,10 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   projectile-register-project-type
   :bind
   (:map projectile-mode-map
-        ("s-}" . projectile-next-project-buffer)
-        ("C-c }" . projectile-next-project-buffer)
-        ("s-{" . projectile-previous-project-buffer)
-        ("C-c {" . projectile-previous-project-buffer)))
+   ("s-}" . projectile-next-project-buffer)
+   ("C-c }" . projectile-next-project-buffer)
+   ("s-{" . projectile-previous-project-buffer)
+   ("C-c {" . projectile-previous-project-buffer)))
 
 (use-package counsel-projectile
   :defer 1
@@ -313,11 +341,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (counsel-projectile-mode)
   :bind
   (:map projectile-mode-map
-        ("s-p" . counsel-projectile)
-        ("s-P" . counsel-projectile-switch-project)
-        ("s-r" . counsel-imenu)
-        ("M-s-f" . counsel-projectile-rg)
-        ("s-b" . counsel-projectile-switch-to-buffer)))
+   ("s-p" . counsel-projectile)
+   ("s-P" . counsel-projectile-switch-project)
+   ("s-r" . counsel-imenu)
+   ("M-s-f" . counsel-projectile-rg)
+   ("s-b" . counsel-projectile-switch-to-buffer)))
 
 (use-package counsel-etags
   :defer 5
@@ -411,9 +439,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (eshell-mode . (lambda () (dumb-jump-mode -1)))
   :bind
   (:map dumb-jump-mode-map
-        ("s-j" . dumb-jump-go-prompt)
-        ("s-." . dumb-jump-go)
-        ("s-J" . dumb-jump-quick-look)))
+   ("s-j" . dumb-jump-go-prompt)
+   ("s-." . dumb-jump-go)
+   ("s-J" . dumb-jump-quick-look)))
 
 (use-package spotlight.el
   :git "https://github.com/cjp/spotlight.el"
@@ -422,6 +450,16 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :bind
   ("C-c M-s" . spotlight)
   ("C-c M-S" . spotlight-fast))
+
+(use-package counsel-web
+  :ensure nil
+  :load-path "git/counsel-web"
+  :bind
+  (:map m-search-map
+   ("w" . counsel-web-search)))
+
+(use-package stack-answers)
+  
 
 (bind-key "s-5" #'replace-regexp-entire-buffer-immediately)
 

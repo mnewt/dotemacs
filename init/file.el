@@ -40,11 +40,12 @@ Start search in DIR or `default-directory'."
 
 ;;;; psync
 
+;; https://github.com/mnewt/psync
+
 (defvar-local psync-directory nil
   "Cached directory for `psync'.
 
 It is always buffer local.")
-(make-variable-buffer-local 'psync-directory)
 
 (defun psync-maybe ()
   "If we find a `psync_config' file then run `psync'."
@@ -64,6 +65,12 @@ It is always buffer local.")
       (error "Synchronization with psync failed in directory: %s" default-directory))))
 
 (add-hook 'after-save-hook #'psync-maybe)
+
+(defun psync-clone (source destination)
+  "Clone a new repository for use with `psync' from SOURCE to DESTINATION."
+  (interactive (list (read-directory-name "Source directory: ")
+                     (read-directory-name "Destination directory: ")))
+  (async-shell-command (format "psync -v clone '%s' '%s'" source destination)))
 
 ;;;; File utils
 

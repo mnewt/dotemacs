@@ -36,6 +36,11 @@
 (global-set-key (kbd "M-m t") 'm-toggle-map)
 (defvar m-toggle-map (make-sparse-keymap "M-Toggle"))
 
+;; Prefix key "M-m s": Search
+(define-prefix-command 'm-search-map)
+(global-set-key (kbd "M-m s") 'm-search-map)
+(defvar m-search-map (make-sparse-keymap "M-Search"))
+
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
 ;; to work on Windows and Linux. That is why there are multiple bindings for

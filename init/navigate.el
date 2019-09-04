@@ -420,9 +420,14 @@ This is for restoration from disk by `psession'."
 This is for serialization to disk by `psession'."
     (setq eyebrowse-last-window-config (eyebrowse--get 'window-configs)))
 
+  (defun eyebrowse-activate ()
+    "Enable `eyebrowse-mode' and restore the last window-config."
+    (eyebrowse-mode)
+    (eyebrowse-restore-window-config))
+
   :hook
-  (psession-autosave-mode-hook . eyebrowse-save-window-config)
-  (kill-emacs-hook . eyebrowse-save-window-config)
+  ((psession-autosave-mode-hook kill-emacs-hook) . eyebrowse-save-window-config)
+  (emacs-startup-hook . eyebrowse-activate)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -444,13 +449,6 @@ This is for serialization to disk by `psession'."
   ("C-c C-9" . eyebrowse-switch-to-window-config-9)
   ("H-0" . eyebrowse-switch-to-window-config-0)
   ("C-c C-0" . eyebrowse-switch-to-window-config-0))
-
-(defun eyebrowse-activate ()
-  "Enable `eyebrowse-mode' and restore the last window-config."
-  (eyebrowse-mode)
-  (eyebrowse-restore-window-config))
-
-(add-hook 'emacs-startup-hook #'eyebrowse-activate 'append)
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
