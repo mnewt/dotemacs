@@ -528,6 +528,8 @@ a new file for the first time."
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
 ;; SSH server config files
 (add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
+;; mbsync
+(add-to-list 'auto-mode-alist '("\\.mbsyncrc" . conf-mode))
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)

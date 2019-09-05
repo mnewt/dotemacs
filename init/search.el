@@ -451,16 +451,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ("C-c M-s" . spotlight)
   ("C-c M-S" . spotlight-fast))
 
-(use-package counsel-web
-  :ensure nil
-  :load-path "git/counsel-web"
-  :bind
-  (:map m-search-map
-   ("w" . counsel-web-search)))
-
-(use-package stack-answers)
-  
-
 (bind-key "s-5" #'replace-regexp-entire-buffer-immediately)
 
 (provide 'm-search)

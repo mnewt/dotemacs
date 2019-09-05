@@ -109,30 +109,40 @@
   :config
   (global-auto-revert-mode))
 
-(use-package psession
+(use-package savehist
+  :defer 1
+  :commands
+  savehist-mode
+  :custom
+  (savehist-autosave-interval 60)
+  (history-length 200)
+  (history-delete-duplicates t)
+  (savehist-additional-variables
+   '(kill-ring
+     search-ring
+     regexp-search-ring
+     file-name-history
+     magit-read-rev-history
+     read-expression-history
+     command-history
+     extended-command-history
+     ivy-history))
+  :config
+  (savehist-mode))
+
+(use-package desktop
   :demand t
   :custom
-  (psession-object-to-save-alist
-   '((command-history . "command-history.el")
-     (extended-command-history . "extended-command-history.el")
-     (regexp-search-ring . "regexp-search-ring.el")
-     (search-ring . "search-ring.el")
-     (file-name-history . "file-name-history.el")
-     (kill-ring . "kill-ring.el")
-     (kill-ring-yank-pointer . "kill-ring-yank-pointer.el")
-     (register-alist . "register-alist.el")
-     (comint-input-ring . "comint-input-ring.el")
-     (file-name-history . "file-name-history.el")
-     (eshell-history-ring . "eshell-history-ring.el")
-     (minibuffer-history-variable . "minibuffer-history-variable.el")
-     (regexp-history . "regexp-history.el")
-     (ivy-history . "ivy-history.el")
-     (psession--save-buffers-alist . "psession-save-buffers-alist.el")
-     (eyebrowse-last-window-config . "eyebrowse-last-window-config.el")))
+  (desktop-dirname "~/.emacs.d")
   :config
-  (psession-mode)
-  (psession-autosave-mode)
-  (psession-savehist-mode))
+  (setq desktop-globals-to-save
+        (append desktop-globals-to-save
+                '(kill-ring
+                  read-expression-history
+                  theme-current-theme)))
+  :bind
+  (:map m-map
+        ("d" . desktop-save-mode)))
 
 (provide 'm-persist)
 

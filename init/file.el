@@ -40,15 +40,15 @@ Start search in DIR or `default-directory'."
 
 ;;;; psync
 
-;; https://github.com/mnewt/psync
-
 (defvar-local psync-directory nil
   "Cached directory for `psync'.
 
 It is always buffer local.")
 
 (defun psync-maybe ()
-  "If we find a `psync_config' file then run `psync'."
+  "If we find a `psync_config' file then run `psync'.
+
+See: https://github.com/mnewt/psync"
   (interactive)
   (when-let
       ((default-directory

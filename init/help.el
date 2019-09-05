@@ -273,12 +273,20 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
+(use-package counsel-web
+  :ensure nil
+  :load-path "git/counsel-web"
+  :bind
+  (:map m-search-map
+        ("w" . counsel-web-search)))
+
 (use-package stack-answers
   :ensure nil
   :hook
   (stack-answers-mode-hook . mixed-pitch-mode)
   :bind
-  ("M-m s" . stack-answers))
+  (:map m-search-map
+        ("a" . stack-answers)))
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)
