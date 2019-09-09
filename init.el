@@ -54,8 +54,6 @@
   (if (equal 'dark (frame-parameter nil 'background-mode))
       (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
     (set-face-attribute 'default nil :background "#fbf8ef" :foreground "#655370"))
-  ;; mode-line-format will be set in `m-appearance'.
-  ;; (setq mode-line-format "")
   ;; Default frame settings. This is actually maximized, not full screen.
   (add-to-list 'default-frame-alist '(fullscreen . maximized))
   (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t)))
@@ -228,24 +226,49 @@ Update environment variables from a shell source file."
                                          nil))
                                    load-path))))))
 
-(use-package benchmark-init
-  :demand t
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 (add-to-list 'load-path elisp-directory)
 
 (use-package use-package-git :demand t :ensure nil)
 
+(use-package system-packages
+  :config
+  (when (eq system-type 'windows-nt)
+    (add-to-list
+     'system-packages-supported-package-managers
+     (choco .
+            ((default-sudo . t)
+             (install . "choco install")
+             (search . "choco search")
+             (uninstall . "choco uninstall")
+             (update . "choco upgrade")
+             (clean-cache . "choco optimize")
+             (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
+             (get-info . "choco info --local-only")
+             (get-info-remote . "choco info")
+             (list-files-provided-by . nil)
+             (verify-all-packages . nil)
+             (verify-all-dependencies . nil)
+             (remove-orphaned . nil)
+             (list-installed-packages . "choco list --local-only")
+             (list-installed-packages-all . "choco list --local-only --include-programs")
+             (list-dependencies-of . nil)
+             (noconfirm . "-y"))))
+    (setq system-packages-package-manager 'choco)))
+
 (use-package use-package-ensure-system-package :demand t)
 
-;;;;; use-package-list -- track defined packages
+;;;;; use-package-list
+
+;; Create a list of all packages defined with a `use-package' directive.
 
 (add-to-list 'use-package-keywords :list)
-
-(add-to-list 'use-package-defaults
-             '(:list t t))
+(add-to-list 'use-package-defaults '(:list t t))
 
 (defvar use-package-list nil
   "Packages defined by `use-package'.")
@@ -326,21 +349,6 @@ on the next startup."
     ;; TODO: Delete all but newest duplicate.
 
     (pp (car duplicates))))
-
-(defun byte-compile-directory (directory)
-  "Byte compile all Emacs Lisp files in DIRECTORY."
-  (interactive (read-directory-name "Byte compile directory: "))
-  (let ((default-directory directory))
-    (dolist (filename (file-expand-wildcards "*.el"))
-      (byte-compile-file filename))))
-
-(defun byte-compile-init-files ()
-  "Byte compile all Emacs init files."
-  (interactive)
-  (let ((default-directory user-emacs-directory))
-    (byte-compile-file "init.el"))
-  (byte-compile-directory "~/.emacs.d/init")
-  (byte-compile-directory "~/.emacs.d/lisp"))
 
 (defun emacs-startup-message ()
   "Display a message after Emacs startup."
@@ -629,91 +637,91 @@ on the next startup."
       ;; Show keystrokes right away.
       echo-keystrokes 0.01)
 
-(if window-system
-    ;; GUI Configuration
-    (progn
-      (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-      (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-      (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
-      (setq frame-resize-pixelwise t
-            ;; We don't set a frame title because Emacs on macOS renders the
-            ;; frame title face terribly. No rendering is better than terrible
-            ;; rendering. Also, it is clean and nice this way.
-            frame-title-format nil
-            ;; No icon in the titlebar
-            ns-use-proxy-icon nil
-            ;; Smoother and nicer scrolling
-            scroll-margin 6
-            scroll-step 1
-            scroll-conservatively 10000
-            scroll-preserve-screen-position 1
-            auto-window-vscroll nil
-            ;; No GUI dialogs
-            use-dialog-box nil)
+(when window-system
+  ;; GUI Configuration
+  (progn
+    (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+    (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+    (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
+    (setq frame-resize-pixelwise t
+          ;; We don't set a frame title because Emacs on macOS renders the
+          ;; frame title face terribly. No rendering is better than terrible
+          ;; rendering. Also, it is clean and nice this way.
+          frame-title-format nil
+          ;; No icon in the titlebar
+          ns-use-proxy-icon nil
+          ;; Smoother and nicer scrolling
+          scroll-margin 6
+          scroll-step 1
+          scroll-conservatively 10000
+          scroll-preserve-screen-position 1
+          auto-window-vscroll nil
+          ;; No GUI dialogs
+          use-dialog-box nil)
 
-      ;; Blinking is NOT OK
-      (blink-cursor-mode -1)
+    ;; Blinking is NOT OK
+    (blink-cursor-mode -1)
 
-      (with-eval-after-load 'face-remap
-        (eval-when-compile
-          (defvar text-scale-mode-step))
-        (setq text-scale-mode-step 1.1))
+    (with-eval-after-load 'face-remap
+      (eval-when-compile
+        (defvar text-scale-mode-step))
+      (setq text-scale-mode-step 1.1))
 
-      (defun some-font (font-list)
-        "Return a 'Font-Size' combination from FONT-LIST.
+    (defun some-font (font-list)
+      "Return a 'Font-Size' combination from FONT-LIST.
 
 The first one which is available in the current environment is
 returned."
-        (cl-some (lambda (font-pitch)
-                   (string-match "\\`\\([^-]+\\)" font-pitch)
-                   (when (member (substring font-pitch
-                                            (match-beginning 1)
-                                            (match-end 1))
-                                 (font-family-list))
-                     font-pitch))
-                 font-list))
+      (cl-some (lambda (font-pitch)
+                 (string-match "\\`\\([^-]+\\)" font-pitch)
+                 (when (member (substring font-pitch
+                                          (match-beginning 1)
+                                          (match-end 1))
+                               (font-family-list))
+                   font-pitch))
+               font-list))
 
-      ;; Set default fonts.
-      (defvar m-fixed-pitch-font
-        (some-font '("Input-14" "Monaco-13" "Lucida Console-12" "DejaVu Sans-12"
-                     "Inconsolata-14"))
-        "The default font to use for fixed pitch applications.")
+    ;; Set default fonts.
+    (defvar m-fixed-pitch-font
+      (some-font '("Input-14" "Monaco-13" "Lucida Console-12" "DejaVu Sans-12"
+                   "Inconsolata-14"))
+      "The default font to use for fixed pitch applications.")
 
-      (defvar m-variable-pitch-font
-        (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica" "Georgia-15"))
-        "The default font to use for variable pitch applications.")
+    (defvar m-variable-pitch-font
+      (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica" "Georgia-15"))
+      "The default font to use for variable pitch applications.")
 
-      (dolist (face '(default fixed-pitch))
-        (set-face-font face m-fixed-pitch-font))
+    (dolist (face '(default fixed-pitch))
+      (set-face-font face m-fixed-pitch-font))
 
-      (set-face-font 'variable-pitch m-variable-pitch-font)
+    (set-face-font 'variable-pitch m-variable-pitch-font)
 
-      (add-hook 'text-mode-hook 'variable-pitch-mode)
+    (add-hook 'text-mode-hook 'variable-pitch-mode)
 
-      ;; Wrap text at the end of a line like a word processor.
-      (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
+    ;; Wrap text at the end of a line like a word processor.
+    (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
 
-      (with-eval-after-load 'mwheel
-        (setq mouse-wheel-follow-mouse 't
-              mouse-wheel-scroll-amount '(1 ((shift) . 1))))
+    (with-eval-after-load 'mwheel
+      (setq mouse-wheel-follow-mouse 't
+            mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
-      (use-package pixel-scroll
-        :defer 1
-        :ensure nil
-        :commands
-        pixel-scroll-mode
-        :config
-        (pixel-scroll-mode))
+    (use-package pixel-scroll
+      :defer 1
+      :ensure nil
+      :commands
+      pixel-scroll-mode
+      :config
+      (pixel-scroll-mode))
 
-      (use-package mixed-pitch
-        :hook
-        (text-mode-hook . mixed-pitch-mode))
+    (use-package mixed-pitch
+      :hook
+      (text-mode-hook . mixed-pitch-mode))
 
-      (use-package fontify-face
-        :hook
-        (emacs-lisp-mode-hook . fontify-face-mode)))
+    (use-package fontify-face
+      :hook
+      (emacs-lisp-mode-hook . fontify-face-mode))))
 
-  ;; No GUI
+(unless (and window-system (eq system-type 'darwin))
   (menu-bar-mode -1))
 
 (use-package spacemacs-common
