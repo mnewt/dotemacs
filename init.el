@@ -705,39 +705,6 @@ returned."
         :config
         (pixel-scroll-mode))
 
-      (use-package spacemacs-common
-        :ensure spacemacs-theme)
-
-      (use-package fiat-color
-        :demand t
-        :ensure nil
-        :custom
-        (fiat-lux-theme 'spacemacs-light)
-        (fiat-nox-theme 'spacemacs-dark)
-        (fiat-themes '((spacemacs-light) (spacemacs-dark)))
-        (fiat-specs-common '((cursor ((t :background "magenta")))))
-        :config
-        (fiat-theme)
-        (fiat-mode-line-mode)
-        :commands
-        (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
-        :bind
-        ("C-M-s-S-t" . fiat-theme-choose)
-        ("C-M-s-t" . fiat)
-        (:map m-toggle-map
-              ("t" . fiat)
-              ("c" . fiat-show-flycheck-toggle)
-              ("l" . fiat-show-line-and-column-toggle)))
-
-      (use-package window-highlight
-        :demand t
-        :if window-system
-        :git "https://github.com/dcolascione/emacs-window-highlight"
-        :commands
-        window-highlight-mode
-        :config
-        (window-highlight-mode))
-
       (use-package mixed-pitch
         :hook
         (text-mode-hook . mixed-pitch-mode))
@@ -748,6 +715,39 @@ returned."
 
   ;; No GUI
   (menu-bar-mode -1))
+
+(use-package spacemacs-common
+  :ensure spacemacs-theme)
+
+(use-package fiat-color
+  :demand t
+  :ensure nil
+  :custom
+  (fiat-lux-theme 'spacemacs-light)
+  (fiat-nox-theme 'spacemacs-dark)
+  (fiat-themes '((spacemacs-light) (spacemacs-dark)))
+  (fiat-specs-common '((cursor ((t :background "magenta")))))
+  :config
+  (fiat-theme)
+  (fiat-mode-line-mode)
+  :commands
+  (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
+  :bind
+  ("C-M-s-S-t" . fiat-theme-choose)
+  ("C-M-s-t" . fiat)
+  (:map m-toggle-map
+        ("t" . fiat)
+        ("c" . fiat-show-flycheck-toggle)
+        ("l" . fiat-show-line-and-column-toggle)))
+
+(use-package window-highlight
+  :demand t
+  :if window-system
+  :git "https://github.com/dcolascione/emacs-window-highlight"
+  :commands
+  window-highlight-mode
+  :config
+  (window-highlight-mode))
 
 (use-package hl-line
   :defer 1
