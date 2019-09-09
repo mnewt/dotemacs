@@ -929,6 +929,8 @@ returned."
 (defvar dash-docs-docsets-path "~/.config/docsets"
   "Local path to save docsets.")
 
+(make-directory dash-docs-docsets-path t)
+
 (defun dash-docs-installed-docsets ()
   "Return a list of the currently installed docsets."
   (mapcar (lambda (f) (string-trim-right f ".docset"))
@@ -937,8 +939,6 @@ returned."
 (use-package counsel-dash
   :ensure-system-package sqlite3
   :init
-  (make-directory dash-docs-docsets-path t)
-
   (defun dash-docs-update-docsets-var (&optional _)
     "Update `dash-docs-common-docsets' variable."
     (interactive (list t))
@@ -5922,6 +5922,9 @@ a new file for the first time."
     (add-to-list 'm-reformatters '(csharp-mode . omnisharp-code-format-entire-file)))
   :hook
   (csharp-mode-hook . m-csharp-mode-setup))
+
+(use-package ahk-mode
+  :mode "\\.ahk\\'")
 
 ;;;; Utility
 
