@@ -241,24 +241,24 @@ Update environment variables from a shell source file."
   (when (eq system-type 'windows-nt)
     (add-to-list
      'system-packages-supported-package-managers
-     (choco .
-            ((default-sudo . t)
-             (install . "choco install")
-             (search . "choco search")
-             (uninstall . "choco uninstall")
-             (update . "choco upgrade")
-             (clean-cache . "choco optimize")
-             (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
-             (get-info . "choco info --local-only")
-             (get-info-remote . "choco info")
-             (list-files-provided-by . nil)
-             (verify-all-packages . nil)
-             (verify-all-dependencies . nil)
-             (remove-orphaned . nil)
-             (list-installed-packages . "choco list --local-only")
-             (list-installed-packages-all . "choco list --local-only --include-programs")
-             (list-dependencies-of . nil)
-             (noconfirm . "-y"))))
+     '(choco .
+             ((default-sudo . t)
+              (install . "choco install")
+              (search . "choco search")
+              (uninstall . "choco uninstall")
+              (update . "choco upgrade")
+              (clean-cache . "choco optimize")
+              (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
+              (get-info . "choco info --local-only")
+              (get-info-remote . "choco info")
+              (list-files-provided-by . nil)
+              (verify-all-packages . nil)
+              (verify-all-dependencies . nil)
+              (remove-orphaned . nil)
+              (list-installed-packages . "choco list --local-only")
+              (list-installed-packages-all . "choco list --local-only --include-programs")
+              (list-dependencies-of . nil)
+              (noconfirm . "-y"))))
     (setq system-packages-package-manager 'choco)))
 
 (use-package use-package-ensure-system-package :demand t)
@@ -750,7 +750,7 @@ returned."
 
 (use-package window-highlight
   :demand t
-  :if window-system
+  :if (and window-system (>= emacs-major-version 27))
   :git "https://github.com/dcolascione/emacs-window-highlight"
   :commands
   window-highlight-mode
@@ -937,9 +937,7 @@ returned."
 (use-package counsel-dash
   :ensure-system-package sqlite3
   :init
-  ;; counsel-dash calls 'remove-duplicates, which is no longer available in
-  ;; Emacs master.
-  (defalias 'remove-duplicates 'cl-remove-duplicates)
+  (make-directory dash-docs-docsets-path t)
 
   (defun dash-docs-update-docsets-var (&optional _)
     "Update `dash-docs-common-docsets' variable."
@@ -3022,8 +3020,8 @@ With a prefix ARG always prompt for command to use."
   (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
   ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
   ;; Emacs and can run into issues with certain characters in the file name.
-  (insert-directory-program (or (executable-find "gls"
-                                                 (executable-find "ls"))))
+  (insert-directory-program (or (executable-find "gls")
+                                (executable-find "ls")))
   ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
   :commands
