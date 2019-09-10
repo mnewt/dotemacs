@@ -1099,19 +1099,18 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :ensure nil
-  :load-path "git/counsel-web"
+  :git "git@github.com:mnewt/counsel-web.git"
   :bind
   (:map m-search-map
         ("w" . counsel-web-search)))
 
 (use-package stack-answers
-  :ensure nil
+  :git "git@github.com:mnewt/stack-answers.git"
   :hook
   (stack-answers-mode-hook . mixed-pitch-mode)
   :bind
   (:map m-search-map
-        ("a" . stack-answers)))
+        ("x" . stack-answers)))
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)
@@ -1323,6 +1322,8 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
    ("M-S-<down>" . org-move-subtree-down)
    ("s->" . org-shiftright)
    ("s-<" . org-shiftleft)
+   ("M-p" . org-previous-visible-heading)
+   ("M-n" . org-next-visible-heading)
    :map visual-line-mode-map
    ;; Don't shadow mwim and org-mode bindings
    ([remap move-beginning-of-line] . nil)))
@@ -5911,6 +5912,7 @@ a new file for the first time."
   :config
   (defun m-csharp-mode-setup ()
     "Set up C# mode."
+    (omnisharp-install-server nil)
     (omnisharp-mode)
     (add-to-list 'company-backends #'company-omnisharp)
     (add-hook 'before-save-hook #'omnisharp-code-format-entire-file)

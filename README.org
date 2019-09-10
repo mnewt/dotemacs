@@ -53,26 +53,32 @@ Some innovative intra- and extra- buffer navigation strategies. Check out =winne
 *** Version control.
 [[https://magit.vc/][Magit]] and more. But mostly magit.
 *** Language support.
-**** Emacs Lisp of course, many enhancements.
-**** Clojure and Clojurescript
-**** Scheme (mostly [[https://call-cc.org/][CHICKEN]])
-**** Common Lisp
-**** [[https://github.com/emacs-lsp/lsp-mode][lsp-mode]]
-**** Org
-**** [[https://github.com/purcell/reformatter.el][reformatter]]
+**** [[https://www.gnu.org/software/bash/][Bash]] and [[https://en.wikipedia.org/wiki/Unix_shell#Bourne_shell][friends]]
+**** [[https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/][C#]] by way of [[https://github.com/OmniSharp/omnisharp-emacs][omnisharp]]**** [[https://clojure.org/][Clojure]] and [[https://clojurescript.org/][Clojurescript]]
+**** [[https://lisp-lang.org/][Common Lisp]]
+**** [[https://www.docker.com/][Docker]]
+**** [[https://www.gnu.org/software/emacs/manual/html_mono/eintr.html][Emacs Lisp]] of course, with many enhancements.
 **** [[https://www.flycheck.org/en/latest/][flycheck]]
-**** log viewing
-**** docker
-**** Bash and friends
-**** Web, Javascript and React development
-**** Python
-**** Lua
-**** Ruby
-**** Embedded language support with [[https://github.com/polymode/polymode][polymode]] and [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
+**** Log viewing
+**** [[https://github.com/emacs-lsp/lsp-mode][lsp-mode]]
+**** [[https://www.lua.org/][Lua]]
+**** [[https://orgmode.org/][Org]]
+**** [[https://www.python.org/][Python]]
+**** [[https://github.com/purcell/reformatter.el][reformatter]]
+**** [[https://www.ruby-lang.org/][Ruby]]
+**** [[https://schemers.org/][Scheme]] (mostly [[https://call-cc.org/][CHICKEN]])
+**** Web, Javascript and [[https://reactjs.org/][React]] development
+**** Nested language support with [[https://github.com/polymode/polymode][polymode]] and [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
 ** Supported Emacs versions
 *** 24.3+
 *** A few features are 27.1 (master) only.
+** Install
+Clone the repo:
+#+begin_src sh
+git clone https://github.com/mnewt/dotemacs.git ~/.emacs.d
+#+end_src
+And then launch Emacs.
 ** TODO
-See TODO.org for some of the things I'm working on.
+See [[file:TODO.org][TODO.org]].
 ** License
 The Free Software Foundation may control certain pieces of this by virtue of them being contributed to Emacs or a package in ELPA or MELPA. The rest is basically in the public domain. See the LICENSE file for details.
