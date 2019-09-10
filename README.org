@@ -20,11 +20,7 @@ If I'm not using a package, it's out. But I guess I use a lot of packages. About
 *** Custom Emacs build.
 Check out the =setup= script. It builds Emacs from the latest master to enjoy benefits such as performance improvements, better macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like =js-jsx-mode= and Jansson support (see [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][GNU Emacs NEWS]], or better yet, =M-x view-emacs-news=).
 *** Reproducible and portable configuration
-You should be able to get a working config by doing:
-1. Clone this repo
-2. Run =setup=, which will build and install Emacs
-3. Start Emacs
-4. Wait a couple minutes for packages to install
+It should work the same way on each machine with as little fuss as possible.
 *** Frequent updates.
 I update frequently and often pick up new functionality from Emacs master.
 *** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Packages.html][package.el]] for as much configuration as possible.
@@ -73,11 +69,16 @@ Some innovative intra- and extra- buffer navigation strategies. Check out =winne
 *** 24.3+
 *** A few features are 27.1 (master) only.
 ** Install
-Clone the repo:
+1. Clone the repo:
 #+begin_src sh
 git clone https://github.com/mnewt/dotemacs.git ~/.emacs.d
 #+end_src
-And then launch Emacs.
+2. Install Emacs
+You can install Emacs using your method of choice but I build it from source:
+#+begin_src sh
+~/.emacs.d/bin/setup
+#+end_src
+3. Start Emacs. The first run will install lots of stuff so it will take a couple of minutes.
 ** TODO
 See [[file:TODO.org][TODO.org]].
 ** License
