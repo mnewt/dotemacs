@@ -131,6 +131,8 @@ build_emacs() {
 
   ensure_install_directory
 
+  make_options="-j $((2 * $(how_many_cores)))"
+
   mkdir -p "$base"
   pushd "$base"
 
@@ -140,12 +142,12 @@ build_emacs() {
   git pull
   ./autogen.sh
   ./configure "${configure_opts[@]}"
-  make -j "$(how_many_cores)"
+  make -j $((2 * $(how_many_cores)))
 
   heading "Installing Emacs..."
   # Even though we move the binary ourselves, we still need to install to get the
   # Emacs Lisp and C source files in the right place.
-  make -j "$(how_many_cores)" install
+  make -j $((2 * $(how_many_cores))) install
   rm -rf "$HOME/Applications/Emacs.app"
   mv nextstep/Emacs.app "$HOME/Applications/"
 
