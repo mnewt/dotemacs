@@ -40,6 +40,7 @@ required_casks=(mactex)
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
 # existing, non-emacs ctags installation
 configure_opts=(
+  --config-cache
   --without-pop
   --with-ns
   --disable-ns-self-contained
@@ -60,6 +61,16 @@ contains() {
   shift
   for e in "$@"; do [ "$e" = "$match" ] && return 0; done
   return 1
+}
+
+# Ensure the directory to which we will install Emacs exists and has the correct
+# permissions set.
+ensure_install_directory() {
+  local libexec=/usr/local/libexec/emacs
+  if [ ! -d $libexec ]; then
+    sudo mkdir -p $libexec
+    chown $USER $libexec
+  fi
 }
 
 # Ensure the given homebrew packages are installed and up to date
@@ -104,8 +115,21 @@ install_deps() {
   which gnutls || PATH="$(brew --prefix gnutls):$PATH"
 }
 
+how_many_cores() {
+  case "$(uname)" in
+  Darwin)
+    sysctl -n hw.ncpu
+    ;;
+  Linux)
+    awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
+    ;;
+  esac
+}
+
 build_emacs() {
   heading "Building Emacs..."
+
+  ensure_install_directory
 
   mkdir -p "$base"
   pushd "$base"
@@ -114,15 +138,14 @@ build_emacs() {
   pushd "$base/emacs"
 
   git pull
-  # git reset HEAD --hard
   ./autogen.sh
   ./configure "${configure_opts[@]}"
-  make
+  make -j "$(how_many_cores)"
 
   heading "Installing Emacs..."
   # Even though we move the binary ourselves, we still need to install to get the
-  # Emacs Lisp source in the right place.
-  make install
+  # Emacs Lisp and C source files in the right place.
+  make -j "$(how_many_cores)" install
   rm -rf "$HOME/Applications/Emacs.app"
   mv nextstep/Emacs.app "$HOME/Applications/"
 

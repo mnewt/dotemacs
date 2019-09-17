@@ -1139,7 +1139,7 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   :custom
   (org-directory "~/org")
   ;; Indent text according to the outline structure (`org-indent-mode')
-  (org-startup-indented t)
+  ;; (org-startup-indented t)
   ;; Quit adding 2 spaces to source block
   (org-edit-src-content-indentation 0)
   (org-special-ctrl-a/e t)
@@ -1150,7 +1150,7 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   (org-src-tab-acts-natively t)
   ;; Code highlighting in code blocks
   (org-src-fontify-natively t)
-  (org-hide-leading-stars t)
+  ;; (org-hide-leading-stars t)
   (org-export-with-section-numbers nil)
   ;; Customize todo keywords
   (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
@@ -2647,8 +2647,16 @@ force `counsel-rg' to search in `default-directory.'"
   (:map minibuffer-local-map
         ("C-r" . counsel-minibuffer-history)))
 
-;; Defined in private config.
-(defvar code-directory)
+(use-package counsel-term
+  :git "https://github.com/tautologyclub/counsel-term.git"
+  :bind
+  (:map term-mode-map
+        ("M-r" . counsel-term-history)
+        ("M-^" . term-downdir))
+  (:map vterm-mode-map
+        ("M-r" . counsel-term-history)
+        ("M-^" . term-downdir)
+        ("C-x d" . counsel-term-cd)))
 
 (use-package projectile
   :defer 1
@@ -4456,7 +4464,9 @@ predicate returns true."
   ("s-t" . vterm)
   ("C-c t" . vterm)
   ("s-T" . vterm-other-window)
-  ("C-c T" . vterm-other-window))
+  ("C-c T" . vterm-other-window)
+  (:map vterm-mode-map
+        ("s-v" . yank)))
 
 (use-package term
   :bind
@@ -4886,6 +4896,7 @@ Call it a second time to print the prompt."
 
     (defvar eshell-visual-commands)
     (add-to-list 'eshell-visual-commands "n")
+    (add-to-list 'eshell-visual-commands "htop")
     (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
 
     ;; Load the Eshell versions of `su' and `sudo'
@@ -4900,7 +4911,6 @@ Call it a second time to print the prompt."
      ("C-a" . eshell-maybe-bol)
      ("C-d" . eshell-quit-or-delete-char)
      ("<tab>" . completion-at-point)
-     ("M-r" . counsel-esh-history)
      ("C-L" . eshell/really-clear)
      ("C-w" . eshell-kill-previous-output)
      ("C-M-w" . eshell-kill-previous-output-to-buffer)
@@ -4911,7 +4921,10 @@ Call it a second time to print the prompt."
      ("M-<up>" . eshell-previous-prompt)
      ("C-M-S-n" . eshell-next-prompt)
      ("M-<down>" . eshell-next-prompt)
-     ("C-h C-e" . esh-help-run-help)))
+     ("C-h C-e" . esh-help-run-help)
+     :map eshell-hist-mode-map
+     ("M-r" . counsel-esh-history)
+     ("C-x d" . counsel-eshell-cd)))
 
   (defun eshell-ls-find-file-at-point ()
     "RET on Eshell's `ls' output to open files."
@@ -5906,6 +5919,8 @@ a new file for the first time."
         ("<" . c-electric-lt-gt)
         (">" . c-electric-lt-gt)))
 
+;; TODO: Maybe do away with this when `lsp-mode' is ready?
+;; https://github.com/emacs-lsp/lsp-mode/pull/1024
 (use-package omnisharp
   ;; Use `omnisharp-install-server' to set things up after installing the
   ;; package.
@@ -5927,6 +5942,39 @@ a new file for the first time."
 
 (use-package ahk-mode
   :mode "\\.ahk\\'")
+
+(use-package plantuml-mode
+  :ensure-system-package plantuml
+  :mode "\\.plantuml\\'"
+  :config
+  (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
+
+  (defun plantuml-completion-at-point ()
+    "Function used for `completion-at-point-functions' in `plantuml-mode'."
+    (let ((completion-ignore-case t) ; Not working for company-capf.
+          (bounds (bounds-of-thing-at-point 'symbol))
+          (keywords plantuml-kwdList))
+      (when (and bounds keywords)
+        (list (car bounds)
+              (cdr bounds)
+              keywords
+              :exclusve 'no
+              :company-docsig #'identity))))
+
+  (defun plantuml-completion-at-point-setup ()
+    "Set up `completion-at-point' for plantuml-mode."
+    (setq plantuml-output-type "png")
+    (add-hook 'completion-at-point-functions
+              #'plantuml-completion-at-point nil 'local))
+
+  :hook
+  (plantuml-mode-hook . plantuml-completion-at-point-setup))
+
+(use-package flycheck-plantuml
+  :after flycheck
+  :hook
+  (plantuml-mode-hook . flycheck-plantuml-setup))
+
 
 ;;;; Utility
 
