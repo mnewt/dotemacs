@@ -1,3 +1,19 @@
+* DONE =counsel-imenu= is broken in Emacs master
+  - State "DONE"       from "WIP"        [2019-09-20 Fri 12:32]
+ https://lists.gnu.org/archive/cgi-bin/namazu.cgi?query=30449&submit=Search%21&idxname=bug-gnu-emacs&max=20&result=normal&sort=score
+
+https://git.savannah.gnu.org/cgit/emacs.git/commit/?id=8635147ccba1fc8e1010010da8c3f8e467562f76
+
+https://github.com/abo-abo/swiper/issues/2241
+
+* =counsel-term=
+** DONE =counsel-term-cd=
+
+   - State "DONE"       from "WIP"        [2019-09-20 Fri 12:33]
+ https://github.com/tautologyclub/counsel-term/pull/2
+
+ [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
+
 * TODO Font-lock source code blocks in Info pages
 * TODO Figure out magit wip modes
 * TODO Get Eshell/tramp to cache and/or save passwords [0/2]

@@ -242,26 +242,29 @@ Update environment variables from a shell source file."
     (add-to-list
      'system-packages-supported-package-managers
      '(choco .
-             ((default-sudo . t)
-              (install . "choco install")
-              (search . "choco search")
-              (uninstall . "choco uninstall")
-              (update . "choco upgrade")
-              (clean-cache . "choco optimize")
-              (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
-              (get-info . "choco info --local-only")
-              (get-info-remote . "choco info")
-              (list-files-provided-by . nil)
-              (verify-all-packages . nil)
-              (verify-all-dependencies . nil)
-              (remove-orphaned . nil)
-              (list-installed-packages . "choco list --local-only")
-              (list-installed-packages-all . "choco list --local-only --include-programs")
-              (list-dependencies-of . nil)
-              (noconfirm . "-y"))))
+       ((default-sudo . t)
+        (install . "choco install")
+        (search . "choco search")
+        (uninstall . "choco uninstall")
+        (update . "choco upgrade")
+        (clean-cache . "choco optimize")
+        (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
+        (get-info . "choco info --local-only")
+        (get-info-remote . "choco info")
+        (list-files-provided-by . nil)
+        (verify-all-packages . nil)
+        (verify-all-dependencies . nil)
+        (remove-orphaned . nil)
+        (list-installed-packages . "choco list --local-only")
+        (list-installed-packages-all . "choco list --local-only --include-programs")
+        (list-dependencies-of . nil)
+        (noconfirm . "-y"))))
     (setq system-packages-package-manager 'choco)))
 
-(use-package use-package-ensure-system-package :demand t)
+(use-package use-package-ensure-system-package
+  :demand t
+  :functions
+  use-package-ensure-system-package-exists?)
 
 ;;;;; use-package-list
 
@@ -367,7 +370,39 @@ on the next startup."
   (paradox-automatically-star t)
   :commands
   paradox-list-packages
-  paradox-upgrade-packages)
+  paradox-upgrade-packages
+  :config
+  ;; FIXME: See https://github.com/Malabarba/paradox/issues/175. Overriding this
+  ;; command because it doesn't work with the current Emacs 27 master.
+  (defun paradox-list-packages (no-fetch)
+    "Improved version of `package-list-packages'.  The heart of Paradox.
+Function is equivalent to `package-list-packages' (including the
+prefix NO-FETCH), but the resulting Package Menu is improved in
+several ways.
+
+Among them:
+
+1. Uses `paradox-menu-mode', which has more functionality and
+keybinds than `package-menu-mode'.
+
+2. Uses some font-locking to improve readability.
+
+3. Optionally shows the number GitHub stars and Melpa downloads
+for packages.
+
+4. Adds useful information in the mode-line."
+    (interactive "P")
+    (require 'paradox-github)
+    (require 'paradox-menu)
+    (when (paradox--check-github-token)
+      (paradox-enable)
+      (unless no-fetch)
+      (package-list-packages no-fetch)
+      (unless no-fetch
+        (when (stringp paradox-github-token)
+          (paradox--refresh-user-starred-list
+           (bound-and-true-p package-menu-async)))
+        (paradox--refresh-remote-data)))))
 
 
 ;;;; Libraries
@@ -613,6 +648,28 @@ on the next startup."
   (:map m-map
         ("d" . desktop-save-mode)))
 
+;; TODO Serialize and restore the current window configuration to disk.
+;;
+;; TODO Make the above serialization system work with projectile, so that the
+;; current project state is saved every time a buffer in the project is saved.
+;;
+;; TODO Serialize and restore `eyebrowse' state.
+;;
+;; TODO Save register state, probably using `psession'?
+
+;; (use-package psession
+  ;; :defer nil)
+  ;; :config
+  ;; (defun window-state--get-serialized ()
+  ;;   "Like `window-state-get' but with added detail for serialization."
+  ;;   (cl-loop for e in window-state
+  ;;            when (and (listp e) (eq 'leaf (car e)))
+  ;;            collect (nth 1 (assoc 'buffer (cdr e)))))
+
+  ;; (defun window-state-put-list))
+
+
+
 (use-package persistent-scratch
   :defer 1
   :config
@@ -853,7 +910,49 @@ returned."
   :config
   (help-at-pt-set-timer))
 
+(use-package button
+  :ensure nil
+  :config
+  (defun push-button-other-window ()
+    "Like push button but opens in other window."
+    (interactive)
+    (let (new-buffer)
+      (save-window-excursion
+        (push-button)
+        (setq new-buffer (current-buffer)))
+      (other-window 1)
+      (switch-to-buffer new-buffer)))
+  :commands
+  push-button-other-window)
+
 (use-package helpful
+  :config
+  (defun helpful-goto-face (face &optional direction)
+    "Go to the next `helpful' heading, following DIRECTION.
+
+If DIRECTION is negative, then search backward. Otherwise, search
+forward."
+    (let ((pos (point))
+          (property-change-function (if (< (or direction 1) 0)
+                                        #'previous-property-change
+                                      #'next-property-change)))
+      (while (and (setq pos (funcall property-change-function pos))
+                  pos
+                  (not (equal face (get-char-property pos 'face)))))
+      (when pos
+        (goto-char pos)
+        (forward-line 0))))
+
+  (defun helpful-previous-heading ()
+    "Go to the next `helpful' heading."
+    (interactive)
+    (helpful-goto-face 'helpful-heading -1))
+
+  (defun helpful-next-heading ()
+    "Go to the next `helpful' heading."
+    (interactive)
+    (helpful-goto-face 'helpful-heading))
+
   :bind
   ("C-h ." . helpful-at-point)
   ("C-h f" . helpful-callable)
@@ -861,17 +960,22 @@ returned."
   ("C-h F" . helpful-function)
   ("C-h k" . helpful-key)
   ("C-h M" . helpful-macro)
-  ("C-h M-s" . helpful-symbol)
-  ("C-h v" . helpful-variable))
+  ("C-h o" . helpful-symbol)
+  ("C-h v" . helpful-variable)
+  (:map helpful-mode-map
+        ("M-p" . imenu-goto-previous)
+        ("M-n" . imenu-goto-next)
+        ("o" . push-button-other-window)))
 
-(with-eval-after-load 'shr
-  (eval-when-compile
-    (defvar shr-color-visible-luminance-min)
-    (defvar shr-color-visible-distance-min)
-    (defvar shr-use-colors))
-  (setq shr-color-visible-luminance-min 60
-        shr-color-visible-distance-min 5
-        shr-use-colors nil))
+;; What is the purpose of this?
+;; (with-eval-after-load 'shr
+;;   (eval-when-compile
+;;     (defvar shr-color-visible-luminance-min)
+;;     (defvar shr-color-visible-distance-min)
+;;     (defvar shr-use-colors))
+;;   (setq shr-color-visible-luminance-min 60
+;;         shr-color-visible-distance-min 5
+;;         shr-use-colors nil))
 
 (use-package eldoc
   :defer 2
@@ -881,8 +985,7 @@ returned."
   :config
   (eldoc-add-command #'company-select-next
                      #'company-select-previous
-                     #'keyboard-quit
-                     #'outshine-self-insert-command)
+                     #'keyboard-quit)
   (global-eldoc-mode))
 
 (use-package which-key
@@ -908,6 +1011,7 @@ returned."
 (defun tramp-aware-woman (man-page-path)
   "Open a remote man page at MAN-PAGE-PATH via TRAMP."
   (interactive)
+  (require 'tramp)
   (let ((dir default-directory))
     (woman-find-file
      (if (file-remote-p dir)
@@ -960,20 +1064,6 @@ returned."
         (message "Skipping manually installed docset: %s..." d))))
     (dash-docs-update-docsets-var))
 
-  (defun eww-other-window (url)
-    "Fetch URL and render the page.
-
-Open the `eww' buffer in another window."
-    (interactive
-     (let* ((uris (eww-suggested-uris))
-            (prompt (concat "Enter URL or keywords"
-                            (if uris (format " (default %s)" (car uris)) "")
-                            ": ")))
-       (list (read-string prompt nil 'eww-prompt-history uris))))
-    (require 'eww)
-    (switch-to-buffer-other-window (current-buffer))
-    (eww url t))
-
   :custom
   (dash-docs-docsets-path "~/.config/docsets")
   (dash-docs-browser-func #'eww-other-window)
@@ -996,6 +1086,8 @@ Open the `eww' buffer in another window."
 (use-package hydra
   :defer 2
   :config
+  (autoload #'windmove-find-other-window "windmove")
+
   (defun hydra-move-splitter-left (arg)
     "Move window splitter left by ARG characters."
     (interactive "p")
@@ -1220,6 +1312,8 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   (defun org-archive-done-tasks-in-file ()
     "Archive all tasks marked done."
     (interactive)
+    (require 'org-archive)
+    (require 'outline)
     (org-map-entries
      (lambda ()
        (org-archive-subtree)
@@ -1234,6 +1328,8 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ;; TODO Follow up with Org mailing list on this approach.
   (defun org-do-emphasis-faces (limit)
     "Run through the buffer and emphasize strings."
+    (require 'org-macs)
+    (require 'org-compat)
     (let ((quick-re (format "\\([%s]\\|^\\)\\([~=*/_+]\\)"
                             (car org-emphasis-regexp-components))))
       (catch :exit
@@ -1399,26 +1495,10 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
 
 ;;;; Reading
 
-(defun brew-prefix (package)
-  "Get the `homebrew' install prefix for PACKAGE."
-  (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
-
 (use-package pdf-tools
   :mode ("\\.pdf\\'" . pdf-view-mode)
   :magic ("%PDF" . pdf-view-mode)
   :config
-  ;; Might need to download, make, and install poppler from source.
-
-  ;; (let ((orig (getenv "PKG_CONFIG_PATH")))
-  ;;   (setenv "PKG_CONFIG_PATH"
-  ;;           (concat "" orig
-  ;;                   ":" (brew-prefix "poppler") "/lib/pkgconfig"
-  ;;                   ":" (brew-prefix "libffi") "/lib/pkgconfig"
-  ;;                   ":" (brew-prefix "glib") "/lib/pkgconfig"
-  ;;                   ":" (brew-prefix "pcre") "/lib/pkgconfig"
-  ;;                   ":" (brew-prefix "libpng") "/lib/pkgconfig"))
-  ;;   (pdf-loader-install)
-  ;;   (setenv "PKG_CONFIG_PATH" orig))
   (pdf-loader-install)
   :bind
   (:map pdf-view-mode-map
@@ -1584,6 +1664,7 @@ See `scratch-new-buffer'."
                    (list-buffer-major-modes)
                    :history 'switch-to-buffer-by-mode-history
                    :action 'switch-to-buffer-by-mode)))
+  (require 'ivy)
   (when (stringp mode) (setq mode (intern mode)))
   (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
     (ivy-read (format "%s buffers: " mode) buffers
@@ -1627,57 +1708,55 @@ See `scratch-new-buffer'."
           (select-window first-win)
           (if this-win-2nd (other-window 1))))))
 
-(defun find-file-at-point-with-line (&optional filename)
-  "Open FILENAME at point and move point to line specified next to file name."
-  (interactive)
-  (require 'ffap)
-  (eval-when-compile
-    (defvar ffap-url-fetcher)
-    (defvar ffap-pass-wildcards-to-dired)
-    (defvar ffap-dired-wildcards)
-    (defvar ffap-directory-finder)
-    (defvar ffap-file-finder)
-    (defvar ffap-newfile-prompt))
-  (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
-         (line-number
-          (and (or (looking-at ".* line \\(\[0-9\]+\\)")
-                   (looking-at "[^:]*:\\(\[0-9\]+\\)"))
-               (string-to-number (match-string-no-properties 1))))
-         (column-number
-          (or
-           (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
-                (string-to-number (match-string-no-properties 1)))
-           0)))
-    (message "%s --> %s:%s" filename line-number column-number)
-    (cond ((ffap-url-p filename)
-           (let (current-prefix-arg)
-             (funcall ffap-url-fetcher filename)))
-          ((and line-number
-                (file-exists-p filename))
-           (progn (find-file-other-window filename)
-                  (goto-char (point-min))
-                  (forward-line (1- line-number))
-                  (forward-char column-number)))
-          ((and ffap-pass-wildcards-to-dired
-                ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename))
-           (funcall ffap-directory-finder filename))
-          ((and ffap-dired-wildcards
-                (string-match ffap-dired-wildcards filename)
-                find-file-wildcards
-                ;; Check if it's find-file that supports wildcards arg
-                (memq ffap-file-finder '(find-file find-alternate-file)))
-           (funcall ffap-file-finder (expand-file-name filename) t))
-          ((or (not ffap-newfile-prompt)
-               (file-exists-p filename)
-               (y-or-n-p "File does not exist, create buffer? "))
-           (funcall ffap-file-finder
-                    ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
-                    (expand-file-name filename)))
-          ;; User does not want to find a non-existent file:
-          ((signal 'file-error (list "Opening file buffer"
-                                     "no such file or directory"
-                                     filename))))))
+(use-package ffap
+  :config
+
+  (defun find-file-at-point-with-line (&optional filename)
+    "Open FILENAME at point and move point to line specified next to file name."
+    (interactive)
+    (require 'ffap)
+    (let* ((filename (or filename (if current-prefix-arg (ffap-prompter) (ffap-guesser))))
+           (line-number
+            (and (or (looking-at ".* line \\(\[0-9\]+\\)")
+                     (looking-at "[^:]*:\\(\[0-9\]+\\)"))
+                 (string-to-number (match-string-no-properties 1))))
+           (column-number
+            (or
+             (and (looking-at "[^:]*:\[0-9\]+:\\(\[0-9\]+\\)")
+                  (string-to-number (match-string-no-properties 1)))
+             0)))
+      (message "%s --> %s:%s" filename line-number column-number)
+      (cond ((ffap-url-p filename)
+             (let (current-prefix-arg)
+               (funcall ffap-url-fetcher filename)))
+            ((and line-number
+                  (file-exists-p filename))
+             (progn (find-file-other-window filename)
+                    (goto-char (point-min))
+                    (forward-line (1- line-number))
+                    (forward-char column-number)))
+            ((and ffap-pass-wildcards-to-dired
+                  ffap-dired-wildcards
+                  (string-match ffap-dired-wildcards filename))
+             (funcall ffap-directory-finder filename))
+            ((and ffap-dired-wildcards
+                  (string-match ffap-dired-wildcards filename)
+                  find-file-wildcards
+                  ;; Check if it's find-file that supports wildcards arg
+                  (memq ffap-file-finder '(find-file find-alternate-file)))
+             (funcall ffap-file-finder (expand-file-name filename) t))
+            ((or (not ffap-newfile-prompt)
+                 (file-exists-p filename)
+                 (y-or-n-p "File does not exist, create buffer? "))
+             (funcall ffap-file-finder
+                      ;; expand-file-name fixes "~/~/.emacs" bug sent by CHUCKR.
+                      (expand-file-name filename)))
+            ;; User does not want to find a non-existent file:
+            ((signal 'file-error (list "Opening file buffer"
+                                       "no such file or directory"
+                                       filename))))))
+  :bind
+  ("C-c C-f" . find-file-at-point-with-line))
 
 (defun parse-colon-notation (filename)
   "Parse FILENAME in the format expected by `server-visit-files'.
@@ -1739,6 +1818,7 @@ Example\:
   ;; Idea stolen from https://github.com/arnested/bug-reference-github
   (defun bug-reference-dispatch-url-github-or-gitlab (_type ref)
     "With Bug TYPE and REF, return a complete URL."
+    (require 'vc-git)
     (when (vc-git-root (or (buffer-file-name) default-directory))
       (let ((remote (shell-command-to-string "git ls-remote --get-url")))
         (when (string-match "\\(git\\(?:hu\\|la\\)b.com\\)[/:]\\(.+?\\)\\(\\.git\\)?$"
@@ -1839,11 +1919,13 @@ configuration. Persistence is handled by `psession'.")
     "Restore eyebrowse window config to variable.
 This is for restoration from disk by `psession'."
     (when (bound-and-true-p eyebrowse-last-window-config)
+      (declare-function 'eyebrowse--set "eyebrowse")
       (eyebrowse--set 'window-configs eyebrowse-last-window-config)))
 
   (defun eyebrowse-save-window-config ()
     "Save eyebrowse window config to variable.
 This is for serialization to disk by `psession'."
+    (declare-function 'eyebrowse--get "eyebrowse")
     (setq eyebrowse-last-window-config (eyebrowse--get 'window-configs)))
 
   (defun eyebrowse-activate ()
@@ -1907,7 +1989,7 @@ This is for serialization to disk by `psession'."
   :defer 4
   :after outline outorg
   :config
-  ;; (put 'narrow-to-region 'disabled t)
+  (eldoc-add-command #'outshine-self-insert-command)
 
   (defun outline-show-current-sublevel ()
     "Show only the current top level section."
@@ -2296,6 +2378,35 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
      (concat "Hidden Mode Line Mode enabled.  "
              "Use M-x hidden-mode-line-mode to make the mode-line appear."))))
 
+(defvar window-config-alist nil
+  "Alist of saved window configurations.
+
+Alist is of the form:
+
+\(NAME . WINDOW-CONFIG)")
+
+(defun window-config-save ()
+  "Save the current window configuration into `window-config-alist` alist."
+  (interactive)
+  (let ((key (read-string "Enter a name for the window config: ")))
+    (setf (alist-get key window-config-alist) (current-window-configuration))
+    (message "Window config saved with name %s" key)))
+
+(defun window-config--get (key)
+  "Given a KEY return the saved value in `window-config-alist` alist."
+  (let ((value (assoc key window-config-alist)))
+    (cdr value)))
+
+(defun window-config-restore ()
+  "Restore a window wc from the window-config-alist alist."
+  (interactive)
+  (let* ((wc-name (completing-read "Choose snapshot: "
+                                   (mapcar #'car window-config-alist)))
+         (wc (window-config--get wc-name)))
+    (if wc
+        (set-window-configuration wc)
+      (message "Snapshot %s not found" wc-name))))
+
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
   (interactive)
@@ -2366,11 +2477,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
  ("s-," . pop-global-mark)
  ("C-c C-," . pop-global-mark)
 
- ;; Xref
- ("s-R" . xref-find-definitions-other-window)
-
- ("C-c C-f" . find-file-at-point-with-line)
-
  :map ctl-x-4-map
  ("t" . toggle-window-split)
 
@@ -2404,6 +2510,52 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 
 ;; Show line in the original buffer from occur mode
 (setq list-matching-lines-jump-to-current-line t)
+
+(use-package imenu
+  :config
+  (defun imenu-goto-item (direction)
+    "Jump to the next or previous imenu item, depending on DIRECTION.
+
+If direction is 1, jump to next imenu item. If direction is -1,
+jump to previous imenu item.
+
+See https://emacs.stackexchange.com/questions/30673. Adapted from
+`which-function' in
+https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
+    (let ((alist (or imenu--index-alist (imenu--make-index-alist t)))
+          (minoffset (point-max))
+          offset pair mark imstack destination)
+      ;; Elements of alist are either ("name" . marker), or
+      ;; ("submenu" ("name" . marker) ... ). The list can be
+      ;; arbitrarily nested.
+      (while (or alist imstack)
+        (if alist
+            (progn
+              (setq pair (car-safe alist)
+                    alist (cdr-safe alist))
+              (cond ((atom pair))       ; skip anything not a cons
+                    ((imenu--subalist-p pair)
+                     (setq imstack   (cons alist imstack)
+                           alist     (cdr pair)))
+                    ((number-or-marker-p (setq mark (cdr pair)))
+                     (if (> (setq offset (* (- mark (point)) direction)) 0)
+                         (if (< offset minoffset) ; find the closest item
+                             (setq minoffset offset
+                                   destination mark))))))
+          (setq alist     (car imstack)
+                imstack   (cdr imstack))))
+      (when destination (imenu-default-goto-function "" destination ""))))
+
+  (defun imenu-goto-next ()
+    (interactive)
+    (imenu-goto-item 1))
+
+  (defun imenu-goto-previous ()
+    (interactive)
+    (imenu-goto-item -1))
+
+  :bind
+  ("s-r" . imenu))
 
 (use-package re-builder
   :defer 5
@@ -2467,6 +2619,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
       (delete-char arg)))
 
   (ivy-mode)
+
+  ;; (defun ivy-minibuffer-setup ()
+  ;;   "Set up the minibuffer for ivy."
+  ;;   (bind-keys )
+  ;;   (local-set-key (kbd "C-M-p") #'ivy-previous-line-and-call)
+  ;;   (local-set-key (kbd "C-M-n") #'ivy-next-line-and-call))
+  ;; :hook
+  ;; (minibuffer-setup-hook . ivy-minibuffer-setup)
+
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
@@ -2486,12 +2647,9 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (defvar minibuffer-this-command nil
     "Command minibuffer started with.")
 
-  (add-hook 'minibuffer-setup-hook
-            (defun minibuffer-set-this-command ()
-              (setq minibuffer-this-command real-this-command)))
+  (defun minibuffer-set-this-command ()
+    (setq minibuffer-this-command real-this-command))
 
-  (define-key minibuffer-local-map (kbd "C-u") 'minibuffer-restart-with-prefix)
-  (define-key ivy-minibuffer-map (kbd "C-u") 'minibuffer-restart-with-prefix)
   (defun minibuffer-restart-with-prefix ()
     "Restart current minibuffer/ivy command with prefix argument.
 
@@ -2510,10 +2668,16 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
                                                (insert input)
                                                (minibuffer-message "C-u"))
                    (call-interactively minibuffer-this-command))))))))
+
+  :hook
+  (minibuffer-setup-hook . minibuffer-set-this-command)
   :bind
+  (:map minibuffer-local-map
+        ("C-u" . minibuffer-restart-with-prefix))
   (:map ivy-minibuffer-map
         ("C-c C-c" . ivy-toggle-calling)
-        ("s-5" . ivy--replace-regexp-entire-buffer)))
+        ("s-5" . ivy--replace-regexp-entire-buffer)
+        ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
   :defer 0.5
@@ -2635,7 +2799,6 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-c M-o" . counsel-outline)
         ("M-s-v" . counsel-yank-pop)
         ("M-Y" . counsel-yank-pop)
-        ("s-r" . counsel-imenu)
         ;; Don't shadow default binding.
         ([remap yank-pop] . nil)
         ("M-Y" . counsel-yank-pop)
@@ -2729,8 +2892,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
   (compilation-scroll-output t)
-  :commands
-  counsel-projectile-mode
   :config
   ;; When switching projects, go straight to dired in the project root.
   (setf (car counsel-projectile-switch-project-action) 4)
@@ -2739,7 +2900,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (:map projectile-mode-map
         ("s-p" . counsel-projectile)
         ("s-P" . counsel-projectile-switch-project)
-        ("s-r" . counsel-imenu)
         ("M-s-f" . counsel-projectile-rg)
         ("s-b" . counsel-projectile-switch-to-buffer)))
 
@@ -2769,7 +2929,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (company-dabbrev-ignore-case t)
   :commands
   global-company-mode
+  company-select-next
+  company-select-previous
   :config
+  (eldoc-add-command #'company-select-next
+                     #'company-select-previous)
   (setq company-backends '(company-semantic
                            company-clang
                            company-xcode
@@ -2835,6 +2999,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (eshell-mode . (lambda () (dumb-jump-mode -1)))
   :bind
   (:map dumb-jump-mode-map
+        ;; Don't shadow `ivy'.
+        ("C-M-p" . nil)
         ("s-j" . dumb-jump-go-prompt)
         ("s-." . dumb-jump-go)
         ("s-J" . dumb-jump-quick-look)))
@@ -2875,6 +3041,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 (use-package epg
   :custom
   (epg-pinentry-mode 'loopback))
+
+(use-package pinentry
+  :defer 3
+  :config
+  (pinentry-start))
 
 (defun upsearch (filename &optional dir)
   "Recursively search up a directory tree for FILENAME.
@@ -3007,6 +3178,11 @@ With a prefix ARG always prompt for command to use."
                     open)))
     (message "Opening %s in the OS registered external program..." file)
     (call-process program nil 0 nil file)))
+
+(defun brew-prefix (package)
+  "Get the `homebrew' install prefix for PACKAGE."
+  (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
+
 
 ;;;; Dired
 
@@ -4039,8 +4215,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("M-<down>" . nil)
         ("C-M-f" . sp-forward-sexp)
         ("C-M-b" . sp-backward-sexp)
-        ("C-M-n" . sp-next-sexp)
-        ("C-M-p" . sp-previous-sexp)
+        ;; ("C-M-n" . sp-next-sexp)
+        ;; ("C-M-p" . sp-previous-sexp)
         ("M-a" . sp-beginning-of-sexp)
         ("M-e" . sp-end-of-sexp)
         ("C-M-d" . sp-down-sexp)
@@ -4306,7 +4482,7 @@ If no region is selected, toggles comments for the line."
 
   (defun shell-rename-buffer (_)
     "Rename buffer to `default-directory'."
-    (rename-buffer (format "*Shell: %s*" default-directory) t))
+    (rename-buffer (format "*shell* (%s)" default-directory) t))
   :commands
   shell
   :hook
@@ -4906,6 +5082,7 @@ Call it a second time to print the prompt."
     ;; Set up `tramp-colon-prefix'.
     (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand nil t)
 
+    (defvar eshell-hist-mode-map)
     (bind-keys
      :map eshell-mode-map
      ("C-a" . eshell-maybe-bol)
@@ -5014,10 +5191,192 @@ Advise `eshell-ls-decorated-name'."
 
 ;; Lisp specific functionality
 
-(defun advice-remove-all (sym)
-  "Remove all advices from symbol SYM."
+(defun advice-remove-all (symbol)
+  "Remove all advices from SYMBOL."
   (interactive "aFunction symbol: ")
-  (advice-mapc (lambda (advice _props) (advice-remove sym advice)) sym))
+  (advice-mapc (lambda (advice _props) (advice-remove symbol advice)) symbol))
+
+(defun void-calculate-lisp-indent (&optional parse-start)
+  "Add better indentation for quoted and backquoted lists.
+
+Optionally specify the PARSE-START.
+
+Source and discussion:
+https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quoted_lists/."
+  ;; This line because `calculate-lisp-indent-last-sexp` was defined with
+  ;; `defvar` with it's value ommited, marking it special and only defining it
+  ;; locally. So if you don't have this, you'll get a void variable error.
+  (defvar calculate-lisp-indent-last-sexp)
+  (save-excursion
+    (beginning-of-line)
+    (let ((indent-point (point))
+          state
+          ;; setting this to a number inhibits calling hook
+          (desired-indent nil)
+          (retry t)
+          calculate-lisp-indent-last-sexp containing-sexp)
+      (cond ((or (markerp parse-start) (integerp parse-start))
+             (goto-char parse-start))
+            ((null parse-start) (beginning-of-defun))
+            (t (setq state parse-start)))
+      (unless state
+        ;; Find outermost containing sexp
+        (while (< (point) indent-point)
+          (setq state (parse-partial-sexp (point) indent-point 0))))
+      ;; Find innermost containing sexp
+      (while (and retry
+                  state
+                  (> (elt state 0) 0))
+        (setq retry nil)
+        (setq calculate-lisp-indent-last-sexp (elt state 2))
+        (setq containing-sexp (elt state 1))
+        ;; Position following last unclosed open.
+        (goto-char (1+ containing-sexp))
+        ;; Is there a complete sexp since then?
+        (if (and calculate-lisp-indent-last-sexp
+                 (> calculate-lisp-indent-last-sexp (point)))
+            ;; Yes, but is there a containing sexp after that?
+            (let ((peek (parse-partial-sexp calculate-lisp-indent-last-sexp
+                                            indent-point 0)))
+              (if (setq retry (car (cdr peek))) (setq state peek)))))
+      (if retry
+          nil
+        ;; Innermost containing sexp found
+        (goto-char (1+ containing-sexp))
+        (if (not calculate-lisp-indent-last-sexp)
+            ;; indent-point immediately follows open paren.
+            ;; Don't call hook.
+            (setq desired-indent (current-column))
+          ;; Find the start of first element of containing sexp.
+          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+          (cond ((looking-at "\\s("))
+                ;; First element of containing sexp is a list.
+                ;; Indent under that list.
+
+                ((> (save-excursion (forward-line 1) (point))
+                    calculate-lisp-indent-last-sexp)
+                 ;; This is the first line to start within the containing sexp.
+                 ;; It's almost certainly a function call.
+                 (if (or
+                      ;; Containing sexp has nothing before this line
+                      ;; except the first element. Indent under that element.
+                      (= (point) calculate-lisp-indent-last-sexp)
+
+                      ;; First sexp after `containing-sexp' is a keyword. This
+                      ;; condition is more debatable. It's so that I can have
+                      ;; unquoted plists in macros. It assumes that you won't
+                      ;; make a function whose name is a keyword.
+                      ;; (when-let (char-after (char-after (1+ containing-sexp)))
+                      ;;   (char-equal char-after ?:))
+
+                      ;; Check for quotes or backquotes around.
+                      (let* ((positions (elt state 9))
+                             (last (car (last positions)))
+                             (rest (reverse (butlast positions)))
+                             (any-quoted-p nil)
+                             (point nil))
+                        (or
+                         (when-let (char (char-before last))
+                           (or (char-equal char ?')
+                               (char-equal char ?`)))
+                         (progn
+                           (while (and rest (not any-quoted-p))
+                             (setq point (pop rest))
+                             (setq any-quoted-p
+                                   (or
+                                    (when-let (char (char-before point))
+                                      (or (char-equal char ?')
+                                          (char-equal char ?`)))
+                                    (save-excursion
+                                      (goto-char (1+ point))
+                                      (looking-at-p
+                                       "\\(?:back\\)?quote[\t\n\f\s]+(")))))
+                           any-quoted-p))))
+                     ;; Containing sexp has nothing before this line
+                     ;; except the first element.  Indent under that element.
+                     nil
+                   ;; Skip the first element, find start of second (the first
+                   ;; argument of the function call) and indent under.
+                   (progn (forward-sexp 1)
+                          (parse-partial-sexp (point)
+                                              calculate-lisp-indent-last-sexp
+                                              0 t)))
+                 (backward-prefix-chars))
+                (t
+                 ;; Indent beneath first sexp on same line as
+                 ;; `calculate-lisp-indent-last-sexp'.  Again, it's
+                 ;; almost certainly a function call.
+                 (goto-char calculate-lisp-indent-last-sexp)
+                 (beginning-of-line)
+                 (parse-partial-sexp (point) calculate-lisp-indent-last-sexp
+                                     0 t)
+                 (backward-prefix-chars)))))
+      ;; Point is at the point to indent under unless we are inside a string.
+      ;; Call indentation hook except when overridden by lisp-indent-offset
+      ;; or if the desired indentation has already been computed.
+      (let ((normal-indent (current-column)))
+        (cond ((elt state 3)
+               ;; Inside a string, don't change indentation.
+               nil)
+              ((and (integerp lisp-indent-offset) containing-sexp)
+               ;; Indent by constant offset
+               (goto-char containing-sexp)
+               (+ (current-column) lisp-indent-offset))
+              ;; in this case calculate-lisp-indent-last-sexp is not nil
+              (calculate-lisp-indent-last-sexp
+               (or
+                ;; try to align the parameters of a known function
+                (and lisp-indent-function
+                     (not retry)
+                     (funcall lisp-indent-function indent-point state))
+                ;; If the function has no special alignment
+                ;; or it does not apply to this argument,
+                ;; try to align a constant-symbol under the last
+                ;; preceding constant symbol, if there is such one of
+                ;; the last 2 preceding symbols, in the previous
+                ;; uncommented line.
+                (and (save-excursion
+                       (goto-char indent-point)
+                       (skip-chars-forward " \t")
+                       (looking-at ":"))
+                     ;; The last sexp may not be at the indentation
+                     ;; where it begins, so find that one, instead.
+                     (save-excursion
+                       (goto-char calculate-lisp-indent-last-sexp)
+                       ;; Handle prefix characters and whitespace
+                       ;; following an open paren.  (Bug#1012)
+                       (backward-prefix-chars)
+                       (while (not (or (looking-back "^[ \t]*\\|([ \t]+"
+                                                     (line-beginning-position))
+                                       (and containing-sexp
+                                            (>= (1+ containing-sexp) (point)))))
+                         (forward-sexp -1)
+                         (backward-prefix-chars))
+                       (setq calculate-lisp-indent-last-sexp (point)))
+                     (> calculate-lisp-indent-last-sexp
+                        (save-excursion
+                          (goto-char (1+ containing-sexp))
+                          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+                          (point)))
+                     (let ((parse-sexp-ignore-comments t)
+                           indent)
+                       (goto-char calculate-lisp-indent-last-sexp)
+                       (or (and (looking-at ":")
+                                (setq indent (current-column)))
+                           (and (< (line-beginning-position)
+                                   (prog2 (backward-sexp) (point)))
+                                (looking-at ":")
+                                (setq indent (current-column))))
+                       indent))
+                ;; another symbols or constants not preceded by a constant
+                ;; as defined above.
+                normal-indent))
+              ;; in this case calculate-lisp-indent-last-sexp is nil
+              (desired-indent)
+              (t
+               normal-indent))))))
+
+(advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
 
 (use-package srefactor
   :commands
@@ -5034,7 +5393,7 @@ Advise `eshell-ls-decorated-name'."
 
   :hook
   ((c-mode-hook c++-mode-hook emacs-lisp-mode-hook) . semantic-mode)
-  
+
   :bind
   ("C-c s RET" . srefactor-refactor-at-point))
 
@@ -5075,6 +5434,12 @@ Interactively, reads the register using `register-read-with-preview'."
   (let* ((val (get-register register))
          (res (eval (car (read-from-string (format "(progn %s)" val))))))
     (when current-prefix-arg (register-val-insert res))))
+
+(use-package debbugs
+  :commands
+  debbugs-gnu
+  debbugs-gnu-search
+  debbugs-gnu-bugs)
 
 (use-package clojure-mode
   :mode
@@ -5324,8 +5689,23 @@ of problems in that context."
                                              '(pre . shr-tag-pre-highlight))))
     :commands
     (shr-tag-pre-highlight))
-  :commands
-  eww)
+
+  (defun eww-other-window (url)
+    "Fetch URL and render the page.
+
+Open the `eww' buffer in another window."
+    (interactive
+     (let* ((uris (eww-suggested-uris))
+            (prompt (concat "Enter URL or keywords"
+                            (if uris (format " (default %s)" (car uris)) "")
+                            ": ")))
+       (list (read-string prompt nil 'eww-prompt-history uris))))
+    (require 'eww)
+    (switch-to-buffer-other-window (current-buffer))
+    (eww url t))
+
+  :bind
+  ("M-m e" . eww))
 
 (use-package w3m
   :custom
@@ -5477,8 +5857,6 @@ of problems in that context."
   :custom
   (ispell-program-name "aspell")
   (ispell-extra-args '("--sug-mode=ultra"))
-  :commands
-  flyspell-mode flyspell-prog-mode
   :hook
   (text-mode-hook . flyspell-mode)
   (prog-mode-hook . flyspell-prog-mode)
@@ -5578,7 +5956,8 @@ of problems in that context."
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
   :commands
-  (lsp lsp-deferred)
+  lsp
+  lsp-deferred
   :hook
   ((c-mode-hook c++-mode-hook css-mode-hook go-mode-hook
                 java-mode-hook js-mode-hook php-mode-hook
@@ -5621,72 +6000,74 @@ referencing a format region function, which takes two arguments:
   reformatter-define
   :config
 
-  (defvar m-clojure-command (executable-find "clojure"))
-  (reformatter-define zprint
-    :program m-clojure-command
-    :args '("-A:zprint")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(clojure-mode . zprint))
-  (add-to-list 'm-reformatters '(clojurec-mode . zprint))
-  (add-to-list 'm-reformatters '(clojurescript-mode . zprint))
+  (with-no-warnings
 
-  (defvar m-prettier-command (executable-find "prettier"))
-  (reformatter-define prettier-babel
-    :program m-prettier-command
-    :args '("--parser" "babel")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(js-mode . prettier-babel))
-  (reformatter-define prettier-css
-    :program m-prettier-command
-    :args '("--parser" "css")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(css-mode . prettier-css))
-  (reformatter-define prettier-scss
-    :program m-prettier-command
-    :args '("--parser" "scss")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(scss-mode . prettier-scss))
-  (reformatter-define prettier-html
-    :program m-prettier-command
-    :args '("--parser" "html")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(html-mode . prettier-html))
-  (add-to-list 'm-reformatters '(web-mode . prettier-html))
-  (reformatter-define prettier-graphql
-    :program m-prettier-command
-    :args '("--parser" "graphql")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(graphql-mode . prettier-graphql))
-  (reformatter-define prettier-markdown
-    :program m-prettier-command
-    :args '("--parser" "markdown")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(markdown-mode . prettier-markdown))
-  (reformatter-define prettier-yaml
-    :program m-prettier-command
-    :args '("--parser" "yaml")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(yaml-mode . prettier-yaml))
+    (defvar m-clojure-command (executable-find "clojure"))
+    (reformatter-define zprint
+      :program m-clojure-command
+      :args '("-A:zprint")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(clojure-mode . zprint))
+    (add-to-list 'm-reformatters '(clojurec-mode . zprint))
+    (add-to-list 'm-reformatters '(clojurescript-mode . zprint))
 
-  (defvar m-xmllint-command (executable-find "xmllint"))
-  (reformatter-define xmllint
-    :program m-xmllint-command
-    :args '("--format" "-")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(nxml-mode . xmllint))
+    (defvar m-prettier-command (executable-find "prettier"))
+    (reformatter-define prettier-babel
+      :program m-prettier-command
+      :args '("--parser" "babel")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(js-mode . prettier-babel))
+    (reformatter-define prettier-css
+      :program m-prettier-command
+      :args '("--parser" "css")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(css-mode . prettier-css))
+    (reformatter-define prettier-scss
+      :program m-prettier-command
+      :args '("--parser" "scss")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(scss-mode . prettier-scss))
+    (reformatter-define prettier-html
+      :program m-prettier-command
+      :args '("--parser" "html")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(html-mode . prettier-html))
+    (add-to-list 'm-reformatters '(web-mode . prettier-html))
+    (reformatter-define prettier-graphql
+      :program m-prettier-command
+      :args '("--parser" "graphql")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(graphql-mode . prettier-graphql))
+    (reformatter-define prettier-markdown
+      :program m-prettier-command
+      :args '("--parser" "markdown")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(markdown-mode . prettier-markdown))
+    (reformatter-define prettier-yaml
+      :program m-prettier-command
+      :args '("--parser" "yaml")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(yaml-mode . prettier-yaml))
 
-  (defvar m-black-command (executable-find "black"))
-  (reformatter-define black
-    :program m-black-command
-    :args '("-q" "--line-length" "80")
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(python-mode . black))
+    (defvar m-xmllint-command (executable-find "xmllint"))
+    (reformatter-define xmllint
+      :program m-xmllint-command
+      :args '("--format" "-")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(nxml-mode . xmllint))
 
-  (defvar m-shfmt-command (executable-find "shfmt"))
-  (reformatter-define shfmt
-    :program m-shfmt-command
-    :group 'm-reformatter)
-  (add-to-list 'm-reformatters '(sh-mode . shfmt))
+    (defvar m-black-command (executable-find "black"))
+    (reformatter-define black
+      :program m-black-command
+      :args '("-q" "--line-length" "80")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(python-mode . black))
+
+    (defvar m-shfmt-command (executable-find "shfmt"))
+    (reformatter-define shfmt
+      :program m-shfmt-command
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(sh-mode . shfmt)))
 
   (cl-loop for (mode . sym) in m-reformatters do
            (add-hook (intern (concat (symbol-name mode) "-hook"))
@@ -5976,6 +6357,26 @@ a new file for the first time."
   (plantuml-mode-hook . flycheck-plantuml-setup))
 
 
+(use-package eval-in-repl
+  :custom
+  (eir-jump-after-eval nil)
+  :config
+  (defun eir-eval-in-shell-and-advance ()
+    "eval-in-repl and advance for shell script
+
+This version has the opposite behavior to the eir-jump-after-eval
+configuration when invoked to evaluate a line."
+    (interactive)
+    (let ((eir-jump-after-eval t))
+      (eir-eval-in-shell)))
+
+  (defun eval-in-repl-sh-mode-setup () (require 'eval-in-repl-shell))
+  :hook
+  (sh-mode-hook . eval-in-repl-sh-mode-setup)
+  :bind
+  ("s-<return>" . eir-eval-in-shell)
+  ("M-s-<return>" . eir-eval-in-shell-and-advance))
+
 ;;;; Utility
 
 (use-package polymode
@@ -5985,75 +6386,76 @@ a new file for the first time."
   pm--config-name
   :config
 
-  ;; js
-  (define-hostmode poly-js-hostmode
-    :mode 'js-mode)
-  (define-innermode poly-js-graphql-innermode
-    :mode 'graphql-mode
-    :head-matcher "graphql[ \t\n]*(?`"
-    :tail-matcher "`"
-    :head-mode 'host
-    :tail-mode 'host)
-  (define-polymode poly-js-mode
-    :hostmode 'poly-js-hostmode
-    :innermodes '(poly-js-graphql-innermode))
+  (with-no-warnings
+    ;; js
+    (define-hostmode poly-js-hostmode
+      :mode 'js-mode)
+    (define-innermode poly-js-graphql-innermode
+      :mode 'graphql-mode
+      :head-matcher "graphql[ \t\n]*(?`"
+      :tail-matcher "`"
+      :head-mode 'host
+      :tail-mode 'host)
+    (define-polymode poly-js-mode
+      :hostmode 'poly-js-hostmode
+      :innermodes '(poly-js-graphql-innermode))
 
-  ;; web
-  (define-hostmode poly-web-hostmode
-    :mode 'web-mode)
-  (define-innermode poly-web-svg-innermode
-    :mode 'nxml-mode
-    :head-matcher "<svg"
-    :tail-matcher "</svg>"
-    :head-mode 'inner
-    :tail-mode 'inner)
-  (define-polymode poly-web-mode
-    :hostmode 'poly-web-hostmode
-    :innermodes '(poly-web-svg-innermode))
+    ;; web
+    (define-hostmode poly-web-hostmode
+      :mode 'web-mode)
+    (define-innermode poly-web-svg-innermode
+      :mode 'nxml-mode
+      :head-matcher "<svg"
+      :tail-matcher "</svg>"
+      :head-mode 'inner
+      :tail-mode 'inner)
+    (define-polymode poly-web-mode
+      :hostmode 'poly-web-hostmode
+      :innermodes '(poly-web-svg-innermode))
 
-  ;; restclient
-  (define-hostmode poly-restclient-hostmode
-    :mode 'restclient-mode)
-  (define-innermode poly-restclient-elisp-root-innermode
-    :mode 'emacs-lisp-mode
-    :head-mode 'host
-    :tail-mode 'host)
-  (define-innermode poly-restclient-elisp-single-innermode
-    poly-restclient-elisp-root-innermode
-    :head-matcher "^:[^ ]+ :="
-    :tail-matcher "\n")
-  (define-innermode poly-restclient-elisp-multi-innermode
-    poly-restclient-elisp-root-innermode
-    :head-matcher "^:[^ ]+ := <<"
-    :tail-matcher "^#$")
-  (define-polymode poly-restclient-mode
-    :hostmode 'poly-restclient-hostmode
-    :innermodes '(poly-restclient-elisp-single-innermode
-                  poly-restclient-elisp-multi-innermode))
+    ;; restclient
+    (define-hostmode poly-restclient-hostmode
+      :mode 'restclient-mode)
+    (define-innermode poly-restclient-elisp-root-innermode
+      :mode 'emacs-lisp-mode
+      :head-mode 'host
+      :tail-mode 'host)
+    (define-innermode poly-restclient-elisp-single-innermode
+      poly-restclient-elisp-root-innermode
+      :head-matcher "^:[^ ]+ :="
+      :tail-matcher "\n")
+    (define-innermode poly-restclient-elisp-multi-innermode
+      poly-restclient-elisp-root-innermode
+      :head-matcher "^:[^ ]+ := <<"
+      :tail-matcher "^#$")
+    (define-polymode poly-restclient-mode
+      :hostmode 'poly-restclient-hostmode
+      :innermodes '(poly-restclient-elisp-single-innermode
+                    poly-restclient-elisp-multi-innermode))
 
-  ;; applescript
-  (defun match-string-delimiter (ahead)
-    "Match the delimiter of a string, forward if AHEAD is positive.
+    ;; applescript
+    (defun match-string-delimiter (ahead)
+      "Match the delimiter of a string, forward if AHEAD is positive.
 Backward if AHEAD is negative."
-    (let ((re "[^\\]\""))
-      (when (or (looking-at re)
-                (if (> ahead 0)
-                    (re-search-forward re)
-                  (re-search-backward re)))
-        (cons (match-beginning 0) (match-end 0)))))
+      (let ((re "[^\\]\""))
+        (when (or (looking-at re)
+                  (if (> ahead 0)
+                      (re-search-forward re)
+                    (re-search-backward re)))
+          (cons (match-beginning 0) (match-end 0)))))
 
-  (define-innermode poly-emacs-lisp-apples-innermode
-    :mode 'apples-mode
-    :head-matcher "do-applescript\s-*.*\""
-    :tail-matcher #'match-string-delimiter)
-  (define-polymode poly-emacs-lisp-mode
-    :hostmode 'poly-emacs-lisp-hostmode
-    :innermodes '(poly-emacs-lisp-apples-innermode))
+    (define-innermode poly-emacs-lisp-apples-innermode
+      :mode 'apples-mode
+      :head-matcher "do-applescript\s-*.*\""
+      :tail-matcher #'match-string-delimiter)
+    (define-polymode poly-emacs-lisp-mode
+      :hostmode 'poly-emacs-lisp-hostmode
+      :innermodes '(poly-emacs-lisp-apples-innermode)))
 
-  ;; WIP
-  ;; (define-innermode poly-emacs-lisp-Info-innermode
-  ;;   :mode 'Info-mode
-  ;;   :)
+    ;; WIP
+    ;; (define-innermode poly-emacs-lisp-Info-innermode
+    ;;   :mode 'Info-mode
+    ;;   :)
 
   :hook
   ((js-mode-hook . poly-js-mode)
