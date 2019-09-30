@@ -22,9 +22,9 @@
 (setq gc-cons-threshold 1073741824)
 (run-with-idle-timer 20 t #'garbage-collect)
 
-;; Unset file-name-handler-alist too (temporarily). Every file opened and loaded
-;; by Emacs will run through this list to check for a proper handler for the
-;; file, but during startup, it won’t need any of them.
+;; Unset `file-name-handler-alist' too (temporarily). Every file opened and
+;; loaded by Emacs will run through this list to check for a proper handler for
+;; the file, but during startup, it won’t need any of them.
 (defvar m--file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
@@ -110,7 +110,7 @@ Update environment variables from a shell source file."
 
 (defun path-add (&rest paths)
   "Add PATHS to the OS and Emacs executable search paths."
-  (let* ((old-path (split-string (getenv "PATH") path-separator))
+  (let* ((old-path (reverse (split-string (getenv "PATH") path-separator)))
          new-path)
     (dolist (path (append paths old-path))
       (setq path (expand-file-name path))
@@ -259,12 +259,15 @@ Update environment variables from a shell source file."
         (list-installed-packages-all . "choco list --local-only --include-programs")
         (list-dependencies-of . nil)
         (noconfirm . "-y"))))
-    (setq system-packages-package-manager 'choco)))
+    (setq system-packages-package-manager 'choco))
+  :commands
+  system-packages-ensure
+  system-packages-install)
 
-(use-package use-package-ensure-system-package
-  :demand t
-  :functions
-  use-package-ensure-system-package-exists?)
+;; (use-package use-package-ensure-system-package
+;;   :demand t
+;;   :functions
+;;   use-package-ensure-system-package-exists?)
 
 ;;;;; use-package-list
 
@@ -372,37 +375,19 @@ on the next startup."
   paradox-list-packages
   paradox-upgrade-packages
   :config
-  ;; FIXME: See https://github.com/Malabarba/paradox/issues/175. Overriding this
-  ;; command because it doesn't work with the current Emacs 27 master.
-  (defun paradox-list-packages (no-fetch)
-    "Improved version of `package-list-packages'.  The heart of Paradox.
-Function is equivalent to `package-list-packages' (including the
-prefix NO-FETCH), but the resulting Package Menu is improved in
-several ways.
-
-Among them:
-
-1. Uses `paradox-menu-mode', which has more functionality and
-keybinds than `package-menu-mode'.
-
-2. Uses some font-locking to improve readability.
-
-3. Optionally shows the number GitHub stars and Melpa downloads
-for packages.
-
-4. Adds useful information in the mode-line."
-    (interactive "P")
-    (require 'paradox-github)
-    (require 'paradox-menu)
-    (when (paradox--check-github-token)
-      (paradox-enable)
-      (unless no-fetch)
-      (package-list-packages no-fetch)
-      (unless no-fetch
-        (when (stringp paradox-github-token)
-          (paradox--refresh-user-starred-list
-           (bound-and-true-p package-menu-async)))
-        (paradox--refresh-remote-data)))))
+  ;; FIXME: See https://github.com/Malabarba/paradox/issues/175
+  (with-eval-after-load 'package
+    (defun package-menu-refresh ()
+      "Override package-menu-refresh to work around Malabarba/paradox#175"
+      (interactive)
+      (unless (derived-mode-p 'package-menu-mode)
+        (user-error "The current buffer is not a Package Menu"))
+      (when (and package-menu-async package--downloads-in-progress
+                 (seq-difference package--downloads-in-progress '(paradox--data)))
+        (user-error "Package refresh is already in progress, please wait"))
+      (setq package-menu--old-archive-contents package-archive-contents)
+      (setq package-menu--new-package-list nil)
+      (package-refresh-contents package-menu-async))))
 
 
 ;;;; Libraries
@@ -430,8 +415,14 @@ for packages.
   async-start-process
   async-let
   :config
-  ;; (dired-async-mode 1)
+  (dired-async-mode 1)
   (async-bytecomp-package-mode 1))
+
+(use-package lv
+  :commands
+  lv-message
+  lv-window
+  lv-delete-window)
 
 ;;;; Bindings
 
@@ -499,7 +490,7 @@ for packages.
  ("C-\`" . other-frame)
  ("s-w" . delete-window)
  ("s-W" . delete-other-windows)
- ("s-C-w" . delete-frame)
+ ("C-s-w" . delete-frame)
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
@@ -634,19 +625,19 @@ for packages.
   :config
   (savehist-mode))
 
-(use-package desktop
-  :demand t
-  :custom
-  (desktop-dirname "~/.emacs.d")
-  :config
-  (setq desktop-globals-to-save
-        (append desktop-globals-to-save
-                '(kill-ring
-                  read-expression-history
-                  theme-current-theme)))
-  :bind
-  (:map m-map
-        ("d" . desktop-save-mode)))
+;; (use-package desktop
+;;   :demand t
+;;   :custom
+;;   (desktop-dirname "~/.emacs.d")
+;;   :config
+;;   (setq desktop-globals-to-save
+;;         (append desktop-globals-to-save
+;;                 '(kill-ring
+;;                   read-expression-history
+;;                   theme-current-theme)))
+;;   :bind
+;;   (:map m-map
+;;         ("d" . desktop-save-mode)))
 
 ;; TODO Serialize and restore the current window configuration to disk.
 ;;
@@ -667,8 +658,6 @@ for packages.
   ;;            collect (nth 1 (assoc 'buffer (cdr e)))))
 
   ;; (defun window-state-put-list))
-
-
 
 (use-package persistent-scratch
   :defer 1
@@ -793,10 +782,10 @@ returned."
   (fiat-themes '((spacemacs-light) (spacemacs-dark)))
   (fiat-specs-common '((cursor ((t :background "magenta")))))
   :config
-  (fiat-theme)
+  (run-with-timer 1 nil #'fiat-theme)
   (fiat-mode-line-mode)
   :commands
-  (fiat-theme fiat-lux fiat-nox fiat-mode-line-mode)
+  fiat-theme fiat-lux fiat-nox fiat-mode-line-mode
   :bind
   ("C-M-s-S-t" . fiat-theme-choose)
   ("C-M-s-t" . fiat)
@@ -805,19 +794,25 @@ returned."
         ("c" . fiat-show-flycheck-toggle)
         ("l" . fiat-show-line-and-column-toggle)))
 
+;; TODO: Try this out.
+;; (use-package auto-dim-other-buffers
+;;   :config
+;;   (auto-dim-other-buffers-mode))
+
 (use-package window-highlight
-  :demand t
+  :defer 1
   :if (and window-system (>= emacs-major-version 27))
   :git "https://github.com/dcolascione/emacs-window-highlight"
-  :commands
-  window-highlight-mode
   :config
+  ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
+  ;; because of the way macOS starts Emacs (because starting it from the command
+  ;; line doesn't exhibit this behavior). Anyway, it doesn't seem too terrible
+  ;; to go ahead and set it manually.
+  (set-frame-parameter (selected-frame) 'last-focus-update t)
   (window-highlight-mode))
 
 (use-package hl-line
   :defer 1
-  :commands
-  global-hl-line-mode
   :config
   (global-hl-line-mode))
 
@@ -833,8 +828,6 @@ returned."
 
 (use-package page-break-lines
   :demand t
-  :commands
-  global-page-break-lines-mode
   :config
   (global-page-break-lines-mode))
 
@@ -1025,8 +1018,8 @@ forward."
 
 (use-package eg
   :git "https://github.com/mnewt/eg.el"
-  :ensure-system-package
-  (eg . "pip install eg")
+;;  :ensure-system-package
+;;  (eg . "pip install eg")
   :bind
   ("C-h e" . eg))
 
@@ -1041,7 +1034,7 @@ forward."
           (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
 
 (use-package counsel-dash
-  :ensure-system-package sqlite3
+;  :ensure-system-package sqlite3
   :init
   (defun dash-docs-update-docsets-var (&optional _)
     "Update `dash-docs-common-docsets' variable."
@@ -1076,12 +1069,6 @@ forward."
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
-
-(use-package lv
-  :commands
-  lv-message
-  lv-window
-  lv-delete-window)
 
 (use-package hydra
   :defer 2
@@ -2584,8 +2571,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :defer 2
   :after
   wgrep-ag
-  :ensure-system-package
-  (rg . ripgrep)
+  ;; :ensure-system-package
+  ;; (rg . ripgrep)
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
   :commands
@@ -3186,13 +3173,6 @@ With a prefix ARG always prompt for command to use."
 
 ;;;; Dired
 
-(defun dired-open-file ()
-  "Open file at point in OS default program."
-  (interactive)
-  (let* ((file (dired-get-filename nil t)))
-    (message "Opening %s..." file)
-    (os-open-file file)))
-
 (use-package dired
   :ensure nil
   :custom
@@ -3209,6 +3189,7 @@ With a prefix ARG always prompt for command to use."
                                 (executable-find "ls")))
   ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
+
   :commands
   dired-summary
   dired-do-delete
@@ -3221,7 +3202,15 @@ With a prefix ARG always prompt for command to use."
   dired-unmark
   dired-view-file
   dired-ediff-files
+
   :config
+  (defun dired-open-file ()
+    "Open file at point in OS default program."
+    (interactive)
+    (let* ((file (dired-get-filename nil t)))
+      (message "Opening %s..." file)
+      (os-open-file file)))
+
   (defhydra hydra-dired (:hint nil :color pink)
     "
 _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
@@ -3267,6 +3256,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
     ("z" dired-do-compress)
     ("q" nil)
     ("." nil :color blue))
+
   :hook
   (dired-mode-hook . dired-hide-details-mode)
   (dired-mode-hook . (lambda ()
@@ -3284,8 +3274,8 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   :ensure nil
   :after dired
   :defer 6
-  :config
-  (setq dired-clean-confirm-killing-deleted-buffers nil)
+  :custom
+  (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
   (:map dired-mode-map
         ("C-." . dired-omit-mode)))
@@ -3962,6 +3952,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
 
 (use-package smartparens
   :defer 1
+
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
   ;; the entire symbol, use `sp-kill-symbol'.
@@ -3971,13 +3962,13 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ;; type over the closing delimiter as long as you didn't leave the
   ;; sexp entirely.)
   (sp-cancel-autoskip-on-backward-movement nil)
+
   :commands
   sp-get-pair
   sp--get-opening-regexp
   sp--get-closing-regexp
-  :config
-  (eval-when-compile (require 'sh-script))
 
+  :config
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -4194,6 +4185,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
   (smartparens-global-mode)
   (show-smartparens-global-mode)
+
   :commands
   sp-local-pair
   sp-with-modes
@@ -4202,12 +4194,16 @@ See https://github.com/Fuco1/smartparens/issues/80."
   sp-point-in-string-or-comment sp-forward-slurp-sexp
   sp-backward-symbol sp-backward-symbol sp-down-sexp
   sp-forward-sexp sp-backward-sexp
+
   :bind
   (:map lisp-mode-shared-map
         ("RET" . sp-newline)
         ("<return>" . sp-newline)
         ("C-k" . sp-kill-hybrid-sexp)
         (";" . sp-comment))
+  (:map parinfer-mode-map
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline))
   (:map smartparens-mode-map
         ("M-s" . nil)
         ("M-r" . nil)
@@ -4503,7 +4499,7 @@ If no region is selected, toggles comments for the line."
   (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
 
 (use-package fish-completion
-  :ensure-system-package fish
+;  :ensure-system-package fish
   :custom
   (fish-completion-fallback-on-bash-p t)
   :hook
@@ -5474,6 +5470,8 @@ of problems in that context."
         ("C-c C-k" . inf-clojure-eval-buffer)))
 
 (use-package cider
+  :custom
+  (cider-prompt-for-var nil)
   :config
   (defun toggle-nrepl-buffer ()
     "Toggle the nREPL REPL on and off."
@@ -5704,6 +5702,9 @@ Open the `eww' buffer in another window."
     (switch-to-buffer-other-window (current-buffer))
     (eww url t))
 
+  :commands
+  eww-other-window
+
   :bind
   ("M-m e" . eww))
 
@@ -5769,8 +5770,8 @@ Open the `eww' buffer in another window."
   (css-indent-offset tab-width))
 
 (use-package sass-mode
-  :ensure-system-package
-  (sass . "gem install sass")
+  ;; :ensure-system-package
+  ;; (sass . "gem install sass")
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
 
 (use-package restclient
@@ -5805,7 +5806,7 @@ Open the `eww' buffer in another window."
   (js-indent-level tab-width))
 
 (use-package json-mode
-  :ensure-system-package jq
+;  :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 ;; :hook
 ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
@@ -5967,14 +5968,16 @@ Open the `eww' buffer in another window."
                 xml-mode-hook) . lsp-deferred)
   (lsp-after-open-hook . lsp-enable-imenu))
 
-(use-package lsp-ui :commands lsp-ui-mode
+(use-package lsp-ui
+  :commands lsp-ui-mode
   :bind
   (:map lsp-ui-mode-map
         ("M-." . lsp-ui-peek-find-definitions)
         ("M-?" . lsp-ui-peek-find-references)
         ("C-h ." . lsp-ui-doc-show)))
 
-(use-package company-lsp :commands company-lsp)
+(use-package company-lsp
+  :commands company-lsp)
 
 ;; TODO Test out `dap-mode'.
 ;; (use-package dap-mode)
@@ -6001,11 +6004,18 @@ referencing a format region function, which takes two arguments:
   :config
 
   (with-no-warnings
-
-    (defvar m-clojure-command (executable-find "clojure"))
+    
+    ;; Try to use the native image version, fall back to the JVM.
+    (defvar m-zprint-command nil)
+    (defvar m-zprint-args '("{:map {:comma? false}}"))
+    (if-let ((zp (executable-find "~/.bin/zprint")))
+        (setq m-zprint-command zp)
+      (progn
+        (setq m-zprint-command (executable-find "clojure"))
+        (push '("-A:zprint") m-zprint-args)))
     (reformatter-define zprint
-      :program m-clojure-command
-      :args '("-A:zprint")
+      :program m-zprint-command
+      :args m-zprint-args
       :group 'm-reformatter)
     (add-to-list 'm-reformatters '(clojure-mode . zprint))
     (add-to-list 'm-reformatters '(clojurec-mode . zprint))
@@ -6128,58 +6138,58 @@ Prefix ARG is passed to `fill-paragraph'."
   ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
-  :mode ("\\.sh\\'" . sh-mode)
-  :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
-  :init
-  (defun maybe-reset-major-mode ()
-    "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-Mostly useful as a `before-save-hook', to guess mode when saving
-a new file for the first time."
-    (when (and (buffer-file-name)
-               (not (file-exists-p (buffer-file-name)))
-               (eq major-mode 'fundamental-mode))
-      (normal-mode)))
-
+  ;; :mode ("\\.sh\\'" . sh-mode)
+  ;; :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
+  
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t)
-  :config
-  ;; Match variables in quotes. Fuco1 is awesome, mkay.
-  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
-  (defun shell-match-variables-in-quotes (limit)
-    "Match variables in double-quotes in `sh-mode' with LIMIT."
-    (with-syntax-table sh-mode-syntax-table
-      (catch 'done
-        (while (re-search-forward
-                ;; `rx' is cool, mkay.
-                (rx (or line-start (not (any "\\")))
-                    (group "$")
-                    (group
-                     (or (and "{" (+? nonl) "}")
-                         (and (+ (any alnum "_")))
-                         (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
-                limit t)
-          (-when-let (string-syntax (nth 3 (syntax-ppss)))
-            (when (= string-syntax 34)
-              (throw 'done (point))))))))
+  (executable-prefix-env t))
 
-  (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
-                                      (1 'default t)
-                                      (2 font-lock-variable-name-face t))))
-  :hook
-  (before-save-hook . maybe-reset-major-mode)
-  (after-save-hook . executable-make-buffer-file-executable-if-script-p)
-  :bind
-  (:map sh-mode-map
-        ("<return>" . newline-and-indent)
-        ("RET" . newline-and-indent)
-        ("C-c m" . executable-set-magic)
-        ;; Don't shadow `yasnippet'.
-        ("C-c C-s" . nil)
-        ("C-c M-s" . sh-select)))
+;;   :config
+;;   (defun maybe-reset-major-mode ()
+;;     "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+;; Mostly useful as a `before-save-hook', to guess mode when saving
+;; a new file for the first time."
+;;     (when (and (eq major-mode 'fundamental-mode)
+;;                (buffer-file-name)
+;;                (not (file-exists-p (buffer-file-name))))
+;;       (normal-mode)))
+  
+;;   ;; Match variables in quotes. Fuco1 is awesome, mkay.
+;;   ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
+;;   (defun shell-match-variables-in-quotes (limit)
+;;     "Match variables in double-quotes in `sh-mode' with LIMIT."
+;;     (with-syntax-table sh-mode-syntax-table
+;;       (catch 'done
+;;         (while (re-search-forward
+;;                 ;; `rx' is cool, mkay.
+;;                 (rx (or line-start (not (any "\\")))
+;;                     (group "$")
+;;                     (group
+;;                      (or (and "{" (+? nonl) "}")
+;;                          (and (+ (any alnum "_")))
+;;                          (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
+;;                 limit t)
+;;           (-when-let (string-syntax (nth 3 (syntax-ppss)))
+;;             (when (= string-syntax 34)
+;;               (throw 'done (point))))))))
 
+;;   (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
+;;                                       (1 'default t)
+;;                                       (2 font-lock-variable-name-face t))))
+  ;; :hook
+  ;; (before-save-hook . maybe-reset-major-mode)
+  ;; (after-save-hook . executable-make-buffer-file-executable-if-script-p)
+  ;; :bind
+  ;; (:map sh-mode-map
+  ;;       ("<return>" . newline-and-indent)
+  ;;       ("RET" . newline-and-indent)
+  ;;       ("C-c m" . executable-set-magic)
+  ;;       ;; Don't shadow `yasnippet'.
+  ;;       ("C-c C-s" . nil)
+  ;;       ("C-c M-s" . sh-select)))
 
 ;; git config files
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
@@ -6237,8 +6247,8 @@ a new file for the first time."
   :mode "\\.toml\\'")
 
 (use-package enh-ruby-mode
-  :ensure-system-package
-  (rufo . "gem install rufo")
+  ;; :ensure-system-package
+  ;; (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :config
   (defvar inf-ruby-minor-mode-map)
@@ -6325,7 +6335,7 @@ a new file for the first time."
   :mode "\\.ahk\\'")
 
 (use-package plantuml-mode
-  :ensure-system-package plantuml
+  ;; :ensure-system-package plantuml
   :mode "\\.plantuml\\'"
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
@@ -6377,96 +6387,11 @@ configuration when invoked to evaluate a line."
   ("s-<return>" . eir-eval-in-shell)
   ("M-s-<return>" . eir-eval-in-shell-and-advance))
 
-;;;; Utility
+;;;; Multiple Major Modes
 
-(use-package polymode
-  :defer 8
-  :commands
-  pm--get-keylist.keymap-from-parent
-  pm--config-name
-  :config
-
-  (with-no-warnings
-    ;; js
-    (define-hostmode poly-js-hostmode
-      :mode 'js-mode)
-    (define-innermode poly-js-graphql-innermode
-      :mode 'graphql-mode
-      :head-matcher "graphql[ \t\n]*(?`"
-      :tail-matcher "`"
-      :head-mode 'host
-      :tail-mode 'host)
-    (define-polymode poly-js-mode
-      :hostmode 'poly-js-hostmode
-      :innermodes '(poly-js-graphql-innermode))
-
-    ;; web
-    (define-hostmode poly-web-hostmode
-      :mode 'web-mode)
-    (define-innermode poly-web-svg-innermode
-      :mode 'nxml-mode
-      :head-matcher "<svg"
-      :tail-matcher "</svg>"
-      :head-mode 'inner
-      :tail-mode 'inner)
-    (define-polymode poly-web-mode
-      :hostmode 'poly-web-hostmode
-      :innermodes '(poly-web-svg-innermode))
-
-    ;; restclient
-    (define-hostmode poly-restclient-hostmode
-      :mode 'restclient-mode)
-    (define-innermode poly-restclient-elisp-root-innermode
-      :mode 'emacs-lisp-mode
-      :head-mode 'host
-      :tail-mode 'host)
-    (define-innermode poly-restclient-elisp-single-innermode
-      poly-restclient-elisp-root-innermode
-      :head-matcher "^:[^ ]+ :="
-      :tail-matcher "\n")
-    (define-innermode poly-restclient-elisp-multi-innermode
-      poly-restclient-elisp-root-innermode
-      :head-matcher "^:[^ ]+ := <<"
-      :tail-matcher "^#$")
-    (define-polymode poly-restclient-mode
-      :hostmode 'poly-restclient-hostmode
-      :innermodes '(poly-restclient-elisp-single-innermode
-                    poly-restclient-elisp-multi-innermode))
-
-    ;; applescript
-    (defun match-string-delimiter (ahead)
-      "Match the delimiter of a string, forward if AHEAD is positive.
-Backward if AHEAD is negative."
-      (let ((re "[^\\]\""))
-        (when (or (looking-at re)
-                  (if (> ahead 0)
-                      (re-search-forward re)
-                    (re-search-backward re)))
-          (cons (match-beginning 0) (match-end 0)))))
-
-    (define-innermode poly-emacs-lisp-apples-innermode
-      :mode 'apples-mode
-      :head-matcher "do-applescript\s-*.*\""
-      :tail-matcher #'match-string-delimiter)
-    (define-polymode poly-emacs-lisp-mode
-      :hostmode 'poly-emacs-lisp-hostmode
-      :innermodes '(poly-emacs-lisp-apples-innermode)))
-
-    ;; WIP
-    ;; (define-innermode poly-emacs-lisp-Info-innermode
-    ;;   :mode 'Info-mode
-    ;;   :)
-
-  :hook
-  ((js-mode-hook . poly-js-mode)
-   ;; (rjsx-mode-hook . poly-rjsx-mode)
-   (web-mode-hook . poly-web-mode)
-   (restclient-mode-hook . poly-restclient-mode)))
-
-(use-package poly-markdown
-  :defer 8
-  :hook
-  (markdown-mode-hook . poly-markdown-mode))
+;; I can't figure out how to defer loading of polymode without separating it
+;; into its own file. Why is this necessary?
+(run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
   :git "https://github.com/aaronbieber/fence-edit.el.git"
@@ -6481,11 +6406,10 @@ Backward if AHEAD is negative."
                   ;; TODO: How to ignore escaped double quotes? (`\"')
                   ("do-applescript\s-*.*\"" "\"" apples))
                 fence-edit-blocks))
-  :hook
-  ;; Don't shadow the fence-edit binding
-  (markdown-mode-hook . (lambda () (bind-key "C-c '" nil markdown-mode-map)))
   :bind
-  ("C-c '" . fence-edit-dwim))
+  ("C-c '" . fence-edit-dwim)
+  (:map markdown-mode-map
+        ("C-c '" . nil)))
 
 
 (provide 'init)

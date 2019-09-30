@@ -95,17 +95,23 @@ It is used to load the last used settings without the need for
   :group 'fiat
   :type 'string)
 
-(defvar fiat-save-variables '(fiat-theme fiat-status)
-  "A list of variables to be saved to disk.")
+(defcustom fiat-save-variables '(fiat-theme fiat-status)
+  "A list of variables to be saved to disk."
+  :group 'fiat
+  :type '(repeat symbol))
+
+(defcustom fiat-before-theme-hook nil
+  "Called from `fiat-theme' before changing themes."
+  :group 'fiat
+  :type 'hook)
+
+(defcustom fiat-after-theme-hook nil
+  "Called from `fiat-theme' after changing themes."
+  :group 'fiat
+  :type 'hook)
 
 (defvar fiat-choose-history nil
   "History list for `fiat-theme-choose'.")
-
-(defvar fiat-before-hook nil
-  "Called from `fiat-theme' before changing themes.")
-
-(defvar fiat-after-hook nil
-  "Called from `fiat-theme' after changing themes.")
 
 (defvar fiat-selected-window (frame-selected-window)
   "Selected window.")
@@ -467,7 +473,7 @@ Emacs from barfing fruit salad on the screen."
                   fiat-theme-fallback))
   (if theme
       (progn
-        (mapc #'funcall fiat-before-hook)
+        (mapc #'funcall fiat-before-theme-hook)
         (custom-set-variables '(custom-enabled-themes nil))
         (load-theme theme t)
         (let* ((opts (alist-get theme fiat-themes)))
@@ -486,7 +492,7 @@ Emacs from barfing fruit salad on the screen."
             (when (boundp 'hook) (mapc #'funcall hook))))
         (setq fiat-theme theme)
         (fiat--save-config)
-        (mapc #'funcall fiat-after-hook))
+        (mapc #'funcall fiat-after-theme-hook))
     (user-error "No theme specified in args, `fiat-theme', or `fiat-config-file'")))
 
 ;;;###autoload
@@ -560,7 +566,7 @@ Emacs from barfing fruit salad on the screen."
   :lighter nil
   (if fiat-highlight-selected-window-mode
       (progn
-        (add-hook 'fiat-after-hook #'fiat-highlight-selected-window--update)
+        (add-hook 'fiat-after-theme-hook #'fiat-highlight-selected-window--update)
         (add-hook 'buffer-list-update-hook #'fiat-highlight-selected-window))
     (remove-hook 'buffer-list-update-hook #'fiat-highlight-selected-window)))
 
