@@ -6,22 +6,29 @@ IFS=$'\n\t'
 
 print_help() {
   cat <<EOF
-setup - Set up the emacs environment
+setup - Set up the Emacs environment
 
-usage: ./setup [ TASK ]
+usage: setup [ TASK ] [ ARGS ]
 
   Where TASK is one of:
 
-  all    Run deps and build tasks (default)
+           If no task is specified, run deps, fetch, build, and then install
 
-  emacs  Build Emacs and modules
+  deps     Install and update OS dependencies
 
-  deps   Install and update OS dependencies
+  fetch    Fetch the Emacs source repository
+           ARGS: [ BUILD_DIRECTORY ] [ REPOSITORY_URL ]
+
+  build    Build Emacs and modules
+           ARGS: [ BUILD_DIRECTORY ]
+
+  install  Install Emacs on the local machine
+           ARGS: [ BUILD_DIRECTORY ]
 
 EOF
 }
 
-base="$HOME/.emacs.d/src"
+base="${EMACS_SETUP_BASE:-$HOME/.emacs.d/src}"
 
 required=(
   autoconf
@@ -35,6 +42,7 @@ required=(
   jansson
   cairo
   libvterm)
+
 required_casks=(mactex)
 
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
@@ -52,10 +60,12 @@ configure_opts=(
   PKG_CONFIG_PATH="PKG_CONFIG_PATH:/usr/local/opt/gnutls/lib/pkgconfig:/usr/local/opt/nettle/lib/pkgconfig:/usr/local/opt/libtasn1/lib/pkgconfig:/usr/local/opt/p11-kit/lib/pkgconfig"
 )
 
+# Print the given arguments out in a nice heading
 heading() {
-  printf "\033[38;5;013m %s  \033[0m  \n" "$*"
+  printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
 }
 
+# Return exit code 0 if $1 is the same as any of the rest of the arguments
 contains() {
   local e match="$1"
   shift
@@ -104,17 +114,7 @@ brew_ensure() {
   fi
 }
 
-install_deps() {
-  heading "Installing Dependencies..."
-
-  brew_ensure "${required[@]}"
-  brew_ensure cask "${required_casks[@]}"
-  brew install --HEAD universal-ctags/universal-ctags/universal-ctags
-
-  # Apparently gnutls is bottled now.
-  which gnutls || PATH="$(brew --prefix gnutls):$PATH"
-}
-
+# Print the number of CPU cores on the local machine
 how_many_cores() {
   case "$(uname)" in
   Darwin)
@@ -126,37 +126,77 @@ how_many_cores() {
   esac
 }
 
-build_emacs() {
-  heading "Building Emacs..."
+# Install Emacs dependencies
+deps() {
+  heading "Installing Dependencies..."
 
-  ensure_install_directory
+  brew_ensure "${required[@]}"
+  brew_ensure cask "${required_casks[@]}"
+  brew install --HEAD universal-ctags/universal-ctags/universal-ctags
 
-  make_options="-j $((2 * $(how_many_cores)))"
+  # Apparently gnutls is bottled now.
+  which gnutls || PATH="$(brew --prefix gnutls):$PATH"
+}
+
+# Fetch the Emacs source repository
+fetch() {
+  heading "Fetching Emacs source..."
+  echo "Source directory will be $base/$build_dir"
 
   mkdir -p "$base"
   pushd "$base"
 
-  [ -d "$base/emacs" ] || git clone "https://git.savannah.gnu.org/git/emacs.git"
-  pushd "$base/emacs"
+  [ -d "$base/$build_dir" ] || git clone "$repo" "$build_dir"
+  pushd "$base/$build_dir"
 
   git pull
+}
+
+# Build Emacs from source
+build() {
+  heading "Building Emacs..."
+
+  pushd "$base/$build_dir"
+
   ./autogen.sh
   ./configure "${configure_opts[@]}"
-  make -j $((2 * $(how_many_cores)))
+  make -j $make_jobs
 
+  popd
+}
+
+# Install Emacs from the build directory
+install() {
   heading "Installing Emacs..."
+
+  ensure_install_directory
+
+  pushd "$base/$build_dir"
+
   # Even though we move the binary ourselves, we still need to install to get the
   # Emacs Lisp and C source files in the right place.
-  make -j $((2 * $(how_many_cores))) install
+  make -j $make_jobs install
   rm -rf "$HOME/Applications/Emacs.app"
   mv nextstep/Emacs.app "$HOME/Applications/"
 
   popd
 }
 
+make_jobs=$((2 * $(how_many_cores)))
+
+task="${1:-}"
+build_dir="${2:-emacs}"
+repo="${2:-https://git.savannah.gnu.org/git/emacs.git}"
+
 case "${1:-}" in
-d*) install_deps ;;
-b* | e*) build_emacs ;;
-h*) print_help ;;
-*) install_deps && build_emacs ;;
+d*) deps ;;
+f* | c*) fetch ;;
+b* | e*) build ;;
+-h | --help | h*) print_help ;;
+*)
+  deps
+  fetch
+  build
+  install
+  ;;
 esac
