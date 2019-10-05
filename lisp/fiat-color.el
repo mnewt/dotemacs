@@ -110,6 +110,11 @@ It is used to load the last used settings without the need for
   :group 'fiat
   :type 'hook)
 
+(defcustom fiat-eyebrowse-format "%d:%s"
+  "Format string for eyebrowse mode-line information."
+  :group 'fiat
+  :type 'string)
+
 (defvar fiat-choose-history nil
   "History list for `fiat-theme-choose'.")
 
@@ -348,11 +353,16 @@ Return nil if `evil-mode' is not active."
           (border (propertize " " 'face 'mode-line-emphasis)))
       (concat border
               (string-join
-               (mapcar (lambda (s)
-                         (if (= s current-slot)
-                             (propertize (number-to-string s) 'face 'mode-line-buffer-id)
-                           (propertize (number-to-string s) 'face 'mode-line-emphasis)))
-                       (mapcar #'car (eyebrowse--get 'window-configs)))
+               (mapcar (lambda (wc)
+                         (let* ((number (car wc))
+                                (name (caddr wc))
+                                (label (if (string-blank-p name)
+                                           (number-to-string number)
+                                         (format fiat-eyebrowse-format number name))))
+                           (if (= number current-slot)
+                               (propertize label 'face 'mode-line-buffer-id)
+                             (propertize label 'face 'mode-line-emphasis))))
+                       (eyebrowse--get 'window-configs))
                border)
               border))))
 
