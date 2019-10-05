@@ -154,13 +154,13 @@ Update environment variables from a shell source file."
   (setq delete-by-moving-to-trash t
         trash-directory "~/.Trash"))
 
-(defvar w32-pass-lwindow-to-system)
-(defvar w32-lwindow-modifier)
-(defvar w32-pass-rwindow-to-system)
-(defvar w32-rwindow-modifier)
-
 (defun config-windows ()
   "Configure Emacs for Windows."
+  (defvar w32-pass-lwindow-to-system)
+  (defvar w32-lwindow-modifier)
+  (defvar w32-pass-rwindow-to-system)
+  (defvar w32-rwindow-modifier)
+
   (setq w32-pass-lwindow-to-system nil
         w32-lwindow-modifier 'super
         w32-pass-rwindow-to-system nil
@@ -462,6 +462,11 @@ on the next startup."
 (define-prefix-command 'm-search-map)
 (global-set-key (kbd "M-m s") 'm-search-map)
 (defvar m-search-map (make-sparse-keymap "M-Search"))
+
+;; Prefix key "M-m o": Org
+(define-prefix-command 'm-org-map)
+(global-set-key (kbd "M-m o") 'm-org-map)
+(defvar m-org-map (make-sparse-keymap "M-Org"))
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -1260,11 +1265,43 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   org-capture-refile
   :config
 
+  (defun org-todo-file (arg)
+    "Open the appropriate Org TODO.org file, informed by ARG.
+
+When in a project directory, open it in the project root.
+
+When not in a project directory or a prefix ARG is specified,
+open it in `org-directory'."
+    (interactive "P")
+    (find-file (expand-file-name "TODO.org"
+                                 (if (and (not arg) (projectile-project-p))
+                                     (projectile-project-root)
+                                   org-directory))))
+
   (defun org-search-org-directory ()
     "Search ~/org using `counsel-rg'."
     (interactive)
     (let ((default-directory org-directory))
       (counsel-rg)))
+
+  (defun org-new-note (arg)
+    "Create a new Org buffer with ARG controlling the location.
+
+Without prefix ARG, create it in the project root directory (if
+we are in a project) or the current directory.
+
+With a prefix ARG, create it in `org-directory'."
+    (interactive "P")
+    (find-file (expand-file-name "new-note.org"
+                                 (cond
+                                  (arg org-directory)
+                                  ((projectile-project-p)
+                                   (projectile-project-root))))))
+
+  (defun org-dired-org-directory ()
+    "Visit `org-directory' using Dired."
+    (interactive)
+    (dired org-directory))
 
   (defun org-todo-todo ()
     "Create or update Org todo entry to TODO status."
@@ -1375,41 +1412,52 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
     (dired-mode-hook . org-download-enable))
 
   ;; Required for Org html export
-  ;; (use-package htmlize
-  ;;   :commands
-  ;;   htmlize-file
-  ;;   htmlize-region
-  ;;   htmlize-buffer
-  ;;   htmlize-many-files
-  ;;   htmlize-many-files-dired
-  ;;   org-html-htmlize-generate-css)
+  (use-package htmlize
+    :commands
+    htmlize-file
+    htmlize-region
+    htmlize-buffer
+    htmlize-many-files
+    htmlize-many-files-dired
+    org-html-htmlize-generate-css)
 
   (use-package org-preview-html
     :commands
     org-preview-html-mode)
 
   :bind
-  (("C-c l" . org-store-link)
-   ("C-c a" . org-agenda)
-   ("C-c c" . org-capture)
-   ("C-c b" . org-switchb)
-   :map m-map
-   ("s" . org-search-org-directory)
-   ("n" . (lambda () (interactive)
-            (find-file (expand-file-name "new-note.org"))))
-   ("o" . (lambda () (interactive) (find-file org-directory)))
-   :map org-mode-map
-   ("C-M-}" . org-forward-sentence)
-   ("C-M-{" . org-backward-sentence)
-   ("M-S-<up>" . org-move-subtree-up)
-   ("M-S-<down>" . org-move-subtree-down)
-   ("s->" . org-shiftright)
-   ("s-<" . org-shiftleft)
-   ("M-p" . org-previous-visible-heading)
-   ("M-n" . org-next-visible-heading)
-   :map visual-line-mode-map
-   ;; Don't shadow mwim and org-mode bindings
-   ([remap move-beginning-of-line] . nil)))
+  ("C-c l" . org-store-link)
+  ("C-c C-l" . org-insert-link)
+  ("C-c a" . org-agenda)
+  ("C-c c" . org-capture)
+  ("C-c b" . org-switchb)
+  ("C-c n" . org-new-note)
+  (:map org-mode-map
+        ("C-M-}" . org-forward-sentence)
+        ("C-M-{" . org-backward-sentence)
+        ("M-S-<up>" . org-move-subtree-up)
+        ("M-S-<down>" . org-move-subtree-down)
+        ("s->" . org-shiftright)
+        ("s-<" . org-shiftleft)
+        ("M-p" . org-backward-heading-same-level)
+        ("M-n" . org-forward-heading-same-level))
+  (:map m-org-map
+        ("a" . org-agenda)
+        ("b" . org-switchb)
+        ("c" . org-capture)
+        ("d" . org-dired-org-directory)
+        ("i" . org-insert-link)
+        ("l" . org-store-link)
+        ("n" . org-new-note)
+        ("s" . org-search-org-directory)
+        ("t" . org-todo-file))
+  (:map m-search-map
+        ("o" . org-search-org-directory))
+  (:map m-file-map
+        ("o" . org-dired-org-directory))
+  (:map visual-line-mode-map
+        ;; Don't shadow mwim and org-mode bindings
+        ([remap move-beginning-of-line] . nil)))
 
 (use-package poporg
   :bind
@@ -3046,6 +3094,9 @@ Start search in DIR or `default-directory'."
 
 ;;;; psync
 
+;; psync (https://github.com/mnewt/psync)
+(add-to-list 'auto-mode-alist '("psync_config\\'" . sh-mode))
+
 (defvar-local psync-directory nil
   "Cached directory for `psync'.
 
@@ -3286,6 +3337,7 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
         ("C-c C-r" . dired-rsync)))
 
 (use-package disk-usage
+  :git "git@gitlab.com:mnewt/emacs-disk-usage.git"
   :bind
   (:map dired-mode-map
         (")" . disk-usage-here)
@@ -3419,6 +3471,32 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
  ("C-c O" . os-reveal-file)
  :map m-toggle-map
  ("r" . auto-revert-mode))
+
+
+;;;; Math
+
+;; Math utilities.
+
+(use-package calc
+  :config
+  (setq math-additional-units
+        '((bit nil "Bit")
+          (bits "bit" "Bits")
+          (b "bit" "Bits")
+          (bps "bit / s" "Bits per second")
+          (Kib "1024 * b" "Kilo Bit")
+          (Mib "1024 * Kib" "Mega Bit")
+          (Gib "1024 * Mib" "Giga Bit")
+          (byte "8 * bit" "Byte")
+          (bytes "byte" "Bytes")
+          (B "byte" "Bytes")
+          (KiB "1024 * B" "Kilo Byte")
+          (MiB "1024 * KiB" "Mega Byte")
+          (GiB "1024 * MiB" "Giga Byte")))
+  :bind
+  (:map calc-mode-map
+        ("s-z" . calc-undo)
+        ("s-v" . calc-yank)))
 
 
 ;;;; Network
@@ -3943,9 +4021,9 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
         ;; Don't interfere with smartparens quote handling
         ("\"" . nil)
         ;; sp-newline seems to offer a better experience for lisps
-        ("RET" . nil)
-        ("<return>" . nil)
-        :map parinfer-region-mode-map
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline))
+  (:map parinfer-region-mode-map
         ("C-i" . indent-for-tab-command)
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
@@ -4201,9 +4279,6 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("<return>" . sp-newline)
         ("C-k" . sp-kill-hybrid-sexp)
         (";" . sp-comment))
-  (:map parinfer-mode-map
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline))
   (:map smartparens-mode-map
         ("M-s" . nil)
         ("M-r" . nil)
@@ -4211,11 +4286,12 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("M-<down>" . nil)
         ("C-M-f" . sp-forward-sexp)
         ("C-M-b" . sp-backward-sexp)
-        ;; ("C-M-n" . sp-next-sexp)
-        ;; ("C-M-p" . sp-previous-sexp)
+        ("C-M-n" . sp-next-sexp)
+        ("C-M-p" . sp-previous-sexp)
         ("M-a" . sp-beginning-of-sexp)
         ("M-e" . sp-end-of-sexp)
         ("C-M-d" . sp-down-sexp)
+        ("C-M-S-u" . sp-up-sexp)
         ("C-M-u" . sp-backward-up-sexp)
         ("M-s-s" . sp-splice-sexp)
         ("C-S-d" . sp-kill-symbol)
@@ -4701,7 +4777,9 @@ predicate returns true."
   "Run `fpw' command as COMMAND.
 
 Copy the result to the `kill-ring'. Call with a prefix argument
-to modify the args."
+to modify the args.
+
+See https://github.com/mnewt/fpw."
   (interactive (list (if current-prefix-arg
                          (read-shell-command "Run fpw (like this): "
                                              "fpw " 'fpw-history)
@@ -5439,14 +5517,33 @@ Interactively, reads the register using `register-read-with-preview'."
 
 (use-package clojure-mode
   :mode
-  (("\\.clj\\'" . clojure-mode)
-   ("\\.cljs\\'" . clojurescript-mode)
-   ("\\.cljc\\'" . clojurec-mode))
+  ("\\.clj\\'" . clojure-mode)
+  ("\\.cljs\\'" . clojurescript-mode)
+  ("\\.cljc\\'" . clojurec-mode)
   :interpreter
-  ("inlein" . clojure-mode))
+  ("inlein" . clojure-mode)
+  :config
+  (require 'clojure-mode-extra-font-locking)
+  :hook
+  (clojure-mode-hook . subword-mode))
 
-(use-package clojure-mode-extra-font-locking
-  :after clojure-mode)
+(use-package clj-refactor
+  :config
+  (defun clj-refactor-setup ()
+    "Set up `clj-refactor-mode'."
+    (clj-refactor-mode 1)
+    (cljr-add-keybindings-with-prefix "C-c C-m"))
+  :hook
+  (clojure-mode-hook . clj-refactor-setup))
+
+(use-package cider-hydra
+  :hook
+  (clojure-mode-hook . cider-hydra-mode))
+
+(use-package flycheck-clojure
+  :defer 9
+  :config
+  (flycheck-clojure-setup))
 
 (use-package inf-clojure
   :commands
@@ -5471,7 +5568,7 @@ of problems in that context."
 
 (use-package cider
   :custom
-  (cider-prompt-for-var nil)
+  (cider-prompt-for-symbol nil)
   :config
   (defun toggle-nrepl-buffer ()
     "Toggle the nREPL REPL on and off."
@@ -5491,6 +5588,14 @@ of problems in that context."
     (interactive)
     (cider-eval-last-sexp '(1)))
 
+  (defun cider-theme-setup ()
+    "The standard advice function runs at the wrong time I guess?
+  Anyway, it often gets set to the wrong color when switching
+  themes via `theme-choose'."
+    (when (fboundp 'cider-scale-background-color)
+      (setq cider-stacktrace-frames-background-color
+            (cider-scale-background-color))))
+
   :custom
   ;; Always prompt for the jack in command.
   (cider-edit-jack-in-command t)
@@ -5499,11 +5604,9 @@ of problems in that context."
   (cider-jack-in cider-switch-to-repl-buffer)
 
   :hook
-  ;; The standard advice function runs at the wrong time I guess? Anyway, it
-  ;; often gets set to the wrong color when switching themes via `theme-choose'.
-  (theme . (lambda () (when (fboundp 'cider-scale-background-color)
-                        (setq cider-stacktrace-frames-background-color
-                              (cider-scale-background-color)))))
+  (cider-mode-hook . eldoc-mode)
+  (fiat-after-theme-hook . cider-theme-setup)
+
   :bind
   (:map cider-mode-map
         ("s-<return>" . cider-eval-last-sexp)))
@@ -6138,58 +6241,58 @@ Prefix ARG is passed to `fill-paragraph'."
   ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
-  ;; :mode ("\\.sh\\'" . sh-mode)
-  ;; :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
+  :mode ("\\.sh\\'" . sh-mode)
+  :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
   
   :custom
   (sh-basic-offset tab-width)
   (sh-indentation tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t))
+  (executable-prefix-env t)
 
-;;   :config
-;;   (defun maybe-reset-major-mode ()
-;;     "Reset the buffer's `major-mode' if a different mode seems like a better fit.
-;; Mostly useful as a `before-save-hook', to guess mode when saving
-;; a new file for the first time."
-;;     (when (and (eq major-mode 'fundamental-mode)
-;;                (buffer-file-name)
-;;                (not (file-exists-p (buffer-file-name))))
-;;       (normal-mode)))
+  :config
+  (defun maybe-reset-major-mode ()
+    "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+Mostly useful as a `before-save-hook', to guess mode when saving
+a new file for the first time."
+    (when (and (eq major-mode 'fundamental-mode)
+               (buffer-file-name)
+               (not (file-exists-p (buffer-file-name))))
+      (normal-mode)))
   
-;;   ;; Match variables in quotes. Fuco1 is awesome, mkay.
-;;   ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
-;;   (defun shell-match-variables-in-quotes (limit)
-;;     "Match variables in double-quotes in `sh-mode' with LIMIT."
-;;     (with-syntax-table sh-mode-syntax-table
-;;       (catch 'done
-;;         (while (re-search-forward
-;;                 ;; `rx' is cool, mkay.
-;;                 (rx (or line-start (not (any "\\")))
-;;                     (group "$")
-;;                     (group
-;;                      (or (and "{" (+? nonl) "}")
-;;                          (and (+ (any alnum "_")))
-;;                          (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
-;;                 limit t)
-;;           (-when-let (string-syntax (nth 3 (syntax-ppss)))
-;;             (when (= string-syntax 34)
-;;               (throw 'done (point))))))))
+  ;; Match variables in quotes. Fuco1 is awesome, mkay.
+  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
+  (defun shell-match-variables-in-quotes (limit)
+    "Match variables in double-quotes in `sh-mode' with LIMIT."
+    (with-syntax-table sh-mode-syntax-table
+      (catch 'done
+        (while (re-search-forward
+                ;; `rx' is cool, mkay.
+                (rx (or line-start (not (any "\\")))
+                    (group "$")
+                    (group
+                     (or (and "{" (+? nonl) "}")
+                         (and (+ (any alnum "_")))
+                         (and (any "*" "@" "#" "?" "-" "$" "!" "0" "_")))))
+                limit t)
+          (-when-let (string-syntax (nth 3 (syntax-ppss)))
+            (when (= string-syntax 34)
+              (throw 'done (point))))))))
 
-;;   (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
-;;                                       (1 'default t)
-;;                                       (2 font-lock-variable-name-face t))))
-  ;; :hook
-  ;; (before-save-hook . maybe-reset-major-mode)
-  ;; (after-save-hook . executable-make-buffer-file-executable-if-script-p)
-  ;; :bind
-  ;; (:map sh-mode-map
-  ;;       ("<return>" . newline-and-indent)
-  ;;       ("RET" . newline-and-indent)
-  ;;       ("C-c m" . executable-set-magic)
-  ;;       ;; Don't shadow `yasnippet'.
-  ;;       ("C-c C-s" . nil)
-  ;;       ("C-c M-s" . sh-select)))
+  (font-lock-add-keywords 'sh-mode '((shell-match-variables-in-quotes
+                                      (1 'default t)
+                                      (2 font-lock-variable-name-face t))))
+  :hook
+  (before-save-hook . maybe-reset-major-mode)
+  (after-save-hook . executable-make-buffer-file-executable-if-script-p)
+  :bind
+  (:map sh-mode-map
+        ("<return>" . newline-and-indent)
+        ("RET" . newline-and-indent)
+        ("C-c m" . executable-set-magic)
+        ;; Don't shadow `yasnippet'.
+        ("C-c C-s" . nil)
+        ("C-c M-s" . sh-select)))
 
 ;; git config files
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
