@@ -1,33 +1,41 @@
-* DONE =counsel-imenu= is broken in Emacs master
-  - State "DONE"       from "WIP"        [2019-09-20 Fri 12:32]
- https://lists.gnu.org/archive/cgi-bin/namazu.cgi?query=30449&submit=Search%21&idxname=bug-gnu-emacs&max=20&result=normal&sort=score
+* Tasks
+** TODO Font-lock source code blocks in Info pages
 
-https://git.savannah.gnu.org/cgit/emacs.git/commit/?id=8635147ccba1fc8e1010010da8c3f8e467562f76
+** TODO Figure out magit wip modes
 
-https://github.com/abo-abo/swiper/issues/2241
+** TODO Get Eshell/tramp to cache and/or save passwords [0/2]
+ Enable logging with =(setq auth-source-DEBUG T)=
+*** TODO What about when sudo is called in other ways, such as from a script? it doesn't seem to cache the password then.
+*** TODO How to ignore password prompting for just for a specific command?
+ See:
+ #+begin_src emacs-lisp
+ (add-hook 'comint-output-filter-functions
+           'comint-watch-for-password-prompt)
+ #+end_src
+ This is already added. do we have to do something else?
 
-* =counsel-term=
-** DONE =counsel-term-cd=
+** TODO dired-rainbow-x
+*** TODO Fix remaining bugs
+*** TODO Show to Fuco1
 
-   - State "DONE"       from "WIP"        [2019-09-20 Fri 12:33]
- https://github.com/tautologyclub/counsel-term/pull/2
+** TODO =flash-thing=
 
- [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
+** TODO Implement =GRC= in Elisp =highlight-things.el=
+** DONE =counsel-imenu= is broken in Emacs master
+   - State "DONE"       from "WIP"        [2019-09-20 Fri 12:32]
+  https://lists.gnu.org/archive/cgi-bin/namazu.cgi?query=30449&submit=Search%21&idxname=bug-gnu-emacs&max=20&result=normal&sort=score
 
-* TODO Font-lock source code blocks in Info pages
-* TODO Figure out magit wip modes
-* TODO Get Eshell/tramp to cache and/or save passwords [0/2]
-Enable logging with =(setq auth-source-DEBUG T)=
-** TODO What about when sudo is called in other ways, such as from a script? it doesn't seem to cache the password then.
-** TODO How to ignore password prompting for just for a specific command?
-SEE:
-#+BEGIN_SRC EMACS-LISP
-(ADD-HOOK 'COMINT-OUTPUT-FILTER-FUNCTIONS
-          'COMINT-WATCH-FOR-PASSWORD-PROMPT)
-#+END_SRC
-THIS IS ALREADY ADDED. DO WE HAVE TO DO SOMETHING ELSE?
-* TODO dired-rainbow-x
-** TODO Fix remaining bugs
-** TODO Show to Fuco1
-* TODO =flash-thing=
-* TODO Implement =GRC= in Elisp =highlight-things.el=
+ https://git.savannah.gnu.org/cgit/emacs.git/commit/?id=8635147ccba1fc8e1010010da8c3f8e467562f76
+
+ https://github.com/abo-abo/swiper/issues/2241
+
+** DONE Fix compilation with SVG support
+   - State "DONE"       from "WIP"        [2019-10-05 Sat 13:24]
+
+** =counsel-term=
+*** WIP =counsel-term-cd=
+
+  https://github.com/tautologyclub/counsel-term/pull/2
+
+  [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
+
