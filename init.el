@@ -989,6 +989,8 @@ forward."
 (use-package which-key
   :demand t
   :defer 2
+  :custom
+  (which-key-idle-delay 0.01)
   :commands
   which-key-mode
   :config
@@ -1440,7 +1442,9 @@ With a prefix ARG, create it in `org-directory'."
         ("s->" . org-shiftright)
         ("s-<" . org-shiftleft)
         ("M-p" . org-backward-heading-same-level)
-        ("M-n" . org-forward-heading-same-level))
+        ("M-n" . org-forward-heading-same-level)
+        ("C-M-u" . org-up-element)
+        ("C-M-d" . org-down-element))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
@@ -3080,6 +3084,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 (use-package pinentry
   :defer 3
   :config
+  (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   (pinentry-start))
 
 (defun upsearch (filename &optional dir)
@@ -3904,10 +3909,10 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
     ("P" mc/skip-to-previous-like-this)
     ("M-p" mc/unmark-previous-like-this)
     ("r" mc/mark-all-in-region-regexp :exit t)
-    ("q" nil)
     ("<mouse-1>" mc/add-cursor-on-click)
     ("<down-mouse-1>" ignore)
-    ("<drag-mouse-1>" ignore))
+    ("<drag-mouse-1>" ignore)
+    ("q" nil))
 
   :bind
   ("M-<down-mouse-1>" . mc/add-cursor-on-click)
@@ -3919,7 +3924,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-M->" . mc/unmark-previous-like-this)
   ("C-c >" . mc/mark-all-dwim)
   ("C-c C-a"  . mc/mark-all-dwim)
-  ("C-'" . mc-hide-unmatched-lines-mode))
+  (:map mc/keymap
+        ("C-'" . mc-hide-unmatched-lines-mode)))
 
 (use-package replace
   :ensure nil

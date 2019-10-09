@@ -371,23 +371,6 @@ Return nil if `evil-mode' is not active."
 Propertize the result with the specified PROPERTIES."
   (when exp (apply #'propertize exp properties)))
 
-(defun fiat--set-os-dark-mode (darkp)
-  "When DARKP is non-nil, change the OS to dark mode."
-  (pcase system-type
-    ('darwin
-     (let ((default-directory "~") ; In case we are in a tramp session
-           (mode (if darkp "true" "false")))
-       (do-applescript (format "
-       tell application \"System Events\"
-           tell appearance preferences to set dark mode to %s
-       end tell
-       " mode))
-       (do-applescript "
-       tell application \"FirefoxDeveloperEdition\" to activate
-       tell application \"System Events\" to keystroke \"d\" using {shift down, option down}
-       tell application \"Emacs\" to activate
-")))))
-
 (defmacro fiat-make-toggle (variable)
   "Make a command to toggle a VARIABLE."
   `(defun ,(intern (concat (symbol-name variable) "-toggle")) (arg)
@@ -528,16 +511,14 @@ Emacs from barfing fruit salad on the screen."
   "Let the Emacs and OS themes be switched to light mode."
   (interactive)
   (setq fiat-status 'lux)
-  (fiat-theme 'spacemacs-light)
-  (fiat--set-os-dark-mode nil))
+  (fiat-theme 'spacemacs-light))
 
 ;;;###autoload
 (defun fiat-nox ()
   "Let the Emacs and OS themes be switched to dark mode."
   (interactive)
   (setq fiat-status 'nox)
-  (fiat-theme 'spacemacs-dark)
-  (fiat--set-os-dark-mode t))
+  (fiat-theme 'spacemacs-dark))
 
 ;;;###autoload
 (defun fiat ()
