@@ -248,24 +248,24 @@ to customize further."
       (fringe ((t :background ,inactive-bg)))
       (vertical-border ((t :foreground ,inactive-bg)))
       (mode-line ((t :box nil
-                     :underline nil
-                     :background ,inactive-bg
-                     :foreground ,(fiat-color-blend active-fg active-bg 0.9))))
+                   :underline nil
+                   :background ,inactive-bg
+                   :foreground ,(fiat-color-blend active-fg active-bg 0.9))))
       (mode-line-emphasis ((t :background ,(fiat-color-blend active-bg active-fg 0.7)
-                              :foreground ,active-fg)))
+                            :foreground ,active-fg)))
       (mode-line-highlight ((t :background ,highlight-fg
-                               :foreground ,active-bg)))
+                             :foreground ,active-bg)))
       (mode-line-buffer-id ((t :background ,(fiat-color-blend active-bg active-fg 0.2)
-                               :foreground ,inactive-bg
-                               :bold t)))
+                             :foreground ,inactive-bg
+                             :bold t)))
       (compilation-mode-line-fail ((t :inherit highlight)))
       (mode-line-inactive ((t :box nil
-                              :underline nil
-                              :background ,inactive-bg
-                              :foreground ,inactive-fg)))
+                            :underline nil
+                            :background ,(fiat-color-blend inactive-bg inactive-fg 0.8)
+                            :foreground ,(fiat-color-blend active-fg active-bg 0.8))))
       (sp-show-pair-match-face ((t :inherit highlight
-                                   :foreground nil
-                                   :background nil))))))
+                                 :foreground nil
+                                 :background nil))))))
 
 (defun fiat--save-config ()
   "Save the configuration to disk."
@@ -395,7 +395,7 @@ Propertize the result with the specified PROPERTIES."
           (fiat-render-mode-line
            ;; left
            (list
-            (fiat-ml-evil)
+            ;; (fiat-ml-evil)
             (when-propertize (fiat-ml-remote-hostname) 'face 'highlight)
             (propertize (concat " " (buffer-name) " ") 'face 'mode-line-buffer-id)
             (when (buffer-modified-p) " •")
@@ -403,31 +403,31 @@ Propertize the result with the specified PROPERTIES."
             (format-mode-line mode-name)
             " "
             (when (memq major-mode '(compilation-mode shell-mode))
-              (format-mode-line mode-line-process))
+             (format-mode-line mode-line-process))
             (when (bound-and-true-p which-function-mode)
-              (format-mode-line which-func-format)))
+             (format-mode-line which-func-format)))
            ;; right
            (list
             (when-propertize (fiat-ml-term) 'face 'mode-line-emphasis)
             (when (and fiat-show-flycheck
-                       (bound-and-true-p flycheck-mode))
-              (concat (substring (flycheck-mode-line-status-text) 1) " "))
+                   (bound-and-true-p flycheck-mode))
+             (concat (substring (flycheck-mode-line-status-text) 1) " "))
             (when (bound-and-true-p workgroups-mode)
-              (wg-mode-line-string))
+             (wg-mode-line-string))
             (fiat-eyebrowse-modeline)
             (when-propertize
              (fiat-ml-concat
               (list ""
-                    (when (bound-and-true-p parinfer-mode)
-                      (if (eq 'paren parinfer--mode) "🄟" "P↹"))
-                    (when (buffer-narrowed-p) "⒩")
-                    (when (bound-and-true-p hs-minor-mode) "⒣")
-                    (when (bound-and-true-p outline-minor-mode) "⦿"))
+               (when (bound-and-true-p parinfer-mode)
+                (if (eq 'paren parinfer--mode) "🄟" "P↹"))
+               (when (buffer-narrowed-p) "⒩")
+               (when (bound-and-true-p hs-minor-mode) "⒣")
+               (when (bound-and-true-p outline-minor-mode) "⦿"))
               " "
               t)
              'face 'mode-line-buffer-id)
             (when fiat-show-line-and-column
-              (propertize (format-mode-line " %l:%c ") 'face 'mode-line-buffer-id))
+             (propertize (format-mode-line " %l:%c ") 'face 'mode-line-buffer-id))
             (propertize " " 'face 'mode-line-buffer-id)))
         (fiat-render-mode-line
          ;; left
@@ -438,8 +438,8 @@ Propertize the result with the specified PROPERTIES."
           (when (buffer-modified-p) " •")
           " "
           (when (memq major-mode '(compilation-mode shell-mode))
-            (substring-no-properties
-             (format-mode-line mode-line-process))))
+           (substring-no-properties
+            (format-mode-line mode-line-process))))
          ;; right
          nil))))))
 

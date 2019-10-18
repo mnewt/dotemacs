@@ -30,12 +30,6 @@
 (add-hook 'emacs-startup-hook
           (lambda () (setq file-name-handler-alist m--file-name-handler-alist)))
 
-(defun display-startup-echo-area-message ()
-  "Display a message when Emacs finishes starting up."
-  (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
-    (defconst emacs-load-time elapsed)
-    (message "Emacs started in %.3f seconds." elapsed)))
-
 (setq load-prefer-newer t)
 
 (with-eval-after-load 'gnutls
@@ -46,14 +40,11 @@
 
 ;;;;; Initial appearance settings
 
-;; We set them here so loading is not as jarring.
-
 (when window-system
-  ;; Give the frame basic coloring are waiting for the theme to load. These colors
-  ;; are from spacemacs-dark and spacemacs-light.
-  (if (equal 'dark (frame-parameter nil 'background-mode))
-      (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
-    (set-face-attribute 'default nil :background "#fbf8ef" :foreground "#655370"))
+  ;; Give the frame basic coloring while waiting for the theme to load. The main
+  ;; purpose of this is to not blind me when it's dark. These colors are from
+  ;; spacemacs-dark.
+  (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
   ;; Default frame settings. This is actually maximized, not full screen.
   (add-to-list 'default-frame-alist '(fullscreen . maximized))
   (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t)))
@@ -77,7 +68,7 @@
 
 (require 'cl-seq)
 
-;; Path
+;;;;; Path
 (defvar path-default (if (eq system-type 'windows-nt)
                          '("C:/bin" "C:/Program Files/Emacs/bin")
                        nil)
@@ -90,7 +81,6 @@
   "Sources FILENAME using the user's login shell.
 Update environment variables from a shell source file."
   (interactive "fSource file: ")
-  (message "Sourcing environment from `%s'..." filename)
   (with-temp-buffer
     (shell-command (format "diff -u <(true; export) <(source %s; export)" filename) '(4))
     (let ((envvar-re "declare -x \\([^=]+\\)=\\(.*\\)$"))
@@ -105,7 +95,9 @@ Update environment variables from a shell source file."
         (let ((var (match-string 1))
               (value (read (match-string 2))))
           ;; (message "%s" (prin1-to-string `(setenv ,var ,value)))
-          (setenv var value)))))
+          (setenv var value)
+          (when (string= var "PATH")
+            (add-to-list 'exec-path value))))))
   (message "Sourcing environment from `%s'... done." filename))
 
 (defun path-add (&rest paths)
@@ -118,13 +110,9 @@ Update environment variables from a shell source file."
     (setenv "PATH" (mapconcat #'identity new-path path-separator))
     (setq exec-path new-path)))
 
-(defun path-reset ()
-  "Set path variables correctly for Linux, macOS, or Windows."
-  (apply #'path-add (append path-user path-default)))
-
 (source-sh "~/.env")
 (source-sh "~/.bin/start-ssh-agent")
-(path-reset)
+(apply #'path-add (append path-user path-default))
 
 (defvar os-open-file-executable nil
   "The executable used to open files in the host OS GUI.")
@@ -200,7 +188,6 @@ Update environment variables from a shell source file."
 ;; Add the macro generated list of package.el loadpaths to load-path.
 (mapc #'(lambda (add) (add-to-list 'load-path add))
       (eval-when-compile
-        ;; (require 'package)
         (package-initialize)
         ;; use-package customizations
         (custom-set-variables
@@ -212,12 +199,11 @@ Update environment variables from a shell source file."
         (unless (package-installed-p 'use-package)
           (package-refresh-contents)
           (package-install 'use-package))
-        ;; (require 'use-package)
         (custom-set-variables
          '(use-package-always-ensure t))
         (let ((package-user-dir-real (file-truename package-user-dir)))
-          ;; The reverse is necessary, because outside we mapc
-          ;; add-to-list element-by-element, which reverses.
+          ;; The reverse is necessary, because outside we mapc add-to-list
+          ;; element-by-element, which reverses.
           (nreverse (apply #'nconc
                            ;; Only keep package.el provided loadpaths.
                            (mapcar #'(lambda (path)
@@ -226,11 +212,11 @@ Update environment variables from a shell source file."
                                          nil))
                                    load-path))))))
 
-;; (use-package benchmark-init
-;;   :demand t
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+(use-package benchmark-init
+  :demand t
+  :config
+  ;; To disable collection of benchmark data after init is done.
+  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 (add-to-list 'load-path elisp-directory)
 
@@ -373,22 +359,7 @@ on the next startup."
   (paradox-automatically-star t)
   :commands
   paradox-list-packages
-  paradox-upgrade-packages
-  :config
-  ;; FIXME: See https://github.com/Malabarba/paradox/issues/175
-  (with-eval-after-load 'package
-    (defun package-menu-refresh ()
-      "Override package-menu-refresh to work around Malabarba/paradox#175"
-      (interactive)
-      (unless (derived-mode-p 'package-menu-mode)
-        (user-error "The current buffer is not a Package Menu"))
-      (when (and package-menu-async package--downloads-in-progress
-                 (seq-difference package--downloads-in-progress '(paradox--data)))
-        (user-error "Package refresh is already in progress, please wait"))
-      (setq package-menu--old-archive-contents package-archive-contents)
-      (setq package-menu--new-package-list nil)
-      (package-refresh-contents package-menu-async))))
-
+  paradox-upgrade-packages)
 
 ;;;; Libraries
 
@@ -408,6 +379,7 @@ on the next startup."
 (use-package f :demand t)
 
 (use-package async
+  :defer 9
   :commands
   dired-async-mode
   async-bytecomp-package-mode
@@ -490,7 +462,7 @@ on the next startup."
  ("C-S-L" . select-current-line)
  ("M-o" . other-window)
  ("s-b" . switch-to-buffer)
- ("s-B" . switch-to-buffer-other-window)
+ ("s-S-b" . switch-to-buffer-other-window)
  ("s-\`" . other-frame)
  ("C-\`" . other-frame)
  ("s-w" . delete-window)
@@ -604,8 +576,6 @@ on the next startup."
   (global-auto-revert-non-file-buffers t)
   ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
-  :commands
-  global-auto-revert-mode
   :config
   (global-auto-revert-mode))
 
@@ -626,7 +596,8 @@ on the next startup."
      read-expression-history
      command-history
      extended-command-history
-     ivy-history))
+     ivy-history
+     window-config-alist))
   :config
   (savehist-mode))
 
@@ -656,11 +627,7 @@ on the next startup."
 ;; (use-package psession
   ;; :defer nil)
   ;; :config
-  ;; (defun window-state--get-serialized ()
-  ;;   "Like `window-state-get' but with added detail for serialization."
-  ;;   (cl-loop for e in window-state
-  ;;            when (and (listp e) (eq 'leaf (car e)))
-  ;;            collect (nth 1 (assoc 'buffer (cdr e)))))
+  
 
   ;; (defun window-state-put-list))
 
@@ -832,7 +799,7 @@ returned."
 ;;   (flash-thing-mode))
 
 (use-package page-break-lines
-  :demand t
+  :defer 9
   :config
   (global-page-break-lines-mode))
 
@@ -978,11 +945,10 @@ forward."
 (use-package eldoc
   :defer 2
   :commands
-  eldoc-add-command
   global-eldoc-mode
   :config
-  (eldoc-add-command #'company-select-next
-                     #'company-select-previous
+  (eldoc-add-command ;; #'company-select-next
+                     ;; #'company-select-previous
                      #'keyboard-quit)
   (global-eldoc-mode))
 
@@ -990,7 +956,7 @@ forward."
   :demand t
   :defer 2
   :custom
-  (which-key-idle-delay 0.01)
+  (which-key-idle-delay 0.1)
   :commands
   which-key-mode
   :config
@@ -1003,7 +969,7 @@ forward."
   ;; Make the manpage the current buffer in the other window
   (Man-notify-method 'aggressive)
   :config
-  (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t)
+  (set-face-attribute 'Man-overstrike nil :inherit font-lock-type-face :bold t :height 1.2)
   (set-face-attribute 'Man-underline nil :inherit font-lock-keyword-face :underline t)
   :bind
   ("C-h M-m" . man))
@@ -1280,6 +1246,11 @@ open it in `org-directory'."
                                      (projectile-project-root)
                                    org-directory))))
 
+  (defun org-directory ()
+    "Open the Org directory"
+    (interactive)
+    (find-file org-directory))
+
   (defun org-search-org-directory ()
     "Search ~/org using `counsel-rg'."
     (interactive)
@@ -1428,6 +1399,7 @@ With a prefix ARG, create it in `org-directory'."
     org-preview-html-mode)
 
   :bind
+  ("s-o" . org-directory)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
   ("C-c a" . org-agenda)
@@ -1531,6 +1503,202 @@ With a prefix ARG, create it in `org-directory'."
   ("M-m i d" . calendar-insert-date)
   ("M-m i t" . calendar-insert-date-today)
   ("M-m j" . journal-new-entry))
+
+;;;; Mail
+
+(use-package mu4e
+  ;; :disabled
+  :ensure nil
+  :load-path "/usr/local/share/emacs/site-lisp/mu4e"
+  :custom
+  (mail-user-agent 'mu4e-user-agent)
+  ;; Don't save message to Sent Messages. The sending server saves the message.
+  (mu4e-sent-messages-behavior 'delete)
+  ;; Allow for updating mail using 'U' in the main view:
+  (mu4e-get-mail-command "mbsync -aq")
+  ;; Non-nil value retrieves mail and updates the database
+  (mu4e-update-interval 1800)
+  ;; Enable inline images in message view.
+  (mu4e-view-show-images t)
+  ;; Prevent duplicate UID issues with mbsync
+  (mu4e-change-filenames-when-moving t)
+  ;; Start with the first (default) context;
+  ;; default is to ask-if-none (ask when there's no context yet, and none match)
+  (mu4e-context-policy 'pick-first)
+
+  :config
+  (defun org-capture-mu4e ()
+    (interactive)
+    "Capture a TODO item via email."
+    (org-capture nil "m"))
+
+  (use-package mu4e-maildirs-extension
+    :config
+    (mu4e-maildirs-extension))
+
+  ;; Attachments from dired
+  ;; http://www.djcbsoftware.nl/code/mu/mu4e/Dired.html#Dired
+
+  ;; make the `gnus-dired-mail-buffers' function also work on
+  ;; message-mode derived modes, such as mu4e-compose-mode
+  (defun gnus-dired-mail-buffers ()
+    "Return a list of active message buffers."
+    (require 'gnus-dired)
+    (let (buffers)
+      (save-current-buffer
+        (dolist (buffer (buffer-list t))
+          (set-buffer buffer)
+          (when (and (derived-mode-p 'message-mode)
+                     (null message-sent-message-via))
+            (push (buffer-name buffer) buffers))))
+      (nreverse buffers)))
+
+  (setq gnus-dired-mail-mode 'mu4e-user-agent)
+  (add-hook 'dired-mode-hook 'turn-on-gnus-dired-mode)
+
+  (bind-keys :map mu4e-headers-mode-map
+             ("G" . mu4e-update-mail-and-index))
+
+  ;; Sending mail
+  ;; (require 'smtpmail)
+
+  (require 'smtpmail-async)
+
+  ;; Configure mu4e to send email asynchronously.
+  (defvar mail-queue-directory (expand-file-name "~/.mail/queue/")
+    "Mail queue for SMTP outgoing mail messages.")
+  (shell-command (format "mu mkdir %s" mail-queue-directory))
+  (shell-command (format "touch %s" (expand-file-name ".noindex" mail-queue-directory)))
+
+  ;; Setting `smtp-queue-mail' to t prevents messages from being sent unless
+  ;; they are explicitly flushed.
+  ;; TODO: Queue messages and periodically flush them.
+  (setq smtpmail-queue-mail nil
+        send-mail-function 'async-smtpmail-send-it
+        message-send-mail-function 'async-smtpmail-send-it
+        smtpmail-queue-dir  (expand-file-name "cur" mail-queue-directory)
+        ;; Make sure the gnutls command line utils are installed
+        ;; 'gnutls' in Arch Linux and macOS Homebrew
+        starttls-use-gnutls t)
+  ;; smtpmail-debug-info t
+
+  (defvar mu4e-last-window nil
+    "The last mu4e window.
+
+Used by `mu4e-toggle'.")
+
+  (defun mu4e-toggle (arg)
+    "Toggle the display of `mu4e'."
+    (interactive "P")
+    (let ((r "*mu4e-"))
+      (if (string-match-p r (buffer-name))
+          (progn (setq mu4e-last-window (buffer-name))
+                 (mapc #'bury-buffer (filter-buffers-by-name r))
+                 (previous-buffer))
+        (if arg
+            (call-interactively #'mu4e)
+          (if mu4e-last-window
+              (switch-to-buffer mu4e-last-window)
+            (mu4e-headers-search (mu4e-get-bookmark-query ?u)))))))
+
+  (bind-keys ("s-m" . mu4e-toggle)
+             :map mu4e-view-mode-map
+             ("<tab>" . shr-next-link)
+             ("<backtab>" . shr-previous-link))
+
+  (add-hook 'mu4e-compose-mode-hook #'turn-off-auto-fill)
+
+  (defun mbsync-start-imap-watch ()
+    "Start the imap-watch daemon."
+    (interactive)
+    (call-process "imap-watch" nil (get-buffer-create "*imap-watch*")))
+
+  (defhydra hydra-mu4e-headers (:color blue :hint nil)
+    "
+ ^General^   | ^Search^           | _!_ read    | _#_ deferred  | ^Switches^
+-^^----------+-^^-----------------| _?_ unread  | _%_ pattern   |-^^------------------
+ _n_ next    | _s_ search         | _r_ refile  | _&_ custom    | _O_ sorting
+ _p_ prev    | _S_ edit prev qry  | _u_ unmk    | _+_ flag      | _P_ threading
+ _]_ n unred | _/_ narrow search  | _U_ unmk *  | _-_ unflag    | _Q_ full-search
+ _[_ p unred | _b_ search bkmk    | _d_ trash   | _T_ thr       | _V_ skip dups
+ _y_ sw view | _B_ edit bkmk      | _D_ delete  | _t_ subthr    | _W_ include-related
+ _R_ reply   | _{_ previous qry   | _m_ move    |-^^-------------+-^^------------------
+ _C_ compose | _}_ next query     | _a_ action  | _|_ thru shl  | _`_ update, reindex
+ _F_ forward | _C-+_ show more    | _A_ mk4actn | _H_ help      | _;_ context-switch
+ _o_ org-cap | _C--_ show less    | _*_ *thing  | _q_ quit hdrs | _j_ jump2maildir"
+
+    ;; general
+    ("n" mu4e-headers-next)
+    ("p" mu4e-headers-previous)
+    ("[" mu4e-select-next-unread)
+    ("]" mu4e-select-previous-unread)
+    ("y" mu4e-select-other-view)
+    ("R" mu4e-compose-reply)
+    ("C" mu4e-compose-new)
+    ("F" mu4e-compose-forward)
+    ("o" org-capture-mu4e)
+
+    ;; search
+    ("s" mu4e-headers-search)
+    ("S" mu4e-headers-search-edit)
+    ("/" mu4e-headers-search-narrow)
+    ("b" mu4e-headers-search-bookmark)
+    ("B" mu4e-headers-search-bookmark-edit)
+    ("{" mu4e-headers-query-prev)
+    ("}" mu4e-headers-query-next)
+    ("C-+" mu4e-headers-split-view-grow)
+    ("C--" mu4e-headers-split-view-shrink)
+
+    ;; mark stuff
+    ("!" mu4e-headers-mark-for-read)
+    ("?" mu4e-headers-mark-for-unread)
+    ("r" mu4e-headers-mark-for-refile)
+    ("u" mu4e-headers-mark-for-unmark)
+    ("U" mu4e-mark-unmark-all)
+    ("d" mu4e-headers-mark-for-trash)
+    ("D" mu4e-headers-mark-for-delete)
+    ("m" mu4e-headers-mark-for-move)
+    ("a" mu4e-headers-action)
+    ("A" mu4e-headers-mark-for-action)
+    ("*" mu4e-headers-mark-for-something)
+
+    ("#" mu4e-mark-resolve-deferred-marks)
+    ("%" mu4e-headers-mark-pattern)
+    ("&" mu4e-headers-mark-custom)
+    ("+" mu4e-headers-mark-for-flag)
+    ("-" mu4e-headers-mark-for-unflag)
+    ("t" mu4e-headers-mark-subthread)
+    ("T" mu4e-headers-mark-thread)
+
+    ;; miscellany
+    ("q" mu4e~headers-quit-buffer)
+    ("H" mu4e-display-manual)
+    ("|" mu4e-view-pipe)
+
+    ;; switches
+    ("O" mu4e-headers-change-sorting)
+    ("P" mu4e-headers-toggle-threading)
+    ("Q" mu4e-headers-toggle-full-search)
+    ("V" mu4e-headers-toggle-skip-duplicates)
+    ("W" mu4e-headers-toggle-include-related)
+
+    ;; more miscellany
+    ("`" mu4e-update-mail-and-index)
+    (";" mu4e-context-switch)
+    ("j" mu4e~headers-jump-to-maildir)
+
+    ("." nil))
+
+  :bind
+  ("s-m" . mu4e-toggle)
+  ("M-m m" . mu4e)
+  (:map mu4e-main-mode-map
+        ("G" . mu4e-update-mail-and-index))
+  (:map mu4e-headers-mode-map
+        ("." . hydra-mu4e-headers/body))
+  (:map mu4e-view-mode-map
+        ("<tab>" . shr-next-link)
+        ("<backtab>" . shr-previous-link)))
 
 ;;;; Reading
 
@@ -2422,13 +2590,37 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 
 Alist is of the form:
 
-\(NAME . WINDOW-CONFIG)")
+\(NAME . SERIALIZED-WINDOW-STATE)
+
+NAME is a string.
+
+SERIALIZED-WINDOW-STATE is a structure returned by `window-state'.")
+
+(defun window-state-get-files (&optional window-state)
+  "Get the files visited in the WINDOW-STATE.
+
+If WINDOW-STATE is nil then get the current window state."
+  (cl-loop for e in (or window-state (window-state-get))
+           when (and (listp e) (eq 'leaf (car e)))
+           collect (buffer-local-value
+                    'buffer-file-name
+                    (nth 1 (assoc 'buffer (cdr e))))))
+
+(defun window-state-get-serialized ()
+  "Like `window-state-get' but with added detail for serialization.
+
+Returns (BUFFER-FILE-NAME-LIST WINDOW-STATE).
+
+BUFFER-FILE-NAME-LIST is a list of the buffers open in WINDOW-STATE."
+  (let ((window-state (window-state-get)))
+    (cons (window-state-get-files window-state)
+          window-state)))
 
 (defun window-config-save ()
   "Save the current window configuration into `window-config-alist` alist."
   (interactive)
   (let ((key (read-string "Enter a name for the window config: ")))
-    (setf (alist-get key window-config-alist) (current-window-configuration))
+    (setf (alist-get key window-config-alist) (window-state-get))
     (message "Window config saved with name %s" key)))
 
 (defun window-config--get (key)
@@ -2436,15 +2628,29 @@ Alist is of the form:
   (let ((value (assoc key window-config-alist)))
     (cdr value)))
 
-(defun window-config-restore ()
-  "Restore a window wc from the window-config-alist alist."
-  (interactive)
-  (let* ((wc-name (completing-read "Choose snapshot: "
-                                   (mapcar #'car window-config-alist)))
-         (wc (window-config--get wc-name)))
-    (if wc
-        (set-window-configuration wc)
-      (message "Snapshot %s not found" wc-name))))
+(defun window-config-load (window-config)
+  "Switch the windows in the current frame to WINDOW-CONFIG."
+  (interactive (list (window-config--get
+                      (completing-read "Window config: "
+                                       (mapcar #'car window-config-alist)
+                                       nil t))))
+  (when window-config (set-window-configuration window-config)))
+
+(defmacro window-config-make (name &rest exprs)
+  "Make window-config- NAME command which runs EXPRS.
+
+Each EXPR should create one window."
+  (declare (indent defun))
+  `(defun ,(intern name) (arg)
+    ,(format "Set up a window configuration for %s." name)
+    (interactive "P")
+    (when arg (message "TODO: Create new eyebrowse slot and open it there."))
+    (delete-other-windows)
+    ,(car exprs)
+    (let ((first-window (selected-window)))
+     (switch-to-buffer-other-window (current-buffer))
+     ,(cadr exprs)
+     (select-window first-window))))
 
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
@@ -2520,6 +2726,8 @@ Alist is of the form:
  ("t" . toggle-window-split)
 
  :map m-window-map
+ ("s" . window-config-save)
+ ("l" . window-config-load)
  ("o" . window-config-org)
  ("e" . window-config-dotemacs)
 
@@ -2596,17 +2804,58 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :bind
   ("s-r" . imenu))
 
+;; (use-package visual-regexp-steroids
+;;   :bind
+;;   ("C-r" . vr/isearch-backward)
+;;   ("C-s" . vr/isearch-forward)
+;;   ("C-c r" . vr/replace)
+;;   ("C-c q" . vr/query-replace)
+;;   ("C-c m" . vr/mc-mark))
+
+(use-package anzu
+  :defer 3
+  :config
+  (set-face-attribute 'anzu-replace-to nil :foreground nil :background "green")
+  (global-anzu-mode +1)
+  :bind
+  ([remap query-replace] . anzu-query-replace)
+  ([remap query-replace-regexp] . anzu-query-replace-regexp)
+  (:map isearch-mode-map
+        ([remap isearch-query-replace] . anzu-isearch-query-replace)
+        ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp)))
+
 (use-package re-builder
-  :defer 5
   :custom
   ;; string syntax means you don't need to double escape things.
   (reb-re-syntax 'string)
+
   :config
+  (defun reb-query-replace (to-string)
+    "Replace current RE from point with `query-replace-regexp'."
+    (interactive
+     (progn (barf-if-buffer-read-only)
+            (list (query-replace-read-to (reb-target-binding reb-regexp)
+                                         "Query replace"  t))))
+    (with-current-buffer reb-target-buffer
+      (query-replace-regexp (reb-target-binding reb-regexp) to-string)))
+
+  (defun reb-beginning-of-buffer ()
+    "In re-builder, move target buffer point position back to beginning."
+    (interactive)
+    (set-window-point (get-buffer-window reb-target-buffer)
+                      (with-current-buffer reb-target-buffer (point-min))))
+  
+  (defun reb-end-of-buffer ()
+    "In re-builder, move target buffer point position back to beginning."
+    (interactive)
+    (set-window-point (get-buffer-window reb-target-buffer)
+                      (with-current-buffer reb-target-buffer (point-max))))
+  
   (use-package pcre2el
     :hook
     ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
   :bind
-  ("C-c r" . re-builder))
+  ("C-c <tab>" . re-builder))
 
 (use-package wgrep
   :defer 5
@@ -2636,18 +2885,21 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
 (use-package ivy
   :defer 0.5
+
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
   (ivy-count-format "[%d/%d] ")
   ;; Don't exit the minibuffer and pressing backspace on an empty line.
   (ivy-on-del-error-function (lambda (&rest _) nil))
+
   :commands
   ivy-mode
   ivy-set-index
   ivy-set-actions
   ivy-add-actions
   ivy--reset-state
+
   :config
   (defun ivy-quit-or-delete-char (arg)
     "Quit Ivy if `C-d' is pressed on empty line, otherwise pass ARG on."
@@ -2818,6 +3070,10 @@ force `counsel-rg' to search in `default-directory.'"
    '(("d" counsel-register-action-delete "delete")
      ("k" counsel-register-action-then-delete "call then delete")))
 
+  ;; TODO: Get this working
+  ;; See https://github.com/abo-abo/swiper/issues/2188#issuecomment-541036357
+  ;; (ivy-configure 'counsel-imenu :update-fn 'auto)
+
   (counsel-mode)
   :bind
   (:map counsel-mode-map
@@ -2828,8 +3084,8 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-x C-f" . counsel-find-file)
         ("C-x f" . counsel-recentf)
         ("C-x j" . counsel-file-jump)
-        ("s-B" . counsel-switch-buffer)
-        ("C-s-b" . counsel-switch-buffer-other-window)
+        ("s-b" . counsel-switch-buffer)
+        ("s-S-b" . counsel-switch-buffer-other-window)
         ("C-h <tab>" . counsel-info-lookup-symbol)
         ("C-h C-a" . counsel-apropos)
         ("C-c u" . counsel-unicode-char)
@@ -2936,11 +3192,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (setf (car counsel-projectile-switch-project-action) 4)
   (counsel-projectile-mode)
   :bind
+  ("s-p" . counsel-projectile)
+  ("s-P" . counsel-projectile-switch-project)
   (:map projectile-mode-map
-        ("s-p" . counsel-projectile)
-        ("s-P" . counsel-projectile-switch-project)
         ("M-s-f" . counsel-projectile-rg)
-        ("s-b" . counsel-projectile-switch-to-buffer)))
+        ("C-s-b" . counsel-projectile-switch-to-buffer)))
 
 (use-package counsel-etags
   :defer 5
@@ -3154,13 +3410,10 @@ https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa
 (defvar touch-history nil
   "History for `touch' command.")
 
-(defun touch (cmd)
-  "Run `touch CMD' in `default-directory'."
-  (interactive (list (read-shell-command "Run touch (like this): "
-                                         "touch "
-                                         'touch-history
-                                         "touch ")))
-  (shell-command cmd))
+(defun touch (args)
+  "Run `touch ARGS' in `default-directory'."
+  (interactive (list (read-shell-command "touch " nil 'touch-history)))
+  (async-shell-command (format "touch %s" args)))
 
 (defun tail (file)
   "Run `tail -f' on FILE.
@@ -3182,6 +3435,12 @@ Tries to find a file at point."
   (print (shell-command-to-string "df -h")))
 
 ;;;; OS program interaction
+
+(use-package server
+  :defer 9
+  :config
+  (unless (server-running-p)
+    (server-start)))
 
 (defun reveal-in-windows-explorer (file)
   "Reveal FILE in Windows Explorer."
@@ -3226,24 +3485,18 @@ With a prefix ARG always prompt for command to use."
   "Get the `homebrew' install prefix for PACKAGE."
   (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
 
-
 ;;;; Dired
 
 (use-package dired
   :ensure nil
   :custom
-  (dired-listing-switches "-aFhl")
   (dired-recursive-deletes 'always)
   (dired-recursive-copies 'always)
   (dired-dwim-target t)
   ;; `dired-omit-mode' is managed by `dired-filter'.
   ;; (dired-omit-mode t)
   (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
-  ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
-  ;; Emacs and can run into issues with certain characters in the file name.
-  (insert-directory-program (or (executable-find "gls")
-                                (executable-find "ls")))
-  ;; Don't prompt to kill buffers of deleted directories.
+  ;; ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
 
   :commands
@@ -3260,64 +3513,68 @@ With a prefix ARG always prompt for command to use."
   dired-ediff-files
 
   :config
+  ;; Set it here because inside :custom it overrides defer
+  (setq dired-listing-switches "-aFhl"
+        ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
+        ;; Emacs and can run into issues with certain characters in the file name.
+        insert-directory-program (or (executable-find "gls")
+                                     (executable-find "ls")))
   (defun dired-open-file ()
     "Open file at point in OS default program."
     (interactive)
     (let* ((file (dired-get-filename nil t)))
       (message "Opening %s..." file)
-      (os-open-file file)))
+      (os-open-file file))
 
-  (defhydra hydra-dired (:hint nil :color pink)
-    "
-_+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
-_C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
-_D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
-_R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
-_Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
-_S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
-_A_ find regexp    _Q_ repl regexp                                      _q_ quit
+    (defhydra hydra-dired (:hint nil :color pink)
+      "
+  _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
+  _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
+  _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
+  _R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
+  _Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
+  _S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
+  _A_ find regexp    _Q_ repl regexp                                      _q_ quit
 
-C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
-"
-    ("(" dired-hide-details-mode)
-    (")" dired-omit-mode)
-    ("+" dired-create-directory)
-    ("?" dired-summary)
-    ("A" dired-do-find-regexp)
-    ("C" dired-do-copy) ;; Copy all marked files
-    ("D" dired-do-delete)
-    ("E" dired-mark-extension)
-    ("e" dired-ediff-files)
-    ("F" dired-do-find-marked-files)
-    ("G" dired-do-chgrp)
-    ("g" revert-buffer) ;; read all directories again (refresh)
-    ("i" dired-maybe-insert-subdir)
-    ("l" dired-do-redisplay) ;; relist the marked or single directory
-    ("M" dired-do-chmod)
-    ("m" dired-mark)
-    ("O" dired-display-file)
-    ("o" dired-find-file-other-window)
-    ("Q" dired-do-find-regexp-and-replace)
-    ("R" dired-do-rename)
-    ("r" dired-rsync)
-    ("S" dired-do-symlink)
-    ("s" dired-sort-toggle-or-edit)
-    ("t" dired-toggle-marks)
-    ("U" dired-unmark-all-marks)
-    ("u" dired-unmark)
-    ("v" dired-view-file) ;; q to exit, s to search, = gets line #
-    ("w" dired-kill-subdir)
-    ("W" wdired-change-to-wdired-mode)
-    ("Y" dired-do-relsymlink)
-    ("z" dired-do-compress)
-    ("q" nil)
-    ("." nil :color blue))
+  C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
+  "
+      ("(" dired-hide-details-mode)
+      (")" dired-omit-mode)
+      ("+" dired-create-directory)
+      ("?" dired-summary)
+      ("A" dired-do-find-regexp)
+      ("C" dired-do-copy) ;; Copy all marked files
+      ("D" dired-do-delete)
+      ("E" dired-mark-extension)
+      ("e" dired-ediff-files)
+      ("F" dired-do-find-marked-files)
+      ("G" dired-do-chgrp)
+      ("g" revert-buffer) ;; read all directories again (refresh)
+      ("i" dired-maybe-insert-subdir)
+      ("l" dired-do-redisplay) ;; relist the marked or single directory
+      ("M" dired-do-chmod)
+      ("m" dired-mark)
+      ("O" dired-display-file)
+      ("o" dired-find-file-other-window)
+      ("Q" dired-do-find-regexp-and-replace)
+      ("R" dired-do-rename)
+      ("r" dired-rsync)
+      ("S" dired-do-symlink)
+      ("s" dired-sort-toggle-or-edit)
+      ("t" dired-toggle-marks)
+      ("U" dired-unmark-all-marks)
+      ("u" dired-unmark)
+      ("v" dired-view-file) ;; q to exit, s to search, = gets line #
+      ("w" dired-kill-subdir)
+      ("W" wdired-change-to-wdired-mode)
+      ("Y" dired-do-relsymlink)
+      ("z" dired-do-compress)
+      ("q" nil)
+      ("." nil :color blue)))
 
   :hook
   (dired-mode-hook . dired-hide-details-mode)
-  (dired-mode-hook . (lambda ()
-                       (unless (file-remote-p default-directory)
-                         (auto-revert-mode))))
+  (dired-mode-hook . auto-revert-mode)
   :bind
   (:map dired-mode-map
         ("." . hydra-dired/body)
@@ -3407,6 +3664,11 @@ C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle h
   (dired-filter-verbose nil)
   :hook
   (dired-mode-hook . dired-filter-mode))
+
+(use-package dired-narrow
+  :bind
+  (:map dired-mode-map
+        ("/" . dired-narrow)))
 
 (use-package dired-list
   :defer 5
@@ -3981,6 +4243,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
         ("M-S-<down>" . move-text-down)))
 
 (use-package string-inflection
+  :config
+  (defalias #'string-inflection-snakecase #'string-inflection-underscore)
   :bind
   ("C-c C-u" . string-inflection-all-cycle))
 
@@ -4203,8 +4467,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
       (add-to-list 'sp--special-self-insert-commands fun)))
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
-                          javascript-mode js-mode js2-mode json-mode
-                          objc-mode java-mode web-mode)
+                   javascript-mode js-mode js2-mode json-mode
+                   objc-mode java-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
@@ -4561,6 +4825,7 @@ If no region is selected, toggles comments for the line."
   (defun shell-rename-buffer (_)
     "Rename buffer to `default-directory'."
     (rename-buffer (format "*shell* (%s)" default-directory) t))
+
   :commands
   shell
   :hook
@@ -4581,7 +4846,7 @@ If no region is selected, toggles comments for the line."
   (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
 
 (use-package fish-completion
-;  :ensure-system-package fish
+                                        ;  :ensure-system-package fish
   :custom
   (fish-completion-fallback-on-bash-p t)
   :hook
@@ -4592,7 +4857,7 @@ If no region is selected, toggles comments for the line."
   (add-to-list
    'company-backends
    `(company-shell company-shell-env
-                   ,(when (executable-find "fish") 'company-fish-shell))))
+     ,(when (executable-find "fish") 'company-fish-shell))))
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
 (defvar explicit-dtach-args
@@ -4985,8 +5250,8 @@ because I dynamically rename the buffer according to
                      'front-sticky '(font-lock-face read-only)
                      'rear-nonsticky '(font-lock-face read-only))))
      `(,(unless (eshell-exit-success-p)
-          `(,(number-to-string eshell-last-command-status)
-            :background "red" :foreground "white" :weight bold))
+         `(,(number-to-string eshell-last-command-status)
+           :background "red" :foreground "white" :weight bold))
        (,(abbreviate-file-name (eshell/pwd)) :background "cyan" :foreground "black")
        (,(if (zerop (user-uid)) "\n(#)" "\n()")
         :foreground ,(if (equal 'light (frame-parameter nil 'background-mode))
@@ -5459,6 +5724,7 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
 (advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
 
 (use-package srefactor
+  :disabled
   :commands
   srefactor-lisp-format-buffer
   :config
@@ -5533,6 +5799,15 @@ Interactively, reads the register using `register-read-with-preview'."
   :hook
   (clojure-mode-hook . subword-mode))
 
+(use-package clojure-mode-extra-font-locking
+  :after clojure-mode
+  :config
+  (defun clojure-mode-extra-font-locking-enable ()
+    "Enable `clojure-mode' extra font locking."
+    (require 'clojure-mode-extra-font-locking))
+  :hook
+  (clojure-mode-hook . clojure-mode-extra-font-locking-enable))
+
 (use-package clj-refactor
   :config
   (defun clj-refactor-setup ()
@@ -5540,11 +5815,10 @@ Interactively, reads the register using `register-read-with-preview'."
     (clj-refactor-mode 1)
     (cljr-add-keybindings-with-prefix "C-c C-m"))
   :hook
-  (clojure-mode-hook . clj-refactor-setup))
-
-(use-package cider-hydra
-  :hook
-  (clojure-mode-hook . cider-hydra-mode))
+  (clojure-mode-hook . clj-refactor-setup)
+  :bind
+  (:map clojure-mode-map
+        ("C-s-r" . cljr-rename-symbol)))
 
 (use-package flycheck-clojure
   :defer 9
@@ -5574,8 +5848,21 @@ of problems in that context."
 
 (use-package cider
   :custom
+  ;; Never prompt when looking up a symbol.
   (cider-prompt-for-symbol nil)
+  ;; Always prompt for the jack in command.
+  (cider-edit-jack-in-command t)
+
   :config
+  (defun cider-find-var-other-window (&optional arg var line)
+    "Find the var in the other window."
+    (interactive "P")
+    (funcall (cider-prompt-for-symbol-function arg)
+             "Symbol"
+             (if (cider--open-other-window-p arg)
+                 #'cider--find-var
+               #'cider--find-var-other-window)))
+
   (defun toggle-nrepl-buffer ()
     "Toggle the nREPL REPL on and off."
     (interactive)
@@ -5602,12 +5889,9 @@ of problems in that context."
       (setq cider-stacktrace-frames-background-color
             (cider-scale-background-color))))
 
-  :custom
-  ;; Always prompt for the jack in command.
-  (cider-edit-jack-in-command t)
-
   :commands
-  (cider-jack-in cider-switch-to-repl-buffer)
+  cider-jack-in
+  cider-switch-to-repl-buffer
 
   :hook
   (cider-mode-hook . eldoc-mode)
@@ -5615,7 +5899,13 @@ of problems in that context."
 
   :bind
   (:map cider-mode-map
-        ("s-<return>" . cider-eval-last-sexp)))
+        ("s-<return>" . cider-eval-last-sexp)
+        ("C-x 4 ." . cider-find-var-other-window)))
+
+(use-package cider-hydra
+  :after cider
+  :hook
+  (clojure-mode-hook . cider-hydra-mode))
 
 (use-package sly
   :custom
@@ -5786,6 +6076,10 @@ of problems in that context."
 (add-to-list 'interpreter-mode-alist '("dw" . sh-mode))
 
 ;;;; Web
+
+;; use imagemagick, if available
+(when (fboundp 'imagemagick-register-types)
+  (imagemagick-register-types))
 
 (use-package eww
   :config
@@ -6113,7 +6407,7 @@ referencing a format region function, which takes two arguments:
   :config
 
   (with-no-warnings
-    
+
     ;; Try to use the native image version, fall back to the JVM.
     (defvar m-zprint-command nil)
     (defvar m-zprint-args '("{:map {:comma? false}}"))
@@ -6178,7 +6472,7 @@ referencing a format region function, which takes two arguments:
     (defvar m-black-command (executable-find "black"))
     (reformatter-define black
       :program m-black-command
-      :args '("-q" "--line-length" "80")
+      :args '("--line-length" "80" "-")
       :group 'm-reformatter)
     (add-to-list 'm-reformatters '(python-mode . black))
 
@@ -6248,11 +6542,12 @@ Prefix ARG is passed to `fill-paragraph'."
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
-  :interpreter ("sh" . sh-mode) ("bash" . sh-mode)
-  
+  :interpreter
+  ("sh" . sh-mode)
+  ("bash" . sh-mode)
+
   :custom
   (sh-basic-offset tab-width)
-  (sh-indentation tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
   (executable-prefix-env t)
 
@@ -6265,11 +6560,11 @@ a new file for the first time."
                (buffer-file-name)
                (not (file-exists-p (buffer-file-name))))
       (normal-mode)))
-  
-  ;; Match variables in quotes. Fuco1 is awesome, mkay.
-  ;; https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html
+
   (defun shell-match-variables-in-quotes (limit)
-    "Match variables in double-quotes in `sh-mode' with LIMIT."
+    "Match variables in double-quotes in `sh-mode' with LIMIT.
+
+https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
     (with-syntax-table sh-mode-syntax-table
       (catch 'done
         (while (re-search-forward
@@ -6475,7 +6770,6 @@ a new file for the first time."
   :hook
   (plantuml-mode-hook . flycheck-plantuml-setup))
 
-
 (use-package eval-in-repl
   :custom
   (eir-jump-after-eval nil)
@@ -6498,8 +6792,8 @@ configuration when invoked to evaluate a line."
 
 ;;;; Multiple Major Modes
 
-;; I can't figure out how to defer loading of polymode without separating it
-;; into its own file. Why is this necessary?
+;; TODO: I can't figure out how to defer loading of polymode without separating
+;; it into its own file. Why is this necessary?
 (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
@@ -6519,7 +6813,6 @@ configuration when invoked to evaluate a line."
   ("C-c '" . fence-edit-dwim)
   (:map markdown-mode-map
         ("C-c '" . nil)))
-
 
 (provide 'init)
 
