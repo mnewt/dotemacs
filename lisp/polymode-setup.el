@@ -18,6 +18,7 @@
       :tail-matcher "`"
       :head-mode 'host
       :tail-mode 'host)
+    ;; FIXME: Causes bad things to happen in the `js-mode' buffer.
     (define-polymode poly-js-mode
       :hostmode 'poly-js-hostmode
       :innermodes '(poly-js-graphql-innermode))

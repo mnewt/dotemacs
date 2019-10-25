@@ -785,6 +785,8 @@ returned."
 
 (use-package hl-line
   :defer 1
+  :custom
+  (global-hl-line-sticky-flag t)
   :config
   (global-hl-line-mode))
 
@@ -957,9 +959,65 @@ forward."
   :defer 2
   :custom
   (which-key-idle-delay 0.1)
-  :commands
-  which-key-mode
   :config
+  (defun which-key-M-x-prefix+ (&optional _)
+    "Completing read and execute command from current prefix map.
+
+This command can be used as `prefix-help-command'.
+
+The optional argument is ignored and only for compatability with
+`which-key-C-h-dispatch' so this command can be bound in
+`which-key-C-h-map', too."
+    (interactive)
+    (let* ((evs (if (which-key--current-prefix)
+                    (which-key--current-key-list)
+                  (butlast (append (this-command-keys-vector) nil))))
+           (key (apply #'vector evs))
+           (map (key-binding key)))
+      (which-key--execute-binding+ map (key-description key))))
+
+  (defun which-key--execute-binding+ (map &optional prefix)
+    "Completing read command from MAP and execute it.
+
+If PREFIX is given it should be a key description which will be
+included in the prompt."
+    (let ((cmd (which-key--completing-read-cmd+ map prefix)))
+      (when (commandp cmd)
+        (which-key--execute-cmd+ cmd))))
+
+  (defun which-key--completing-read-cmd+ (map &optional prefix)
+    "Completing read command from MAP.
+
+Include PREFIX in prompt if given."
+    (which-key--hide-popup-ignore-command)
+    (let* ((desc
+            (completing-read
+             (if prefix
+                 (format "Execute (%s): " prefix)
+               "Execute: ")
+             (mapcar #'which-key--completing-read-format+
+                     (which-key--get-keymap-bindings map 'all)))))
+      (intern (car (split-string desc)))))
+
+  (defun which-key--execute-cmd+ (cmd)
+    "Execute command CMD as if invoked by key sequence."
+    (setq prefix-arg current-prefix-arg)
+    (setq this-command cmd)
+    (setq real-this-command cmd)
+    (command-execute cmd 'record))
+
+  (defun which-key--completing-read-format+ (bnd)
+    "Format binding BND for `completing-read'."
+    (let* ((key (car bnd))
+           (cmd (cdr bnd))
+           (desc (format "%s (%s)" cmd
+                         (propertize key 'face 'which-key-key-face))))
+      (which-key--maybe-add-docstring
+       (format "%-50s" desc) cmd)))
+
+  ;; https://with-emacs.com/posts/prefix-command-completion/
+  (setq prefix-help-command #'which-key-M-x-prefix+)
+  
   (which-key-mode)
   :bind
   ("M-s-h" . which-key-show-top-level))
@@ -996,22 +1054,25 @@ forward."
   :bind
   ("C-h e" . eg))
 
-(defvar dash-docs-docsets-path "~/.config/docsets"
-  "Local path to save docsets.")
-
-(make-directory dash-docs-docsets-path t)
-
-(defun dash-docs-installed-docsets ()
-  "Return a list of the currently installed docsets."
-  (mapcar (lambda (f) (string-trim-right f ".docset"))
-          (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
-
 (use-package counsel-dash
 ;  :ensure-system-package sqlite3
-  :init
-  (defun dash-docs-update-docsets-var (&optional _)
+  :custom
+  (dash-docs-browser-func #'eww-other-window)
+  (dash-docs-enable-debugging nil)
+
+  :config
+  (defvar dash-docs-docsets-path "~/.config/docsets"
+    "Local path to save docsets.")
+
+  (make-directory dash-docs-docsets-path t)
+
+  (defun dash-docs-installed-docsets ()
+    "Return a list of the currently installed docsets."
+    (mapcar (lambda (f) (string-trim-right f ".docset"))
+            (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
+
+  (defun dash-docs-update-docsets-var (_docset-name)
     "Update `dash-docs-common-docsets' variable."
-    (interactive (list t))
     (setq dash-docs-common-docsets (dash-docs-installed-docsets)))
 
   (advice-add 'dash-docs-install-docset :after #'dash-docs-update-docsets-var)
@@ -1028,20 +1089,26 @@ forward."
         (dash-docs-install-user-docset d))
        (t
         (message "Skipping manually installed docset: %s..." d))))
-    (dash-docs-update-docsets-var))
+    (dash-docs-update-docsets-var nil))
 
-  :custom
-  (dash-docs-docsets-path "~/.config/docsets")
-  (dash-docs-browser-func #'eww-other-window)
-  (dash-docs-common-docsets (dash-docs-installed-docsets))
-  (dash-docs-enable-debugging nil)
+  (setq dash-docs-common-docsets (dash-docs-installed-docsets))
+
   :commands
-  (counsel-dash counsel-dash-at-point dash-docs-install-docset
-                dash-docs-official-docsets dash-docs-unofficial-docsets)
+  counsel-dash
+  counsel-dash-at-point
+  counsel-dash-install-docset
+  counsel-dash-install-user-docset
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
+
+(use-package devdocs-lookup
+  :git "https://github.com/skeeto/devdocs-lookup.git"
+  :config
+  (devdocs-setup)
+  :commands
+  devdocs-lookup)
 
 (use-package hydra
   :defer 2
@@ -1511,6 +1578,7 @@ With a prefix ARG, create it in `org-directory'."
   :ensure nil
   :load-path "/usr/local/share/emacs/site-lisp/mu4e"
   :custom
+  ;; Tell Emacs to send using `mu4e'
   (mail-user-agent 'mu4e-user-agent)
   ;; Don't save message to Sent Messages. The sending server saves the message.
   (mu4e-sent-messages-behavior 'delete)
@@ -1525,8 +1593,24 @@ With a prefix ARG, create it in `org-directory'."
   ;; Start with the first (default) context;
   ;; default is to ask-if-none (ask when there's no context yet, and none match)
   (mu4e-context-policy 'pick-first)
+  ;; Use fancy unicode chars for marks and threads
+  (mu4e-use-fancy-chars nil)
+  (mu4e-attachment-dir "~/Downloads")
+  (mu4e-compose-dont-reply-to-self t)
+  ;; convert org mode to HTML automatically
+  (org-mu4e-convert-to-html t)
+  (mu4e-headers-fields `((:human-date . 12)
+                         (:flags . 5)
+                         (:from-or-to . 20)
+                         (:subject . nil)))
+  (mu4e-view-show-images t)
 
   :config
+  (add-to-list 'mu4e-headers-actions
+               '("Browse message" . mu4e-action-view-in-browser) t)
+  (add-to-list 'mu4e-view-actions
+               '("Browse message" . mu4e-action-view-in-browser) t)
+  
   (defun org-capture-mu4e ()
     (interactive)
     "Capture a TODO item via email."
@@ -1554,33 +1638,6 @@ With a prefix ARG, create it in `org-directory'."
       (nreverse buffers)))
 
   (setq gnus-dired-mail-mode 'mu4e-user-agent)
-  (add-hook 'dired-mode-hook 'turn-on-gnus-dired-mode)
-
-  (bind-keys :map mu4e-headers-mode-map
-             ("G" . mu4e-update-mail-and-index))
-
-  ;; Sending mail
-  ;; (require 'smtpmail)
-
-  (require 'smtpmail-async)
-
-  ;; Configure mu4e to send email asynchronously.
-  (defvar mail-queue-directory (expand-file-name "~/.mail/queue/")
-    "Mail queue for SMTP outgoing mail messages.")
-  (shell-command (format "mu mkdir %s" mail-queue-directory))
-  (shell-command (format "touch %s" (expand-file-name ".noindex" mail-queue-directory)))
-
-  ;; Setting `smtp-queue-mail' to t prevents messages from being sent unless
-  ;; they are explicitly flushed.
-  ;; TODO: Queue messages and periodically flush them.
-  (setq smtpmail-queue-mail nil
-        send-mail-function 'async-smtpmail-send-it
-        message-send-mail-function 'async-smtpmail-send-it
-        smtpmail-queue-dir  (expand-file-name "cur" mail-queue-directory)
-        ;; Make sure the gnutls command line utils are installed
-        ;; 'gnutls' in Arch Linux and macOS Homebrew
-        starttls-use-gnutls t)
-  ;; smtpmail-debug-info t
 
   (defvar mu4e-last-window nil
     "The last mu4e window.
@@ -1601,12 +1658,15 @@ Used by `mu4e-toggle'.")
               (switch-to-buffer mu4e-last-window)
             (mu4e-headers-search (mu4e-get-bookmark-query ?u)))))))
 
-  (bind-keys ("s-m" . mu4e-toggle)
-             :map mu4e-view-mode-map
-             ("<tab>" . shr-next-link)
-             ("<backtab>" . shr-previous-link))
+  (defun mu4e-update-mail-and-index-in-background (arg)
+    "Run `mu4e-update-mail-and-index' in the background."
+    (interactive "P")
+    (mu4e-update-mail-and-index (not arg)))
 
-  (add-hook 'mu4e-compose-mode-hook #'turn-off-auto-fill)
+  (defun mu4e-mark-execute-all-no-confirm (arg)
+    "Run `mu4e-mark-execute-all' with no confirmation."
+    (interactive "P")
+    (mu4e-mark-execute-all (not arg)))
 
   (defun mbsync-start-imap-watch ()
     "Start the imap-watch daemon."
@@ -1689,16 +1749,45 @@ Used by `mu4e-toggle'.")
 
     ("." nil))
 
+  :hook
+  (mu4e-main-mode-hook . mu4e-maildirs-extension)
+  (dired-mode-hook . turn-on-gnus-dired-mode)
+  (mu4e-compose-mode-hook . turn-off-auto-fill)
+
+
   :bind
   ("s-m" . mu4e-toggle)
   ("M-m m" . mu4e)
   (:map mu4e-main-mode-map
-        ("G" . mu4e-update-mail-and-index))
+        ("G" . mu4e-update-mail-and-index-in-background))
   (:map mu4e-headers-mode-map
+        ("G" . mu4e-update-mail-and-index-in-background)
+        ("x" . mu4e-mark-execute-all-no-confirm)
         ("." . hydra-mu4e-headers/body))
   (:map mu4e-view-mode-map
+        ("<RET>" . mu4e~view-browse-url-from-binding)
         ("<tab>" . shr-next-link)
         ("<backtab>" . shr-previous-link)))
+
+(use-package smtpmail
+  :ensure nil
+  :defer 9
+  :custom
+  ;; Setting `smtp-queue-mail' to t prevents messages from being sent unless
+  ;; they are explicitly flushed. nil is the default.
+  ;; TODO: Queue messages and periodically flush them.
+  (smtpmail-queue-mail nil)
+  (send-mail-function 'async-smtpmail-send-it)
+  (message-send-mail-function 'async-smtpmail-send-it)
+
+  :config
+  (defvar mail-queue-directory (expand-file-name "~/.mail/queue/")
+    "Mail queue for SMTP outgoing mail messages.")
+  (setq smtpmail-queue-dir (expand-file-name "cur" mail-queue-directory))
+
+  (shell-command (format "mu mkdir %s" mail-queue-directory))
+  (shell-command (format "touch %s" (expand-file-name ".noindex" mail-queue-directory))))
+
 
 ;;;; Reading
 
@@ -2022,9 +2111,10 @@ return them in the Emacs format."
 Example\:
 '((\"SER\" \"https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sys_id=SER%s\"))")
 
-  ;; Idea stolen from https://github.com/arnested/bug-reference-github
   (defun bug-reference-dispatch-url-github-or-gitlab (_type ref)
-    "With Bug TYPE and REF, return a complete URL."
+    "With Bug TYPE and REF, return a complete URL.
+
+Idea stolen from https://github.com/arnested/bug-reference-github."
     (require 'vc-git)
     (when (vc-git-root (or (buffer-file-name) default-directory))
       (let ((remote (shell-command-to-string "git ls-remote --get-url")))
@@ -2342,7 +2432,8 @@ _q_ quit
 ;; TODO: Fix highlighting of things like #12345
 (use-package rainbow-mode
   :hook
-  ((css-mode-hook emacs-lisp-mode-hook sass-mode-hook) . rainbow-mode))
+  ((css-mode-hook emacs-lisp-mode-hook js-mode-hook sass-mode-hook)
+   . rainbow-mode))
 
 (use-package crux
   :bind
@@ -2637,7 +2728,7 @@ BUFFER-FILE-NAME-LIST is a list of the buffers open in WINDOW-STATE."
   (when window-config (set-window-configuration window-config)))
 
 (defmacro window-config-make (name &rest exprs)
-  "Make window-config- NAME command which runs EXPRS.
+  "Make window-config-NAME command, running EXPRS.
 
 Each EXPR should create one window."
   (declare (indent defun))
@@ -2707,8 +2798,8 @@ Each EXPR should create one window."
  ("M-[" . windmove-left)
 
  ;; Resize windows
- ("M-s-<up>" . shrink-window)
- ("M-s-<down>" . enlarge-window)
+ ("M-s-<up>" . enlarge-window)
+ ("M-s-<down>" . shrink-window)
  ("M-s-<left>" . shrink-window-horizontally)
  ("M-s-<right>" . enlarge-window-horizontally)
 
@@ -3070,15 +3161,14 @@ force `counsel-rg' to search in `default-directory.'"
    '(("d" counsel-register-action-delete "delete")
      ("k" counsel-register-action-then-delete "call then delete")))
 
-  ;; TODO: Get this working
-  ;; See https://github.com/abo-abo/swiper/issues/2188#issuecomment-541036357
-  ;; (ivy-configure 'counsel-imenu :update-fn 'auto)
+  (ivy-configure 'counsel-imenu :update-fn 'auto)
 
   (counsel-mode)
   :bind
   (:map counsel-mode-map
         ("M-x" . counsel-M-x)
         ("C-h C-k" . counsel-descbinds)
+        ("C-h C-l" . counsel-find-library)
         ("s-f" . counsel-grep-or-swiper)
         ("s-F" . counsel-rg)
         ("C-x C-f" . counsel-find-file)
@@ -3096,7 +3186,6 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-Y" . counsel-yank-pop)
         ;; Don't shadow default binding.
         ([remap yank-pop] . nil)
-        ("M-Y" . counsel-yank-pop)
         ([remap find-file] . counsel-find-file))
   (:map ivy-minibuffer-map
         ("M-<backspace>" . counsel-up-directory)
@@ -6229,6 +6318,13 @@ Open the `eww' buffer in another window."
         ("s-v" . yank)
         ("s-<return>" . python-shell-send-defun)))
 
+(use-package pipenv
+  :mode ("Pipfile\\'" . conf-mode)
+  :custom
+  (pipenv-projectile-after-switch-function #'pipenv-projectile-after-switch-extended)
+  :config
+  :hook (python-mode-hook . pipenv-mode))
+
 (use-package lsp-python-ms
   :after lsp-mode
   :hook
@@ -6794,7 +6890,7 @@ configuration when invoked to evaluate a line."
 
 ;; TODO: I can't figure out how to defer loading of polymode without separating
 ;; it into its own file. Why is this necessary?
-(run-with-timer 8 nil (lambda () (require 'polymode-setup)))
+;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
   :git "https://github.com/aaronbieber/fence-edit.el.git"
