@@ -435,16 +435,13 @@ on the next startup."
 (use-package f :demand t)
 
 (use-package async
-  :defer 9
   :commands
-  dired-async-mode
-  async-start
-  async-start-process
   async-let
   :hook
   (dired-mode-hook . dired-async-mode))
 
 (use-package lv
+  :defer t
   :commands
   lv-message
   lv-window
@@ -559,12 +556,12 @@ on the next startup."
         undo-limit 5242880))
 
 (use-package saveplace
-  :defer 1
+  :demand t
   :config
   (save-place-mode))
 
 (use-package recentf
-  :defer 9
+  :demand t
   :commands
   recentf-save-list
   recentf-cleanup
@@ -629,7 +626,7 @@ on the next startup."
   (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
 
 (use-package savehist
-  :defer 9
+  :demand t
   :custom
   (savehist-autosave-interval 60)
   (history-length 200)
@@ -678,7 +675,7 @@ on the next startup."
   ;; (defun window-state-put-list))
 
 (use-package persistent-scratch
-  :defer 5
+  :demand t
   :config
   (persistent-scratch-setup-default))
 
@@ -767,7 +764,6 @@ returned."
             mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
     ;; (use-package pixel-scroll
-    ;;   :defer 1
     ;;   :ensure nil
     ;;   :config
     ;;   (pixel-scroll-mode))
@@ -782,16 +778,7 @@ returned."
 
 (use-package spacemacs-common
   :ensure spacemacs-theme
-  :git (spacemacs-theme
-        :url "https://github.com/mnewt/spacemacs-theme.git")
-  :config
-  (defun spacemacs-theme-after-setup ()
-    "As of Emacs 27.0, to extend a face to the end of the line requires the
-    :extend attribute."
-    (set-face-attribute 'hl-line nil :extend t)
-    (set-face-attribute 'org-block-begin-line nil :extend t)
-    (set-face-attribute 'org-block nil :extend t)
-    (set-face-attribute 'org-block-end-line nil :extend t)))
+  :git "git@github.com:mnewt/spacemacs-theme")
 
 (use-package fiat-color
   :demand t
@@ -822,7 +809,8 @@ returned."
 ;;   (auto-dim-other-buffers-mode))
 
 (use-package window-highlight
-  :defer 4
+  :demand t
+  :ensure nil
   :if (and window-system (>= emacs-major-version 27))
   :git "https://github.com/dcolascione/emacs-window-highlight"
   :config
@@ -834,14 +822,13 @@ returned."
   (window-highlight-mode))
 
 (use-package hl-line
-  :defer 2
+  :demand t
   :custom
   (global-hl-line-sticky-flag t)
   :config
   (global-hl-line-mode))
 
 ;; (use-package flash-thing
-;;   :defer 6
 ;;   :git "git@github.com:mnewt/flash-thing.git"
 ;;   :custom
 ;;   (ring-bell-function #'flash-window)
@@ -851,7 +838,7 @@ returned."
 ;;   (flash-thing-mode))
 
 (use-package page-break-lines
-  :defer 9
+  :demand t
   :config
   (global-page-break-lines-mode))
 
@@ -861,7 +848,7 @@ returned."
         ("d" . darkroom-mode)))
 
 (use-package hl-todo
-  :defer 9
+  :demand t
   :custom
   (hl-todo-keyword-faces
    '(("TODO" . "magenta")
@@ -875,8 +862,6 @@ returned."
      ("XXX+" . "orange")
      ("NEXT" . "lime green")
      ("DONE" . "gray")))
-  :commands
-  global-hl-todo-mode
   :config
   (global-hl-todo-mode)
   :bind
@@ -884,19 +869,6 @@ returned."
   ("M-s h p" . hl-todo-previous)
   ("M-s h n" . hl-todo-next)
   ("M-s h o" . hl-todo-occur))
-
-(defun font-lock-reset (&optional keywords)
-  "Reload font-locking for the buffer with KEYWORDS."
-  (interactive)
-  (setq font-lock-keywords nil)
-  (let ((mode major-mode))
-    (fundamental-mode)
-    (funcall mode))
-  (when keywords
-    (font-lock-add-keywords major-mode keywords)
-    (font-lock-refresh-defaults)
-    (font-lock-flush)
-    (font-lock-ensure)))
 
 (use-package font-lock-studio
   :commands
@@ -923,26 +895,20 @@ returned."
 (setq disabled-command-function nil)
 
 ;; (use-package help-at-pt
-;;   :defer 9
 ;;   :custom
 ;;   (help-at-pt-display-when-idle t)
 ;;   :config
 ;;   (help-at-pt-set-timer))
 
-(use-package button
-  :ensure nil
-  :config
-  (defun push-button-other-window ()
-    "Like push button but opens in other window."
-    (interactive)
-    (let (new-buffer)
-      (save-window-excursion
-        (push-button)
-        (setq new-buffer (current-buffer)))
-      (other-window 1)
-      (switch-to-buffer new-buffer)))
-  :commands
-  push-button-other-window)
+(defun push-button-other-window ()
+  "Like push button but opens in other window."
+  (interactive)
+  (let (new-buffer)
+    (save-window-excursion
+      (push-button)
+      (setq new-buffer (current-buffer)))
+    (other-window 1)
+    (switch-to-buffer new-buffer)))
 
 (use-package helpful
   :config
@@ -989,16 +955,13 @@ forward."
         ("o" . push-button-other-window)))
 
 (use-package eldoc
-  :defer 9
+  :demand t
   :config
-  (eldoc-add-command ;; #'company-select-next
-                     ;; #'company-select-previous
-                     #'keyboard-quit)
+  (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
 
 (use-package which-key
   :demand t
-  :defer 9
   :custom
   (which-key-idle-delay 0.25)
   :config
@@ -1091,8 +1054,8 @@ Include PREFIX in prompt if given."
 
 (use-package eg
   :git "https://github.com/mnewt/eg.el"
-;;  :ensure-system-package
-;;  (eg . "pip install eg")
+  ;;  :ensure-system-package
+  ;;  (eg . "pip install eg")
   :bind
   ("C-h e" . eg))
 
@@ -1146,11 +1109,14 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 (use-package devdocs-lookup
+  :ensure nil
   :git "https://github.com/skeeto/devdocs-lookup.git"
+  :commands
+  devdocs-setup
   :config
   (devdocs-setup)
-  :commands
-  devdocs-lookup)
+  :bind
+  ("C-h M-l" . devdocs-lookup))
 
 (use-package hydra
   :config
@@ -1260,19 +1226,19 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
-(use-package counsel-web
-  :git "git@github.com:mnewt/counsel-web.git"
-  :bind
-  (:map m-search-map
-        ("w" . counsel-web-search)))
+;; (use-package counsel-web
+;;   :git "git@github.com:mnewt/counsel-web.git"
+;;   :bind
+;;   (:map m-search-map
+;;         ("w" . counsel-web-search)))
 
-(use-package stack-answers
-  :git "git@github.com:mnewt/stack-answers.git"
-  :hook
-  (stack-answers-mode-hook . mixed-pitch-mode)
-  :bind
-  (:map m-search-map
-        ("x" . stack-answers)))
+;; (use-package stack-answers
+;;   :git "git@github.com:mnewt/stack-answers.git"
+;;   :hook
+;;   (stack-answers-mode-hook . mixed-pitch-mode)
+;;   :bind
+;;   (:map m-search-map
+;;         ("x" . stack-answers)))
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)
@@ -1485,7 +1451,6 @@ With a prefix ARG, create it in `org-directory'."
             (throw :exit t))))))
 
   (use-package org-download
-    :after org
     :hook
     (dired-mode-hook . org-download-enable))
 
@@ -1547,7 +1512,6 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Requires Org 9.3, which I'm not using yet.
 ;; (use-package orglink
-;;   :after org
 ;;   :hook
 ;;   (prog-mode-hook . orglink-mode))
 
@@ -2249,7 +2213,7 @@ This is for serialization to disk by `psession'."
     (eyebrowse-restore-window-config))
 
   :hook
-  ((psession-autosave-mode-hook kill-emacs-hook) . eyebrowse-save-window-config)
+  ;; ((psession-autosave-mode-hook kill-emacs-hook) . eyebrowse-save-window-config)
   (emacs-startup-hook . eyebrowse-activate)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
@@ -2295,14 +2259,7 @@ This is for serialization to disk by `psession'."
   (defvar ediff-window-setup-function)
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
-(use-package outorg
-  :defer 9
-  :init
-  (defvar outline-minor-mode-prefix "\M-#"))
-
 (use-package outshine
-  :defer 9
-  :after outline outorg
   :config
   (eldoc-add-command #'outshine-self-insert-command)
 
@@ -2386,9 +2343,14 @@ _d_ subtree
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
 
+(use-package outorg
+  :init
+  (defvar outline-minor-mode-prefix "\M-#")
+  :bind
+  ("M-# #" . outorg-edit-as-org))
+
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
-  :defer 9
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :commands
@@ -2420,6 +2382,7 @@ _q_ quit
     ("p" (forward-line -1))
     ("q" nil))
   :bind
+  ("C-c <tab>" . hs-minor-mode)
   (:map hs-minor-mode-map
         ("C-c @" . hydra-hs/body)
         ("C-<tab>" . hs-toggle-hiding)))
@@ -2654,7 +2617,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   ("b" hydra-ibuffer-main/body "back" :color blue))
 
 ;; (use-package matcha
-;;   :defer 7
 ;;   :git "https://github.com/jojojames/matcha.git"
 ;;   :custom
 ;;   (matcha-mode-list
@@ -2928,7 +2890,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 ;;   ("C-c m" . vr/mc-mark))
 
 (use-package anzu
-  :defer 9
   :config
   (set-face-attribute 'anzu-replace-to nil :foreground nil :background "green")
   (global-anzu-mode +1)
@@ -2983,8 +2944,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
-  :after
-  wgrep-ag
   ;; :ensure-system-package
   ;; (rg . ripgrep)
   :custom
@@ -2997,7 +2956,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
-  :defer 1
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -3022,13 +2980,9 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ("C-e" . ivy-partial-or-done)
         ("M-/" . ivy-done)))
 
-(use-package ivy-hydra
-  :defer 1
-  :after (ivy hydra))
+;; (use-package ivy-hydra)
 
 (use-package swiper
-  :defer 1
-  :after ivy
   :config
   (defvar minibuffer-this-command nil
     "Command minibuffer started with.")
@@ -3066,8 +3020,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
-  :defer 1
-  :after ivy
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -3185,26 +3137,26 @@ force `counsel-rg' to search in `default-directory.'"
 
   (counsel-mode)
   :bind
+  ("M-x" . counsel-M-x)
+  ("C-h C-k" . counsel-descbinds)
+  ("C-h C-l" . counsel-find-library)
+  ("s-f" . counsel-grep-or-swiper)
+  ("s-F" . counsel-rg)
+  ("C-x C-f" . counsel-find-file)
+  ("C-x f" . counsel-recentf)
+  ("C-x j" . counsel-file-jump)
+  ("s-b" . counsel-switch-buffer)
+  ("s-S-b" . counsel-switch-buffer-other-window)
+  ("C-h <tab>" . counsel-info-lookup-symbol)
+  ("C-h C-f" . counsel-describe-face)
+  ("C-h C-a" . counsel-apropos)
+  ("C-c u" . counsel-unicode-char)
+  ("C-c g" . counsel-git)
+  ("C-c j" . counsel-git-grep)
+  ("C-c M-o" . counsel-outline)
+  ("M-s-v" . counsel-yank-pop)
+  ("M-Y" . counsel-yank-pop)
   (:map counsel-mode-map
-        ("M-x" . counsel-M-x)
-        ("C-h C-k" . counsel-descbinds)
-        ("C-h C-l" . counsel-find-library)
-        ("s-f" . counsel-grep-or-swiper)
-        ("s-F" . counsel-rg)
-        ("C-x C-f" . counsel-find-file)
-        ("C-x f" . counsel-recentf)
-        ("C-x j" . counsel-file-jump)
-        ("s-b" . counsel-switch-buffer)
-        ("s-S-b" . counsel-switch-buffer-other-window)
-        ("C-h <tab>" . counsel-info-lookup-symbol)
-        ("C-h C-f" . counsel-describe-face)
-        ("C-h C-a" . counsel-apropos)
-        ("C-c u" . counsel-unicode-char)
-        ("C-c g" . counsel-git)
-        ("C-c j" . counsel-git-grep)
-        ("C-c M-o" . counsel-outline)
-        ("M-s-v" . counsel-yank-pop)
-        ("M-Y" . counsel-yank-pop)
         ;; Don't shadow default binding.
         ([remap yank-pop] . nil)
         ([remap find-file] . counsel-find-file))
@@ -3216,6 +3168,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
+  :ensure nil
   :git "https://github.com/tautologyclub/counsel-term.git"
   :config
   (with-eval-after-load 'vterm
@@ -3233,7 +3186,6 @@ force `counsel-rg' to search in `default-directory.'"
         ("C-x d" . counsel-term-cd)))
 
 (use-package projectile
-  :defer 1
   :custom
   (projectile-keymap-prefix (kbd "C-c p"))
   (projectile-completion-system 'ivy)
@@ -3297,8 +3249,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-c {" . projectile-previous-project-buffer)))
 
 (use-package counsel-projectile
-  :defer 1
-  :after (counsel projectile)
   :custom
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
@@ -3315,8 +3265,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("C-s-b" . counsel-projectile-switch-to-buffer)))
 
 (use-package counsel-etags
-  :defer 5
-  :after counsel
   :custom
   ;; TODO: Get this working with Clojure (ctags parses namespaces but
   ;; `counsel-etags-find-tag-at-point' doesn't. Wouldn't this be `clojure-mode's
@@ -3340,11 +3288,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   counsel-etags-list-tag)
 
 (use-package company
-  :defer 1
   :custom
   (company-dabbrev-ignore-case t)
   :commands
-  global-company-mode
   company-select-next
   company-select-previous
   :config
@@ -3358,49 +3304,41 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
                            company-files
                            (company-dabbrev-code company-gtags company-etags company-keywords)
                            company-dabbrev))
-  (global-company-mode)
-  ;; :hook
+  :hook
+  (prog-mode-hook . company-mode)
   ;; TODO: Figure out how to make company-mode work in the minibuffer.
   ;; (minibuffer-setup . company-mode)
   :bind
-  (("M-/" . company-complete)
-   :map company-active-map
-   ("RET" . nil)
-   ("<return>" . nil)
-   ("<tab>" . company-complete-selection)
-   ("C-s" . company-filter-candidates)
-   ("M-?" . company-complete-selection)
-   ("M-." . company-show-location)
-   :map minibuffer-local-map
-   ("M-/" . completion-at-point)
-   :map minibuffer-local-completion-map
-   ("M-/" . completion-at-point)))
+  ("M-/" . company-complete)
+  (:map company-active-map
+        ("RET" . nil)
+        ("<return>" . nil)
+        ("<tab>" . company-complete-selection)
+        ("C-s" . company-filter-candidates)
+        ("M-?" . company-complete-selection)
+        ("M-." . company-show-location))
+  (:map minibuffer-local-map
+        ("M-/" . completion-at-point))
+  (:map minibuffer-local-completion-map
+        ("M-/" . completion-at-point)))
 
 (use-package company-posframe
-  :defer 1
-  :config
-  (company-posframe-mode))
+  :hook
+  (company-mode-hook . company-posframe-mode))
 
 (use-package prescient
-  :defer 1
-  :commands
-  prescient-persist-mode
-  :config
-  (prescient-persist-mode))
+  :hook
+  (ivy-mode-hook . prescient-persist-mode))
 
 (use-package ivy-prescient
-  :defer 1
-  :after (prescient ivy counsel)
   :custom
   (ivy-prescient-sort-commands '(:not
                                  swiper
                                  counsel-grep
                                  counsel-grep-or-swiper
                                  ivy-switch-buffer))
-  :commands
-  ivy-prescient-mode
-  :config
-  (ivy-prescient-mode))
+  :hook
+  (ivy-mode-hook . ivy-prescient-mode))
   ;; (setq ivy-sort-functions-alist
   ;;       '((swiper . ivy-sort-file-function-default)
   ;;         (counsel-grep . ivy-sort-file-function-default)
@@ -3409,15 +3347,10 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ;;         (t . ivy-prescient-sort-function))))
 
 (use-package company-prescient
-  :defer 1
-  :after (prescient company)
-  :commands
-  company-prescient-mode
-  :config
-  (company-prescient-mode))
+  :hook
+  (company-mode-hook . company-prescient-mode))
 
 (use-package dumb-jump
-  :defer 5
   :custom
   (dumb-jump-selector 'ivy)
   (dumb-jump-prefer-searcher 'rg)
@@ -3434,12 +3367,13 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-J" . dumb-jump-quick-look)))
 
 (use-package spotlight.el
-  :git "https://github.com/cjp/spotlight.el"
+  :git "git@github.com:mnewt/spotlight.el.git"
   :commands
   (spotlight spotlight-fast)
   :bind
-  ("C-c M-s" . spotlight)
-  ("C-c M-S" . spotlight-fast))
+  (:map m-search-map
+        ("s" . spotlight)
+        ("S" . spotlight-fast)))
 
 (bind-key "s-5" #'replace-regexp-entire-buffer-immediately)
 
@@ -3459,10 +3393,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (remote-file-name-inhibit-cache nil))
 
 (use-package jka-cmpr-hook
-  :defer 1
   :ensure nil
-  :commands
-  auto-compression-mode
   :config
   (auto-compression-mode))
 
@@ -3471,7 +3402,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (epg-pinentry-mode 'loopback))
 
 (use-package pinentry
-  :defer 3
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   (pinentry-start))
@@ -3560,7 +3490,6 @@ Tries to find a file at point."
 ;;;; OS program interaction
 
 (use-package server
-  :defer 9
   :config
   (unless (server-running-p)
     (server-start)))
@@ -3709,7 +3638,6 @@ With a prefix ARG always prompt for command to use."
 (use-package dired-x
   :ensure nil
   :after dired
-  :defer 6
   :custom
   (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
@@ -3739,14 +3667,10 @@ With a prefix ARG always prompt for command to use."
         ("C-c C-p" . wdired-change-to-wdired-mode)))
 
 (use-package dired-hacks-utils
-  :defer 5
-  :commands
-  dired-utils-format-information-line-mode
   :config
   (dired-utils-format-information-line-mode))
 
 (use-package dired-rainbow
-  :defer 5
   :after dired-hacks-utils
   :config
   (dired-rainbow-define-chmod directory "#0074d9" "d.*")
@@ -3772,18 +3696,12 @@ With a prefix ARG always prompt for command to use."
   (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile")))
 
 (use-package dired-rainbow-listing
-  :defer 5
   :after dired-rainbow
   :ensure nil
   :commands
   dired-rainbow-listing-mode
   :config
   (dired-rainbow-listing-mode))
-
-;; (use-package diredfl
-;;   :defer 6
-;;   :hook
-;;   (dired-mode-hook . diredfl-mode))
 
 (use-package dired-filter
   :disabled t
@@ -3799,7 +3717,6 @@ With a prefix ARG always prompt for command to use."
         ("/" . dired-narrow)))
 
 (use-package dired-list
-  :defer 5
   :after dired-hacks-utils
   :git (:url "https://github.com/Fuco1/dired-hacks"
              :files "dired-list.el")
@@ -4186,20 +4103,10 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
               tab-stop-list (number-sequence tab-width 120 tab-width))
 
 ;; Delete selection on insert or yank
-(use-package delsel
-  :defer 1
-  :commands
-  delete-selection-mode delete-active-region
-  :config
-  (delete-selection-mode))
+(delete-selection-mode)
 
 ;; Automatically indent after RET
-(use-package electric
-  :defer 1
-  :commands
-  electric-indent-mode
-  :config
-  (electric-indent-mode))
+(electric-indent-mode)
 
 (defun auto-fill-mode-init ()
   "Automatically fill comments. Wraps on `fill-column' columns."
@@ -4209,15 +4116,13 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 (add-hook 'prog-mode-hook #'auto-fill-mode-init)
 
 (use-package so-long
-  :defer 1
+  :demand t
   :if (>= emacs-major-version 27)
   :ensure nil
   :config
   (global-so-long-mode))
 
 (use-package unfill
-  :commands
-  (unfill-region unfill-paragraph)
   :bind
   (:map prog-mode-map
         ("M-q" . unfill-toggle)))
@@ -4236,8 +4141,8 @@ Bring the line below point up to the current line."
   ("s-Z" . redo))
 
 (use-package undohist
+  :demand t
   :git "https://github.com/clemera-dev/undohist"
-  :defer 1
   :config
   (undohist-initialize))
 
@@ -4246,14 +4151,13 @@ Bring the line below point up to the current line."
   ("M-s-z" . undo-propose))
 
 (use-package volatile-highlights
-  :defer 2
+  :demand t
   :config
   (vhl/define-extension 'undo-redo 'undo-modern 'undo)
   (vhl/install-extension 'undo-redo)
   (volatile-highlights-mode t))
 
 (use-package goto-chg
-  :defer 1
   :bind
   ("C-." . goto-last-change)
   ("C-;" . goto-last-change-reverse))
@@ -4378,58 +4282,18 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-c C-u" . string-inflection-all-cycle))
 
 (use-package yasnippet
-  :defer 5
   :custom
   ;; Don't write messages at startup.
   (yas-verbosity 1)
-  :commands
-  yas-global-mode
   :config
+  (use-package yasnippet-snippets)
   (yas-global-mode)
   :bind
   (:map yas-minor-mode-map
         ("s-'" . yas-expand)
         ("C-c C-s" . yas-insert-snippet)))
 
-(use-package yasnippet-snippets
-  :defer 5)
-
-(use-package parinfer
-  :custom
-  (parinfer-extensions
-   '(defaults       ; should be included.
-      pretty-parens ; different paren styles for different modes.
-      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
-      smart-yank))  ; Yank behavior depends on mode.
-  :config
-  (parinfer-strategy-add 'default 'newline-and-indent)
-  :hook
-  ((clojure-mode-hook
-    emacs-lisp-mode-hook
-    hy-mode-hook
-    lisp-interaction-mode-hook
-    lisp-mode-hook
-    scheme-mode-hook) . parinfer-mode)
-  :commands
-  (parinfer-strategy-add parinfer--invoke-parinfer)
-  :bind
-  (:map parinfer-mode-map
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)
-        ("C-," . parinfer-toggle-mode)
-        ;; Don't interfere with smartparens quote handling
-        ("\"" . nil)
-        ;; sp-newline seems to offer a better experience for lisps
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline))
-  (:map parinfer-region-mode-map
-        ("C-i" . indent-for-tab-command)
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
-
 (use-package smartparens
-  :defer 1
-
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
   ;; the entire symbol, use `sp-kill-symbol'.
@@ -4660,17 +4524,21 @@ See https://github.com/Fuco1/smartparens/issues/80."
                    :post-handlers '(sp-add-space-after-sexp-insertion)))
   (setq sp-ignore-modes-list
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
-  (smartparens-global-mode)
-  (show-smartparens-global-mode)
 
   :commands
   sp-local-pair
   sp-with-modes
-  smartparens-global-mode
-  show-smartparens-global-mode
-  sp-point-in-string-or-comment sp-forward-slurp-sexp
-  sp-backward-symbol sp-backward-symbol sp-down-sexp
-  sp-forward-sexp sp-backward-sexp
+  sp-point-in-string-or-comment
+  sp-forward-slurp-sexp
+  sp-backward-symbol
+  sp-backward-symbol
+  sp-down-sexp
+  sp-forward-sexp
+  sp-backward-sexp
+
+  :hook
+  (smartparens-mode-hook . show-smartparens-mode)
+  ((text-mode-hook prog-mode-hook) . smartparens-mode)
 
   :bind
   (:map lisp-mode-shared-map
@@ -5642,19 +5510,18 @@ Advise `eshell-ls-decorated-name'."
 
 ;; ElDoc and topical help in Eshell.
 (use-package esh-help
-  :config
-  (setup-esh-help-eldoc)
-  :commands
-  (setup-esh-help-eldoc esh-help-run-help))
+  :hook
+  (eshell-mode-hook . setup-esh-help-eldoc))
 
 ;; Fish-like autosuggestions.
 (use-package esh-autosuggest
+  :config
+  (defun esh-autosuggest-setup ()
+    "Set up `esh-autosuggest-mode'."
+    (esh-autosuggest-mode)
+    (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
   :hook
-  (eshell-mode-hook . esh-autosuggest-mode)
-  (esh-autosuggest-mode-hook . (lambda ()
-                                 (bind-key "C-e"
-                                           #'company-complete-selection
-                                           esh-autosuggest-active-map))))
+  (eshell-mode-hook . esh-autosuggest-setup))
 
 (use-package eshell-bookmark
   :hook
@@ -5664,6 +5531,39 @@ Advise `eshell-ls-decorated-name'."
 ;;;; Lisp
 
 ;; Lisp specific functionality
+
+(use-package parinfer
+  :custom
+  (parinfer-extensions
+   '(defaults       ; should be included.
+      pretty-parens ; different paren styles for different modes.
+      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
+      smart-yank))  ; Yank behavior depends on mode.
+  :config
+  (parinfer-strategy-add 'default 'newline-and-indent)
+  :commands
+  parinfer-strategy-add
+  parinfer--invoke-parinfer
+  :hook
+  ((clojure-mode-hook
+    emacs-lisp-mode-hook
+    hy-mode-hook
+    lisp-interaction-mode-hook
+    lisp-mode-hook
+    scheme-mode-hook) . parinfer-mode)
+  :bind
+  (:map parinfer-mode-map
+        ("<tab>" . parinfer-smart-tab:dwim-right)
+        ("S-<tab>" . parinfer-smart-tab:dwim-left)
+        ("C-," . parinfer-toggle-mode)
+        ;; Don't interfere with smartparens quote handling
+        ("\"" . nil)
+        ("RET" . sp-newline)
+        ("<return>" . sp-newline))
+  (:map parinfer-region-mode-map
+        ("C-i" . indent-for-tab-command)
+        ("<tab>" . parinfer-smart-tab:dwim-right)
+        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
 (defun advice-remove-all (symbol)
   "Remove all advices from SYMBOL."
@@ -5921,120 +5821,110 @@ Interactively, reads the register using `register-read-with-preview'."
   ("\\.clj\\'" . clojure-mode)
   ("\\.cljs\\'" . clojurescript-mode)
   ("\\.cljc\\'" . clojurec-mode)
+
   :interpreter
   ("inlein" . clojure-mode)
-  :config
-  (require 'clojure-mode-extra-font-locking)
-  :hook
-  (clojure-mode-hook . subword-mode))
 
-(use-package clojure-mode-extra-font-locking
-  :after clojure-mode
   :config
-  (defun clojure-mode-extra-font-locking-enable ()
-    "Enable `clojure-mode' extra font locking."
-    (require 'clojure-mode-extra-font-locking))
-  :hook
-  (clojure-mode-hook . clojure-mode-extra-font-locking-enable))
+  (use-package clojure-mode-extra-font-locking)
 
-(use-package clj-refactor
-  :config
-  (defun clj-refactor-setup ()
-    "Set up `clj-refactor-mode'."
-    (clj-refactor-mode 1)
-    (cljr-add-keybindings-with-prefix "C-c C-m"))
-  :hook
-  (clojure-mode-hook . clj-refactor-setup)
-  :bind
-  (:map clojure-mode-map
-        ("C-s-r" . cljr-rename-symbol)))
+  (use-package clj-refactor
+    :config
+    (defun clj-refactor-setup ()
+      "Set up `clj-refactor-mode'."
+      (clj-refactor-mode 1)
+      (cljr-add-keybindings-with-prefix "C-c C-m"))
+    :hook
+    (clojure-mode-hook . clj-refactor-setup)
+    :bind
+    (:map clojure-mode-map
+          ("C-s-r" . cljr-rename-symbol)))
 
-(use-package flycheck-clojure
-  :defer 9
-  :config
-  (flycheck-clojure-setup))
+  (use-package flycheck-clojure
+    :config
+    (flycheck-clojure-setup))
 
-(use-package inf-clojure
-  :commands
-  inf-clojure
-  inf-clojure-connect
-  inf-clojure-minor-mode
-  :config
-  (defun inf-clojure-start-lumo ()
-    "Start lumo as a subprocess and then connect to it over TCP.
+  (use-package inf-clojure
+    :commands
+    inf-clojure
+    inf-clojure-connect
+    inf-clojure-minor-mode
+    :config
+    (defun inf-clojure-start-lumo ()
+      "Start lumo as a subprocess and then connect to it over TCP.
 This is preferable to starting it directly because lumo has lots
 of problems in that context."
-    (interactive)
-    (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-    (inf-clojure-minor-mode)
-    (shell-command "pkill -f 'lumo -d -n 2000'")
-    (async-shell-command "lumo -d -n 2000")
-    (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
-  :bind
-  (:map inf-clojure-minor-mode-map
-        ("s-<return>" . inf-clojure-eval-last-sexp)
-        ("C-c C-k" . inf-clojure-eval-buffer)))
+      (interactive)
+      (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
+      (inf-clojure-minor-mode)
+      (shell-command "pkill -f 'lumo -d -n 2000'")
+      (async-shell-command "lumo -d -n 2000")
+      (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
+    :bind
+    (:map inf-clojure-minor-mode-map
+          ("s-<return>" . inf-clojure-eval-last-sexp)
+          ("C-c C-k" . inf-clojure-eval-buffer)))
 
-(use-package cider
-  :custom
-  ;; Never prompt when looking up a symbol.
-  (cider-prompt-for-symbol nil)
-  ;; Always prompt for the jack in command.
-  (cider-edit-jack-in-command t)
+  (use-package cider
+    :custom
+    ;; Never prompt when looking up a symbol.
+    (cider-prompt-for-symbol nil)
+    ;; Always prompt for the jack in command.
+    (cider-edit-jack-in-command t)
 
-  :config
-  (defun cider-find-var-other-window (&optional arg var line)
-    "Find the var in the other window."
-    (interactive "P")
-    (funcall (cider-prompt-for-symbol-function arg)
-             "Symbol"
-             (if (cider--open-other-window-p arg)
-                 #'cider--find-var
-               #'cider--find-var-other-window)))
+    :config
+    (defun cider-find-var-other-window (&optional arg var line)
+      "Find the var in the other window."
+      (interactive "P")
+      (funcall (cider-prompt-for-symbol-function arg)
+               "Symbol"
+               (if (cider--open-other-window-p arg)
+                   #'cider--find-var
+                 #'cider--find-var-other-window)))
 
-  (defun toggle-nrepl-buffer ()
-    "Toggle the nREPL REPL on and off."
-    (interactive)
-    (if (string-match "cider-repl" (buffer-name (current-buffer)))
-        (delete-window)
-      (cider-switch-to-repl-buffer)))
+    (defun toggle-nrepl-buffer ()
+      "Toggle the nREPL REPL on and off."
+      (interactive)
+      (if (string-match "cider-repl" (buffer-name (current-buffer)))
+          (delete-window)
+        (cider-switch-to-repl-buffer)))
 
-  (defun cider-save-and-refresh ()
-    "Save the buffer and refresh CIDER."
-    (interactive)
-    (save-buffer)
-    (call-interactively 'cider-refresh))
+    (defun cider-save-and-refresh ()
+      "Save the buffer and refresh CIDER."
+      (interactive)
+      (save-buffer)
+      (call-interactively 'cider-refresh))
 
-  (defun cider-eval-last-sexp-and-append ()
-    "Eval last sexp and append the result."
-    (interactive)
-    (cider-eval-last-sexp '(1)))
+    (defun cider-eval-last-sexp-and-append ()
+      "Eval last sexp and append the result."
+      (interactive)
+      (cider-eval-last-sexp '(1)))
 
-  (defun cider-theme-setup ()
-    "The standard advice function runs at the wrong time I guess?
+    (defun cider-theme-setup ()
+      "The standard advice function runs at the wrong time I guess?
   Anyway, it often gets set to the wrong color when switching
   themes via `theme-choose'."
-    (when (fboundp 'cider-scale-background-color)
-      (setq cider-stacktrace-frames-background-color
-            (cider-scale-background-color))))
+      (when (fboundp 'cider-scale-background-color)
+        (setq cider-stacktrace-frames-background-color
+              (cider-scale-background-color))))
 
-  :commands
-  cider-jack-in
-  cider-switch-to-repl-buffer
+    :hook
+    (cider-mode-hook . eldoc-mode)
+    (fiat-after-theme-hook . cider-theme-setup)
+
+    :bind
+    (:map cider-mode-map
+          ("s-<return>" . cider-eval-last-sexp)
+          ("C-x 4 ." . cider-find-var-other-window)))
+
+  (use-package cider-hydra
+    :after cider
+    :hook
+    (clojure-mode-hook . cider-hydra-mode))
+
 
   :hook
-  (cider-mode-hook . eldoc-mode)
-  (fiat-after-theme-hook . cider-theme-setup)
-
-  :bind
-  (:map cider-mode-map
-        ("s-<return>" . cider-eval-last-sexp)
-        ("C-x 4 ." . cider-find-var-other-window)))
-
-(use-package cider-hydra
-  :after cider
-  :hook
-  (clojure-mode-hook . cider-hydra-mode))
+  (clojure-mode-hook . subword-mode))
 
 (use-package sly
   :custom
@@ -6149,13 +6039,6 @@ of problems in that context."
 
 ;;;; Log Files
 
-(use-package vlf
-  :defer 5
-  :custom
-  (vlf-application 'dont-ask)
-  :config
-  (require 'vlf-setup))
-
 ;; Dependency for `logview'.
 (use-package datetime
   :custom
@@ -6197,8 +6080,7 @@ of problems in that context."
   ("C-c M-d" . docker))
 
 (use-package docker-tramp
-  :after tramp
-  :defer 5)
+  :after tramp)
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("DWfile\\'" . sh-mode))
@@ -6415,7 +6297,6 @@ Open the `eww' buffer in another window."
          flyspell-correct-previous-word-generic)))
 
 (use-package flycheck
-  :defer 7
   :custom
   (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
   (flycheck-idle-change-delay 1)
@@ -6495,9 +6376,6 @@ Open the `eww' buffer in another window."
   (lsp-eldoc-render-all t)
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
-  :commands
-  lsp
-  lsp-deferred
   :hook
   ((c-mode-hook c++-mode-hook css-mode-hook go-mode-hook
                 java-mode-hook js-mode-hook php-mode-hook
@@ -6537,13 +6415,8 @@ referencing a format region function, which takes two arguments:
 `beginning' and `end' (e.g. `format-region').")
 
 (use-package reformatter
-  :defer 7
-  :commands
-  reformatter-define
   :config
-
   (with-no-warnings
-
     ;; Try to use the native image version, fall back to the JVM.
     (defvar m-zprint-command nil)
     (defvar m-zprint-args '("{:map {:comma? false}}"))
