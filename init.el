@@ -15,6 +15,9 @@
 
 (setq debug-on-error t)
 
+(unless (featurep 'early-init)
+  (load (expand-file-name "early-init" user-emacs-directory) nil t))
+
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
 
@@ -38,18 +41,6 @@
 
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
-
-;;;;; Initial appearance settings
-
-(when window-system
-  ;; Give the frame basic coloring while waiting for the theme to load. The main
-  ;; purpose of this is to not blind me when it's dark. These colors are from
-  ;; spacemacs-dark.
-  (set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
-  ;; Default frame settings. This is actually maximized, not full screen.
-  (add-to-list 'default-frame-alist '(fullscreen . maximized))
-  (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t)))
-
 
 ;;;; Variables
 
@@ -280,42 +271,46 @@ If DIFF is non-nil, only set variables which have changed."
 
 (add-to-list 'load-path elisp-directory)
 
-(use-package use-package-git
-  :demand t
-  :ensure nil
-  :load-path "git/use-package-git"
-  :config
+;;;;; use-package-git
+
+(let ((f (expand-file-name "git/use-package-git/use-package-git.el"
+                           user-emacs-directory)))
+  (unless (file-exists-p f)
+    (with-temp-buffer)
+    (url-retrieve-synchronously
+     "https://github.com/mnewt/use-package-git/blob/master/use-package-git.el"))
+  (load f nil t nil t)
   (use-package-git-enable))
 
-(use-package system-packages
-  :config
-  ;; TODO This still doesn't work for Windows systems because choco needs to be
-  ;; run with elevated privileges. Need to figure out how to do that from Emacs.
-  (when (eq system-type 'windows-nt)
-    (add-to-list
-     'system-packages-supported-package-managers
-     '(choco .
-       ((default-sudo . t)
-        (install . "choco install")
-        (search . "choco search")
-        (uninstall . "choco uninstall")
-        (update . "choco upgrade")
-        (clean-cache . "choco optimize")
-        (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
-        (get-info . "choco info --local-only")
-        (get-info-remote . "choco info")
-        (list-files-provided-by . nil)
-        (verify-all-packages . nil)
-        (verify-all-dependencies . nil)
-        (remove-orphaned . nil)
-        (list-installed-packages . "choco list --local-only")
-        (list-installed-packages-all . "choco list --local-only --include-programs")
-        (list-dependencies-of . nil)
-        (noconfirm . "-y"))))
-    (setq system-packages-package-manager 'choco))
-  :commands
-  system-packages-ensure
-  system-packages-install)
+;; (use-package system-packages
+;;   :config
+;;   ;; TODO This still doesn't work for Windows systems because choco needs to be
+;;   ;; run with elevated privileges. Need to figure out how to do that from Emacs.
+;;   (when (eq system-type 'windows-nt)
+;;     (add-to-list
+;;      'system-packages-supported-package-managers
+;;      '(choco .
+;;        ((default-sudo . t)
+;;         (install . "choco install")
+;;         (search . "choco search")
+;;         (uninstall . "choco uninstall")
+;;         (update . "choco upgrade")
+;;         (clean-cache . "choco optimize")
+;;         (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
+;;         (get-info . "choco info --local-only")
+;;         (get-info-remote . "choco info")
+;;         (list-files-provided-by . nil)
+;;         (verify-all-packages . nil)
+;;         (verify-all-dependencies . nil)
+;;         (remove-orphaned . nil)
+;;         (list-installed-packages . "choco list --local-only")
+;;         (list-installed-packages-all . "choco list --local-only --include-programs")
+;;         (list-dependencies-of . nil)
+;;         (noconfirm . "-y"))))
+;;     (setq system-packages-package-manager 'choco))
+;;   :commands
+;;   system-packages-ensure
+;;   system-packages-install)
 
 ;; (use-package use-package-ensure-system-package
 ;;   :demand t

@@ -2,20 +2,18 @@
 
 ;;; Commentary:
 
-;; This file is mostly copied from Doom Emacs.
-
 ;; Emacs HEAD (27+) introduces early-init.el, which is run before init.el,
 ;; before package and UI initialization happens.
 
 ;;; Code:
 
-;; Defer garbage collection further back in the startup process
-(setq gc-cons-threshold most-positive-fixnum)
+;; Set Garbage Collection threshold to 1GB, run GC on idle.
+(setq gc-cons-threshold 1073741824)
 
 ;; In Emacs 27+, package initialization occurs before `user-init-file' is
 ;; loaded, but after `early-init-file'. We handle package initialization later,
 ;; so we must prevent Emacs from doing it early!
-(setq package-enable-at-startup nil)
+;; (setq package-enable-at-startup nil)
 
 ;; Package initialize occurs automatically, before `user-init-file' is
 ;; loaded, but after `early-init-file'. We handle package
@@ -27,6 +25,14 @@
   (push '(menu-bar-lines . 0) default-frame-alist))
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
+
+;; Give the frame basic coloring while waiting for the theme to load. The main
+;; purpose of this is to not blind me when it's dark. These colors are from
+;; spacemacs-dark.
+(set-face-attribute 'default nil :background "#1E2022" :foreground "#B1B2B1")
+;; Default frame settings. This is actually maximized, not full screen.
+(push '(fullscreen . maximized) default-frame-alist)
+(push '(ns-transparent-titlebar . t) default-frame-alist)
 
 ;; Resizing the Emacs frame can be a terribly expensive part of changing the
 ;; font. By inhibiting this, we easily halve startup times with fonts that are
