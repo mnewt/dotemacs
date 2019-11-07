@@ -178,7 +178,7 @@ access the individual Alist element we are after.
 See `get' and `fiat-theme-attribute'."
   (let ((name (if (stringp name) (intern name) name)))
     (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
-                           (cadddr e)))
+                           (car (cdr (cdr (cdr e))))))
              (get (car object) propname))))
 
 (defun fiat-theme-attribute (attribute name)
@@ -355,7 +355,7 @@ Return nil if `evil-mode' is not active."
               (string-join
                (mapcar (lambda (wc)
                          (let* ((number (car wc))
-                                (name (caddr wc))
+                                (name (car (cdr (cdr wc))))
                                 (label (if (string-blank-p name)
                                            (number-to-string number)
                                          (format fiat-eyebrowse-format number name))))
@@ -419,10 +419,10 @@ Propertize the result with the specified PROPERTIES."
              (fiat-ml-concat
               (list ""
                (when (bound-and-true-p parinfer-mode)
-                (if (eq 'paren parinfer--mode) "🄟" "P↹"))
-               (when (buffer-narrowed-p) "⒩")
-               (when (bound-and-true-p hs-minor-mode) "⒣")
-               (when (bound-and-true-p outline-minor-mode) "⦿"))
+                (if (eq 'paren parinfer--mode) "()" "=>"))
+               (when (buffer-narrowed-p) "n")
+               (when (bound-and-true-p hs-minor-mode) "hs")
+               (when (bound-and-true-p outline-minor-mode) "O"))
               " "
               t)
              'face 'mode-line-buffer-id)

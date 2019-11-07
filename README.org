@@ -66,8 +66,7 @@ Some innovative intra- and extra- buffer navigation strategies. Check out =winne
 **** Web, Javascript and [[https://reactjs.org/][React]] development
 **** Nested language support with [[https://github.com/polymode/polymode][polymode]] and [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
 ** Supported Emacs versions
-*** 24.3+
-*** A few features are 27.1 (master) only.
+ 25.3, however a few features are 27.1 (master) only.
 ** Install
 1. Clone the repo:
 #+begin_src sh

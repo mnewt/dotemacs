@@ -1,4 +1,4 @@
-;;; init.el --- Emacs init file --- -*- lexical-binding: t -*-
+;;; init.el --- Emacs init --- -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -13,14 +13,13 @@
 
 (defconst emacs-start-time (current-time))
 
-;; (setq debug-on-error t)
+(setq debug-on-error t)
 
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
 
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824)
-(run-with-idle-timer 20 t #'garbage-collect)
 
 ;; Unset `file-name-handler-alist' too (temporarily). Every file opened and
 ;; loaded by Emacs will run through this list to check for a proper handler for
@@ -28,7 +27,9 @@
 (defvar m--file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
-          (lambda () (setq file-name-handler-alist m--file-name-handler-alist)))
+          (lambda ()
+            (setq file-name-handler-alist m--file-name-handler-alist)
+            (run-with-idle-timer 20 t #'garbage-collect)))
 
 (setq load-prefer-newer t)
 
@@ -62,13 +63,17 @@
 (defvar journal-directory "~/org/journal"
   "Location of journal entries.")
 
-;;;; Environment
 
-;; Set up Operating System and Environment details.
+;;;; Built in Libraries
 
+(require 'seq)
+(require 'subr-x)
 (require 'cl-seq)
+(require 'cl-macs)
 
-;;;;; Path
+
+;;;; Environment Variables
+
 (defvar path-default (if (eq system-type 'windows-nt)
                          '("C:/bin" "C:/Program Files/Emacs/bin")
                        nil)
@@ -77,28 +82,95 @@
 (defvar path-user nil
   "Defines a list of path entries to add to all systems.")
 
-(defun source-sh (filename)
-  "Sources FILENAME using the user's login shell.
-Update environment variables from a shell source file."
-  (interactive "fSource file: ")
+;; TODO: Have source-shell create an `env.el' file and source that to save time
+;; during startup.
+(defvar env-sources '("~/.env")
+  "Shell files to source.
+
+This is used to import shell environment variables into the Emacs session.")
+
+(defvar env-vars '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH"
+                   "PATH" "MANPATH" "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG"
+                   "GOPATH" "BOOT_JVM_OPTIONS")
+  "Variables to save.")
+
+(defvar env-file
+  (expand-file-name "env.el" (expand-file-name "var" user-emacs-directory))
+  "File used to store saved environment variables and their values.")
+
+(defvar env-re "declare -x \\([^=\n]+\\)=?\\(.*\\)$"
+  "Regular expression used to capture environment variables.")
+
+(defun env-command-diff (command)
+  "Run COMMAND using SHELL and return changed environment variables."
   (with-temp-buffer
-    (shell-command (format "diff -u <(true; export) <(source %s; export)" filename) '(4))
-    (let ((envvar-re "declare -x \\([^=]+\\)=\\(.*\\)$"))
-      ;; Remove environment variables
-      (while (search-forward-regexp (concat "^-" envvar-re) nil t)
-        (let ((var (match-string 1)))
-          ;; (message "%s" (prin1-to-string `(setenv ,var nil)))
-          (setenv var nil)))
+    (shell-command (format "diff -u <(true; export) <(eval '%s'; export)" command) t)
+    (let (vars)
       ;; Update environment variables
       (goto-char (point-min))
-      (while (search-forward-regexp (concat "^+" envvar-re) nil t)
+      (while (search-forward-regexp (concat "^+" env-re) nil t)
         (let ((var (match-string 1))
               (value (read (match-string 2))))
-          ;; (message "%s" (prin1-to-string `(setenv ,var ,value)))
-          (setenv var value)
-          (when (string= var "PATH")
-            (add-to-list 'exec-path value))))))
-  (message "Sourcing environment from `%s'... done." filename))
+          (push (cons var value) vars)))
+      ;; Remove environment variables
+      (while (search-forward-regexp (concat "^-" env-re) nil t)
+        (let ((var (match-string 1)))
+          (push (cons var nil) vars)))
+      vars)))
+
+(defun env-command (command)
+  "Run COMMAND using SHELL and return the environment variables."
+  (with-temp-buffer
+    (shell-command (format "eval '%s'; export" command) t)
+    (goto-char (point-min))
+    (let (vars)
+      (while (search-forward-regexp env-re nil t)
+        (let ((var (match-string 1))
+              (val (match-string 2)))
+          (when (member var env-vars)
+            (push (cons var (and val (read val))) vars))))
+      vars)))
+
+(defun env-set-vars (vars)
+  "Set environment variables per VARS.
+
+VARS should be an alist where CAR is an environment variable
+name (a string) and CDR is its value (also a string).
+
+The environment variable PATH is mapped to the variable
+`exec-path'."
+  (cl-loop for (var . val) in vars
+           do (progn
+                (setenv var val))
+           when (and val (string= var "PATH"))
+           do (setq exec-path (split-string val path-separator)))
+  vars)
+
+(defun env-source (filename &optional diff)
+  "Use the users shell to source FILENAME.
+
+Import any updated environment variables into the Emacs session.
+
+If DIFF is non-nil, only set variables which have changed."
+  (interactive "fSource file: ")
+  (let ((command (concat ". " filename)))
+    (env-set-vars (if diff
+                      (env-command-diff command)
+                    (env-command command)))))
+
+(defun env-save ()
+  "Source shell files and save the result in a file."
+  (interactive)
+  (with-temp-file env-file
+    (prin1 (env-set-vars (mapcan #'env-source env-sources)) (current-buffer))))
+
+(defun env-load ()
+  "Load environment variables from a file and import them into the Emacs session."
+  (if (file-exists-p env-file)
+      (with-temp-buffer
+        (insert-file-contents env-file)
+        (env-set-vars (read (current-buffer))))
+    (env-save)))
 
 (defun path-add (&rest paths)
   "Add PATHS to the OS and Emacs executable search paths."
@@ -106,13 +178,15 @@ Update environment variables from a shell source file."
          new-path)
     (dolist (path (append paths old-path))
       (setq path (expand-file-name path))
-      (when (file-directory-p path) (cl-pushnew path new-path :test #'string=)))
+      (when (file-directory-p path) (cl-pushnew path new-path)))
     (setenv "PATH" (mapconcat #'identity new-path path-separator))
     (setq exec-path new-path)))
 
-(source-sh "~/.env")
-(source-sh "~/.bin/start-ssh-agent")
+(env-load)
 (apply #'path-add (append path-user path-default))
+
+
+;;;; Operating System
 
 (defvar os-open-file-executable nil
   "The executable used to open files in the host OS GUI.")
@@ -156,11 +230,12 @@ Update environment variables from a shell source file."
         os-open-file-executable "explorer"))
 
 ;; OS specific configuration
-(pcase system-type
-  ('darwin (config-macos))
-  ('gnu/linux (config-linux))
-  ('windows-nt (config-windows))
-  ('cygwin (config-windows)))
+
+(cl-case system-type
+  (darwin (config-macos))
+  (gnu/linux (config-linux))
+  (windows-nt (config-windows))
+  (cygwin (config-windows)))
 
 
 ;;;; Package
@@ -174,56 +249,48 @@ Update environment variables from a shell source file."
 
 (add-to-list 'load-path elisp-directory)
 
-(setq package-enable-at-startup nil
-      package-user-dir "~/.emacs.d/packages/"
+(setq package-user-dir "~/.emacs.d/packages/"
       package-archives '(("org"   . "https://orgmode.org/elpa/")
                          ("melpa" . "https://melpa.org/packages/")
                          ("elpa" . "https://elpa.gnu.org/packages/"))
-      package-archive-priorities '(("org" . 30)
-                                   ("melpa" . 20)
-                                   ("elpa" . 10))
+      ;; Higher number = higher priority.
+      package-archive-priorities '(("org" . 3)
+                                   ("melpa" . 2)
+                                   ("elpa" . 1))
       custom-file "~/.emacs.d/custom.el")
 
-;; https://github.com/nilcons/emacs-use-package-fast
-;; Add the macro generated list of package.el loadpaths to load-path.
-(mapc #'(lambda (add) (add-to-list 'load-path add))
-      (eval-when-compile
-        (package-initialize)
-        ;; use-package customizations
-        (custom-set-variables
-         '(use-package-always-ensure t)
-         '(use-package-always-defer t)
-         '(use-package-enable-imenu-support t)
-         '(use-package-hook-name-suffix nil))
-        ;; Install use-package if not installed yet.
-        (unless (package-installed-p 'use-package)
-          (package-refresh-contents)
-          (package-install 'use-package))
-        (custom-set-variables
-         '(use-package-always-ensure t))
-        (let ((package-user-dir-real (file-truename package-user-dir)))
-          ;; The reverse is necessary, because outside we mapc add-to-list
-          ;; element-by-element, which reverses.
-          (nreverse (apply #'nconc
-                           ;; Only keep package.el provided loadpaths.
-                           (mapcar #'(lambda (path)
-                                       (if (string-prefix-p package-user-dir-real path)
-                                           (list path)
-                                         nil))
-                                   load-path))))))
+(package-initialize)
+(eval-when-compile
+  (custom-set-variables
+   '(use-package-always-ensure t)
+   '(use-package-always-defer t)
+   '(use-package-enable-imenu-support t)
+   '(use-package-hook-name-suffix nil))
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package))
+  (require 'use-package)
+  (require 'use-package-ensure))
 
-(use-package benchmark-init
-  :demand t
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 (add-to-list 'load-path elisp-directory)
 
-(use-package use-package-git :demand t :ensure nil)
+(use-package use-package-git
+  :demand t
+  :ensure nil
+  :load-path "git/use-package-git"
+  :config
+  (use-package-git-enable))
 
 (use-package system-packages
   :config
+  ;; TODO This still doesn't work for Windows systems because choco needs to be
+  ;; run with elevated privileges. Need to figure out how to do that from Emacs.
   (when (eq system-type 'windows-nt)
     (add-to-list
      'system-packages-supported-package-managers
@@ -296,11 +363,12 @@ on the next startup."
         (cl-loop for pkg in package-activated-list
                  for pkg-vec = (cadr (assq pkg package-alist))
                  when pkg-vec
-                 collect (cons pkg
-                               (cl-loop for req in (package-desc-reqs pkg-vec)
-                                        for req-name = (car req)
-                                        when (memq req-name package-activated-list)
-                                        collect req-name))))
+                 collect
+                 (cons pkg
+                       (cl-loop for req in (package-desc-reqs pkg-vec)
+                                for req-name = (car req)
+                                when (memq req-name package-activated-list)
+                                collect req-name))))
   package-dependencies-alist)
 
 (defun find-duplicates (list)
@@ -361,16 +429,9 @@ on the next startup."
   paradox-list-packages
   paradox-upgrade-packages)
 
-;;;; Libraries
+;;;; Third Party Libraries
 
 ;; Common libraries and associated functions.
-
-;; Get rid of prompting for disabled commands.
-(setq disabled-command-function nil)
-
-(require 'seq)
-
-(require 'subr-x)
 
 (use-package dash :demand t)
 
@@ -382,13 +443,11 @@ on the next startup."
   :defer 9
   :commands
   dired-async-mode
-  async-bytecomp-package-mode
   async-start
   async-start-process
   async-let
-  :config
-  (dired-async-mode 1)
-  (async-bytecomp-package-mode 1))
+  :hook
+  (dired-mode-hook . dired-async-mode))
 
 (use-package lv
   :commands
@@ -506,13 +565,11 @@ on the next startup."
 
 (use-package saveplace
   :defer 1
-  :commands
-  save-place-mode
   :config
   (save-place-mode))
 
 (use-package recentf
-  :defer 1
+  :defer 9
   :commands
   recentf-save-list
   recentf-cleanup
@@ -570,34 +627,28 @@ on the next startup."
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
-  :defer 2
   :custom
-  ;; Work in Dired.
-  (global-auto-revert-non-file-buffers t)
   ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
-  :config
-  (global-auto-revert-mode))
+  :hook
+  (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
 
 (use-package savehist
-  :defer 1
-  :commands
-  savehist-mode
+  :defer 9
   :custom
   (savehist-autosave-interval 60)
   (history-length 200)
   (history-delete-duplicates t)
-  (savehist-additional-variables
-   '(kill-ring
-     search-ring
-     regexp-search-ring
-     file-name-history
-     magit-read-rev-history
-     read-expression-history
-     command-history
-     extended-command-history
-     ivy-history
-     window-config-alist))
+  (savehist-additional-variables '(kill-ring
+                                   search-ring
+                                   regexp-search-ring
+                                   file-name-history
+                                   magit-read-rev-history
+                                   read-expression-history
+                                   command-history
+                                   extended-command-history
+                                   ivy-history
+                                   window-config-alist))
   :config
   (savehist-mode))
 
@@ -627,12 +678,12 @@ on the next startup."
 ;; (use-package psession
   ;; :defer nil)
   ;; :config
-  
+
 
   ;; (defun window-state-put-list))
 
 (use-package persistent-scratch
-  :defer 1
+  :defer 5
   :config
   (persistent-scratch-setup-default))
 
@@ -658,9 +709,6 @@ on the next startup."
 (when window-system
   ;; GUI Configuration
   (progn
-    (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-    (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-    (when (fboundp 'horizontal-scroll-bar-mode) (horizontal-scroll-bar-mode -1))
     (setq frame-resize-pixelwise t
           ;; We don't set a frame title because Emacs on macOS renders the
           ;; frame title face terribly. No rendering is better than terrible
@@ -723,13 +771,11 @@ returned."
       (setq mouse-wheel-follow-mouse 't
             mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
-    (use-package pixel-scroll
-      :defer 1
-      :ensure nil
-      :commands
-      pixel-scroll-mode
-      :config
-      (pixel-scroll-mode))
+    ;; (use-package pixel-scroll
+    ;;   :defer 1
+    ;;   :ensure nil
+    ;;   :config
+    ;;   (pixel-scroll-mode))
 
     (use-package mixed-pitch
       :hook
@@ -739,11 +785,18 @@ returned."
       :hook
       (emacs-lisp-mode-hook . fontify-face-mode))))
 
-(unless (and window-system (eq system-type 'darwin))
-  (menu-bar-mode -1))
-
 (use-package spacemacs-common
-  :ensure spacemacs-theme)
+  :ensure spacemacs-theme
+  :git (spacemacs-theme
+        :url "https://github.com/mnewt/spacemacs-theme.git")
+  :config
+  (defun spacemacs-theme-after-setup ()
+    "As of Emacs 27.0, to extend a face to the end of the line requires the
+    :extend attribute."
+    (set-face-attribute 'hl-line nil :extend t)
+    (set-face-attribute 'org-block-begin-line nil :extend t)
+    (set-face-attribute 'org-block nil :extend t)
+    (set-face-attribute 'org-block-end-line nil :extend t)))
 
 (use-package fiat-color
   :demand t
@@ -758,6 +811,8 @@ returned."
   (fiat-mode-line-mode)
   :commands
   fiat-theme fiat-lux fiat-nox fiat-mode-line-mode
+  ;; :hook
+  ;; (fiat-after-theme-hook . spacemacs-theme-after-setup)
   :bind
   ("C-M-s-S-t" . fiat-theme-choose)
   ("C-M-s-t" . fiat)
@@ -772,7 +827,7 @@ returned."
 ;;   (auto-dim-other-buffers-mode))
 
 (use-package window-highlight
-  :defer 1
+  :defer 4
   :if (and window-system (>= emacs-major-version 27))
   :git "https://github.com/dcolascione/emacs-window-highlight"
   :config
@@ -784,7 +839,7 @@ returned."
   (window-highlight-mode))
 
 (use-package hl-line
-  :defer 1
+  :defer 2
   :custom
   (global-hl-line-sticky-flag t)
   :config
@@ -811,7 +866,7 @@ returned."
         ("d" . darkroom-mode)))
 
 (use-package hl-todo
-  :defer 6
+  :defer 9
   :custom
   (hl-todo-keyword-faces
    '(("TODO" . "magenta")
@@ -850,32 +905,34 @@ returned."
 
 (use-package font-lock-studio
   :commands
-  (font-lock-studio))
+  font-lock-studio)
 
 
 ;;;; Help
 
 ;; Help and Documentation lookup
 
+;; Get rid of prompting for disabled commands.
+(setq disabled-command-function nil)
+
 ;; Change yes/no prompts to y/n
 (defalias 'yes-or-no-p 'y-or-n-p)
 
-;; Show key bindings when the command is executed from `M-x'.
-(with-eval-after-load 'simple
-  (setq suggest-key-bindings 5))
-
-;; Enable all commands without silly warnings.
-(with-eval-after-load 'novice
-  (setq disabled-command-function nil))
-
-(use-package help-at-pt
-  :defer 2
+(use-package simple
+  :ensure nil
   :custom
-  (help-at-pt-display-when-idle t)
-  :commands
-  help-at-pt-set-timer
-  :config
-  (help-at-pt-set-timer))
+  (shell-command-prompt-show-cwd t)
+  (suggest-key-bindings 5))
+
+;; Enable all commands without warnings.
+(setq disabled-command-function nil)
+
+;; (use-package help-at-pt
+;;   :defer 9
+;;   :custom
+;;   (help-at-pt-display-when-idle t)
+;;   :config
+;;   (help-at-pt-set-timer))
 
 (use-package button
   :ensure nil
@@ -894,6 +951,8 @@ returned."
 
 (use-package helpful
   :config
+  (set-face-attribute 'helpful-heading nil :inherit 'org-level-1)
+
   (defun helpful-goto-face (face &optional direction)
     "Go to the next `helpful' heading, following DIRECTION.
 
@@ -934,20 +993,8 @@ forward."
         ("M-n" . imenu-goto-next)
         ("o" . push-button-other-window)))
 
-;; What is the purpose of this?
-;; (with-eval-after-load 'shr
-;;   (eval-when-compile
-;;     (defvar shr-color-visible-luminance-min)
-;;     (defvar shr-color-visible-distance-min)
-;;     (defvar shr-use-colors))
-;;   (setq shr-color-visible-luminance-min 60
-;;         shr-color-visible-distance-min 5
-;;         shr-use-colors nil))
-
 (use-package eldoc
-  :defer 2
-  :commands
-  global-eldoc-mode
+  :defer 9
   :config
   (eldoc-add-command ;; #'company-select-next
                      ;; #'company-select-previous
@@ -956,9 +1003,9 @@ forward."
 
 (use-package which-key
   :demand t
-  :defer 2
+  :defer 9
   :custom
-  (which-key-idle-delay 0.1)
+  (which-key-idle-delay 0.25)
   :config
   (defun which-key-M-x-prefix+ (&optional _)
     "Completing read and execute command from current prefix map.
@@ -1017,7 +1064,7 @@ Include PREFIX in prompt if given."
 
   ;; https://with-emacs.com/posts/prefix-command-completion/
   (setq prefix-help-command #'which-key-M-x-prefix+)
-  
+
   (which-key-mode)
   :bind
   ("M-s-h" . which-key-show-top-level))
@@ -1111,7 +1158,6 @@ Include PREFIX in prompt if given."
   devdocs-lookup)
 
 (use-package hydra
-  :defer 2
   :config
   (autoload #'windmove-find-other-window "windmove")
 
@@ -1201,10 +1247,12 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
     ("q" nil))
 
   :commands
-  (defhydra hydra-default-pre hydra-keyboard-quit
-    hydra--call-interactively-remap-maybe hydra-show-hint
-    hydra-set-transient-map
-    hydra-window/body)
+  hydra-default-pre
+  hydra-keyboard-quit
+  hydra--call-interactively-remap-maybe
+  hydra-show-hint
+  hydra-set-transient-map
+
   :bind
   ("C-s-v" . hydra-move/body)
   ("C-c w" . hydra-window/body))
@@ -1237,11 +1285,6 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
  :map Info-mode-map
  ("j" . next-line)
  ("k" . previous-line))
-
-(seq-doseq (m '(Info-mode-map help-mode-map))
-  (bind-keys :map (symbol-value m)
-             ("j" . next-line)
-             ("k" . previous-line)))
 
 
 ;;;; Org
@@ -1467,6 +1510,7 @@ With a prefix ARG, create it in `org-directory'."
 
   :bind
   ("s-o" . org-directory)
+  ("C-c C-o" . org-open-at-point)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
   ("C-c a" . org-agenda)
@@ -1574,7 +1618,7 @@ With a prefix ARG, create it in `org-directory'."
 ;;;; Mail
 
 (use-package mu4e
-  ;; :disabled
+  :disabled
   :ensure nil
   :load-path "/usr/local/share/emacs/site-lisp/mu4e"
   :custom
@@ -1606,11 +1650,30 @@ With a prefix ARG, create it in `org-directory'."
   (mu4e-view-show-images t)
 
   :config
+  (use-package smtpmail
+    :ensure nil
+    :custom
+    ;; Setting `smtp-queue-mail' to t prevents messages from being sent unless
+    ;; they are explicitly flushed. nil is the default.
+    ;; TODO: Queue messages and periodically flush them.
+    (smtpmail-queue-mail nil)
+    (send-mail-function 'async-smtpmail-send-it)
+    (message-send-mail-function 'async-smtpmail-send-it)
+
+    :config
+    (defvar mail-queue-directory (expand-file-name "~/.mail/queue/")
+      "Mail queue for SMTP outgoing mail messages.")
+    (setq smtpmail-queue-dir (expand-file-name "cur" mail-queue-directory))
+
+    (shell-command (format "mu mkdir %s" mail-queue-directory))
+    (shell-command (format "touch %s" (expand-file-name ".noindex" mail-queue-directory))))
+
+
   (add-to-list 'mu4e-headers-actions
                '("Browse message" . mu4e-action-view-in-browser) t)
   (add-to-list 'mu4e-view-actions
                '("Browse message" . mu4e-action-view-in-browser) t)
-  
+
   (defun org-capture-mu4e ()
     (interactive)
     "Capture a TODO item via email."
@@ -1768,25 +1831,6 @@ Used by `mu4e-toggle'.")
         ("<RET>" . mu4e~view-browse-url-from-binding)
         ("<tab>" . shr-next-link)
         ("<backtab>" . shr-previous-link)))
-
-(use-package smtpmail
-  :ensure nil
-  :defer 9
-  :custom
-  ;; Setting `smtp-queue-mail' to t prevents messages from being sent unless
-  ;; they are explicitly flushed. nil is the default.
-  ;; TODO: Queue messages and periodically flush them.
-  (smtpmail-queue-mail nil)
-  (send-mail-function 'async-smtpmail-send-it)
-  (message-send-mail-function 'async-smtpmail-send-it)
-
-  :config
-  (defvar mail-queue-directory (expand-file-name "~/.mail/queue/")
-    "Mail queue for SMTP outgoing mail messages.")
-  (setq smtpmail-queue-dir (expand-file-name "cur" mail-queue-directory))
-
-  (shell-command (format "mu mkdir %s" mail-queue-directory))
-  (shell-command (format "touch %s" (expand-file-name ".noindex" mail-queue-directory))))
 
 
 ;;;; Reading
@@ -1953,24 +1997,6 @@ See `scratch-new-buffer'."
   (switch-to-buffer-other-window (current-buffer))
   (scratch-new-buffer arg))
 
-(defun switch-to-buffer-by-mode (mode)
-  "Interactively choose a major MODE, then choose a buffer of that mode."
-  (interactive
-   (list (ivy-read "Choose buffers for major mode: "
-                   (list-buffer-major-modes)
-                   :history 'switch-to-buffer-by-mode-history
-                   :action 'switch-to-buffer-by-mode)))
-  (require 'ivy)
-  (when (stringp mode) (setq mode (intern mode)))
-  (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
-    (ivy-read (format "%s buffers: " mode) buffers
-              :keymap ivy-switch-buffer-map
-              :action #'ivy--switch-buffer-action
-              :matcher #'ivy--switch-buffer-matcher
-              :preselect (when (eq major-mode mode) (cadr buffers))
-              ;; Use the `ivy-switch-buffer' actions.
-              :caller #'ivy-switch-buffer)))
-
 ;; kill buffer and window
 (defun kill-other-buffer-and-window ()
   "Kill the buffer in the other window."
@@ -1982,31 +2008,30 @@ See `scratch-new-buffer'."
 (defun toggle-window-split ()
   "Toggle windows between horizontal and vertical split."
   (interactive)
-  (if (= (count-windows) 2)
-      (let* ((this-win-buffer (window-buffer))
-             (next-win-buffer (window-buffer (next-window)))
-             (this-win-edges (window-edges (selected-window)))
-             (next-win-edges (window-edges (next-window)))
-             (this-win-2nd (not (and (<= (car this-win-edges)
-                                         (car next-win-edges))
-                                     (<= (cadr this-win-edges)
-                                         (cadr next-win-edges)))))
-             (splitter (if (= (car this-win-edges)
-                              (car (window-edges (next-window))))
-                           'split-window-horizontally
-                         'split-window-vertically)))
-        (delete-other-windows)
-        (let ((first-win (selected-window)))
-          (funcall splitter)
-          (if this-win-2nd (other-window 1))
-          (set-window-buffer (selected-window) this-win-buffer)
-          (set-window-buffer (next-window) next-win-buffer)
-          (select-window first-win)
-          (if this-win-2nd (other-window 1))))))
+  (when (= (count-windows) 2)
+    (let* ((this-win-buffer (window-buffer))
+           (next-win-buffer (window-buffer (next-window)))
+           (this-win-edges (window-edges (selected-window)))
+           (next-win-edges (window-edges (next-window)))
+           (this-win-2nd (not (and (<= (car this-win-edges)
+                                       (car next-win-edges))
+                                   (<= (cadr this-win-edges)
+                                       (cadr next-win-edges)))))
+           (splitter (if (= (car this-win-edges)
+                            (car (window-edges (next-window))))
+                         'split-window-horizontally
+                       'split-window-vertically)))
+      (delete-other-windows)
+      (let ((first-win (selected-window)))
+        (funcall splitter)
+        (if this-win-2nd (other-window 1))
+        (set-window-buffer (selected-window) this-win-buffer)
+        (set-window-buffer (next-window) next-win-buffer)
+        (select-window first-win)
+        (if this-win-2nd (other-window 1))))))
 
 (use-package ffap
   :config
-
   (defun find-file-at-point-with-line (&optional filename)
     "Open FILENAME at point and move point to line specified next to file name."
     (interactive)
@@ -2142,7 +2167,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
 
 (use-package winner
-  :defer 5
   :commands
   winner-mode
   :config
@@ -2173,7 +2197,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-H-D" . buf-move-right))
 
 (use-package winum
-  :defer 3
   :custom
   (winum-auto-setup-mode-line nil)
   :commands
@@ -2278,12 +2301,12 @@ This is for serialization to disk by `psession'."
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
 (use-package outorg
-  :defer 4
+  :defer 9
   :init
   (defvar outline-minor-mode-prefix "\M-#"))
 
 (use-package outshine
-  :defer 4
+  :defer 9
   :after outline outorg
   :config
   (eldoc-add-command #'outshine-self-insert-command)
@@ -2370,7 +2393,7 @@ _d_ subtree
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
-  :defer 4
+  :defer 9
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :commands
@@ -2440,7 +2463,6 @@ _q_ quit
   (("C-c C-j" . crux-eval-and-replace)
    ("M-s-<backspace>" . crux-kill-line-backwards)
    ("C-s-c" . crux-duplicate-current-line-or-region)
-   ("C-c C-o" . crux-open-with)
    :map m-window-map
    ("k" . crux-kill-other-buffers)
    :map m-file-map
@@ -2652,6 +2674,13 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
 
+;; TODO Seems interesting but caused all sorts of weird problems. Maybe check it
+;; out in another few months.
+;; (use-package buffer-expose
+;;   :bind
+;;   ("C-tab" . buffer-expose-no-stars)
+;;   ("C-c <C-tab>" buffer-expose-current-mode))
+
 (defvar hide-mode-line nil
   "Save old `mode-line-format'.")
 
@@ -2786,8 +2815,8 @@ Each EXPR should create one window."
  ("C-c }" . next-buffer)
  ("s-{" . previous-buffer)
  ("C-c {" . previous-buffer)
- ("C-s-j" . switch-to-buffer-by-mode)
- ("C-c M-j" . switch-to-buffer-by-mode)
+ ("C-s-j" . counsel-switch-buffer-by-mode)
+ ("C-c M-j" . counsel-switch-buffer-by-mode)
 
  ;; windmove
  ("H-a" . windmove-left)
@@ -2904,7 +2933,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 ;;   ("C-c m" . vr/mc-mark))
 
 (use-package anzu
-  :defer 3
+  :defer 9
   :config
   (set-face-attribute 'anzu-replace-to nil :foreground nil :background "green")
   (global-anzu-mode +1)
@@ -2918,7 +2947,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 (use-package re-builder
   :custom
   ;; string syntax means you don't need to double escape things.
-  (reb-re-syntax 'string)
+  (reb-re-syntax 'read)
 
   :config
   (defun reb-query-replace (to-string)
@@ -2935,21 +2964,20 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
     (interactive)
     (set-window-point (get-buffer-window reb-target-buffer)
                       (with-current-buffer reb-target-buffer (point-min))))
-  
+
   (defun reb-end-of-buffer ()
     "In re-builder, move target buffer point position back to beginning."
     (interactive)
     (set-window-point (get-buffer-window reb-target-buffer)
                       (with-current-buffer reb-target-buffer (point-max))))
-  
+
   (use-package pcre2el
     :hook
     ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
   :bind
-  ("C-c <tab>" . re-builder))
+  ("C-c r" . re-builder))
 
 (use-package wgrep
-  :defer 5
   :custom
   ;; Save changed buffers immediately when exiting wgrep mode
   (wgrep-auto-save-buffer t)
@@ -2960,7 +2988,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
 (use-package rg
-  :defer 2
   :after
   wgrep-ag
   ;; :ensure-system-package
@@ -2975,8 +3002,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
-  :defer 0.5
-
+  :defer 1
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -2992,30 +3018,13 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ivy--reset-state
 
   :config
-  (defun ivy-quit-or-delete-char (arg)
-    "Quit Ivy if `C-d' is pressed on empty line, otherwise pass ARG on."
-    (interactive "p")
-    (if (and (eolp) (looking-back (replace-regexp-in-string "\\[[^]]*\\]" "" ivy--prompt) nil))
-        (progn
-          (abort-recursive-edit))
-      (delete-char arg)))
-
   (ivy-mode)
-
-  ;; (defun ivy-minibuffer-setup ()
-  ;;   "Set up the minibuffer for ivy."
-  ;;   (bind-keys )
-  ;;   (local-set-key (kbd "C-M-p") #'ivy-previous-line-and-call)
-  ;;   (local-set-key (kbd "C-M-n") #'ivy-next-line-and-call))
-  ;; :hook
-  ;; (minibuffer-setup-hook . ivy-minibuffer-setup)
 
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
         :map ivy-minibuffer-map
         ("C-e" . ivy-partial-or-done)
-        ("C-d" . ivy-quit-or-delete-char)
         ("M-/" . ivy-done)))
 
 (use-package ivy-hydra
@@ -3023,7 +3032,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :after (ivy hydra))
 
 (use-package swiper
-  :defer 0.5
+  :defer 1
   :after ivy
   :config
   (defvar minibuffer-this-command nil
@@ -3062,7 +3071,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
-  :defer 0.5
+  :defer 1
   :after ivy
   :custom
   (counsel-find-file-at-point t)
@@ -3072,6 +3081,22 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   counsel-mode
   :config
 
+  (defun counsel-switch-buffer-by-mode (mode)
+    "Choose a major MODE, then select from buffers of that mode."
+    (interactive
+     (list (ivy-read "Choose buffers for major mode: "
+                     (list-buffer-major-modes)
+                     :history 'switch-to-buffer-by-mode-history
+                     :action 'counsel-switch-buffer-by-mode)))
+    (when (stringp mode) (setq mode (intern mode)))
+    (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
+      (ivy-read (format "%s buffers: " mode) buffers
+                :keymap ivy-switch-buffer-map
+                :action #'ivy--switch-buffer-action
+                :matcher #'ivy--switch-buffer-matcher
+                :preselect (when (eq major-mode mode) (cadr buffers))
+                ;; Use the `ivy-switch-buffer' actions.
+                :caller #'ivy-switch-buffer)))
   (defun counsel-find-file-edit-path ()
     "Make the path in `counsel-find-file' editable."
     (interactive)
@@ -3177,6 +3202,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("s-b" . counsel-switch-buffer)
         ("s-S-b" . counsel-switch-buffer-other-window)
         ("C-h <tab>" . counsel-info-lookup-symbol)
+        ("C-h C-f" . counsel-describe-face)
         ("C-h C-a" . counsel-apropos)
         ("C-c u" . counsel-unicode-char)
         ("C-c g" . counsel-git)
@@ -3196,6 +3222,12 @@ force `counsel-rg' to search in `default-directory.'"
 
 (use-package counsel-term
   :git "https://github.com/tautologyclub/counsel-term.git"
+  :config
+  (with-eval-after-load 'vterm
+    (bind-keys :map vterm-mode-map
+               ("M-r" . counsel-term-history)
+               ("M-^" . term-downdir)
+               ("C-x d" . counsel-term-cd)))
   :bind
   (:map term-mode-map
         ("M-r" . counsel-term-history)
@@ -3297,15 +3329,20 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (tags-revert-without-query t)
   ;; Don't warn when TAGS files are large.
   (large-file-warning-threshold nil)
+
+  :config
+  (defun counsel-etags-maybe-update ()
+    (add-hook 'after-save-hook 'counsel-etags-virtual-update-tags 'append 'local))
+
   :hook
   ;; Incrementally update TAGS file when the file is saved.
-  (prog-mode-hook
-   . (lambda ()
-       (add-hook 'after-save-hook
-                 'counsel-etags-virtual-update-tags 'append 'local)))
+  (prog-mode-hook . counsel-etags-maybe-update)
   ((js-mode-hook js2-mode-hook) . counsel-etags-setup-smart-rules)
+
   :commands
-  (counsel-etags-find-tag-at-point counsel-etags-scan-code counsel-etags-list-tag))
+  counsel-etags-find-tag-at-point
+  counsel-etags-scan-code
+  counsel-etags-list-tag)
 
 (use-package company
   :defer 1
@@ -3358,11 +3395,23 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 
 (use-package ivy-prescient
   :defer 1
-  :after (prescient ivy)
+  :after (prescient ivy counsel)
+  :custom
+  (ivy-prescient-sort-commands '(:not
+                                 swiper
+                                 counsel-grep
+                                 counsel-grep-or-swiper
+                                 ivy-switch-buffer))
   :commands
   ivy-prescient-mode
   :config
   (ivy-prescient-mode))
+  ;; (setq ivy-sort-functions-alist
+  ;;       '((swiper . ivy-sort-file-function-default)
+  ;;         (counsel-grep . ivy-sort-file-function-default)
+  ;;         (counsel-grep-or-swiper . ivy-sort-file-function-default)
+  ;;         (counsel-ag . ivy-sort-file-function-default)
+  ;;         (t . ivy-prescient-sort-function))))
 
 (use-package company-prescient
   :defer 1
@@ -3380,7 +3429,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :hook
   (prog-mode-hook . dumb-jump-mode)
   ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
-  (eshell-mode . (lambda () (dumb-jump-mode -1)))
+  (eshell-mode-hook . (lambda () (dumb-jump-mode -1)))
   :bind
   (:map dumb-jump-mode-map
         ;; Don't shadow `ivy'.
@@ -3432,16 +3481,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   (pinentry-start))
 
-(defun upsearch (filename &optional dir)
-  "Recursively search up a directory tree for FILENAME.
-
-Start search in DIR or `default-directory'."
-  (let ((dir (or dir default-directory)))
-    (while (not (or (string= "/" dir)
-                    (member filename (directory-files dir))))
-      (setq dir (file-name-directory (directory-file-name dir))))
-    (unless (string= "/" dir) dir)))
-
 ;;;; psync
 
 ;; psync (https://github.com/mnewt/psync)
@@ -3457,20 +3496,20 @@ It is always buffer local.")
 
 See: https://github.com/mnewt/psync"
   (interactive)
-  (when-let
-      ((default-directory
-         (or psync-directory
-             (and default-directory
-                  (not (file-remote-p default-directory))
-                  (let ((d (shell-command-to-string "git rev-parse --show-toplevel")))
-                    (when (and (string-prefix-p "fatal: not a git repository" d)
-                               (file-exists-p (expand-file-name "psync_config" d)))
-                      d))))))
-    (setq psync-directory default-directory)
-    (if (= 0 (call-process-shell-command "psync"))
-        (message "psync in directory %s finished." default-directory)
-      (error "Synchronization with psync failed in directory: %s" default-directory))))
+  (when (and (called-interactively-p 'all)
+             (memq this-command '(save-buffer save-some-buffers)))
+    (when-let ((default-directory (and (not (file-remote-p default-directory))
+                                       (locate-dominating-file default-directory
+                                                               "psync_config"))))
+      (setq psync-directory default-directory)
+      (if (= 0 (call-process-shell-command "psync"))
+          (message "psync in directory %s finished." default-directory)
+        (error "Synchronization with psync failed in directory: %s"
+               default-directory)))))
 
+;; FIXME Seems this is causing Emacs to hang?
+;; Think it's because `after-save-hook' runs whenever backup files are saved
+;; too. Is there a way to only run a hook on interactive save?
 (add-hook 'after-save-hook #'psync-maybe)
 
 (defun psync-clone (source destination)
@@ -3481,7 +3520,7 @@ See: https://github.com/mnewt/psync"
 
 ;;;; File utils
 
-(defun dos2unix ()
+(defun dos-to-unix ()
   "Convert DOS line endings to Unix ones."
   (interactive)
   (save-excursion
@@ -3490,7 +3529,7 @@ See: https://github.com/mnewt/psync"
       (replace-match (string ?\C-j) nil t)))
   (set-buffer-file-coding-system 'unix 't))
 
-(defun unix2dos ()
+(defun unix-to-dos ()
   "Convert Unix encoded buffer to DOS encoding.
 https://edivad.wordpress.com/2007/04/03/emacs-convert-dos-to-unix-and-vice-versa/"
   (interactive)
@@ -3541,15 +3580,15 @@ Tries to find a file at point."
   (interactive)
   (let ((file (or file buffer-file-name)))
     (message "Revealing %s..." file)
-    (pcase system-type
-      ('darwin (progn
+    (cl-case system-type
+      (darwin (progn
                  (use-package reveal-in-osx-finder
                    :if (eq system-type 'darwin)
                    :commands
                    (reveal-in-osx-finder))
                  (reveal-in-osx-finder file)))
-      ('windows-nt (reveal-in-windows-explorer file))
-      ('cygwin (reveal-in-windows-explorer file)))))
+      (windows-nt (reveal-in-windows-explorer file))
+      (cygwin (reveal-in-windows-explorer file)))))
 
 (defun os-open-file (&optional file)
   "Open visited FILE in default external program.
@@ -3560,10 +3599,10 @@ With a prefix ARG always prompt for command to use."
   (let* ((file (if (eq major-mode 'dired-mode)
                    (dired-get-file-for-visit)
                  (or file buffer-file-name)))
-         (open (pcase system-type
-                 ('darwin "open")
-                 ((or 'gnu 'gnu/linux 'gnu/kfreebsd) "xdg-open")
-                 ((or 'windows-nt 'cygwin) "command")))
+         (open (cl-case system-type
+                 (darwin "open")
+                 ((gnu gnu/linux gnu/kfreebsd) "xdg-open")
+                 ((windows-nt cygwin) "command")))
          (program (if (or current-prefix-arg (not open))
                       (read-shell-command "Open current file with: ")
                     open)))
@@ -3715,29 +3754,29 @@ With a prefix ARG always prompt for command to use."
   :defer 5
   :after dired-hacks-utils
   :config
-  (dired-rainbow-define-chmod directory "#0074d9" "d.*" 'end)
-  (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml") 'end)
-  (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata") 'end)
-  (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx") 'end)
-  (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt") 'end)
-  (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc") 'end)
-  (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac") 'end)
-  (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg") 'end)
-  (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9") 'end)
-  (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim") 'end)
-  (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx") 'end)
-  (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" "java") 'end)
-  (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi") 'end)
-  (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar") 'end)
-  (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp") 'end)
-  (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem") 'end)
-  (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf") 'end)
-  (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak") 'end)
-  (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules") 'end)
-  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*" 'end)
-  (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile") 'end))
+  (dired-rainbow-define-chmod directory "#0074d9" "d.*")
+  (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
+  (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
+  (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
+  (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+  (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+  (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+  (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
+  (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9"))
+  (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+  (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
+  (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" "java"))
+  (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi"))
+  (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
+  (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
+  (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
+  (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+  (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
+  (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
+  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+  (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile")))
 
-(use-package dired-rainbow-x
+(use-package dired-rainbow-listing
   :defer 5
   :after dired-rainbow
   :ensure nil
@@ -3745,6 +3784,11 @@ With a prefix ARG always prompt for command to use."
   dired-rainbow-listing-mode
   :config
   (dired-rainbow-listing-mode))
+
+;; (use-package diredfl
+;;   :defer 6
+;;   :hook
+;;   (dired-mode-hook . diredfl-mode))
 
 (use-package dired-filter
   :disabled t
@@ -3762,15 +3806,15 @@ With a prefix ARG always prompt for command to use."
 (use-package dired-list
   :defer 5
   :after dired-hacks-utils
-  :git (:uri "https://github.com/Fuco1/dired-hacks"
+  :git (:url "https://github.com/Fuco1/dired-hacks"
              :files "dired-list.el")
   :commands
-  (dired-list
-   dired-list-git-ls-files
-   dired-list-locate
-   dired-list-find-file
-   dired-list-find-name
-   dired-list-grep))
+  dired-list
+  dired-list-git-ls-files
+  dired-list-locate
+  dired-list-find-file
+  dired-list-find-name
+  dired-list-grep)
 
 (use-package dired-subtree
   :after dired-hacks-utils
@@ -3897,12 +3941,12 @@ With a prefix ARG always prompt for command to use."
   "Show the machine's IP addresses."
   (interactive)
   (shell-command
-   (pcase system-type
-     ('gnu/linux
+   (cl-case system-type
+     (gnu/linux
       "ip address show | awk '/inet /{if ($5 != \"lo\") { print $7 \": \" $2 }}'")
-     ('darwin
+     (darwin
       "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
-     ('cygwin
+     (cygwin
       "ipconfig | awk -F' .' '/Address/ {print $NF}'"))))
 
 (use-package wttrin
@@ -4115,7 +4159,8 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
  ("M-m u" . git-home-unlink)
  ("C-x G" . projectile-git-ls-files-dired)
  :map m-file-map
- (";" . git-add-current-file))
+ (";" . git-add-current-file)
+ ("d" . diff-buffer-with-file))
 
 
 ;;;; Editing
@@ -5250,7 +5295,7 @@ because I dynamically rename the buffer according to
   (defun switch-to-eshell-buffer ()
     "Interactively choose an Eshell buffer."
     (interactive)
-    (switch-to-buffer-by-mode 'eshell-mode))
+    (counsel-switch-buffer-by-mode 'eshell-mode))
 
   (defun eshell/s (host)
     "Change directory to HOST via tramp."
@@ -5490,7 +5535,7 @@ Call it a second time to print the prompt."
   (defun eshell/init ()
     "Initialize the Eshell environment."
     (require 'em-term)
-    (source-sh "~/.env")
+    (env-source "~/.env")
     (setq eshell-path-env (getenv "PATH"))
     ;; Path to shell executable. Set it this way to work with tramp.
     (setenv "SHELL" "/bin/bash")
@@ -6526,6 +6571,11 @@ referencing a format region function, which takes two arguments:
       :args '("--parser" "babel")
       :group 'm-reformatter)
     (add-to-list 'm-reformatters '(js-mode . prettier-babel))
+    (reformatter-define prettier-json
+      :program m-prettier-command
+      :args '("--parser" "json")
+      :group 'm-reformatter)
+    (add-to-list 'm-reformatters '(json-mode . prettier-json))
     (reformatter-define prettier-css
       :program m-prettier-command
       :args '("--parser" "css")
@@ -6581,6 +6631,9 @@ referencing a format region function, which takes two arguments:
   (cl-loop for (mode . sym) in m-reformatters do
            (add-hook (intern (concat (symbol-name mode) "-hook"))
                      (intern (concat (symbol-name sym) "-on-save-mode"))))
+
+  (add-hook 'json-mode-hook
+            (lambda () (remove-hook 'before-save-hook 'prettier-babel-buffer 'local)))
 
   (defun reformat-region (beg end)
     "Reformat the region.

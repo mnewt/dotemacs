@@ -1,4 +1,4 @@
-;;; dired-rainbow-x.el --- Dired Rainbow Extensions -*- lexical-binding: t -*-
+;;; dired-rainbow-listing.el --- Colorful Dired listings -*- lexical-binding: t -*-
 
 ;; Author: Matthew Sojourner Newton
 ;; Maintainer: Matthew Sojourner Newton
@@ -33,10 +33,6 @@
 
 (require 'dired-hacks-utils)
 
-(defface dired-rainbow-permissions '((t (:inherit default)))
-  "Face for Dired permissions."
-  :group 'dired-rainbow)
-
 (defface dired-rainbow-inodes '((t (:inherit shadow)))
   "Face for Dired links."
   :group 'dired-rainbow)
@@ -45,7 +41,9 @@
   "Face for Dired user."
   :group 'dired-rainbow)
 
-(defface dired-rainbow-group '((t (:inherit font-lock-comment-face)))
+(defface dired-rainbow-group
+  '((((background dark)) (:inherit default :foreground "#999"))
+    (t (:inherit default :foreground "#777")))
   "Face for Dired group."
   :group 'dired-rainbow)
 
@@ -59,20 +57,34 @@
   "Face for Dired timestamp."
   :group 'dired-rainbow)
 
-(defface dired-rainbow-file-extension
-  '((((background dark)) (:inherit default :foreground "#444"))
-    (t (:inherit default :foreground "#BBB")))
+(defface dired-rainbow-file-extension '((t (:inherit shadow)))
   "Face for Dired file extensions."
   :group 'dired-rainbow)
 
-(defface dired-rainbow-file-decoration '((t (:inherit default)))
+(defface dired-rainbow-file-decoration '((t (:inherit font-lock-comment-face)))
   "Face for file decoration."
   :group 'dired-rainbow)
 
-(defface dired-rainbow-dash
-  '((((background dark)) (:inherit default :foreground "#777"))
-    (t (:inherit default :foreground "#999")))
+(defface dired-rainbow-dash '((t (:inherit shadow)))
   "Face for file decoration."
+  :group 'dired-rainbow)
+
+(defface dired-rainbow-permissions-r
+  '((((background dark)) (:inherit default :foreground "#999"))
+    (t (:inherit default :foreground "#777")))
+  "Face for the r in Dired permissions"
+  :group 'dired-rainbow)
+
+(defface dired-rainbow-permissions-w
+  '((((background dark)) (:inherit default :foreground "#AAA"))
+    (t (:inherit default :foreground "#666")))
+  "Face for the w in Dired permissions"
+  :group 'dired-rainbow)
+
+(defface dired-rainbow-permissions-x
+  '((((background dark)) (:inherit default :foreground "#BBB"))
+    (t (:inherit default :foreground "#555")))
+  "Face for the x in Dired permissions"
   :group 'dired-rainbow)
 
 (defface dired-rainbow-filetype-directory '((t (:inherit font-lock-function-name-face)))
@@ -95,18 +107,6 @@
 (defvar dired-rainbow-size-regexp "[0-9.]+[kKmMgGtTpPi]\\{0,3\\}"
   "A regexp matching the file size in the dired listing.")
 
-(defvar dired-rainbow-file-extension-regexp "\\.[^./]*?$"
-  "A regexp matching file extensions.")
-
-(defvar dired-rainbow-file-decoration-regexp
-  "\\(?:[*/]\\| -> .*?\\(\\.*?\\)?\\)?"
-  "A regexp matching the file decoration in the dired listing.
-
-This is the `/', `*', or ` -> file_name' after the file name when
-the `ls -F' option is used.
-
-It should be wrapped in an optional capture group.")
-
 (defvar dired-rainbow-details-regexp
   (let ((sep "\\) +\\("))
     (concat "^ +\\("
@@ -118,14 +118,9 @@ It should be wrapped in an optional capture group.")
             dired-hacks-datetime-regexp
             "\\)")))
 
-(defvar dired-rainbow-ending-regexp
-  (concat "\\("
-          dired-rainbow-file-extension-regexp "\\)\\("
-          dired-rainbow-file-decoration-regexp "\\)$"))
-
 (defvar dired-rainbow-listing-keywords
   `((,(concat "\\(total used in directory\\|available\\) +\\("
-              dired-rainbow-size-regexp "\\)")
+       dired-rainbow-size-regexp "\\)")
      (1 'font-lock-comment-face)
      (2 'default))
     ("^ +\\(-\\)" 1 'dired-rainbow-dash)
@@ -140,30 +135,38 @@ It should be wrapped in an optional capture group.")
     ("^ +.......\\(-\\)" 1 'dired-rainbow-dash)
     ("^ +........\\(-\\)" 1 'dired-rainbow-dash)
     ("^ +.........\\(-\\)" 1 'dired-rainbow-dash)
+    ("^ +.\\(r\\)" 1 'dired-rainbow-permissions-r)
+    ("^ +....\\(r\\)" 1 'dired-rainbow-permissions-r)
+    ("^ +.......\\(r\\)" 1 'dired-rainbow-permissions-r)
+    ("^ +..\\(w\\)" 1 'dired-rainbow-permissions-w)
+    ("^ +.....\\(w\\)" 1 'dired-rainbow-permissions-w)
+    ("^ +........\\(w\\)" 1 'dired-rainbow-permissions-w)
+    ("^ +...\\(x\\)" 1 'dired-rainbow-permissions-x)
+    ("^ +......\\(x\\)" 1 'dired-rainbow-permissions-x)
+    ("^ +.........\\(x\\)" 1 'dired-rainbow-permissions-x)
     (,dired-rainbow-details-regexp
-     (1 'dired-rainbow-permissions)
      (2 'dired-rainbow-inodes)
      (3 'dired-rainbow-user)
      (4 'dired-rainbow-group)
      (5 'dired-rainbow-size)
      (6 'dired-rainbow-datetime))
-    (,dired-rainbow-file-extension-regexp 0 'dired-rainbow-file-extension t)))
+    ("\\.[^. /:*]+$" 0 'dired-rainbow-file-extension t)
+    ("\\([*/]\\| -> .*\\)" 1 'dired-rainbow-file-decoration t)))
 
+;;;###autoload
 (define-minor-mode dired-rainbow-listing-mode
   "Toggle highlighting of file listing details in Dired."
   :group 'dired-rainbow
-  :lighter ""
+  :lighter nil
   (progn
     (if dired-rainbow-listing-mode
-        (progn
-          (setq dired-rainbow-listing-mode t)
-          (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords 'end))
+        (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords 'end)
       (font-lock-remove-keywords 'dired-mode dired-rainbow-listing-keywords))
     (mapc (lambda (b) (with-current-buffer b
                         (when (equal major-mode 'dired-mode)
                           (font-lock-refresh-defaults))))
           (buffer-list))))
 
-(provide 'dired-rainbow-x)
+(provide 'dired-rainbow-listing)
 
-;;; dired-rainbow-x.el ends here
+;;; dired-rainbow-listing.el ends here
