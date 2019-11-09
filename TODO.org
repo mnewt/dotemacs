@@ -14,6 +14,7 @@
 *** TODO Make it into a package?
 *** TODO Make it async?
 ** TODO Send PR for =helpful-goto-face=
+** TODO Simplify =fiat-color.el=
 ** TODO Font-lock source code blocks in Info pages
 
 ** TODO Figure out magit wip modes

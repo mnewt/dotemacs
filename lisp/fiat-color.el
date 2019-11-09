@@ -348,7 +348,7 @@ Return nil if `evil-mode' is not active."
 
 (defun fiat-eyebrowse-modeline ()
   "Return a mode line string with status for `eyebrowse-mode'."
-  (when (bound-and-true-p eyebrowse-mode)
+  (when (and (featurep 'eyebrowse) (bound-and-true-p eyebrowse-mode))
     (let ((current-slot (eyebrowse--get 'current-slot))
           (border (propertize " " 'face 'mode-line-emphasis)))
       (concat border

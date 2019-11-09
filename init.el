@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; It's an Emacs init file. Relies on heavily on use-package for its
-;; organization and performance features.
+;; It's an Emacs init file. Relies on heavily on use-package for organization
+;; and delayed loading.
 
 ;;; Code:
 
@@ -13,10 +13,12 @@
 
 (defconst emacs-start-time (current-time))
 
-(setq debug-on-error t)
+;; (setq debug-on-error t)
+
+(setq load-prefer-newer t)
 
 (unless (featurep 'early-init)
-  (load (expand-file-name "early-init" user-emacs-directory) nil t))
+  (load (expand-file-name "early-init.el" user-emacs-directory) nil t nil t))
 
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
@@ -33,8 +35,6 @@
           (lambda ()
             (setq file-name-handler-alist m--file-name-handler-alist)
             (run-with-idle-timer 20 t #'garbage-collect)))
-
-(setq load-prefer-newer t)
 
 (with-eval-after-load 'gnutls
   (defvar gnutls-verify-error t))
@@ -269,7 +269,6 @@ If DIFF is non-nil, only set variables which have changed."
 ;;   ;; To disable collection of benchmark data after init is done.
 ;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
-(add-to-list 'load-path elisp-directory)
 
 ;;;;; use-package-git
 
@@ -441,7 +440,6 @@ on the next startup."
   (dired-mode-hook . dired-async-mode))
 
 (use-package lv
-  :defer t
   :commands
   lv-message
   lv-window
@@ -686,7 +684,6 @@ on the next startup."
 
 (load "~/.emacs.d/private.el" t t nil t)
 
-
 ;;;; Appearance
 
 ;; Set up visual UI and theme stuff.
@@ -777,8 +774,10 @@ returned."
       (emacs-lisp-mode-hook . fontify-face-mode))))
 
 (use-package spacemacs-common
+  :custom
+  (spacemacs-theme-comment-bg nil)
   :ensure spacemacs-theme
-  :git "git@github.com:mnewt/spacemacs-theme")
+  :git "https://github.com/nashamri/spacemacs-theme.git")
 
 (use-package fiat-color
   :demand t
@@ -838,9 +837,8 @@ returned."
 ;;   (flash-thing-mode))
 
 (use-package page-break-lines
-  :demand t
-  :config
-  (global-page-break-lines-mode))
+  :hook
+  (prog-mode-hook . page-break-lines-mode))
 
 (use-package darkroom
   :bind
@@ -848,7 +846,6 @@ returned."
         ("d" . darkroom-mode)))
 
 (use-package hl-todo
-  :demand t
   :custom
   (hl-todo-keyword-faces
    '(("TODO" . "magenta")
@@ -862,13 +859,14 @@ returned."
      ("XXX+" . "orange")
      ("NEXT" . "lime green")
      ("DONE" . "gray")))
-  :config
-  (global-hl-todo-mode)
+  :hook
+  (prog-mode-hook . hl-todo-mode)
   :bind
-  ("M-s h i" . hl-todo-insert)
-  ("M-s h p" . hl-todo-previous)
-  ("M-s h n" . hl-todo-next)
-  ("M-s h o" . hl-todo-occur))
+  (:map hl-todo-mode-map
+    ("M-s h i" . hl-todo-insert)
+    ("M-s h p" . hl-todo-previous)
+    ("M-s h n" . hl-todo-next)
+    ("M-s h o" . hl-todo-occur)))
 
 (use-package font-lock-studio
   :commands
@@ -1060,7 +1058,7 @@ Include PREFIX in prompt if given."
   ("C-h e" . eg))
 
 (use-package counsel-dash
-;  :ensure-system-package sqlite3
+                                        ;  :ensure-system-package sqlite3
   :custom
   (dash-docs-browser-func #'eww-other-window)
   (dash-docs-enable-debugging nil)
@@ -1207,6 +1205,114 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
     ("c" goto-last-change)
     ("q" nil))
 
+  (defhydra hydra-ibuffer-main (:color pink :hint nil)
+    "
+  ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
+  _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
+  _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
+  _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
+  _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
+  "
+    ("m" ibuffer-mark-forward)
+    ("u" ibuffer-unmark-forward)
+    ("*" hydra-ibuffer-mark/body :color blue)
+    ("t" ibuffer-toggle-marks)
+
+    ("D" ibuffer-do-delete)
+    ("s" ibuffer-do-save)
+    ("a" hydra-ibuffer-action/body :color blue)
+
+    ("g" ibuffer-update)
+    ("S" hydra-ibuffer-sort/body :color blue)
+    ("/" hydra-ibuffer-filter/body :color blue)
+    ("H" describe-mode :color blue)
+
+    ("h" ibuffer-backward-filter-group)
+    ("k" ibuffer-backward-line)
+    ("l" ibuffer-forward-filter-group)
+    ("j" ibuffer-forward-line)
+    ("RET" ibuffer-visit-buffer :color blue)
+
+    ("TAB" ibuffer-toggle-filter-group)
+
+    ("o" ibuffer-visit-buffer-other-window :color blue)
+    ("q" quit-window :color blue)
+    ("." nil :color blue))
+
+  (defhydra hydra-ibuffer-mark (:color teal :columns 5
+                                       :after-exit (hydra-ibuffer-main/body))
+    "Mark"
+    ("*" ibuffer-unmark-all "unmark all")
+    ("M" ibuffer-mark-by-mode "mode")
+    ("m" ibuffer-mark-modified-buffers "modified")
+    ("u" ibuffer-mark-unsaved-buffers "unsaved")
+    ("s" ibuffer-mark-special-buffers "special")
+    ("r" ibuffer-mark-read-only-buffers "read-only")
+    ("/" ibuffer-mark-dired-buffers "dired")
+    ("e" ibuffer-mark-dissociated-buffers "dissociated")
+    ("h" ibuffer-mark-help-buffers "help")
+    ("z" ibuffer-mark-compressed-file-buffers "compressed")
+    ("b" hydra-ibuffer-main/body "back" :color blue))
+
+  (defhydra hydra-ibuffer-action (:color teal :columns 4
+                                         :after-exit
+                                         (if (eq major-mode 'ibuffer-mode)
+                                             (hydra-ibuffer-main/body)))
+    "Action"
+    ("A" ibuffer-do-view "view")
+    ("E" ibuffer-do-eval "eval")
+    ("F" ibuffer-do-shell-command-file "shell-command-file")
+    ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
+    ("H" ibuffer-do-view-other-frame "view-other-frame")
+    ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
+    ("M" ibuffer-do-toggle-modified "toggle-modified")
+    ("O" ibuffer-do-occur "occur")
+    ("P" ibuffer-do-print "print")
+    ("Q" ibuffer-do-query-replace "query-replace")
+    ("R" ibuffer-do-rename-uniquely "rename-uniquely")
+    ("T" ibuffer-do-toggle-read-only "toggle-read-only")
+    ("U" ibuffer-do-replace-regexp "replace-regexp")
+    ("V" ibuffer-do-revert "revert")
+    ("W" ibuffer-do-view-and-eval "view-and-eval")
+    ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
+    ("b" nil "back"))
+
+  (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
+    "Sort"
+    ("i" ibuffer-invert-sorting "invert")
+    ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
+    ("v" ibuffer-do-sort-by-recency "recently used")
+    ("s" ibuffer-do-sort-by-size "size")
+    ("f" ibuffer-do-sort-by-filename/process "filename")
+    ("m" ibuffer-do-sort-by-major-mode "mode")
+    ("b" hydra-ibuffer-main/body "back" :color blue))
+
+  (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
+    "Filter"
+    ("m" ibuffer-filter-by-used-mode "mode")
+    ("M" ibuffer-filter-by-derived-mode "derived mode")
+    ("n" ibuffer-filter-by-name "name")
+    ("c" ibuffer-filter-by-content "content")
+    ("e" ibuffer-filter-by-predicate "predicate")
+    ("f" ibuffer-filter-by-filename "filename")
+    (">" ibuffer-filter-by-size-gt "size")
+    ("<" ibuffer-filter-by-size-lt "size")
+    ("/" ibuffer-filter-disable "disable")
+    ("b" hydra-ibuffer-main/body "back" :color blue))
+
+  (defhydra hydra-flycheck
+    (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
+          :post (progn (setq hydra-hint-display-type nil)
+                       (quit-windows-on "*Flycheck errors*"))
+          :hint nil)
+    "Errors"
+    ("f" flycheck-error-list-set-filter "Filter")
+    ("n" flycheck-next-error "Next")
+    ("p" flycheck-previous-error "Previous")
+    ("<" flycheck-first-error "First")
+    (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
+    ("q" nil))
+
   :commands
   hydra-default-pre
   hydra-keyboard-quit
@@ -1226,11 +1332,11 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
-;; (use-package counsel-web
-;;   :git "git@github.com:mnewt/counsel-web.git"
-;;   :bind
-;;   (:map m-search-map
-;;         ("w" . counsel-web-search)))
+(use-package counsel-web
+  :git "git@github.com:mnewt/counsel-web.git"
+  :bind
+  (:map m-search-map
+        ("w" . counsel-web-search)))
 
 ;; (use-package stack-answers
 ;;   :git "git@github.com:mnewt/stack-answers.git"
@@ -1824,7 +1930,7 @@ Ripped out of function `line-move-visual'."
   (let ((hscroll (window-hscroll)))
     (if (and (consp temporary-goal-column)
              (memq last-command `(next-line previous-line scroll-window-up
-                                            scroll-window-down ,this-command)))
+                                  scroll-window-down ,this-command)))
 
         (progn
           (line-move-to-column (truncate (car temporary-goal-column)))
@@ -2185,7 +2291,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-c 0" . winum-select-window-0))
 
 (use-package eyebrowse
-  :demand t
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
@@ -2212,9 +2317,6 @@ This is for serialization to disk by `psession'."
     (eyebrowse-mode)
     (eyebrowse-restore-window-config))
 
-  :hook
-  ;; ((psession-autosave-mode-hook kill-emacs-hook) . eyebrowse-save-window-config)
-  (emacs-startup-hook . eyebrowse-activate)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -2250,8 +2352,8 @@ This is for serialization to disk by `psession'."
 ;; Try to re-use help buffers of different sorts
 (setq display-buffer-alist
       `((,(rx bos
-              (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
-              (0+ not-newline))
+           (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
+           (0+ not-newline))
          (display-buffer-reuse-mode-window display-buffer-pop-up-window)
          (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
 
@@ -2451,16 +2553,16 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
         (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
     `(progn
        (defun ,fname ()
-         (interactive)
-         (let ((p (point)))
-           (goto-char (point-min))
-           ,@forms
-           (when (= p (point))
-             (goto-char (point-min)))))
+        (interactive)
+        (let ((p (point)))
+         (goto-char (point-min))
+         ,@forms
+         (when (= p (point))
+          (goto-char (point-min)))))
        (add-hook ',mode-hook
-                 (lambda ()
-                   (define-key ,mode-map
-                     [remap beginning-of-buffer] ',fname))))))
+        (lambda ()
+          (define-key ,mode-map
+            [remap beginning-of-buffer] ',fname))))))
 
 (defmacro specialize-end-of-buffer (mode &rest forms)
   "Define a special version of `end-of-buffer' in MODE.
@@ -2478,16 +2580,16 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
         (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
     `(progn
        (defun ,fname ()
-         (interactive)
-         (let ((p (point)))
-           (goto-char (point-max))
-           ,@forms
-           (when (= p (point))
-             (goto-char (point-max)))))
+        (interactive)
+        (let ((p (point)))
+         (goto-char (point-max))
+         ,@forms
+         (when (= p (point))
+          (goto-char (point-max)))))
        (add-hook ',mode-hook
-                 (lambda ()
-                   (define-key ,mode-map
-                     [remap end-of-buffer] ',fname))))))
+        (lambda ()
+          (define-key ,mode-map
+            [remap end-of-buffer] ',fname))))))
 
 (specialize-beginning-of-buffer dired
   (while (not (ignore-errors (dired-get-filename))) (dired-next-line 1)))
@@ -2520,101 +2622,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (defvar rg-mode-map)
 (specialize-beginning-of-buffer rg (compilation-next-error 1))
 (specialize-end-of-buffer rg (compilation-previous-error 1))
-
-(defhydra hydra-ibuffer-main (:color pink :hint nil)
-  "
-  ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
-  _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
-  _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
-  _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
-  _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
-  "
-  ("m" ibuffer-mark-forward)
-  ("u" ibuffer-unmark-forward)
-  ("*" hydra-ibuffer-mark/body :color blue)
-  ("t" ibuffer-toggle-marks)
-
-  ("D" ibuffer-do-delete)
-  ("s" ibuffer-do-save)
-  ("a" hydra-ibuffer-action/body :color blue)
-
-  ("g" ibuffer-update)
-  ("S" hydra-ibuffer-sort/body :color blue)
-  ("/" hydra-ibuffer-filter/body :color blue)
-  ("H" describe-mode :color blue)
-
-  ("h" ibuffer-backward-filter-group)
-  ("k" ibuffer-backward-line)
-  ("l" ibuffer-forward-filter-group)
-  ("j" ibuffer-forward-line)
-  ("RET" ibuffer-visit-buffer :color blue)
-
-  ("TAB" ibuffer-toggle-filter-group)
-
-  ("o" ibuffer-visit-buffer-other-window :color blue)
-  ("q" quit-window :color blue)
-  ("." nil :color blue))
-
-(defhydra hydra-ibuffer-mark (:color teal :columns 5
-                                     :after-exit (hydra-ibuffer-main/body))
-  "Mark"
-  ("*" ibuffer-unmark-all "unmark all")
-  ("M" ibuffer-mark-by-mode "mode")
-  ("m" ibuffer-mark-modified-buffers "modified")
-  ("u" ibuffer-mark-unsaved-buffers "unsaved")
-  ("s" ibuffer-mark-special-buffers "special")
-  ("r" ibuffer-mark-read-only-buffers "read-only")
-  ("/" ibuffer-mark-dired-buffers "dired")
-  ("e" ibuffer-mark-dissociated-buffers "dissociated")
-  ("h" ibuffer-mark-help-buffers "help")
-  ("z" ibuffer-mark-compressed-file-buffers "compressed")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
-
-(defhydra hydra-ibuffer-action (:color teal :columns 4
-                                       :after-exit
-                                       (if (eq major-mode 'ibuffer-mode)
-                                           (hydra-ibuffer-main/body)))
-  "Action"
-  ("A" ibuffer-do-view "view")
-  ("E" ibuffer-do-eval "eval")
-  ("F" ibuffer-do-shell-command-file "shell-command-file")
-  ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
-  ("H" ibuffer-do-view-other-frame "view-other-frame")
-  ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
-  ("M" ibuffer-do-toggle-modified "toggle-modified")
-  ("O" ibuffer-do-occur "occur")
-  ("P" ibuffer-do-print "print")
-  ("Q" ibuffer-do-query-replace "query-replace")
-  ("R" ibuffer-do-rename-uniquely "rename-uniquely")
-  ("T" ibuffer-do-toggle-read-only "toggle-read-only")
-  ("U" ibuffer-do-replace-regexp "replace-regexp")
-  ("V" ibuffer-do-revert "revert")
-  ("W" ibuffer-do-view-and-eval "view-and-eval")
-  ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
-  ("b" nil "back"))
-
-(defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
-  "Sort"
-  ("i" ibuffer-invert-sorting "invert")
-  ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
-  ("v" ibuffer-do-sort-by-recency "recently used")
-  ("s" ibuffer-do-sort-by-size "size")
-  ("f" ibuffer-do-sort-by-filename/process "filename")
-  ("m" ibuffer-do-sort-by-major-mode "mode")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
-
-(defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
-  "Filter"
-  ("m" ibuffer-filter-by-used-mode "mode")
-  ("M" ibuffer-filter-by-derived-mode "derived mode")
-  ("n" ibuffer-filter-by-name "name")
-  ("c" ibuffer-filter-by-content "content")
-  ("e" ibuffer-filter-by-predicate "predicate")
-  ("f" ibuffer-filter-by-filename "filename")
-  (">" ibuffer-filter-by-size-gt "size")
-  ("<" ibuffer-filter-by-size-lt "size")
-  ("/" ibuffer-filter-disable "disable")
-  ("b" hydra-ibuffer-main/body "back" :color blue))
 
 ;; (use-package matcha
 ;;   :git "https://github.com/jojojames/matcha.git"
@@ -2815,7 +2822,6 @@ Each EXPR should create one window."
  ("l" . toggle-truncate-lines)
  ("m" . hidden-mode-line-mode)
  ("w" . whitespace-mode))
-
 
 ;;;; Search
 
@@ -3242,11 +3248,10 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :commands
   projectile-register-project-type
   :bind
-  (:map projectile-mode-map
-        ("s-}" . projectile-next-project-buffer)
-        ("C-c }" . projectile-next-project-buffer)
-        ("s-{" . projectile-previous-project-buffer)
-        ("C-c {" . projectile-previous-project-buffer)))
+  ("s-}" . projectile-next-project-buffer)
+  ("C-c }" . projectile-next-project-buffer)
+  ("s-{" . projectile-previous-project-buffer)
+  ("C-c {" . projectile-previous-project-buffer))
 
 (use-package counsel-projectile
   :custom
@@ -3260,9 +3265,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :bind
   ("s-p" . counsel-projectile)
   ("s-P" . counsel-projectile-switch-project)
-  (:map projectile-mode-map
-        ("M-s-f" . counsel-projectile-rg)
-        ("C-s-b" . counsel-projectile-switch-to-buffer)))
+  ("M-s-f" . counsel-projectile-rg)
+  ("C-s-b" . counsel-projectile-switch-to-buffer))
 
 (use-package counsel-etags
   :custom
@@ -3339,12 +3343,12 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
                                  ivy-switch-buffer))
   :hook
   (ivy-mode-hook . ivy-prescient-mode))
-  ;; (setq ivy-sort-functions-alist
-  ;;       '((swiper . ivy-sort-file-function-default)
-  ;;         (counsel-grep . ivy-sort-file-function-default)
-  ;;         (counsel-grep-or-swiper . ivy-sort-file-function-default)
-  ;;         (counsel-ag . ivy-sort-file-function-default)
-  ;;         (t . ivy-prescient-sort-function))))
+;; (setq ivy-sort-functions-alist
+;;       '((swiper . ivy-sort-file-function-default)
+;;         (counsel-grep . ivy-sort-file-function-default)
+;;         (counsel-grep-or-swiper . ivy-sort-file-function-default)
+;;         (counsel-ag . ivy-sort-file-function-default)
+;;         (t . ivy-prescient-sort-function))))
 
 (use-package company-prescient
   :hook
@@ -3380,18 +3384,15 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 
 ;;;; File Management
 
-;; Dired customizations and related packages.
-
-;; Sometimes (depending on how it's compiled and/or where the binary is?)
-;; `auto-compression-mode' doesn't load quite right, and then `find-library' and
-;; friends can't locate elisp source. Setting up the mode explicitly seems to
-;; fix it.
-
 (use-package files
   :ensure nil
   :custom
   (remote-file-name-inhibit-cache nil))
 
+;; Sometimes (depending on how it's compiled and/or where the binary is?)
+;; `auto-compression-mode' doesn't load quite right, and then `find-library' and
+;; friends can't locate elisp source. Setting up the mode explicitly seems to
+;; fix it.
 (use-package jka-cmpr-hook
   :ensure nil
   :config
@@ -3405,45 +3406,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :config
   (setenv "INSIDE_EMACS" (format "%s,comint" emacs-version))
   (pinentry-start))
-
-;;;; psync
-
-;; psync (https://github.com/mnewt/psync)
-(add-to-list 'auto-mode-alist '("psync_config\\'" . sh-mode))
-
-(defvar-local psync-directory nil
-  "Cached directory for `psync'.
-
-It is always buffer local.")
-
-(defun psync-maybe ()
-  "If we find a `psync_config' file then run `psync'.
-
-See: https://github.com/mnewt/psync"
-  (interactive)
-  (when (and (called-interactively-p 'all)
-             (memq this-command '(save-buffer save-some-buffers)))
-    (when-let ((default-directory (and (not (file-remote-p default-directory))
-                                       (locate-dominating-file default-directory
-                                                               "psync_config"))))
-      (setq psync-directory default-directory)
-      (if (= 0 (call-process-shell-command "psync"))
-          (message "psync in directory %s finished." default-directory)
-        (error "Synchronization with psync failed in directory: %s"
-               default-directory)))))
-
-;; FIXME Seems this is causing Emacs to hang?
-;; Think it's because `after-save-hook' runs whenever backup files are saved
-;; too. Is there a way to only run a hook on interactive save?
-(add-hook 'after-save-hook #'psync-maybe)
-
-(defun psync-clone (source destination)
-  "Clone a new repository for use with `psync' from SOURCE to DESTINATION."
-  (interactive (list (read-directory-name "Source directory: ")
-                     (read-directory-name "Destination directory: ")))
-  (async-shell-command (format "psync -v clone '%s' '%s'" source destination)))
-
-;;;; File utils
 
 (defun dos-to-unix ()
   "Convert DOS line endings to Unix ones."
@@ -3487,6 +3449,49 @@ Tries to find a file at point."
   (interactive)
   (print (shell-command-to-string "df -h")))
 
+(use-package x509-mode
+  :commands
+  x509-viewcert
+  x509-viewcrl
+  x509-viewasn1
+  x509-viewkey
+  x509-viewdh)
+
+;;;;; psync (https://github.com/mnewt/psync)
+(add-to-list 'auto-mode-alist '("psync_config\\'" . sh-mode))
+
+(defvar-local psync-directory nil
+  "Cached directory for `psync'.
+
+It is always buffer local.")
+
+(defun psync-maybe ()
+  "If we find a `psync_config' file then run `psync'.
+
+See: https://github.com/mnewt/psync"
+  (interactive)
+  (when (and (called-interactively-p 'all)
+             (memq this-command '(save-buffer save-some-buffers)))
+    (when-let ((default-directory (and (not (file-remote-p default-directory))
+                                       (locate-dominating-file default-directory
+                                                               "psync_config"))))
+      (setq psync-directory default-directory)
+      (if (= 0 (call-process-shell-command "psync"))
+          (message "psync in directory %s finished." default-directory)
+        (error "Synchronization with psync failed in directory: %s"
+               default-directory)))))
+
+;; FIXME Seems this is causing Emacs to hang?
+;; Think it's because `after-save-hook' runs whenever backup files are saved
+;; too. Is there a way to only run a hook on interactive save?
+(add-hook 'after-save-hook #'psync-maybe)
+
+(defun psync-clone (source destination)
+  "Clone a new repository for use with `psync' from SOURCE to DESTINATION."
+  (interactive (list (read-directory-name "Source directory: ")
+                     (read-directory-name "Destination directory: ")))
+  (async-shell-command (format "psync -v clone '%s' '%s'" source destination)))
+
 ;;;; OS program interaction
 
 (use-package server
@@ -3506,11 +3511,11 @@ Tries to find a file at point."
     (message "Revealing %s..." file)
     (cl-case system-type
       (darwin (progn
-                 (use-package reveal-in-osx-finder
-                   :if (eq system-type 'darwin)
-                   :commands
-                   (reveal-in-osx-finder))
-                 (reveal-in-osx-finder file)))
+                (use-package reveal-in-osx-finder
+                  :if (eq system-type 'darwin)
+                  :commands
+                  (reveal-in-osx-finder))
+                (reveal-in-osx-finder file)))
       (windows-nt (reveal-in-windows-explorer file))
       (cygwin (reveal-in-windows-explorer file)))))
 
@@ -4150,12 +4155,13 @@ Bring the line below point up to the current line."
   :bind
   ("M-s-z" . undo-propose))
 
-(use-package volatile-highlights
-  :demand t
-  :config
-  (vhl/define-extension 'undo-redo 'undo-modern 'undo)
-  (vhl/install-extension 'undo-redo)
-  (volatile-highlights-mode t))
+;; TODO: Keep this from bringing in `etags'.
+;; (use-package volatile-highlights
+;;   :demand t
+;;   :config
+;;   (vhl/define-extension 'undo-redo 'undo-modern 'undo)
+;;   (vhl/install-extension 'undo-redo)
+;;   (volatile-highlights-mode t))
 
 (use-package goto-chg
   :bind
@@ -4460,8 +4466,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
       (add-to-list 'sp--special-self-insert-commands fun)))
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
-                   javascript-mode js-mode js2-mode json-mode
-                   objc-mode java-mode web-mode)
+                          javascript-mode js-mode js2-mode json-mode
+                          objc-mode java-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
@@ -4707,7 +4713,7 @@ If no region is selected, toggles comments for the line."
 
 ;;;; Shell
 
-;; Shell, Term, Tramp, Shell scripting, and related things.
+;; Shell, Term, Tramp, Scripting, and related things.
 
 (use-package comint
   :ensure nil
@@ -4854,7 +4860,7 @@ If no region is selected, toggles comments for the line."
   (add-to-list
    'company-backends
    `(company-shell company-shell-env
-     ,(when (executable-find "fish") 'company-fish-shell))))
+                   ,(when (executable-find "fish") 'company-fish-shell))))
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
 (defvar explicit-dtach-args
@@ -5247,8 +5253,8 @@ because I dynamically rename the buffer according to
                      'front-sticky '(font-lock-face read-only)
                      'rear-nonsticky '(font-lock-face read-only))))
      `(,(unless (eshell-exit-success-p)
-         `(,(number-to-string eshell-last-command-status)
-           :background "red" :foreground "white" :weight bold))
+          `(,(number-to-string eshell-last-command-status)
+            :background "red" :foreground "white" :weight bold))
        (,(abbreviate-file-name (eshell/pwd)) :background "cyan" :foreground "black")
        (,(if (zerop (user-uid)) "\n(#)" "\n()")
         :foreground ,(if (equal 'light (frame-parameter nil 'background-mode))
@@ -6086,6 +6092,7 @@ of problems in that context."
 (add-to-list 'auto-mode-alist '("DWfile\\'" . sh-mode))
 (add-to-list 'interpreter-mode-alist '("dw" . sh-mode))
 
+
 ;;;; Web
 
 ;; use imagemagick, if available
@@ -6203,6 +6210,7 @@ Open the `eww' buffer in another window."
   :commands
   (restclient-mode restclient-outline-mode))
 
+
 ;;;; Javascript
 
 (use-package add-node-modules-path
@@ -6220,13 +6228,14 @@ Open the `eww' buffer in another window."
   (js-indent-level tab-width))
 
 (use-package json-mode
-;  :ensure-system-package jq
+                                        ;  :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 ;; :hook
 ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
+
 
 ;;;; Python
 
@@ -6252,6 +6261,7 @@ Open the `eww' buffer in another window."
   :hook
   (python-mode-hook . lsp-deferred))
 
+
 ;;;; Applescript
 
 (use-package apples-mode
@@ -6270,6 +6280,7 @@ Open the `eww' buffer in another window."
                nil t "FasdUAS"])
 ;;It is necessary to perform an update!
 (jka-compr-update)
+
 
 ;;;; File Modes
 
@@ -6293,8 +6304,7 @@ Open the `eww' buffer in another window."
   :after flyspell
   :bind
   (:map flyspell-mode-map
-        ([remap flyspell-correct-word-before-point] .
-         flyspell-correct-previous-word-generic)))
+        ([remap flyspell-correct-word-before-point] . flyspell-correct-previous-word-generic)))
 
 (use-package flycheck
   :custom
@@ -6349,25 +6359,14 @@ Open the `eww' buffer in another window."
     :fringe-bitmap 'my-flycheck-fringe-indicator
     :fringe-face 'flycheck-fringe-info)
 
-  (defhydra hydra-flycheck
-    (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
-          :post (progn (setq hydra-hint-display-type nil)
-                       (quit-windows-on "*Flycheck errors*"))
-          :hint nil)
-    "Errors"
-    ("f" flycheck-error-list-set-filter "Filter")
-    ("n" flycheck-next-error "Next")
-    ("p" flycheck-previous-error "Previous")
-    ("<" flycheck-first-error "First")
-    (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-    ("q" nil))
 
-  (global-flycheck-mode)
+  :hook
+  (prog-mode-hook . flycheck-mode)
 
   :bind
-  (("C-c ! !" . flycheck-mode)
-   :map flycheck-mode-map
-   ("C-c ! ." . hydra-flycheck/body)))
+  ("C-c ! !" . flycheck-mode)
+  (:map flycheck-mode-map
+        ("C-c ! ." . hydra-flycheck/body)))
 
 (use-package lsp-mode
   :custom
@@ -6414,6 +6413,7 @@ VALUE is a `reformatter' symbol which is either the symbol from a
 referencing a format region function, which takes two arguments:
 `beginning' and `end' (e.g. `format-region').")
 
+;; TODO: Eliminate loading `ansi-color' on startup.
 (use-package reformatter
   :config
   (with-no-warnings
@@ -6807,7 +6807,8 @@ configuration when invoked to evaluate a line."
   ("s-<return>" . eir-eval-in-shell)
   ("M-s-<return>" . eir-eval-in-shell-and-advance))
 
-;;;; Multiple Major Modes
+
+;; ;;;; Multiple Major Modes
 
 ;; TODO: I can't figure out how to defer loading of polymode without separating
 ;; it into its own file. Why is this necessary?
@@ -6830,6 +6831,7 @@ configuration when invoked to evaluate a line."
   ("C-c '" . fence-edit-dwim)
   (:map markdown-mode-map
         ("C-c '" . nil)))
+
 
 (provide 'init)
 
