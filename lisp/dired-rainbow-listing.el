@@ -161,11 +161,7 @@
   (progn
     (if dired-rainbow-listing-mode
         (font-lock-add-keywords 'dired-mode dired-rainbow-listing-keywords 'end)
-      (font-lock-remove-keywords 'dired-mode dired-rainbow-listing-keywords))
-    (mapc (lambda (b) (with-current-buffer b
-                        (when (equal major-mode 'dired-mode)
-                          (font-lock-refresh-defaults))))
-          (buffer-list))))
+      (font-lock-remove-keywords 'dired-mode dired-rainbow-listing-keywords))))
 
 (provide 'dired-rainbow-listing)
 

@@ -1,4 +1,4 @@
-;;; init.el --- Emacs init --- -*- lexical-binding: t -*-
+;;; init.el --- Emacs init -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -13,8 +13,6 @@
 
 (defconst emacs-start-time (current-time))
 
-;; (setq debug-on-error t)
-
 (setq load-prefer-newer t)
 
 (unless (featurep 'early-init)
@@ -22,9 +20,6 @@
 
 ;; These are good notes on optimizing startup performance:
 ;; https://github.com/hlissner/doom-emacs/wiki/FAQ#how-is-dooms-startup-so-fast
-
-;; Set Garbage Collection threshold to 1GB, run GC on idle.
-(setq gc-cons-threshold 1073741824)
 
 ;; Unset `file-name-handler-alist' too (temporarily). Every file opened and
 ;; loaded by Emacs will run through this list to check for a proper handler for
@@ -281,41 +276,6 @@ If DIFF is non-nil, only set variables which have changed."
   (load f nil t nil t)
   (use-package-git-enable))
 
-;; (use-package system-packages
-;;   :config
-;;   ;; TODO This still doesn't work for Windows systems because choco needs to be
-;;   ;; run with elevated privileges. Need to figure out how to do that from Emacs.
-;;   (when (eq system-type 'windows-nt)
-;;     (add-to-list
-;;      'system-packages-supported-package-managers
-;;      '(choco .
-;;        ((default-sudo . t)
-;;         (install . "choco install")
-;;         (search . "choco search")
-;;         (uninstall . "choco uninstall")
-;;         (update . "choco upgrade")
-;;         (clean-cache . "choco optimize")
-;;         (log . "type C:\\ProgramData\\chocolatey\\logs\\chocolatey.log")
-;;         (get-info . "choco info --local-only")
-;;         (get-info-remote . "choco info")
-;;         (list-files-provided-by . nil)
-;;         (verify-all-packages . nil)
-;;         (verify-all-dependencies . nil)
-;;         (remove-orphaned . nil)
-;;         (list-installed-packages . "choco list --local-only")
-;;         (list-installed-packages-all . "choco list --local-only --include-programs")
-;;         (list-dependencies-of . nil)
-;;         (noconfirm . "-y"))))
-;;     (setq system-packages-package-manager 'choco))
-;;   :commands
-;;   system-packages-ensure
-;;   system-packages-install)
-
-;; (use-package use-package-ensure-system-package
-;;   :demand t
-;;   :functions
-;;   use-package-ensure-system-package-exists?)
-
 ;;;;; use-package-list
 
 ;; Create a list of all packages defined with a `use-package' directive.
@@ -329,6 +289,8 @@ If DIFF is non-nil, only set variables which have changed."
 (defun use-package-normalize/:list (_name _keyword _args)
   "Serves no function; here only as boilerplate."
   (list t))
+
+(declare-function use-package-process-keywords "use-package-core")
 
 (defun use-package-handler/:list (name _keyword _ensure rest state)
   "Add the package NAME to the list.
@@ -423,6 +385,12 @@ on the next startup."
   paradox-list-packages
   paradox-upgrade-packages)
 
+(use-package auto-package-update
+  :custom
+  (auto-package-update-delete-old-versions t)
+  :commands
+  auto-package-update-now)
+
 ;;;; Third Party Libraries
 
 ;; Common libraries and associated functions.
@@ -439,11 +407,11 @@ on the next startup."
   :hook
   (dired-mode-hook . dired-async-mode))
 
-(use-package lv
-  :commands
-  lv-message
-  lv-window
-  lv-delete-window)
+;; (use-package lv
+;;   :commands
+;;   lv-message
+;;   lv-window
+;;   lv-delete-window)
 
 ;;;; Bindings
 
@@ -554,9 +522,10 @@ on the next startup."
         undo-limit 5242880))
 
 (use-package saveplace
-  :demand t
   :config
-  (save-place-mode))
+  (save-place-mode)
+  :hook
+  (find-file-hook . save-place-find-file-hook))
 
 (use-package recentf
   :demand t
@@ -633,12 +602,13 @@ on the next startup."
                                    search-ring
                                    regexp-search-ring
                                    file-name-history
-                                   magit-read-rev-history
                                    read-expression-history
                                    command-history
                                    extended-command-history
                                    ivy-history
-                                   window-config-alist))
+                                   window-config-alist
+                                   magit-read-rev-history
+                                   fiat-theme))
   :config
   (savehist-mode))
 
@@ -738,13 +708,21 @@ returned."
 
     ;; Set default fonts.
     (defvar m-fixed-pitch-font
-      (some-font '("Input-14" "Monaco-13" "Lucida Console-12" "DejaVu Sans-12"
-                   "Inconsolata-14"))
+      (some-font '("Input-14" "Monaco-13" "Lucida Console-12"
+                   "DejaVu Sans Mono-12" "Inconsolata-14"))
       "The default font to use for fixed pitch applications.")
 
     (defvar m-variable-pitch-font
       (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica" "Georgia-15"))
       "The default font to use for variable pitch applications.")
+
+    (defvar m-fallback-font
+      (some-font '("Arial Unicode MS-12" "DejaVu Sans Mono-12"))
+      "The fallback font for unicode glyphs the other fonts don't support.")
+
+    (dolist (fontset '("fontset-default" "fontset-standard" "fontset-startup"))
+      (set-fontset-font fontset '(#x000000 . #x3FFFFF) m-fallback-font)
+      (set-fontset-font fontset nil m-fallback-font))
 
     (dolist (face '(default fixed-pitch))
       (set-face-font face m-fixed-pitch-font))
@@ -752,6 +730,7 @@ returned."
     (set-face-font 'variable-pitch m-variable-pitch-font)
 
     (add-hook 'text-mode-hook 'variable-pitch-mode)
+    
 
     ;; Wrap text at the end of a line like a word processor.
     (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
@@ -773,52 +752,446 @@ returned."
       :hook
       (emacs-lisp-mode-hook . fontify-face-mode))))
 
-(use-package spacemacs-common
-  :custom
-  (spacemacs-theme-comment-bg nil)
-  :ensure spacemacs-theme
-  :git "https://github.com/nashamri/spacemacs-theme.git")
+(defun get-attribute (object propname attribute name)
+  "Get the value of NAME from OBJECT.
 
-(use-package fiat-color
-  :demand t
-  :ensure nil
-  :custom
-  (fiat-lux-theme 'spacemacs-light)
-  (fiat-nox-theme 'spacemacs-dark)
-  (fiat-themes '((spacemacs-light) (spacemacs-dark)))
-  (fiat-specs-common '((cursor ((t :background "magenta")))))
-  :config
-  (run-with-timer 1 nil #'fiat-theme)
-  (fiat-mode-line-mode)
-  :commands
-  fiat-theme fiat-lux fiat-nox fiat-mode-line-mode
-  ;; :hook
-  ;; (fiat-after-theme-hook . spacemacs-theme-after-setup)
-  :bind
-  ("C-M-s-S-t" . fiat-theme-choose)
-  ("C-M-s-t" . fiat)
-  (:map m-toggle-map
-        ("t" . fiat)
-        ("c" . fiat-show-flycheck-toggle)
-        ("l" . fiat-show-line-and-column-toggle)))
+PROPNAME, ATTRIBUTE, and NAME are symbols which drill down to
+access the individual Alist element we are after.
 
-;; TODO: Try this out.
-;; (use-package auto-dim-other-buffers
-;;   :config
-;;   (auto-dim-other-buffers-mode))
+See `get' and `theme-attribute'."
+  (let ((name (if (stringp name) (intern name) name)))
+    (cl-some (lambda (e) (when (and (eq attribute (car e)) (eq name (cadr e)))
+                           (car (cdr (cdr (cdr e))))))
+             (get (car object) propname))))
+
+(defun theme-attribute (attribute name)
+  "Get the ATTRIBUTE identified by NAME from the current theme settings.)
+
+Example usage
+
+  (theme-attribute 'default :background)
+
+Note that unlike `face-attribute', which gets the *current*
+attribute value as displayed on the screen, this function gets
+the attribute as specified in the *original* theme settings. This
+is useful when you switch themes and want to calculate new faces
+derived from existing ones."
+  (get-attribute custom-enabled-themes 'theme-settings attribute name))
+
+(defun theme-face (face)
+  "Get the FACE from the current theme.
+
+See `theme-attribute'."
+  (theme-attribute 'theme-face face))
+
+(defun theme-face-attribute (face attribute)
+  "Get the ATTRIBUTE of the FACE from the current theme.
+
+See `theme-attribute'."
+  (plist-get (face-spec-choose (theme-face face)) attribute))
+
+(defvar fiat-theme 'tango
+  "The current theme.")
+
+(defun fiat-save-theme (theme &rest _)
+  "Save the current THEME."
+  (setq fiat-theme theme))
+
+(advice-add #'load-theme :after #'fiat-save-theme)
+
+(defun fiat-lux ()
+  "Let the Emacs and OS themes be switched to light mode."
+  (interactive)
+  (load-theme 'doom-one-light t))
+
+(defun fiat-nox ()
+  "Let the Emacs and OS themes be switched to dark mode."
+  (interactive)
+  (load-theme 'doom-one t))
+
+(defun fiat ()
+  "Let the Emacs and OS themes be toggled."
+  (interactive)
+  (if (member 'doom-one custom-enabled-themes)
+      (fiat-lux)
+    (fiat-nox)))
+
+(bind-keys
+ ("C-M-s-t" . fiat)
+ ("C-M-S-s-t" . counsel-load-theme)
+ ("M-m M-t" . counsel-load-theme))
 
 (use-package window-highlight
   :demand t
-  :ensure nil
   :if (and window-system (>= emacs-major-version 27))
   :git "https://github.com/dcolascione/emacs-window-highlight"
+
   :config
-  ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
+    ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
   ;; line doesn't exhibit this behavior). Anyway, it doesn't seem too terrible
   ;; to go ahead and set it manually.
   (set-frame-parameter (selected-frame) 'last-focus-update t)
   (window-highlight-mode))
+
+(use-package spacemacs-common
+  :custom
+  (spacemacs-theme-comment-bg nil)
+  :ensure spacemacs-theme)
+
+(use-package doom-themes
+  :config
+  (doom-themes-visual-bell-config)
+  (doom-themes-org-config))
+
+(defun color-blend (color1 color2 alpha)
+  "Blends COLOR1 onto COLOR2 with ALPHA.
+COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
+triplet strings (e.g. \"#ff12ec\").
+Alpha should be a float between 0 and 1.
+
+Stolen from solarized."
+  (apply #'color-rgb-to-hex
+         (-zip-with (lambda (it other)
+                      (+ (* alpha it) (* other (- 1 alpha))))
+                    (color-name-to-rgb color1)
+                    (color-name-to-rgb color2))))
+
+;; (use-package doom-modeline
+;;   :demand t
+;;   :custom
+;;   (doom-modeline-height 20)
+;;   (doom-modeline-buffer-file-name-style 'file-name)
+;;   (doom-modeline-icon nil)
+;;   (doom-modeline-minor-modes t)
+
+;;   :config
+;;   (defun m-doom-modeline--font-height ()
+;;     "Calculate the actual char height of the mode-line."
+;;     (+ (frame-char-height) 2))
+
+;;   (advice-add #'doom-modeline--font-height :override #'m-doom-modeline--font-height)
+
+;;   (defsubst outline-minor-mode-info ()
+;;     (when (bound-and-true-p outline-minor-mode)
+;;       "Ⓞ"))
+
+;;   (defsubst parinfer-mode-info ()
+;;     (when (bound-and-true-p parinfer-mode)
+;;       (concat "P" (if (eq parinfer--mode 'indent) "↔" "⸩"))))
+
+;;   (doom-modeline-def-segment m-minor-modes
+;;     "Display abbreviated minor mode info."
+;;     (mapconcat #'identity
+;;                (list (outline-minor-mode-info)
+;;                      (parinfer-mode-info))
+;;                " "))
+
+;;   (doom-modeline-def-segment m-matches
+;;     "Displays: 1. the currently recording macro, 2. A current/total for the
+;; current search term (with `anzu'), 3. The number of substitutions being conducted
+;; with `evil-ex-substitute', and/or 4. The number of active-bg `iedit' regions,
+;; 5. The current/total for the highlight term (with `symbol-overlay'), 6. The number
+;; of active-bg `multiple-cursors'.
+
+;; Copied from `doom-modeline-segments', but removed the buffer size part."
+;;     (concat (doom-modeline--macro-recording)
+;;             (doom-modeline--anzu)
+;;             (doom-modeline--evil-substitute)
+;;             (doom-modeline--iedit)
+;;             (doom-modeline--symbol-overlay)
+;;             (doom-modeline--multiple-cursors)))
+
+;;   (doom-modeline-def-segment m-buffer-info
+;;     "Combined information about the current buffer, including the current working
+;; directory, the file name, and its state (modified, read-only or non-existent)."
+;;     (concat
+;;      (doom-modeline-spc)
+;;      (doom-modeline--buffer-mode-icon)
+;;      (doom-modeline--buffer-name)
+;;      (doom-modeline-spc)
+;;      (doom-modeline--buffer-state-icon)))
+
+;;   (doom-modeline-def-modeline 'm-modeline
+;;     '(bar modals m-matches m-buffer-info remote-host selection-info)
+;;     '(misc-info checker m-minor-modes major-mode process)))
+
+  ;; (doom-modeline-mode)
+  ;; (doom-modeline-set-modeline 'm-modeline 'default))
+
+(use-package mood-line
+  :demand t
+  :config
+  (defvar mood-line-selected-window (frame-selected-window)
+    "Selected window.")
+
+  (defun mood-line--set-selected-window ()
+    "Set the variable `fiat-selected-window' appropriately.
+This is used to determine whether the current window is active."
+    (unless (minibuffer-window-active-p (frame-selected-window))
+      (setq mood-line-selected-window (frame-selected-window))
+      (force-mode-line-update)))
+
+  ;; Executes after a window (not a buffer) has been created, deleted, or moved.
+  (add-hook 'window-configuration-change-hook #'mood-line--set-selected-window)
+
+  ;; Executes after the `buffer-list' changes.
+  (add-hook 'buffer-list-update-hook #'mood-line--set-selected-window)
+
+  (defun mood-line-window-active-p ()
+    "Return whether the current window is active."
+    (eq mood-line-selected-window (selected-window)))
+
+  (defun mood-line-hostname ()
+    "Return the remote hostname for the current buffer.
+Return nil if the buffer is local."
+    (when (file-remote-p default-directory)
+      (propertize (format " %s " (tramp-file-name-host
+                                  (tramp-dissect-file-name default-directory)))
+                  'face 'highlight)))
+
+  (defun mood-line--make-xpm (face width height)
+    "Create an XPM bitmap via FACE, WIDTH and HEIGHT. Inspired by `powerline''s `pl/make-xpm'."
+    (when (and (display-graphic-p)
+               (image-type-available-p 'xpm))
+      (propertize
+       " " 'display
+       (let ((data (make-list height (make-list width 1)))
+             (color (or (face-background face nil t) "None")))
+         (ignore-errors
+           (create-image
+            (concat
+             (format
+              "/* XPM */\nstatic char * percent[] = {\n\"%i %i 2 1\",\n\". c %s\",\n\"  c %s\","
+              (length (car data)) (length data) color color)
+             (apply #'concat
+                    (cl-loop with idx = 0
+                             with len = (length data)
+                             for dl in data
+                             do (cl-incf idx)
+                             collect
+                             (concat
+                              "\""
+                              (cl-loop for d in dl
+                                       if (= d 0) collect (string-to-char " ")
+                                       else collect (string-to-char "."))
+                              (if (eq idx len) "\"};" "\",\n")))))
+            'xpm t :ascent 'center))))))
+
+  (defun mood-line--refresh-bar ()
+    "Refresh the bar."
+    (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 22)))
+
+  (defvar mood-line-bar (mood-line--refresh-bar)
+    "A bar inspired by `doom-modeline'.")
+
+  (defun mood-line-segment-bar ()
+    "Display a bar."
+    (or mood-line-bar (mood-line--refresh-bar)))
+
+  (defun mood-line-segment-buffer-name ()
+    "Displays the name of the current buffer in the mode-line."
+    (propertize " %b " 'face 'mode-line-buffer-id))
+
+  (defun mood-line-segment-modified ()
+    "Displays a color-coded buffer modification/read-only indicator in the mode-line."
+    (when (and buffer-file-name
+               (not (string-match-p "\\*.*\\*" (buffer-name)))
+               (buffer-modified-p))
+      "● "))
+
+  (defun mood-line--update-flycheck-segment (&optional status)
+    "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
+    (setq mood-line--flycheck-text
+          (pcase status
+            ('finished (if flycheck-current-errors
+                           (let-alist (flycheck-count-errors flycheck-current-errors)
+                             (let ((sum (+ (or .error 0) (or .warning 0))))
+                               (propertize "⚑ "
+                                           (number-to-string sum)
+                                           'face (if .error
+                                                     'mood-line-status-error
+                                                   'mood-line-status-warning))))
+                         (propertize "✔ " 'face 'mood-line-status-success)))
+            ('running (propertize "⧖ " 'face 'mood-line-status-info))
+            ('errored (propertize "✖ " 'face 'mood-line-status-error))
+            ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
+            ('no-checker ""))))
+
+  (defun mood-line-segment-misc-info ()
+    "Display the current value of `mode-line-misc-info' in the mode-line."
+    (when (mood-line-window-active-p)
+      (apply #'concat
+             (mapcar (lambda (e)
+                       (let ((s (format-mode-line e)))
+                         (if (string-blank-p s)
+                             ""
+                           (concat (string-trim (format-mode-line e)) " "))))
+                     mode-line-misc-info))))
+
+  (defun outline-minor-mode-info ()
+    "Displays an indicator when `outline-minor-mode' is enabled."
+    (setf (alist-get 'outline-minor-mode mode-line-misc-info)
+          (list (when (bound-and-true-p outline-minor-mode) "Ⓞ"))))
+
+  (add-hook 'outline-minor-mode-hook #'outline-minor-mode-info)
+
+  (defvar parinfer--mode)
+
+  (defun parinfer-mode-info (&rest _)
+    "Display an indicator when `parinfer-mode' is enabled."
+    (setf (alist-get 'parinfer-mode mode-line-misc-info)
+          (list (when (bound-and-true-p parinfer-mode)
+                  (if (eq parinfer--mode 'indent) "➠" "⸩")))))
+
+  (add-hook 'parinfer-mode-hook #'parinfer-mode-info)
+  (add-hook 'parinfer-switch-mode-hook #'parinfer-mode-info)
+
+  (defun hs-minor-mode-info ()
+    "Display an indicator when `hs-minor-mode' is enabled."
+    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
+          (list (when (bound-and-true-p hs-minor-mode) '("hs")))))
+
+  (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
+
+  (defun mood-line-segment-major-mode ()
+    "Displays the current major mode in the mode-line."
+    (propertize "%m " 'face (if (mood-line-window-active-p)
+                                'mode-line-emphasis
+                              'mode-line)))
+
+  (defun --format-mood-line (left right)
+    "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
+    (concat
+     left
+     " "
+     (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
+     right))
+
+  (mood-line-mode)
+
+  (setq-default mode-line-format
+                '((:eval
+                   (--format-mood-line
+                    ;; Left
+                    (format-mode-line
+                     '((:eval (mood-line-segment-bar))
+                       (:eval (mood-line-hostname))
+                       (:eval (mood-line-segment-buffer-name))
+                       (:eval (mood-line-segment-modified))
+                       (:eval (mood-line-segment-anzu))
+                       (:eval (mood-line-segment-multiple-cursors))
+                       (:eval (mood-line-segment-process))))
+                    ;; Right
+                    (format-mode-line
+                     '((:eval (mood-line-segment-flycheck))
+                       (:eval (mood-line-segment-misc-info))
+                       (:eval (mood-line-segment-major-mode)))))))))
+
+(defun custom-enabled-themes-reset (&rest _)
+  "Remove all current themes before loading a new theme."
+  (mapc #'disable-theme custom-enabled-themes))
+
+(defun m-customize-faces (&rest _)
+  "Set the faces for `window-highlight' when a theme is loaded."
+  (let* ((inactive-bg (color-blend
+                       (theme-face-attribute 'default :background)
+                       (theme-face-attribute 'default :foreground)
+                       0.95))
+         (active-fg (theme-face-attribute 'default :foreground))
+         (active-bg (theme-face-attribute 'default :background)))
+         ;; (highlight-fg (theme-face-attribute 'highlight :foreground))
+         ;; (inactive-fg (color-blend active-bg active-fg 0.4)))
+    (apply #'custom-set-faces
+           `((default ((t :background ,inactive-bg)))
+             (fringe ((t :background ,inactive-bg)))
+             (window-highlight-focused-window ((t :background ,active-bg)))
+             (vertical-border ((t :foreground ,inactive-bg)))
+             (cursor ((t :background "magenta")))
+             (mode-line ((t :box nil)))
+             ;; :background ,(color-blend active-bg active-fg 0.8)
+             ;; :foreground ,(color-blend active-fg active-bg 0.9))))
+             ;; (mode-line-emphasis ((t :background ,(color-blend active-bg active-fg 0.7)
+             ;;                       :foreground ,active-fg)))
+             ;; (mode-line-highlight ((t :background ,highlight-fg
+             ;;                        :foreground ,active-bg)))
+             ;; (mode-line-buffer-id ((t :background ,(color-blend active-bg active-fg 0.2)
+             ;;                        :foreground ,inactive-bg
+             ;;                        :bold t)))
+             (mode-line-inactive ((t :box nil)))
+             (sp-show-pair-match-face ((t :inherit highlight
+                                        :underline nil
+                                        :foreground nil
+                                        :background nil))))))
+  
+  (when (>= emacs-major-version 27)
+    (with-eval-after-load 'org
+      (dolist (face '(org-block
+                      org-block-begin-line
+                      org-block-end-line
+                      org-level-1))
+        (set-face-attribute face nil :extend t)))
+    (with-eval-after-load 'magit
+      (dolist (face '(magit-diff-hunk-heading
+                      magit-diff-hunk-heading-highlight
+                      magit-diff-hunk-heading-selection
+                      magit-diff-hunk-region
+                      magit-diff-lines-heading
+                      magit-diff-lines-boundary
+                      magit-diff-conflict-heading
+                      magit-diff-added
+                      magit-diff-removed
+                      magit-diff-our
+                      magit-diff-base
+                      magit-diff-their
+                      magit-diff-context
+                      magit-diff-added-highlight
+                      magit-diff-removed-highlight
+                      magit-diff-our-highlight
+                      magit-diff-base-highlight
+                      magit-diff-their-highlight
+                      magit-diff-context-highlight
+                      magit-diff-whitespace-warning
+                      magit-diffstat-added
+                      magit-diffstat-removed
+                      magit-section-heading
+                      magit-section-heading-selection
+                      magit-section-highlight
+                      magit-section-secondary-heading
+                      magit-diff-file-heading
+                      magit-diff-file-heading-highlight
+                      magit-diff-file-heading-selection))
+        (set-face-attribute face nil :extend t)))
+    (with-eval-after-load 'ediff
+      (dolist (face '(ediff-current-diff-A
+                      ediff-current-diff-Ancestor
+                      ediff-current-diff-B
+                      ediff-current-diff-C
+                      ediff-even-diff-A
+                      ediff-even-diff-Ancestor
+                      ediff-even-diff-B
+                      ediff-even-diff-C
+                      ediff-fine-diff-A
+                      ediff-fine-diff-Ancestor
+                      ediff-fine-diff-B
+                      ediff-fine-diff-C
+                      ediff-odd-diff-A
+                      ediff-odd-diff-Ancestor
+                      ediff-odd-diff-B
+                      ediff-odd-diff-C))
+        (set-face-attribute face nil :extend t)))
+    (with-eval-after-load 'hl-line
+      (set-face-attribute 'hl-line nil :extend t))
+    (with-eval-after-load 'faces
+      (dolist (face '(region
+                      secondary-selection))
+        (set-face-attribute face nil :extend t))))
+  (mood-line--refresh-bar))
+
+(advice-add #'load-theme :before #'custom-enabled-themes-reset)
+(advice-add #'load-theme :after #'m-customize-faces)
+
+(load-theme fiat-theme t)
 
 (use-package hl-line
   :demand t
@@ -959,7 +1332,6 @@ forward."
   (global-eldoc-mode))
 
 (use-package which-key
-  :demand t
   :custom
   (which-key-idle-delay 0.25)
   :config
@@ -1021,7 +1393,8 @@ Include PREFIX in prompt if given."
   ;; https://with-emacs.com/posts/prefix-command-completion/
   (setq prefix-help-command #'which-key-M-x-prefix+)
 
-  (which-key-mode)
+  :hook
+  (ivy-mode-hook . which-key-mode)
   :bind
   ("M-s-h" . which-key-show-top-level))
 
@@ -1058,49 +1431,73 @@ Include PREFIX in prompt if given."
   ("C-h e" . eg))
 
 (use-package counsel-dash
-                                        ;  :ensure-system-package sqlite3
+  ;; :ensure-system-package sqlite3
   :custom
   (dash-docs-browser-func #'eww-other-window)
   (dash-docs-enable-debugging nil)
+  (dash-docs-docsets-path "~/.config/docsets")
 
   :config
-  (defvar dash-docs-docsets-path "~/.config/docsets"
-    "Local path to save docsets.")
-
   (make-directory dash-docs-docsets-path t)
 
-  (defun dash-docs-installed-docsets ()
-    "Return a list of the currently installed docsets."
-    (mapcar (lambda (f) (string-trim-right f ".docset"))
-            (directory-files dash-docs-docsets-path nil "[^.]*\.docset")))
-
-  (defun dash-docs-update-docsets-var (_docset-name)
+  (defun dash-docs-update-docsets-var (&optional _docset-name)
     "Update `dash-docs-common-docsets' variable."
     (setq dash-docs-common-docsets (dash-docs-installed-docsets)))
 
-  (advice-add 'dash-docs-install-docset :after #'dash-docs-update-docsets-var)
+  (advice-add 'dash-docs-install-docset :after #'dash-docs-activate-docset)
   (advice-add 'dash-docs-install-user-docset :after #'dash-docs-update-docsets-var)
+
+  ;; (defun dash-docs-update-all-docsets ()
+  ;;   "Update all official and unofficial docsets."
+  ;;   (interactive)
+  ;;   (pop-to-buffer (get-buffer-create "*dash-docs updates*"))
+  ;;   (erase-buffer)
+  ;;   (insert "Dash docs updates\n=================\n\n")
+  ;;   (async-start
+  ;;    `(lambda ()
+  ;;       ,(async-inject-variables "load-path")
+  ;;       (require 'dash-docs)
+  ;;       ,(async-inject-variables "\\`dash-docs-")
+  ;;       (let ((official-docsets (dash-docs-official-docsets))
+  ;;             (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
+  ;;        (dolist (d (dash-docs-installed-docsets))
+  ;;         (insert "  " d ": ")
+  ;;         (cond
+  ;;          ((member d official-docsets)
+  ;;           (progn (insert "Updating official docset...\n")
+  ;;            (dash-docs-install-docset d)))
+  ;;          ((member d unofficial-docsets)
+  ;;           (progn (insert "Updating unofficial docset...\n")
+  ;;            (dash-docs-install-user-docset d)))
+  ;;          (t (insert "Skipping manually installed docset...\n"))))))
+  ;;    (lambda (_result) (insert "\n\ndone.")))
+  ;;   (dash-docs-update-docsets-var))
 
   (defun dash-docs-update-all-docsets ()
     "Update all official and unofficial docsets."
     (interactive)
-    (seq-doseq (d (dash-docs-installed-docsets))
-      (cond
-       ((memq d (dash-docs-official-docsets))
-        (dash-docs-install-docset d))
-       ((memq d (dash-docs-unofficial-docsets))
-        (dash-docs-install-user-docset d))
-       (t
-        (message "Skipping manually installed docset: %s..." d))))
-    (dash-docs-update-docsets-var nil))
+    (pop-to-buffer (get-buffer-create "*dash-docs updates*"))
+    (erase-buffer)
+    (insert "Dash docs updates\n=================\n\n")
+    (let ((official-docsets (dash-docs-official-docsets))
+          (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
+      (dolist (d (dash-docs-installed-docsets))
+        (insert (propertize (concat"  " d ": ") 'face 'bold))
+        (cond
+         ((member d official-docsets)
+          (progn (insert "Updating official docset...\n")
+                 (dash-docs-install-docset d)))
+         ((member d unofficial-docsets)
+          (progn (insert "Updating unofficial docset...\n")
+                 (dash-docs-install-user-docset d)))
+         (t (insert "Skipping manually installed docset...\n")))))
+    (dash-docs-update-docsets-var)
+    (insert "\n\ndone."))
 
   (setq dash-docs-common-docsets (dash-docs-installed-docsets))
 
   :commands
-  counsel-dash
-  counsel-dash-at-point
-  counsel-dash-install-docset
-  counsel-dash-install-user-docset
+  dash-docs-update-all-docsets
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
@@ -1561,14 +1958,14 @@ With a prefix ARG, create it in `org-directory'."
     (dired-mode-hook . org-download-enable))
 
   ;; Required for Org html export
-  (use-package htmlize
-    :commands
-    htmlize-file
-    htmlize-region
-    htmlize-buffer
-    htmlize-many-files
-    htmlize-many-files-dired
-    org-html-htmlize-generate-css)
+  ;; (use-package htmlize
+  ;;   :commands
+  ;;   htmlize-file
+  ;;   htmlize-region
+  ;;   htmlize-buffer
+  ;;   htmlize-many-files
+  ;;   htmlize-many-files-dired
+  ;;   org-html-htmlize-generate-css)
 
   (use-package org-preview-html
     :commands
@@ -1754,7 +2151,7 @@ With a prefix ARG, create it in `org-directory'."
   ;; make the `gnus-dired-mail-buffers' function also work on
   ;; message-mode derived modes, such as mu4e-compose-mode
   (defun gnus-dired-mail-buffers ()
-    "Return a list of active message buffers."
+    "Return a list of active-bg message buffers."
     (require 'gnus-dired)
     (let (buffers)
       (save-current-buffer
@@ -2040,7 +2437,7 @@ It actually does not list them all because I don't know how to do
 If ARG is provided then create a new buffer regardless of whether
 one exists already."
   (interactive "P")
-  (let* ((default-directory "/tmp")
+  (let* ((default-directory code-directory)
          (uniquify-buffer-name-style nil)
          (buffer (if arg
                      (generate-new-buffer "*scratch*")
@@ -2048,8 +2445,7 @@ one exists already."
          (win (get-buffer-window buffer)))
     (if win
         (select-window win)
-      (progn (switch-to-buffer buffer)
-             (funcall-interactively initial-major-mode)))))
+      (switch-to-buffer buffer))))
 
 (defun scratch-new-buffer-other-window (arg)
   "Create or go to a scratch buffer in the current mode.
@@ -2264,8 +2660,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 (use-package winum
   :custom
   (winum-auto-setup-mode-line nil)
-  :commands
-  winum-mode
   :config
   (winum-mode)
   :bind
@@ -2290,10 +2684,17 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("s-0" . winum-select-window-0)
   ("C-c 0" . winum-select-window-0))
 
+(use-package rotate
+  :commands
+  rotate-window
+  rotate-layout)
+
 (use-package eyebrowse
   :custom
   (eyebrowse-new-workspace t)
   (eyebrowse-mode-line-separator " ")
+  (eyebrowse-mode-line-left-delimiter "")
+  (eyebrowse-mode-line-right-delimiter "")
   :config
   (defvar eyebrowse-last-window-config nil
     "Variable used to save and restore `eyebrowse' window
@@ -2317,6 +2718,35 @@ This is for serialization to disk by `psession'."
     (eyebrowse-mode)
     (eyebrowse-restore-window-config))
 
+  (defun eyebrowse-mode-line-indicator ()
+    "Return a string representation of the window configurations.
+
+This simplified compared to the original to do exactly what I
+want and do it faster."
+    (let* ((separator (propertize eyebrowse-mode-line-separator
+                                  'face 'eyebrowse-mode-line-separator))
+           (current-slot (eyebrowse--get 'current-slot))
+           (window-configs (eyebrowse--get 'window-configs)))
+      (concat
+       (propertize eyebrowse-mode-line-left-delimiter
+                   'face 'eyebrowse-mode-line-delimiters)
+       (mapconcat
+        (lambda (window-config)
+          (let* ((slot (car window-config))
+                 (tag (nth 2 window-config))
+                 (face (if (= slot current-slot)
+                           'eyebrowse-mode-line-active
+                         'eyebrowse-mode-line-inactive))
+                 (caption (if (and tag (> (length tag) 0))
+                              (concat (number-to-string slot) ":" tag)
+                            (number-to-string slot))))
+            (propertize caption 'face face 'slot slot)))
+        (eyebrowse--get 'window-configs)
+        separator)
+       (propertize eyebrowse-mode-line-right-delimiter
+                   'face 'eyebrowse-mode-line-delimiters))))
+
+  (eyebrowse-mode)
   :bind
   ("H-1" . eyebrowse-switch-to-window-config-1)
   ("C-c C-1" . eyebrowse-switch-to-window-config-1)
@@ -2721,7 +3151,7 @@ BUFFER-FILE-NAME-LIST is a list of the buffers open in WINDOW-STATE."
   (when window-config (set-window-configuration window-config)))
 
 (defmacro window-config-make (name &rest exprs)
-  "Make window-config-NAME command, running EXPRS.
+  "Make window-config NAME command, running EXPRS.
 
 Each EXPR should create one window."
   (declare (indent defun))
@@ -3205,7 +3635,7 @@ force `counsel-rg' to search in `default-directory.'"
   :config
   (defun projectile-load-settings (&optional file)
     "Load project elisp settings from FILE.
-Look in active project root directory, or if in the case of
+Look in active-bg project root directory, or if in the case of
   undefined root directory, file is otherwise path resolvable.
 
 https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-settings.el"
@@ -3300,16 +3730,19 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :config
   (eldoc-add-command #'company-select-next
                      #'company-select-previous)
-  (setq company-backends '(company-semantic
-                           company-clang
-                           company-xcode
-                           company-cmake
-                           company-capf
-                           company-files
-                           (company-dabbrev-code company-gtags company-etags company-keywords)
-                           company-dabbrev))
+  (setq company-backends
+        '(company-semantic
+          company-clang
+          company-xcode
+          company-cmake
+          company-capf
+          company-files
+          (company-dabbrev-code company-gtags company-etags company-keywords)
+          company-dabbrev))
   :hook
-  (prog-mode-hook . company-mode)
+  ((prog-mode-hook
+    lisp-interaction-mode-hook
+    cider-repl-mode-hook) . company-mode)
   ;; TODO: Figure out how to make company-mode work in the minibuffer.
   ;; (minibuffer-setup . company-mode)
   :bind
@@ -3642,7 +4075,6 @@ With a prefix ARG always prompt for command to use."
 
 (use-package dired-x
   :ensure nil
-  :after dired
   :custom
   (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
@@ -3665,52 +4097,53 @@ With a prefix ARG always prompt for command to use."
   :custom
   (wdired-allow-to-change-permissions t)
   (wdired-create-parent-directories t)
-  :commands
-  (wdired-change-to-wdired-mode)
   :bind
   (:map dired-mode-map
         ("C-c C-p" . wdired-change-to-wdired-mode)))
 
 (use-package dired-hacks-utils
-  :config
-  (dired-utils-format-information-line-mode))
+  :hook
+  (dired-after-readin-hook . dired-utils-format-information-line))
 
 (use-package dired-rainbow
-  :after dired-hacks-utils
   :config
-  (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-  (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
-  (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-  (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
-  (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
-  (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-  (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
-  (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
-  (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9"))
-  (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
-  (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
-  (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" "java"))
-  (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi"))
-  (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
-  (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
-  (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-  (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
-  (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
-  (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
-  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-  (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile")))
+  (defun dired-rainbow-setup ()
+    "Set up `dired-rainbow'."
+    (dired-rainbow-define-chmod directory "#0074d9" "d.*")
+    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
+    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
+    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
+    (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9"))
+    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
+    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs" "pyc" "java"))
+    (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi"))
+    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
+    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
+    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
+    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
+    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
+    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
+    (mapc (lambda (b) (with-current-buffer b
+                        (when (equal major-mode 'dired-mode)
+                          (font-lock-refresh-defaults))))
+          (buffer-list))    
+    (remove-hook 'dired-mode-hook #'dired-rainbow-setup))
+  :hook
+  (dired-mode-hook . dired-rainbow-setup))
 
 (use-package dired-rainbow-listing
-  :after dired-rainbow
   :ensure nil
-  :commands
-  dired-rainbow-listing-mode
-  :config
-  (dired-rainbow-listing-mode))
+  :hook
+  (dired-mode-hook . dired-rainbow-listing-mode))
 
 (use-package dired-filter
-  :disabled t
-  :after dired-hacks-utils
   :custom
   (dired-filter-verbose nil)
   :hook
@@ -3722,7 +4155,6 @@ With a prefix ARG always prompt for command to use."
         ("/" . dired-narrow)))
 
 (use-package dired-list
-  :after dired-hacks-utils
   :git (:url "https://github.com/Fuco1/dired-hacks"
              :files "dired-list.el")
   :commands
@@ -3734,7 +4166,6 @@ With a prefix ARG always prompt for command to use."
   dired-list-grep)
 
 (use-package dired-subtree
-  :after dired-hacks-utils
   :bind
   (:map dired-mode-map
         ("I" . dired-subtree-cycle)
@@ -3747,7 +4178,6 @@ With a prefix ARG always prompt for command to use."
         ("C-, v" . dired-subtree-down)))
 
 (use-package dired-collapse
-  :after dired-hacks-utils
   :hook
   (dired-mode-hook . dired-collapse-mode))
 
@@ -3796,6 +4226,7 @@ With a prefix ARG always prompt for command to use."
 
 (use-package calc
   :config
+  (defvar math-additional-units)
   (setq math-additional-units
         '((bit nil "Bit")
           (bits "bit" "Bits")
@@ -3860,7 +4291,7 @@ With a prefix ARG always prompt for command to use."
   (shell-command
    (cl-case system-type
      (gnu/linux
-      "ip address show | awk '/inet /{if ($5 != \"lo\") { print $7 \": \" $2 }}'")
+      "ip address show | awk '/inet /{if ($5 != \"inactive-bg\") { print $7 \": \" $2 }}'")
      (darwin
       "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
      (cygwin
@@ -4025,11 +4456,27 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;;   gist-list)
 
 (use-package diff-hl
+  :config
+  (defvar mood-one-theme--diff-hl-bmp
+    (define-fringe-bitmap 'mood-one-theme--diff-hl-bmp
+      (vector #b11100000) 1 8 '(center t))
+    "Fringe bitmap for use with `diff-hl'.
+
+Stolen from https://gitlab.com/jessieh/mood-one-theme.")
+
+  (defun mood-one-theme-diff-hl-fringe-bmp-function (_type _pos)
+    "Fringe bitmap function for use as `diff-hl-fringe-bmp-function'."
+    mood-one-theme--diff-hl-bmp)
+
+  (setq diff-hl-fringe-bmp-function #'mood-one-theme-diff-hl-fringe-bmp-function)
+  
   :commands
-  (diff-hl-magit-post-refresh diff-hl-mode diff-hl-dired-mode)
+  diff-hl-magit-post-refresh
+  diff-hl-mode
+  diff-hl-dired-mode
   :hook
   (magit-post-refresh-hook . diff-hl-magit-post-refresh)
-  ((prog-mode-hook markdown-mode-hook) . diff-hl-mode)
+  ((prog-mode-hook text-mode-hook) . diff-hl-mode)
   (dired-mode-hook . diff-hl-dired-mode))
 
 (use-package smerge-mode
@@ -4121,11 +4568,10 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 (add-hook 'prog-mode-hook #'auto-fill-mode-init)
 
 (use-package so-long
-  :demand t
   :if (>= emacs-major-version 27)
   :ensure nil
-  :config
-  (global-so-long-mode))
+  :hook
+  (ivy-mode-hook . global-so-long-mode))
 
 (use-package unfill
   :bind
@@ -4361,6 +4807,8 @@ ID, ACTION, CONTEXT."
         (save-excursion
           (indent-according-to-mode)))))
 
+  (defvar sh-basic-offset)
+
   (defun sp-sh-for-post-handler (id action context)
     "Handler for bash for block insertions.
 ID, ACTION, CONTEXT."
@@ -4544,7 +4992,9 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
-  ((text-mode-hook prog-mode-hook) . smartparens-mode)
+  ((text-mode-hook
+    prog-mode-hook
+    cider-repl-mode-hook) . smartparens-mode)
 
   :bind
   (:map lisp-mode-shared-map
@@ -4603,7 +5053,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   (call-interactively 'indent-region))
 
 (defun kill-line-or-region ()
-  "Kill the current line or active region.
+  "Kill the current line or active-bg region.
 
 When `universal-argument' is called first, kill the whole
 buffer (respects `narrow-to-region').
@@ -4619,7 +5069,7 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
              (kill-region (line-beginning-position) (line-beginning-position 2))))))
 
 (defun copy-line-or-region ()
-  "Copy the current line or active region.
+  "Copy the current line or active-bg region.
 
 When called repeatedly, append copy subsequent lines. When
 `universal-argument' is called first, copy whole
@@ -4969,7 +5419,7 @@ predicate returns true."
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
-          (plist-get (face-spec-choose (fiat-theme-face 'default)) :background)))
+          (plist-get (face-spec-choose (theme-face 'default)) :background)))
 
   (defun maybe-enable-hl-line-mode ()
     (if (eq major-mode 'vterm-mode)
@@ -5257,7 +5707,7 @@ because I dynamically rename the buffer according to
             :background "red" :foreground "white" :weight bold))
        (,(abbreviate-file-name (eshell/pwd)) :background "cyan" :foreground "black")
        (,(if (zerop (user-uid)) "\n(#)" "\n()")
-        :foreground ,(if (equal 'light (frame-parameter nil 'background-mode))
+        :foreground ,(if (equal 'active-bg (frame-parameter nil 'background-mode))
                          "black"
                        "white")
         :weight bold))
@@ -5788,7 +6238,7 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
 
 (defun expression-to-register (register)
   "Interactively store an Emacs Lisp expression in a REGISTER.
-If region is active, store that. Otherwise, store the sexp at
+If region is active-bg, store that. Otherwise, store the sexp at
   point."
   (interactive (list (register-read-with-preview "Copy expression to register: ")))
   (set-register register
@@ -5906,7 +6356,7 @@ of problems in that context."
       (interactive)
       (cider-eval-last-sexp '(1)))
 
-    (defun cider-theme-setup ()
+    (defun cider-stacktrace-adapt-to-theme (&rest _)
       "The standard advice function runs at the wrong time I guess?
   Anyway, it often gets set to the wrong color when switching
   themes via `theme-choose'."
@@ -5914,9 +6364,10 @@ of problems in that context."
         (setq cider-stacktrace-frames-background-color
               (cider-scale-background-color))))
 
+    (advice-add #'load-theme :after #'cider-stacktrace-adapt-to-theme)
+
     :hook
     (cider-mode-hook . eldoc-mode)
-    (fiat-after-theme-hook . cider-theme-setup)
 
     :bind
     (:map cider-mode-map
@@ -5924,10 +6375,8 @@ of problems in that context."
           ("C-x 4 ." . cider-find-var-other-window)))
 
   (use-package cider-hydra
-    :after cider
     :hook
     (clojure-mode-hook . cider-hydra-mode))
-
 
   :hook
   (clojure-mode-hook . subword-mode))
@@ -6051,7 +6500,7 @@ of problems in that context."
   (datetime-timezone 'US/Pacific))
 
 (use-package logview
-  :mode "\\.log.*"
+  :mode ("\\.log.*" . logview-mode)
   :custom
   (logview-additional-timestamp-formats
    '(("ISO 8601 datetime (with 'T' and 'Z') + millis"
@@ -6086,7 +6535,8 @@ of problems in that context."
   ("C-c M-d" . docker))
 
 (use-package docker-tramp
-  :after tramp)
+  :hook
+  (ivy-mode-hook . docker-tramp-add-method))
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("DWfile\\'" . sh-mode))
@@ -6102,7 +6552,6 @@ of problems in that context."
 (use-package eww
   :config
   (use-package shr-tag-pre-highlight
-    :after shr
     :hook
     (eww-mode-hook . (lambda () (add-to-list 'shr-external-rendering-functions
                                              '(pre . shr-tag-pre-highlight))))
@@ -6257,7 +6706,6 @@ Open the `eww' buffer in another window."
   :hook (python-mode-hook . pipenv-mode))
 
 (use-package lsp-python-ms
-  :after lsp-mode
   :hook
   (python-mode-hook . lsp-deferred))
 
@@ -6286,32 +6734,29 @@ Open the `eww' buffer in another window."
 
 ;; All modes and mode related stuff which doesn't fit into a larger category.
 
-(use-package flyspell
-  :custom
-  (ispell-program-name "aspell")
-  (ispell-extra-args '("--sug-mode=ultra"))
-  :hook
-  (text-mode-hook . flyspell-mode)
-  (prog-mode-hook . flyspell-prog-mode)
-  :bind
-  (:map flyspell-mode-map
-        ("C-," . nil)
-        ("C-." . nil)
-        ("C-;" . nil)
-        ("C-M-i" . nil)))
+;; (use-package flyspell
+;;   :custom
+;;   (ispell-program-name "aspell")
+;;   (ispell-extra-args '("--sug-mode=ultra"))
+;;   :hook
+;;   (text-mode-hook . flyspell-mode)
+;;   (prog-mode-hook . flyspell-prog-mode)
+;;   :bind
+;;   (:map flyspell-mode-map
+;;         ("C-," . nil)
+;;         ("C-." . nil)
+;;         ("C-;" . nil)
+;;         ("C-M-i" . nil)))
 
-(use-package flyspell-correct-ivy
-  :after flyspell
-  :bind
-  (:map flyspell-mode-map
-        ([remap flyspell-correct-word-before-point] . flyspell-correct-previous-word-generic)))
+;; (use-package flyspell-correct-ivy
+;;   :after flyspell
+;;   :bind
+;;   (:map flyspell-mode-map
+;;         ([remap flyspell-correct-word-before-point] . flyspell-correct-previous-word-generic)))
 
 (use-package flycheck
   :custom
-  (flycheck-check-syntax-automatically '(idle-change idle-buffer-switch))
   (flycheck-idle-change-delay 1)
-  (flycheck-idle-buffer-switch-delay 1)
-  (flycheck-global-modes '(not lisp-interaction-mode))
   (flycheck-mode-line-prefix "")
   :commands
   flycheck-define-error-level
@@ -6522,7 +6967,7 @@ for the buffer."
   (defun reformat-buffer-or-region (beg end &optional thing)
     "Reformat the region from BEG to END.
 
-If no region is active, format the buffer.
+If no region is active-bg, format the buffer.
 
 Prefix ARG is passed to `fill-paragraph'."
     (interactive "r")
@@ -6783,7 +7228,6 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   (plantuml-mode-hook . plantuml-completion-at-point-setup))
 
 (use-package flycheck-plantuml
-  :after flycheck
   :hook
   (plantuml-mode-hook . flycheck-plantuml-setup))
 
@@ -6834,5 +7278,9 @@ configuration when invoked to evaluate a line."
 
 
 (provide 'init)
+
+;; Local Variables:
+;; flycheck-mode: nil
+;; End:
 
 ;;; init.el ends here

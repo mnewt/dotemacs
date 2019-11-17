@@ -169,7 +169,7 @@ TESTFN is an equality function, *not* an alist function as with
         (car (mapcar #'cadr matches))
       default)))
 
-(defun get-attr (object propname attribute name)
+(defun get-attribute (object propname attribute name)
   "Get the value of NAME from OBJECT.
 
 PROPNAME, ATTRIBUTE, and NAME are symbols which drill down to
@@ -193,7 +193,7 @@ attribute value as displayed on the screen, this function gets
 the attribute as specified in the *original* theme settings. This
 is useful when you switch themes and want to calculate new faces
 derived from existing ones."
-  (get-attr custom-enabled-themes 'theme-settings attribute name))
+  (get-attribute custom-enabled-themes 'theme-settings attribute name))
 
 (defun fiat-theme-face (face)
   "Get the FACE from the current theme.
@@ -239,30 +239,32 @@ See also `fiat-specs-common'. Advise or override this function
 to customize further."
   (let* ((active-bg (fiat-theme-face-attribute 'default :background))
          (active-fg (fiat-theme-face-attribute 'default :foreground))
-         (highlight-fg (fiat-theme-face-attribute 'highlight :foreground))
-         (inactive-bg (fiat-color-blend active-bg active-fg 0.95))
-         (inactive-fg (fiat-color-blend active-bg active-fg 0.4)))
+         ;; (highlight-fg (fiat-theme-face-attribute 'highlight :foreground))
+         (inactive-bg (fiat-color-blend active-bg active-fg 0.95)))
+         ;; (inactive-fg (fiat-color-blend active-bg active-fg 0.4)))
     `((default ((t :background ,inactive-bg)))
       (fiat-inactive-window ((t :background ,inactive-bg)))
       (window-highlight-focused-window ((t :background ,active-bg)))
       (fringe ((t :background ,inactive-bg)))
       (vertical-border ((t :foreground ,inactive-bg)))
       (mode-line ((t :box nil
-                   :underline nil
-                   :background ,inactive-bg
-                   :foreground ,(fiat-color-blend active-fg active-bg 0.9))))
-      (mode-line-emphasis ((t :background ,(fiat-color-blend active-bg active-fg 0.7)
-                            :foreground ,active-fg)))
-      (mode-line-highlight ((t :background ,highlight-fg
-                             :foreground ,active-bg)))
-      (mode-line-buffer-id ((t :background ,(fiat-color-blend active-bg active-fg 0.2)
-                             :foreground ,inactive-bg
-                             :bold t)))
-      (compilation-mode-line-fail ((t :inherit highlight)))
+                   :underline nil)))
+                   ;; :height 1.1
+                   ;; :background ,(fiat-color-blend active-bg active-fg 0.8)
+                   ;; :foreground ,(fiat-color-blend active-fg active-bg 0.9))))
+      ;; (mode-line-emphasis ((t :background ,(fiat-color-blend active-bg active-fg 0.7)
+      ;;                       :foreground ,active-fg)))
+      ;; (mode-line-highlight ((t :background ,highlight-fg
+      ;;                        :foreground ,active-bg)))
+      ;; (mode-line-buffer-id ((t :background ,(fiat-color-blend active-bg active-fg 0.2)
+      ;;                        :foreground ,inactive-bg
+      ;;                        :bold t)))
+      ;; (compilation-mode-line-fail ((t :inherit highlight)))
       (mode-line-inactive ((t :box nil
-                            :underline nil
-                            :background ,(fiat-color-blend inactive-bg inactive-fg 0.8)
-                            :foreground ,(fiat-color-blend active-fg active-bg 0.8))))
+                            :underline nil)))
+                            ;; :height 1.1
+                            ;; :background ,(fiat-color-blend inactive-bg inactive-fg 0.8)
+                            ;; :foreground ,(fiat-color-blend active-fg active-bg 0.8))))
       (sp-show-pair-match-face ((t :inherit highlight
                                  :foreground nil
                                  :background nil))))))
@@ -289,8 +291,12 @@ Insert spaces between the two so that the string is
 `window-total-width' columns wide."
   (let* ((left (apply #'concat "" left))
          (right (apply #'concat "" right))
-         (space (- (window-total-width nil 'ceiling) (length left) (length right))))
-    (concat left (make-string space ?\s) right)))
+         (reserve (length right)))
+    (concat left
+            " "
+            (propertize " "
+                        'display `((space :align-to (- right ,reserve))))
+            right)))
 
 (defun fiat-ml-concat (strings &optional separator outside)
   "Concatenate the given list of STRINGS.
@@ -348,7 +354,7 @@ Return nil if `evil-mode' is not active."
 
 (defun fiat-eyebrowse-modeline ()
   "Return a mode line string with status for `eyebrowse-mode'."
-  (when (and (featurep 'eyebrowse) (bound-and-true-p eyebrowse-mode))
+  (when (bound-and-true-p eyebrowse-mode)
     (let ((current-slot (eyebrowse--get 'current-slot))
           (border (propertize " " 'face 'mode-line-emphasis)))
       (concat border
@@ -427,8 +433,7 @@ Propertize the result with the specified PROPERTIES."
               t)
              'face 'mode-line-buffer-id)
             (when fiat-show-line-and-column
-             (propertize (format-mode-line " %l:%c ") 'face 'mode-line-buffer-id))
-            (propertize " " 'face 'mode-line-buffer-id)))
+             (propertize (format-mode-line " %l:%c ") 'face 'mode-line-buffer-id))))
         (fiat-render-mode-line
          ;; left
          (list
@@ -445,8 +450,7 @@ Propertize the result with the specified PROPERTIES."
 
 (defun fiat-mode-line--disable ()
   "Disable `fiat-mode-line-mode'."
-  (setq-default mode-line-format
-                (or fiat--old-mode-line-format mode-line-format))
+  (setq-default mode-line-format fiat--old-mode-line-format)
   (fmakunbound 'fiat-show-flycheck-toggle)
   (fmakunbound 'fiat-show-line-and-column-toggle))
 
@@ -502,6 +506,7 @@ Emacs from barfing fruit salad on the screen."
   "Make a mode line whose aesthetics are inspired by vim's lightline."
   :group 'fiat
   :lighter nil
+  :global t
   (if fiat-mode-line-mode
       (fiat-mode-line--enable)
     (fiat-mode-line--disable)))
@@ -555,6 +560,7 @@ Emacs from barfing fruit salad on the screen."
   "Toggle highlighting of the selected window."
   :group 'theme
   :lighter nil
+  :global t
   (if fiat-highlight-selected-window-mode
       (progn
         (add-hook 'fiat-after-theme-hook #'fiat-highlight-selected-window--update)

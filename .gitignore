@@ -1,5 +1,5 @@
 .lsp-session-v*
-.mc-lists.el
+/.mc-lists.el
 .python-environments
 /.cache
 /.persistent-scratch
@@ -22,3 +22,4 @@
 /undohist
 /url
 /var
+/.last-package-update-day
