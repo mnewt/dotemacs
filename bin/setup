@@ -68,8 +68,10 @@ required_mu4e=(
 required_casks=(mactex)
 
 configure_opts=(
-	CFLAGS='-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I/usr/local/opt/libxml2/include/libxml2'
-	PKG_CONFIG_PATH="PKG_CONFIG_PATH:/usr/local/opt/gnutls/lib/pkgconfig:/usr/local/opt/nettle/lib/pkgconfig:/usr/local/opt/libtasn1/lib/pkgconfig:/usr/local/opt/p11-kit/lib/pkgconfig"
+	CFLAGS="-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -ffast-math -fno-finite-math-only -fstack-check -I/usr/local/opt/libxml2/include/libxml2"
+	LDFLAGS="-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib"
+	CPPFLAGS="-I/usr/local/opt/llvm/include"
+	PKG_CONFIG_PATH="PKG_CONFIG_PATH:/usr/local/opt/gnutls/lib/pkgconfig:/usr/local/opt/nettle/lib/pkgconfig:/usr/local/opt/libtasn1/lib/pkgconfig:/usr/local/opt/p11-kit/lib/pkgconfig:/usr/local/opt/imagemagick/lib/pkgconfig"
 )
 
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
@@ -203,6 +205,7 @@ build_it() {
 
 	pushd "$base/$target"
 
+	make distclean
 	./autogen.sh
 	./configure "$@"
 	make -j $make_jobs
