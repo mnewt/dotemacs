@@ -631,7 +631,6 @@ returned."
     (set-face-font 'variable-pitch m-variable-pitch-font)
 
     (add-hook 'text-mode-hook 'variable-pitch-mode)
-    
 
     ;; Wrap text at the end of a line like a word processor.
     (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
@@ -1025,7 +1024,7 @@ Return nil if the buffer is local."
                                         :underline nil
                                         :foreground nil
                                         :background nil))))))
-  
+
   (when (>= emacs-major-version 27)
     (with-eval-after-load 'org
       (dolist (face '(org-block
@@ -4033,10 +4032,12 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
-    (mapc (lambda (b) (with-current-buffer b
-                        (when (equal major-mode 'dired-mode)
-                          (font-lock-refresh-defaults))))
-          (buffer-list))    
+    
+    (dolist (b (buffer-list))
+      (with-current-buffer b
+        (when (equal major-mode 'dired-mode)
+          (font-lock-refresh-defaults))))
+    
     (remove-hook 'dired-mode-hook #'dired-rainbow-setup))
   :hook
   (dired-mode-hook . dired-rainbow-setup))
@@ -4372,7 +4373,7 @@ Stolen from https://gitlab.com/jessieh/mood-one-theme.")
     mood-one-theme--diff-hl-bmp)
 
   (setq diff-hl-fringe-bmp-function #'mood-one-theme-diff-hl-fringe-bmp-function)
-  
+
   :commands
   diff-hl-magit-post-refresh
   diff-hl-mode
@@ -4481,10 +4482,11 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (:map prog-mode-map
         ("M-q" . unfill-toggle)))
 
-;; http://whattheemacsd.com/key-bindings.el-03.html
 (defun delete-indentation-forward ()
   "Like `delete-indentation', but in the opposite direction.
-Bring the line below point up to the current line."
+Bring the line below point up to the current line.
+
+http://whattheemacsd.com/key-bindings.el-03.html"
   (interactive)
   (join-line -1))
 
@@ -4497,7 +4499,16 @@ Bring the line below point up to the current line."
 (use-package undohist
   :demand t
   :git "https://github.com/clemera-dev/undohist"
+  :custom
+  (undohist-ignored-files '("COMMIT_EDITMSG"
+                            "\\.gpg\\'"
+                            file-remote-p))
   :config
+  ;; https://www.reddit.com/r/emacs/comments/dyv74e/
+  (advice-add 'undohist-save-1 :before-while
+              (defun undohist-only-save-file-buffers+ (&rest _)
+                (and (buffer-file-name (current-buffer))
+                     (undohist-recover-file-p (buffer-file-name (current-buffer))))))
   (undohist-initialize))
 
 (use-package undo-propose
@@ -5353,6 +5364,14 @@ predicate returns true."
         ("M-p" . term-send-up)
         ("M-n" . term-send-down)
         ("C-M-j" . term-switch-to-shell-mode)))
+
+(use-package compile
+  :custom
+  ;; Shut up compile saves
+  (compilation-ask-about-save nil)
+  :config
+  ;; Don't save *anything*
+  (setq compilation-save-buffers-predicate '(lambda () nil)))
 
 (use-package xterm-color
   :commands
