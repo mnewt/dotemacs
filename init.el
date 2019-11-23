@@ -68,107 +68,8 @@
 (defvar path-user nil
   "Defines a list of path entries to add to all systems.")
 
-;; TODO: Have source-shell create an `env.el' file and source that to save time
-;; during startup.
-(defvar env-sources '("~/.env")
-  "Shell files to source.
-
-This is used to import shell environment variables into the Emacs session.")
-
-(defvar env-vars '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH"
-                   "PATH" "MANPATH" "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG"
-                   "GOPATH" "BOOT_JVM_OPTIONS")
-  "Variables to save.")
-
-(defvar env-file
-  (expand-file-name "env.el" (expand-file-name "var" user-emacs-directory))
-  "File used to store saved environment variables and their values.")
-
-(defvar env-re "declare -x \\([^=\n]+\\)=?\\(.*\\)$"
-  "Regular expression used to capture environment variables.")
-
-(defun env-command-diff (command)
-  "Run COMMAND using SHELL and return changed environment variables."
-  (with-temp-buffer
-    (shell-command (format "diff -u <(true; export) <(eval '%s'; export)" command) t)
-    (let (vars)
-      ;; Update environment variables
-      (goto-char (point-min))
-      (while (search-forward-regexp (concat "^+" env-re) nil t)
-        (let ((var (match-string 1))
-              (value (read (match-string 2))))
-          (push (cons var value) vars)))
-      ;; Remove environment variables
-      (while (search-forward-regexp (concat "^-" env-re) nil t)
-        (let ((var (match-string 1)))
-          (push (cons var nil) vars)))
-      vars)))
-
-(defun env-command (command)
-  "Run COMMAND using SHELL and return the environment variables."
-  (with-temp-buffer
-    (shell-command (format "eval '%s'; export" command) t)
-    (goto-char (point-min))
-    (let (vars)
-      (while (search-forward-regexp env-re nil t)
-        (let ((var (match-string 1))
-              (val (match-string 2)))
-          (when (member var env-vars)
-            (push (cons var (and val (read val))) vars))))
-      vars)))
-
-(defun env-set-vars (vars)
-  "Set environment variables per VARS.
-
-VARS should be an alist where CAR is an environment variable
-name (a string) and CDR is its value (also a string).
-
-The environment variable PATH is mapped to the variable
-`exec-path'."
-  (cl-loop for (var . val) in vars
-           do (progn
-                (setenv var val))
-           when (and val (string= var "PATH"))
-           do (setq exec-path (split-string val path-separator)))
-  vars)
-
-(defun env-source (filename &optional diff)
-  "Use the users shell to source FILENAME.
-
-Import any updated environment variables into the Emacs session.
-
-If DIFF is non-nil, only set variables which have changed."
-  (interactive "fSource file: ")
-  (let ((command (concat ". " filename)))
-    (env-set-vars (if diff
-                      (env-command-diff command)
-                    (env-command command)))))
-
-(defun env-save ()
-  "Source shell files and save the result in a file."
-  (interactive)
-  (with-temp-file env-file
-    (prin1 (env-set-vars (mapcan #'env-source env-sources)) (current-buffer))))
-
-(defun env-load ()
-  "Load environment variables from a file and import them into the Emacs session."
-  (if (file-exists-p env-file)
-      (with-temp-buffer
-        (insert-file-contents env-file)
-        (env-set-vars (read (current-buffer))))
-    (env-save)))
-
-(defun path-add (&rest paths)
-  "Add PATHS to the OS and Emacs executable search paths."
-  (let* ((old-path (reverse (split-string (getenv "PATH") path-separator)))
-         new-path)
-    (dolist (path (append paths old-path))
-      (setq path (expand-file-name path))
-      (when (file-directory-p path) (cl-pushnew path new-path)))
-    (setenv "PATH" (mapconcat #'identity new-path path-separator))
-    (setq exec-path new-path)))
-
-(env-load)
+(load (expand-file-name "lisp/env-source.el" user-emacs-directory) nil t nil)
+(env-source-load)
 (apply #'path-add (append path-user path-default))
 
 
@@ -841,8 +742,8 @@ See `theme-attribute'."
 
 (use-package doom-themes
   :config
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config))
+  (doom-themes-visual-bell-config))
+  ;; (doom-themes-org-config))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1007,8 +908,9 @@ Return nil if the buffer is local."
             ('finished (if flycheck-current-errors
                            (let-alist (flycheck-count-errors flycheck-current-errors)
                              (let ((sum (+ (or .error 0) (or .warning 0))))
-                               (propertize "⚑ "
-                                           (number-to-string sum)
+                               (propertize (concat ;"⚑"
+                                                   (number-to-string sum)
+                                                   " ")
                                            'face (if .error
                                                      'mood-line-status-error
                                                    'mood-line-status-warning))))
@@ -1080,11 +982,11 @@ Return nil if the buffer is local."
                        (:eval (mood-line-segment-buffer-name))
                        (:eval (mood-line-segment-modified))
                        (:eval (mood-line-segment-anzu))
-                       (:eval (mood-line-segment-multiple-cursors))
-                       (:eval (mood-line-segment-process))))
+                       (:eval (mood-line-segment-multiple-cursors))))
                     ;; Right
                     (format-mode-line
-                     '((:eval (mood-line-segment-flycheck))
+                     '((:eval (mood-line-segment-process))
+                       (:eval (mood-line-segment-flycheck))
                        (:eval (mood-line-segment-misc-info))
                        (:eval (mood-line-segment-major-mode)))))))))
 
@@ -1764,6 +1666,7 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
+  (org-agenda-files '("~/org"))
   ;; Indent text according to the outline structure (`org-indent-mode')
   ;; (org-startup-indented t)
   ;; Quit adding 2 spaces to source block
@@ -4112,7 +4015,7 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
     (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx"))
+    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx" "plantuml"))
     (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
@@ -4125,7 +4028,7 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
     (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
     (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
+    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff" "woff2" "eot"))
     (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
     (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
@@ -4602,12 +4505,12 @@ Bring the line below point up to the current line."
   ("M-s-z" . undo-propose))
 
 ;; TODO: Keep this from bringing in `etags'.
-;; (use-package volatile-highlights
-;;   :demand t
-;;   :config
-;;   (vhl/define-extension 'undo-redo 'undo-modern 'undo)
-;;   (vhl/install-extension 'undo-redo)
-;;   (volatile-highlights-mode t))
+(use-package volatile-highlights
+  :defer 30
+  :config
+  (vhl/define-extension 'undo-redo 'undo-modern 'undo)
+  (vhl/install-extension 'undo-redo)
+  (volatile-highlights-mode t))
 
 (use-package goto-chg
   :bind
@@ -6821,12 +6724,11 @@ Open the `eww' buffer in another window."
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
   :hook
-  ((c-mode-hook c++-mode-hook css-mode-hook go-mode-hook
-                java-mode-hook js-mode-hook php-mode-hook
-                powershell-mode-hook enh-ruby-mode-hook
-                nxml-mode-hook rust-mode-hook sass-mode-hook
-                sh-mode-hook html-mode-hook web-mode-hook
-                xml-mode-hook) . lsp-deferred)
+  ((c-mode-hook c-mode c++-mode-hook css-mode-hook go-mode-hook java-mode-hook
+                js-mode-hook php-mode-hook powershell-mode-hook
+                enh-ruby-mode-hook nxml-mode-hook rust-mode-hook sass-mode-hook
+                sh-mode-hook html-mode-hook web-mode-hook xml-mode-hook) .
+                lsp-deferred)
   (lsp-after-open-hook . lsp-enable-imenu))
 
 (use-package lsp-ui
@@ -7081,6 +6983,10 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :mode
   ("\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'" . systemd-mode))
 
+(use-package daemons
+  :commands
+  daemons)
+
 ;; DNS
 (use-package dns-mode
   :mode "\\.rpz\\'")
@@ -7203,6 +7109,9 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 (use-package plantuml-mode
   ;; :ensure-system-package plantuml
   :mode "\\.plantuml\\'"
+  :custom
+  (plantuml-jar-path
+   (car (file-expand-wildcards "/usr/local/Cellar/plantuml/*/libexec/plantuml.jar")))
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
 
