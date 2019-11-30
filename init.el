@@ -168,13 +168,12 @@
 
 ;;;;; use-package-git
 
-(let ((f (expand-file-name "git/use-package-git/use-package-git.el"
-                           user-emacs-directory)))
-  (unless (file-exists-p f)
-    (with-temp-buffer)
-    (url-retrieve-synchronously
-     "https://github.com/mnewt/use-package-git/blob/master/use-package-git.el"))
-  (load f nil t nil t)
+(let ((dir (expand-file-name "git/use-package-git" user-emacs-directory)))
+  (unless (file-exists-p dir)
+    (make-directory dir)
+    (shell-command
+     (format "git -C '%s' clone https://github.com/mnewt/use-package-git" dir)))
+  (load (expand-file-name "use-package-git.el" dir) nil t)
   (use-package-git-enable))
 
 ;;;;; use-package-list
@@ -1185,33 +1184,6 @@ Return nil if the buffer is local."
 (use-package helpful
   :config
   (set-face-attribute 'helpful-heading nil :inherit 'org-level-1)
-
-  (defun helpful-goto-face (face &optional direction)
-    "Go to the next `helpful' heading, following DIRECTION.
-
-If DIRECTION is negative, then search backward. Otherwise, search
-forward."
-    (let ((pos (point))
-          (property-change-function (if (< (or direction 1) 0)
-                                        #'previous-property-change
-                                      #'next-property-change)))
-      (while (and (setq pos (funcall property-change-function pos))
-                  pos
-                  (not (equal face (get-char-property pos 'face)))))
-      (when pos
-        (goto-char pos)
-        (forward-line 0))))
-
-  (defun helpful-previous-heading ()
-    "Go to the next `helpful' heading."
-    (interactive)
-    (helpful-goto-face 'helpful-heading -1))
-
-  (defun helpful-next-heading ()
-    "Go to the next `helpful' heading."
-    (interactive)
-    (helpful-goto-face 'helpful-heading))
-
   :bind
   ("C-h ." . helpful-at-point)
   ("C-h f" . helpful-callable)
@@ -2530,6 +2502,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
 
 (use-package winner
+  :defer 10
   :commands
   winner-mode
   :config
@@ -3092,10 +3065,9 @@ Each EXPR should create one window."
  ("s-c" . copy-line-or-region)
  ("s-v" . clipboard-yank-and-indent)
  ("s-/" . comment-toggle)
- ("C-c i" . os-reveal-file)
  ("s-n" . scratch-new-buffer)
  ("s-N" . scratch-new-buffer-other-window)
- ("C-c C-n"f . scratch-new-buffer)
+ ("C-c C-n" . scratch-new-buffer)
  ("C-c M-n" . scratch-new-buffer-other-window)
  ("C-S-p" . scroll-up-margin)
  ("C-S-n" . scroll-down-margin)
@@ -3217,6 +3189,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
     (imenu-goto-item -1))
 
   :bind
+  ("C-'" . imenu)
   ("s-r" . imenu))
 
 ;; (use-package visual-regexp-steroids
@@ -3362,10 +3335,11 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
    "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
+
   :commands
   counsel-mode
-  :config
 
+  :config
   (defun counsel-switch-buffer-by-mode (mode)
     "Choose a major MODE, then select from buffers of that mode."
     (interactive
@@ -3382,6 +3356,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
                 :preselect (when (eq major-mode mode) (cadr buffers))
                 ;; Use the `ivy-switch-buffer' actions.
                 :caller #'ivy-switch-buffer)))
+
   (defun counsel-find-file-edit-path ()
     "Make the path in `counsel-find-file' editable."
     (interactive)
@@ -3503,7 +3478,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-DEL" . counsel-up-directory)
         ("C-c C-f" . counsel-find-file-edit-path))
   (:map minibuffer-local-map
-        ("C-r" . counsel-minibuffer-history)))
+        ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
   :ensure nil
@@ -4032,12 +4007,12 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
-    
+
     (dolist (b (buffer-list))
       (with-current-buffer b
         (when (equal major-mode 'dired-mode)
           (font-lock-refresh-defaults))))
-    
+
     (remove-hook 'dired-mode-hook #'dired-rainbow-setup))
   :hook
   (dired-mode-hook . dired-rainbow-setup))
@@ -4908,6 +4883,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   (smartparens-mode-hook . show-smartparens-mode)
   ((text-mode-hook
     prog-mode-hook
+    minibuffer-setup-hook
     cider-repl-mode-hook) . smartparens-mode)
 
   :bind
@@ -6632,6 +6608,42 @@ Open the `eww' buffer in another window."
   (python-mode-hook . lsp-deferred))
 
 
+;;;; Swift
+
+;; Swift is WIP.
+;; brew install sourcekitten
+
+(use-package swift-mode
+  :mode "\\.swift"
+  :interpreter "swift"
+  :hook
+  (swift-mode-hook . lsp-deferred))
+
+(use-package lsp-sourcekit
+  :after lsp-mode
+  :config
+  (setenv "SOURCEKIT_TOOLCHAIN_PATH"
+          "/Library/Developer/Toolchains/swift-latest.xctoolchain")
+  (setq lsp-sourcekit-executable
+        "/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/sourcekit-lsp"))
+
+(use-package company-sourcekit
+  :config
+  (defun company-sourcekit-setup ()
+    "Configure `company-sourcekit'."
+    (add-to-list 'company-backends 'company-sourcekit))
+  :hook
+  (swift-mode-hook . company-sourcekit-setup))
+
+(use-package flycheck-swift
+  :hook
+  (swift-mode-hook . flycheck-swift-setup))
+
+;; TODO Seems broken
+;; (use-package swift-playground-mode
+;;   :hook
+;;   (swift-mode-hook . swift-playground-mode))
+
 ;;;; Applescript
 
 (use-package apples-mode
@@ -6752,6 +6764,8 @@ Open the `eww' buffer in another window."
 
 (use-package lsp-ui
   :commands lsp-ui-mode
+  :hook
+  (lsp-mode-hook . lsp-ui-mode)
   :bind
   (:map lsp-ui-mode-map
         ("M-." . lsp-ui-peek-find-definitions)
