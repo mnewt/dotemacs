@@ -121,7 +121,7 @@
   (unless (file-exists-p dir)
     (make-directory dir)
     (shell-command
-     (format "git -C '%s' clone https://github.com/mnewt/use-package-git" dir)))
+     (format "git clone https://github.com/mnewt/use-package-git '%s'" dir)))
   (load (expand-file-name "use-package-git.el" dir) nil t)
   (use-package-git-enable))
 
