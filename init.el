@@ -1001,7 +1001,7 @@ This sets things up for `window-highlight' and `mode-line'."
   (global-hl-line-mode))
 
 ;; (use-package flash-thing
-;;   :git "git@github.com:mnewt/flash-thing.git"
+;;   :git "https://github.com/mnewt/flash-thing"
 ;;   :custom
 ;;   (ring-bell-function #'flash-window)
 ;;   :commands
@@ -1280,7 +1280,7 @@ Include PREFIX in prompt if given."
 
 (use-package devdocs-lookup
   :ensure nil
-  :git "https://github.com/skeeto/devdocs-lookup.git"
+  :git "https://github.com/skeeto/devdocs-lookup"
   :commands
   devdocs-setup
   :config
@@ -1505,13 +1505,13 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :git "git@github.com:mnewt/counsel-web.git"
+  :git "https://github.com/mnewt/counsel-web"
   :bind
   (:map m-search-map
         ("w" . counsel-web-search)))
 
 ;; (use-package stack-answers
-;;   :git "git@github.com:mnewt/stack-answers.git"
+;;   :git "https://github.com/mnewt/stack-answers"
 ;;   :hook
 ;;   (stack-answers-mode-hook . mixed-pitch-mode)
 ;;   :bind
@@ -2844,7 +2844,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
 ;; (use-package matcha
-;;   :git "https://github.com/jojojames/matcha.git"
+;;   :git "https://github.com/jojojames/matcha"
 ;;   :custom
 ;;   (matcha-mode-list
 ;;    '(cider dired js json-mode lua-mode org
@@ -3598,7 +3598,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-J" . dumb-jump-quick-look)))
 
 (use-package spotlight.el
-  :git "git@github.com:mnewt/spotlight.el.git"
+  :git "https://github.com/mnewt/spotlight.el"
   :commands
   (spotlight spotlight-fast)
   :bind
@@ -3885,7 +3885,7 @@ With a prefix ARG always prompt for command to use."
         ("C-c C-r" . dired-rsync)))
 
 (use-package disk-usage
-  :git "git@gitlab.com:mnewt/emacs-disk-usage.git"
+  :git "https://gitlab.com/mnewt/emacs-disk-usage"
   :bind
   (:map dired-mode-map
         (")" . disk-usage-here)
