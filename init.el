@@ -1747,9 +1747,6 @@ With a prefix ARG, create it in `org-directory'."
     :commands
     org-preview-html-mode)
 
-  (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t)))
-  (setq org-plantuml-jar-path plantuml-jar-path)
-
   :hook
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
@@ -7081,9 +7078,12 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
 
+  (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t)))
+  (setq org-plantuml-jar-path plantuml-jar-path)
+
   (defun plantuml-completion-at-point ()
     "Function used for `completion-at-point-functions' in `plantuml-mode'."
-    (let ((completion-ignore-case t) ; Not working for company-capf.
+    (let ((completion-ignore-case t)    ; Not working for company-capf.
           (bounds (bounds-of-thing-at-point 'symbol))
           (keywords plantuml-kwdList))
       (when (and bounds keywords)
