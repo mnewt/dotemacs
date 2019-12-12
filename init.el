@@ -5232,9 +5232,26 @@ predicate returns true."
 ;;                                 (lambda (f) (commandp (symbol-function f)))))
 ;;   (advice-add c :around #'maybe-with-sudo))
 
+(use-package term
+  :ensure nil
+  :bind
+  (:map term-mode-map
+        ("M-p" . term-send-up)
+        ("M-n" . term-send-down))
+  (:map term-raw-map
+        ("M-o" . other-window)
+        ("M-p" . term-send-up)
+        ("M-n" . term-send-down)
+        ("C-M-j" . term-switch-to-shell-mode)))
+
 (use-package vterm
   :git "https://github.com/akermu/emacs-libvterm"
+  
   :init
+  (defvar vterm-install t
+    "Tell `vterm' to compile if necessary.")
+  
+  :config
   (defun vterm--rename-buffer-as-title (title)
     (rename-buffer (format "*VTerm %s*" title) t))
 
@@ -5248,31 +5265,19 @@ predicate returns true."
         (global-hl-line-mode -1)
       (global-hl-line-mode +1)))
 
-  (defvar vterm-install t "Tell `vterm' to compile if necessary.")
-  :config
   (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
+
+  (bind-key "s-v" #'yank vterm-mode-map)
+
   :hook
   (vterm-mode-hook . vterm--set-background-color)
   (window-configuration-change-hook . maybe-enable-hl-line-mode)
+
   :bind
   ("s-t" . vterm)
   ("C-c t" . vterm)
   ("s-T" . vterm-other-window)
-  ("C-c T" . vterm-other-window)
-  (:map vterm-mode-map
-        ("s-v" . yank)))
-
-(use-package term
-  :ensure nil
-  :bind
-  (:map term-mode-map
-        ("M-p" . term-send-up)
-        ("M-n" . term-send-down)
-        :map term-raw-map
-        ("M-o" . other-window)
-        ("M-p" . term-send-up)
-        ("M-n" . term-send-down)
-        ("C-M-j" . term-switch-to-shell-mode)))
+  ("C-c T" . vterm-other-window))
 
 (use-package compile
   :ensure nil
