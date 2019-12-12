@@ -93,7 +93,7 @@
    '(use-package-always-defer t)
    '(use-package-enable-imenu-support t)
    '(use-package-hook-name-suffix nil))
-  (unless (package-installed-p 'use-package)
+  (unless (fboundp 'use-package)
     (package-refresh-contents)
     (package-install 'use-package))
   (require 'use-package)

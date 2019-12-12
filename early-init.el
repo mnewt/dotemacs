@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Emacs HEAD (27+) introduces early-init.el, which is run before init.el,
+;; Emacs 27+ introduces early-init.el, which is run before init.el,
 ;; before package and UI initialization happens.
 
 ;;; Code:
@@ -17,17 +17,15 @@
 (setq gc-cons-threshold 1073741824
       gc-cons-percentage 1.0)
 
-;; In Emacs 27+, package initialization occurs before `user-init-file' is
-;; loaded, but after `early-init-file'. We handle package initialization later,
-;; so we must prevent Emacs from doing it early!
-;; (setq package-enable-at-startup nil)
-
 ;; Package initialize occurs automatically, before `user-init-file' is
 ;; loaded, but after `early-init-file'. We handle package
 ;; initialization, so we must prevent Emacs from doing it early!
 ;; (setq package-enable-at-startup nil)
 
 ;; Faster to disable these here (before they've been initialized)
+;; 
+;; TODO: It seems they get enabled anyway and we have to disable them through
+;; their packages. Is there a way to short circuit loading these packages?
 (unless (and (display-graphic-p) (eq system-type 'darwin))
   (push '(menu-bar-lines . 0) default-frame-alist))
 (push '(tool-bar-lines . 0) default-frame-alist)
