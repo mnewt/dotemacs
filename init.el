@@ -166,7 +166,7 @@
   :config
   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
   ;; it only sources $BASH_ENV.
-  (setenv "BASH_ENV" (expand-file-name ".bash_profile" (getenv "HOME")))
+  (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
   (exec-path-from-shell-initialize)
 
   (when (eq system-type 'windows-nt)
@@ -1536,6 +1536,7 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
 ;; the version that ships with Emacs.
 
 (use-package org
+  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
@@ -4166,14 +4167,13 @@ The config is specified in the config file in `~/.mnt/'."
         (message "File %s was added to the git repo at %s." (buffer-file-name) dir)
       (error "Failed to add file %s to the git repo at %s" (buffer-file-name) dir))))
 
-;; TODO: Figure out why byte compiler thinks this is getting defined twice.
-;; (defun dired-git-add ()
-;;   "Run `git add' on the selected files in a dired buffer."
-;;   (interactive)
-;;   (let ((files (dired-get-marked-files)))
-;;     (message "> git add %s" files)
-;;     (dired-do-shell-command "git add" nil files)
-;;     (dired-revert)))
+(defun dired-git-add ()
+  "Run `git add' on the selected files in a dired buffer."
+  (interactive)
+  (let ((files (dired-get-marked-files)))
+    (message "> git add %s" files)
+    (dired-do-shell-command "git add" nil files)
+    (dired-revert)))
 
 (defvar git-home-repo-dir
   (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
