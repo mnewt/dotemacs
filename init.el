@@ -5248,8 +5248,8 @@ predicate returns true."
   :git "https://github.com/akermu/emacs-libvterm"
   
   :init
-  (defvar vterm-install t
-    "Tell `vterm' to compile if necessary.")
+  ;; (defvar vterm-install nil
+  ;;   "Tell `vterm' to compile if necessary.")
   
   :config
   (defun vterm--rename-buffer-as-title (title)
