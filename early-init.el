@@ -9,6 +9,7 @@
 
 (defconst emacs-start-time (current-time))
 
+;; Uncomment this to debug.
 ;; (setq init-file-debug t)
 
 (setq load-prefer-newer t)
@@ -17,10 +18,15 @@
 (setq gc-cons-threshold 1073741824
       gc-cons-percentage 1.0)
 
-;; Package initialize occurs automatically, before `user-init-file' is
-;; loaded, but after `early-init-file'. We handle package
-;; initialization, so we must prevent Emacs from doing it early!
-;; (setq package-enable-at-startup nil)
+;; Package initialize occurs automatically, before `user-init-file' is loaded,
+;; but after `early-init-file'.
+(setq ;package-quickstart t
+      package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("elpa" . "https://elpa.gnu.org/packages/"))
+      ;; Higher number = higher priority.
+      package-archive-priorities '(("melpa" . 2)
+                                   ("elpa" . 1))
+      custom-file "~/.emacs.d/custom.el")
 
 ;; Faster to disable these here (before they've been initialized)
 ;; 
@@ -59,11 +65,11 @@
 ;; Unset `file-name-handler-alist' too (temporarily). Every file opened and
 ;; loaded by Emacs will run through this list to check for a proper handler for
 ;; the file, but during startup, it won’t need any of them.
-(defvar m--file-name-handler-alist file-name-handler-alist)
+(defvar file-name-handler-alist-old file-name-handler-alist)
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq file-name-handler-alist m--file-name-handler-alist
+            (setq file-name-handler-alist file-name-handler-alist-old
                   gc-cons-percentage 0.1)
             (run-with-idle-timer 20 t #'garbage-collect)))
 

@@ -11,13 +11,13 @@
 
 ;; Things that run at the very beginning of Emacs startup
 
-(unless (featurep 'early-init)
-  (load (expand-file-name "early-init.el" user-emacs-directory) nil t nil t))
-
+(when (eval-when-compile (version< emacs-version "27"))
+  (load "~/.emacs.d/early-init.el")
+  
 ;;;;; Security
 
-(with-eval-after-load 'gnutls
-  (defvar gnutls-verify-error t))
+  (with-eval-after-load 'gnutls
+    (defvar gnutls-verify-error t)))
 
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
@@ -43,59 +43,43 @@
 (require 'cl-macs)
 
 
-;;;; Operating System
-
-;; OS specific configuration
-
-(defvar os-open-file-executable nil
-  "The executable used to open files in the host OS GUI.")
-
-(cl-case system-type
-  (darwin
-   (setq ns-alternate-modifier 'meta
-         ns-right-alternate-modifier 'none
-         ns-command-modifier 'super
-         ns-right-command-modifier 'left
-         ns-control-modifier 'control
-         ns-right-control-modifier 'left
-         ns-function-modifier 'hyper
-         ;; Open files from Finder in same frame.
-         ns-pop-up-frames nil
-         os-open-file-executable "open"))
-  (windows-nt
-   (setq w32-pass-lwindow-to-system nil
-         w32-lwindow-modifier 'super
-         w32-pass-rwindow-to-system nil
-         w32-rwindow-modifier 'super
-         os-open-file-executable "explorer")))
-
-
 ;;;; Package Management
-
-;;;;; use-package
 
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Drop package files here to put them on the `load-path'.")
 
 (add-to-list 'load-path elisp-directory)
 
-(setq package-quickstart t
-      package-archives '(("melpa" . "https://melpa.org/packages/")
-                         ("elpa" . "https://elpa.gnu.org/packages/"))
-      ;; Higher number = higher priority.
-      package-archive-priorities '(("melpa" . 2)
-                                   ("elpa" . 1))
-      custom-file "~/.emacs.d/custom.el")
+;;;;; straight
+
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+
+;;;;; use-package
 
 (eval-when-compile
   (custom-set-variables
    '(use-package-always-ensure t)
+   ;; '(straight-use-package-by-default t)
+   '(straight-check-for-modifications '(check-on-save find-when-checking))
    '(use-package-always-defer t)
    '(use-package-enable-imenu-support t)
    '(use-package-hook-name-suffix nil))
-  (unless (fboundp 'use-package)
-    (package-refresh-contents)
-    (package-install 'use-package))
+  (straight-use-package 'use-package)
+  ;; (unless (fboundp 'use-package)
+  ;;   (package-refresh-contents)
+  ;;   (package-install 'use-package))
   (require 'use-package)
   (require 'use-package-ensure))
 
@@ -115,24 +99,33 @@
         use-package-expand-minimally t))
 
 
-;;;;; use-package-git
+;;;;; git-package
 
-(let ((dir (expand-file-name "git/use-package-git" user-emacs-directory)))
-  (unless (file-exists-p dir)
-    (make-directory dir)
-    (shell-command
-     (format "git clone https://github.com/mnewt/use-package-git '%s'" dir)))
-  (load (expand-file-name "use-package-git.el" dir) nil t)
-  (use-package-git-enable))
+;; (let ((url "https://github.com/mnewt/git-package")
+;;       (dir (expand-file-name "git/git-package" user-emacs-directory)))
+;;   (unless (file-exists-p dir)
+;;     (make-directory dir)
+;;     (shell-command
+;;      (format "git clone '%s' '%s'" url dir)))
+;;   (add-to-list 'load-path dir)
+;;   (require 'git-package-use-package
+;;            (expand-file-name "git-package-use-package.el" dir))
+;;   (git-package url)
+;;   (git-package-setup-use-package))
+
+
+;;;;; package management
 
 (defun emacs-startup-message ()
   "Display a message after Emacs startup."
-  (defvar use-package-git--packages)
+  ;; (defvar git-package--packages)
   (defconst emacs-load-time
     (float-time (time-subtract (current-time) emacs-start-time)))
 
   (message "Emacs loaded %d packages in %.1f seconds."
-           (+ (length package-activated-list) (length use-package-git--packages))
+           (+ (length package-activated-list)
+              (length (hash-table-keys straight--success-cache)))
+             ;(length git-package--packages))
            emacs-load-time))
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)
@@ -197,9 +190,40 @@
 ;;   lv-window
 ;;   lv-delete-window)
 
+
+;;;; Operating System
+
+;; OS specific configuration
+
+(cl-case system-type
+  (darwin
+   (setq ns-alternate-modifier 'meta
+         ns-right-alternate-modifier 'none
+         ns-command-modifier 'super
+         ns-right-command-modifier 'left
+         ns-control-modifier 'control
+         ns-right-control-modifier 'left
+         ns-function-modifier 'hyper
+         ;; Open files from Finder in same frame.
+         ns-pop-up-frames nil))
+  (windows-nt
+   (setq w32-pass-lwindow-to-system nil
+         w32-lwindow-modifier 'super
+         w32-pass-rwindow-to-system nil
+         w32-rwindow-modifier 'super)))
+
+
+(defun update ()
+  "Run update scripts for the computer and Emacs."
+  (interactive)
+  (async-shell-command "update" "*update*")
+  (paradox-upgrade-packages)
+  (straight-pull-all)
+  (straight-prune-build))
+
 ;;;; Bindings
 
-;; Define base key bindings
+;; Define base key bindings and prefixes.
 
 ;; Define "M-m" as a prefix key.
 (bind-key "M-m" nil)
@@ -318,14 +342,14 @@
 (use-package recentf
   :ensure nil
   :demand t
-  :commands
-  recentf-save-list
-  recentf-cleanup
-  recentf-mode
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
   (recentf-auto-cleanup 'never)
+  :commands
+  recentf-save-list
+  recentf-cleanup
+  recentf-mode
   :config
   (defun recentf-add-dired-directory ()
     (if (and dired-directory
@@ -617,8 +641,9 @@ See `theme-attribute'."
 (use-package window-highlight
   :demand t
   :if (and window-system (>= emacs-major-version 27))
-  :git "https://github.com/dcolascione/emacs-window-highlight"
-
+  ;; :git "https://github.com/dcolascione/emacs-window-highlight"
+  :ensure nil
+  :straight (:host github :repo "dcolascione/emacs-window-highlight")
   :config
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
@@ -627,10 +652,9 @@ See `theme-attribute'."
   (set-frame-parameter (selected-frame) 'last-focus-update t)
   (window-highlight-mode))
 
-(use-package spacemacs-common
-  :custom
-  (spacemacs-theme-comment-bg nil)
-  :ensure spacemacs-theme)
+;; (use-package spacemacs-theme
+;;   :custom
+;;   (spacemacs-theme-comment-bg nil))
 
 (use-package doom-themes
   :config
@@ -649,68 +673,6 @@ Stolen from solarized."
                       (+ (* alpha it) (* other (- 1 alpha))))
                     (color-name-to-rgb color1)
                     (color-name-to-rgb color2))))
-
-;; (use-package doom-modeline
-;;   :demand t
-;;   :custom
-;;   (doom-modeline-height 20)
-;;   (doom-modeline-buffer-file-name-style 'file-name)
-;;   (doom-modeline-icon nil)
-;;   (doom-modeline-minor-modes t)
-
-;;   :config
-;;   (defun m-doom-modeline--font-height ()
-;;     "Calculate the actual char height of the mode-line."
-;;     (+ (frame-char-height) 2))
-
-;;   (advice-add #'doom-modeline--font-height :override #'m-doom-modeline--font-height)
-
-;;   (defsubst outline-minor-mode-info ()
-;;     (when (bound-and-true-p outline-minor-mode)
-;;       "Ⓞ"))
-
-;;   (defsubst parinfer-mode-info ()
-;;     (when (bound-and-true-p parinfer-mode)
-;;       (concat "P" (if (eq parinfer--mode 'indent) "↔" "⸩"))))
-
-;;   (doom-modeline-def-segment m-minor-modes
-;;     "Display abbreviated minor mode info."
-;;     (mapconcat #'identity
-;;                (list (outline-minor-mode-info)
-;;                      (parinfer-mode-info))
-;;                " "))
-
-;;   (doom-modeline-def-segment m-matches
-;;     "Displays: 1. the currently recording macro, 2. A current/total for the
-;; current search term (with `anzu'), 3. The number of substitutions being conducted
-;; with `evil-ex-substitute', and/or 4. The number of active-bg `iedit' regions,
-;; 5. The current/total for the highlight term (with `symbol-overlay'), 6. The number
-;; of active-bg `multiple-cursors'.
-
-;; Copied from `doom-modeline-segments', but removed the buffer size part."
-;;     (concat (doom-modeline--macro-recording)
-;;             (doom-modeline--anzu)
-;;             (doom-modeline--evil-substitute)
-;;             (doom-modeline--iedit)
-;;             (doom-modeline--symbol-overlay)
-;;             (doom-modeline--multiple-cursors)))
-
-;;   (doom-modeline-def-segment m-buffer-info
-;;     "Combined information about the current buffer, including the current working
-;; directory, the file name, and its state (modified, read-only or non-existent)."
-;;     (concat
-;;      (doom-modeline-spc)
-;;      (doom-modeline--buffer-mode-icon)
-;;      (doom-modeline--buffer-name)
-;;      (doom-modeline-spc)
-;;      (doom-modeline--buffer-state-icon)))
-
-;;   (doom-modeline-def-modeline 'm-modeline
-;;     '(bar modals m-matches m-buffer-info remote-host selection-info)
-;;     '(misc-info checker m-minor-modes major-mode process)))
-
-;; (doom-modeline-mode)
-;; (doom-modeline-set-modeline 'm-modeline 'default))
 
 (use-package mood-line
   :demand t
@@ -1000,15 +962,6 @@ This sets things up for `window-highlight' and `mode-line'."
   :config
   (global-hl-line-mode))
 
-;; (use-package flash-thing
-;;   :git "https://github.com/mnewt/flash-thing"
-;;   :custom
-;;   (ring-bell-function #'flash-window)
-;;   :commands
-;;   (flash-thing-mode flash-window)
-;;   :config
-;;   (flash-thing-mode))
-
 (use-package page-break-lines
   :hook
   (prog-mode-hook . page-break-lines-mode))
@@ -1183,6 +1136,11 @@ Include PREFIX in prompt if given."
   :bind
   ("C-h M-m" . man))
 
+(use-package woman
+  :ensure nil
+  :bind
+  ("C-h C-m" . woman))
+
 (defun tramp-aware-woman (man-page-path)
   "Open a remote man page at MAN-PAGE-PATH via TRAMP."
   (interactive)
@@ -1199,7 +1157,9 @@ Include PREFIX in prompt if given."
        man-page-path))))
 
 (use-package eg
-  :git "https://github.com/mnewt/eg.el"
+  ;; :git "https://github.com/mnewt/eg.el"
+  :ensure nil
+  :straight (:type git :repo "https://github.com/mnewt/eg.el")
   ;;  :ensure-system-package
   ;;  (eg . "pip install eg")
   :bind
@@ -1278,15 +1238,15 @@ Include PREFIX in prompt if given."
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
 
-(use-package devdocs-lookup
-  :ensure nil
-  :git "https://github.com/skeeto/devdocs-lookup"
-  :commands
-  devdocs-setup
-  :config
-  (devdocs-setup)
-  :bind
-  ("C-h M-l" . devdocs-lookup))
+;; (use-package devdocs-lookup
+;;   :ensure nil
+;;   :git "https://github.com/skeeto/devdocs-lookup"
+;;   :commands
+;;   devdocs-setup
+;;   :config
+;;   (devdocs-setup)
+;;   :bind
+;;   ("C-h M-l" . devdocs-lookup))
 
 (use-package hydra
   :config
@@ -1505,10 +1465,13 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :git "https://github.com/mnewt/counsel-web"
+  ;; :git "https://github.com/mnewt/counsel-web"
+  :ensure nil
+  :straight (:host github :repo "mnewt/counsel-web")
   :bind
   (:map m-search-map
-        ("w" . counsel-web-search)))
+        ("w" . counsel-web-suggest)
+        ("W" . counsel-web-search)))
 
 ;; (use-package stack-answers
 ;;   :git "https://github.com/mnewt/stack-answers"
@@ -1518,6 +1481,26 @@ hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] 
 ;;   (:map m-search-map
 ;;         ("x" . stack-answers)))
 
+(use-package gif-screencast
+  :custom
+  ;; To shut up the shutter sound of `screencapture'
+  (gif-screencast-args '("-x"))
+  (gif-screencast-cropping-program "mogrify")
+  (gif-screencast-capture-format "ppm")
+  (gif-screencast-output-directory (expand-file-name "~"))
+  :config
+  ;; FIXME: https://gitlab.com/ambrevar/emacs-gif-screencast/issues/14
+  (advice-add
+   #'gif-screencast--cropping-region
+   :around
+   (lambda (oldfun &rest r)
+     (apply #'format "%dx%d+%d+%d"
+            (mapcar
+             (lambda (x) (* 2 (string-to-number x)))
+             (split-string (apply oldfun r) "[+x]")))))
+  :commands
+  gif-screencast)
+  
 (bind-keys
  ("C-h C-i" . elisp-index-search)
  ("C-h M-i" . info-apropos)
@@ -2436,7 +2419,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-c z" . winner-wrong-window))
 
 (use-package buffer-move
-  :ensure nil
   :bind
   ("C-H-W" . buf-move-up)
   ("C-H-S" . buf-move-down)
@@ -3207,8 +3189,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ("C-e" . ivy-partial-or-done)
         ("M-/" . ivy-done)))
 
-;; (use-package ivy-hydra)
-
 (use-package swiper
   :config
   (defvar minibuffer-this-command nil
@@ -3247,6 +3227,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
+  ;; :git "git@github.com:mnewt/swiper"
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -3397,8 +3378,9 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
+  ;; :git "https://github.com/tautologyclub/counsel-term.git"
   :ensure nil
-  :git "https://github.com/tautologyclub/counsel-term.git"
+  :straight (:type git :repo "https://github.com/tautologyclub/counsel-term.git")
   :config
   (with-eval-after-load 'vterm
     (bind-keys :map vterm-mode-map
@@ -3408,11 +3390,7 @@ force `counsel-rg' to search in `default-directory.'"
   :bind
   (:map term-mode-map
         ("M-r" . counsel-term-history)
-        ("M-^" . term-downdir))
-  (:map vterm-mode-map
-        ("M-r" . counsel-term-history)
-        ("M-^" . term-downdir)
-        ("C-x d" . counsel-term-cd)))
+        ("M-^" . term-downdir)))
 
 (use-package projectile
   :custom
@@ -3596,7 +3574,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-J" . dumb-jump-quick-look)))
 
 (use-package spotlight.el
-  :git "https://github.com/mnewt/spotlight.el"
+  ;; :git "https://github.com/mnewt/spotlight.el"
+  :ensure nil
+  :straight (:host github :repo "mnewt/spotlight.el")
   :commands
   (spotlight spotlight-fast)
   :bind
@@ -3883,7 +3863,7 @@ With a prefix ARG always prompt for command to use."
         ("C-c C-r" . dired-rsync)))
 
 (use-package disk-usage
-  :git "https://gitlab.com/mnewt/emacs-disk-usage"
+  ;; :git "https://gitlab.com/mnewt/emacs-disk-usage"
   :bind
   (:map dired-mode-map
         (")" . disk-usage-here)
@@ -3953,16 +3933,16 @@ With a prefix ARG always prompt for command to use."
   (:map dired-mode-map
         ("/" . dired-narrow)))
 
-(use-package dired-list
-  :git (:url "https://github.com/Fuco1/dired-hacks"
-             :files "dired-list.el")
-  :commands
-  dired-list
-  dired-list-git-ls-files
-  dired-list-locate
-  dired-list-find-file
-  dired-list-find-name
-  dired-list-grep)
+;; (use-package dired-list
+;;   :git (:url "https://github.com/Fuco1/dired-hacks"
+;;              :files "dired-list.el")
+;;   :commands
+;;   dired-list
+;;   dired-list-git-ls-files
+;;   dired-list-locate
+;;   dired-list-find-file
+;;   dired-list-find-name
+;;   dired-list-grep)
 
 (use-package dired-subtree
   :bind
@@ -4381,6 +4361,11 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (:map prog-mode-map
         ("M-q" . unfill-toggle)))
 
+(defun open-line-above (arg)
+  "Like `open-line' only it always inserts a line above."
+  (interactive "p")
+  (save-excursion (beginning-of-line arg) (open-line arg)))
+
 (defun delete-indentation-forward ()
   "Like `delete-indentation', but in the opposite direction.
 Bring the line below point up to the current line.
@@ -4390,14 +4375,18 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (join-line -1))
 
 (use-package undo-redo
-  :git "https://github.com/clemera-dev/undo-redo"
+  ;; :git "https://github.com/clemera-dev/undo-redo"
+  :ensure nil
+  :straight (:host github :repo "clemera-dev/undo-redo")
   :bind
   ("s-z" . undo-modern)
   ("s-Z" . redo))
 
 (use-package undohist
   :demand t
-  :git "https://github.com/clemera-dev/undohist"
+  ;; :git "https://github.com/clemera-dev/undohist"
+  :ensure nil
+  :straight (:host github :repo "clemera-dev/undohist")
   :custom
   (undohist-ignored-files '("COMMIT_EDITMSG"
                             "\\.gpg\\'"
@@ -4965,6 +4954,7 @@ If no region is selected, toggles comments for the line."
 (bind-keys
  ("C-M-}" . forward-sentence)
  ("C-M-{" . backward-sentence)
+ ("C-o" . open-line-above)
  ("C-^" . delete-indentation-forward)
  ("s-C" . copy-line-or-region-to-other-window)
  ("s-X" . move-line-or-region-to-other-window)
@@ -5245,7 +5235,7 @@ predicate returns true."
         ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package vterm
-  :git "https://github.com/akermu/emacs-libvterm"
+  ;; :git "https://github.com/akermu/emacs-libvterm"
   
   :init
   ;; (defvar vterm-install nil
@@ -5267,7 +5257,8 @@ predicate returns true."
 
   (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
 
-  (bind-key "s-v" #'yank vterm-mode-map)
+  (with-eval-after-load 'vterm
+    (bind-key "s-v" #'yank vterm-mode-map))
 
   :hook
   (vterm-mode-hook . vterm--set-background-color)
@@ -5286,7 +5277,9 @@ predicate returns true."
   (compilation-ask-about-save nil)
   :config
   ;; Don't save *anything*
-  (setq compilation-save-buffers-predicate '(lambda () nil)))
+  (setq compilation-save-buffers-predicate '(lambda () nil))
+  :bind
+  ("C-x c" . compile))
 
 (use-package xterm-color
   :commands
@@ -5301,18 +5294,6 @@ predicate returns true."
          (with-current-buffer b (xterm-color-colorize-buffer)))
         (" *Echo Area 0*"
          (with-current-buffer b (xterm-color-colorize-buffer))))))
-
-  (defun xterm-color-apply-on-compile (proc)
-    "Apply xterm color filtering on the `compilation-mode' running PROC."
-    ;; We need to differentiate between compilation-mode buffers
-    ;; and running as part of comint (which at this point we assume
-    ;; has been configured separately for xterm-color)
-    (when (eq (process-filter proc) 'compilation-filter)
-      ;; This is a process associated with a compilation-mode buffer.
-      ;; We may call `xterm-color-filter' before its own filter function.
-      (set-process-filter proc (lambda (proc string)
-                                 (funcall 'compilation-filter proc
-                                          (xterm-color-filter string))))))
 
   (defun xterm-color-shell-setup ()
     ;; Disable font-locking in this buffer to improve performance
@@ -5329,7 +5310,12 @@ predicate returns true."
 
   (with-eval-after-load 'compile
     (eval-when-compile (defvar compilation-environment))
-    (add-to-list 'compilation-environment "TERM=xterm-256color"))
+    (add-to-list 'compilation-environment "TERM=xterm-256color")
+    (defun xterm-color-compilation-filter (f proc string)
+      (funcall f proc (xterm-color-filter string)))
+
+    (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
+    
   :hook
   (shell-mode-hook . xterm-color-shell-setup)
   (compilation-start-hook . xterm-color-apply-on-compile))
@@ -5857,6 +5843,8 @@ Advise `eshell-ls-decorated-name'."
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
+(add-to-list 'auto-mode-alist '("Cask\\'" . emacs-lisp-mode))
+
 (defun advice-remove-all (symbol)
   "Remove all advices from SYMBOL."
   (interactive "aFunction symbol: ")
@@ -6043,8 +6031,6 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
                normal-indent))))))
 
 (advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
-
-(add-to-list 'auto-mode-alist '("Cask\\'" . emacs-lisp-mode))
 
 (defun eval-last-sexp-other-window (arg)
   "Run `eval-last-sexp' with ARG in the other window."
@@ -7028,9 +7014,9 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 (use-package php-mode
   :mode "\\.php\\'")
 
-(use-package IOS-config-mode
-  :git "https://github.com/nibrahim/IOS-config-mode.git"
-  :mode "\\.cfg\\'")
+;; (use-package IOS-config-mode
+;;   :git "https://github.com/nibrahim/IOS-config-mode.git"
+;;   :mode "\\.cfg\\'")
 
 (use-package cc-mode
   :ensure nil
@@ -7041,6 +7027,13 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
         (">" . c-electric-lt-gt)))
+
+;; Perhaps add these to the path:
+;; TODO: Is there an omnisharp or lsp method to add to the path?
+;; - /Library/Frameworks/Mono.framework/Versions/Current/bin
+;; - /Library/Frameworks/Mono.framework/Versions/Current/Commands
+;; - /usr/local/share/dotnet
+;; - $HOME/.dotnet/tools
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
@@ -7136,10 +7129,16 @@ configuration when invoked to evaluate a line."
 
 ;; TODO: I can't figure out how to defer loading of polymode without separating
 ;; it into its own file. Why is this necessary?
+;;
+;; TODO: Also polymode with this config causes rjsx files to explode, it's
+;; really bad.
+;; 
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :git "https://github.com/aaronbieber/fence-edit.el.git"
+  ;; :git "https://github.com/aaronbieber/fence-edit.el"
+  :ensure nil
+  :straight (:host github :repo "aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks
         (append '(("---" "---" yaml)
@@ -7148,13 +7147,19 @@ configuration when invoked to evaluate a line."
                   ("<svg" "</svg>" nxml t)
                   ("<html" "</html>" web t)
                   ("<div" "</div>" web t)
-                  ;; TODO: How to ignore escaped double quotes? (`\"')
+                  ;; TODO: How to ignore escaped double quotes? (`\"') polymode
+                  ;; uses functions to determine start and end. That's probably
+                  ;; necessary since regexp are no good handling symantic
+                  ;; elements like quotes. But maybe there is a regexp that is a
+                  ;; good enough hack?
                   ("do-applescript\s-*.*\"" "\"" apples))
                 fence-edit-blocks))
+
+  (with-eval-after-load 'markdown-mode
+    (bind-keys (:map markdown-mode-map
+                     ("C-c '" . nil))))
   :bind
-  ("C-c '" . fence-edit-dwim)
-  (:map markdown-mode-map
-        ("C-c '" . nil)))
+  ("C-c '" . fence-edit-dwim))
 
 
 (provide 'init)
