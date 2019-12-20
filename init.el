@@ -2131,14 +2131,21 @@ Ripped out of function `line-move-visual'."
 (defun scroll-window-up ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-down-command 1)
-  (scroll-handle-hscroll))
+  (let ((p (point)))
+    (scroll-down-command 1)
+    (goto-char p)))
 
 (defun scroll-window-down ()
   "Scroll the buffer up, keeping point in place relative to the window."
   (interactive)
-  (scroll-up-command 1)
-  (scroll-handle-hscroll))
+  (let ((p (point)))
+    (scroll-up-command 1)
+    (goto-char p)))
+
+(defun scroll-down-in-place ()
+  "Scroll the buffer up, keeping the point in place."
+  (interactive)
+  (scroll-up-command 1))
 
 (defun scroll-up-margin ()
   "Move point to the top of the window.
@@ -2188,8 +2195,8 @@ This list exists because these modes may not be added
   "Return a list of all major modes.
 
 It actually does not list them all because I don't know how to do
-  that. So, we find only ones which are associated with a magic
-  string or file extension."
+that. So, we find only ones which are associated with a magic
+string or file extension."
   (delete-dups (mapcar #'cdr (append magic-mode-alist
                                      auto-mode-alist
                                      magic-fallback-mode-alist))))
@@ -2426,7 +2433,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-H-D" . buf-move-right))
 
 (use-package winum
-  :ensure nil
   :custom
   (winum-auto-setup-mode-line nil)
   :config
@@ -2454,89 +2460,55 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-c 0" . winum-select-window-0))
 
 (use-package rotate
-  :commands
-  rotate-window
-  rotate-layout)
-
-(use-package eyebrowse
-  :custom
-  (eyebrowse-new-workspace t)
-  (eyebrowse-mode-line-separator " ")
-  (eyebrowse-mode-line-left-delimiter "")
-  (eyebrowse-mode-line-right-delimiter "")
-  :config
-  ;;   (defvar eyebrowse-last-window-config nil
-  ;;     "Variable used to save and restore `eyebrowse' window
-  ;; configuration. Persistence is handled by `psession'.")
-
-  ;;   (defun eyebrowse-restore-window-config ()
-  ;;     "Restore eyebrowse window config to variable.
-  ;; This is for restoration from disk by `psession'."
-  ;;     (when (bound-and-true-p eyebrowse-last-window-config)
-  ;;       (declare-function 'eyebrowse--set "eyebrowse")
-  ;;       (eyebrowse--set 'window-configs eyebrowse-last-window-config)))
-
-  ;;   (defun eyebrowse-save-window-config ()
-  ;;     "Save eyebrowse window config to variable.
-  ;; This is for serialization to disk by `psession'."
-  ;;     (declare-function 'eyebrowse--get "eyebrowse")
-  ;;     (setq eyebrowse-last-window-config (eyebrowse--get 'window-configs)))
-
-  ;;   (defun eyebrowse-activate ()
-  ;;     "Enable `eyebrowse-mode' and restore the last window-config."
-  ;;     (eyebrowse-mode)
-  ;;     (eyebrowse-restore-window-config))
-
-  ;;   (defun eyebrowse-mode-line-indicator ()
-  ;;     "Return a string representation of the window configurations.
-
-  ;; This simplified compared to the original to do exactly what I
-  ;; want and do it faster."
-  ;;     (let* ((separator (propertize eyebrowse-mode-line-separator
-  ;;                                   'face 'eyebrowse-mode-line-separator))
-  ;;            (current-slot (eyebrowse--get 'current-slot))
-  ;;            (window-configs (eyebrowse--get 'window-configs)))
-  ;;       (concat
-  ;;        (propertize eyebrowse-mode-line-left-delimiter
-  ;;                    'face 'eyebrowse-mode-line-delimiters)
-  ;;        (mapconcat
-  ;;         (lambda (window-config)
-  ;;           (let* ((slot (car window-config))
-  ;;                  (tag (nth 2 window-config))
-  ;;                  (face (if (= slot current-slot)
-  ;;                            'eyebrowse-mode-line-active
-  ;;                          'eyebrowse-mode-line-inactive))
-  ;;                  (caption (if (and tag (> (length tag) 0))
-  ;;                               (concat (number-to-string slot) ":" tag)
-  ;;                             (number-to-string slot))))
-  ;;             (propertize caption 'face face 'slot slot)))
-  ;;         (eyebrowse--get 'window-configs)
-  ;;         separator)
-  ;;        (propertize eyebrowse-mode-line-right-delimiter
-  ;;                    'face 'eyebrowse-mode-line-delimiters))))
-
-  (eyebrowse-mode)
   :bind
-  ("H-1" . eyebrowse-switch-to-window-config-1)
-  ("C-c C-1" . eyebrowse-switch-to-window-config-1)
-  ("H-2" . eyebrowse-switch-to-window-config-2)
-  ("C-c C-2" . eyebrowse-switch-to-window-config-2)
-  ("H-3" . eyebrowse-switch-to-window-config-3)
-  ("C-c C-3" . eyebrowse-switch-to-window-config-3)
-  ("H-4" . eyebrowse-switch-to-window-config-4)
-  ("C-c C-4" . eyebrowse-switch-to-window-config-4)
-  ("H-5" . eyebrowse-switch-to-window-config-5)
-  ("C-c C-5" . eyebrowse-switch-to-window-config-5)
-  ("H-6" . eyebrowse-switch-to-window-config-6)
-  ("C-c C-6" . eyebrowse-switch-to-window-config-6)
-  ("H-7" . eyebrowse-switch-to-window-config-7)
-  ("C-c C-7" . eyebrowse-switch-to-window-config-7)
-  ("H-8" . eyebrowse-switch-to-window-config-8)
-  ("C-c C-8" . eyebrowse-switch-to-window-config-8)
-  ("H-9" . eyebrowse-switch-to-window-config-9)
-  ("C-c C-9" . eyebrowse-switch-to-window-config-9)
-  ("H-0" . eyebrowse-switch-to-window-config-0)
-  ("C-c C-0" . eyebrowse-switch-to-window-config-0))
+  (:map m-window-map
+        ("r" . rotate-layout)
+        ("w" . rotate-window)))
+
+(use-package perspective
+  :custom
+  (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
+  (persp-modestring-dividers '("" "" "|"))
+
+  :config
+  (defun choose-by-number (list &optional prompt)
+    "Display a list and choose an item by its number."
+    (interactive)
+    (string-to-number
+     (char-to-string
+      (read-char
+       (string-join
+        (cons (or prompt "Choose by pressing a number:")
+              (seq-map-indexed (lambda (p n) (format "%d: %s" (1+ n) p)) list))
+        "\n")))))
+
+  (defun persp-switch-nth (n)
+    "Switch to the N-th perspective."
+    (interactive (list (choose-by-number (persp-names))))
+    (persp-switch (nth (1- n) (persp-names))))
+
+  ;; Create `persp-switch-to-X' and key bindings.
+  (eval
+   `(progn
+      ,@(mapcar (lambda (n)
+                  (let ((f (intern (format "persp-switch-to-%d" n))))
+                   (bind-key (format "C-x x %d" n) f)
+                   (bind-key (format "H-%d" n) f)
+                   `(defun ,f ()
+                     ,(format "Switch to perspective number %d." n)
+                     (interactive)
+                     (persp-switch-nth ,n))))
+         (number-sequence 1 9))))
+
+  :hook
+  (emacs-startup-hook . persp-mode)
+  (kill-emacs-hook . persp-state-save)
+
+  :bind
+  (:map persp-mode-map
+        ("C-x x l" . persp-state-load)
+        ("C-x x C-s" . persp-state-save)
+        ("C-x x x" . persp-switch-nth)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -3005,6 +2977,8 @@ Each EXPR should create one window."
  ("C-c ," . pop-to-mark-command)
  ("s-," . pop-global-mark)
  ("C-c C-," . pop-global-mark)
+
+ ([remap goto-line] . goto-line-with-feedback)
 
  :map ctl-x-4-map
  ("t" . toggle-window-split)
@@ -3535,9 +3509,9 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
 
-(use-package company-posframe
-  :hook
-  (company-mode-hook . company-posframe-mode))
+;; (use-package company-posframe
+;;   :hook
+;;   (company-mode-hook . company-posframe-mode))
 
 (use-package prescient
   :hook
