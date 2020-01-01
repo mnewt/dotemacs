@@ -1,5 +1,4 @@
 * Tasks
-** TODO Make =use-package-git= into a package
 ** TODO Make =dired-rainbow-listing= into a package
 ** TODO Complete =counsel-web=
 ** TODO =counsel-term= stuff

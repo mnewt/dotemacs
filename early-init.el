@@ -48,11 +48,12 @@
 ;; Default frame settings. This is actually maximized, not full screen.
 (push '(fullscreen . maximized) default-frame-alist)
 (push '(ns-transparent-titlebar . t) default-frame-alist)
-
+          
 ;; Resizing the Emacs frame can be a terribly expensive part of changing the
 ;; font. By inhibiting this, we easily halve startup times with fonts that are
 ;; larger than the system default.
-(setq frame-inhibit-implied-resize t)
+(setq frame-inhibit-implied-resize t
+      frame-resize-pixelwise t)
 
 ;; Ignore X resources; its settings would be redundant with the other settings
 ;; in this file and can conflict with later config (particularly where the
