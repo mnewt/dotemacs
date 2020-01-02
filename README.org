@@ -2,7 +2,7 @@
 This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but will have more bugs) with running from a terminal, Linux, and Windows.
 
 #+CAPTION: Emacs frame with README and Magit windows
-[[file:screenshots/screen1.png]]
+[[file:screenshot.png]]
 
 ** Goals
 *** Always fast and responsive.
