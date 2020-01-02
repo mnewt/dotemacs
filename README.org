@@ -38,26 +38,35 @@
 ** Features
 *** A nice mode-line.
     It's a customized version of [[https://gitlab.com/jessieh/mood-line][mood-line]].
+
 *** Custom theming system.
     Quickly (and completely!) switch between light and dark, or any other themes. A key part of this is realizing that many packages have dependencies on the theme so it is not nearly enough to call `load-theme`. So there is some additional logic to automatically change as much as possible and use a hook to do the rest.
+
 *** Editing
     Highlights include
-**** Clemera's [[https://github.com/clemera-dev/undo-redo][undo-redo]]
-**** [[https://github.com/magnars/multiple-cursors.el][Multiple cursors]]
-**** [[https://github.com/DogLooksGood/parinfer-mode][Parinfer]]
-**** [[https://github.com/Fuco1/smartparens][Smartparens]] with lots of customization
+    - Clemera's [[https://github.com/clemera-dev/undo-redo][undo-redo]]
+    - [[https://github.com/magnars/multiple-cursors.el][Multiple cursors]]
+    - [[https://github.com/DogLooksGood/parinfer-mode][Parinfer]]
+    - [[https://github.com/Fuco1/smartparens][Smartparens]] with lots of customization
+
 *** Environment support.
     macOS doesn't hand its applications much in terms of standard UNIX environment configuration. I have a customized setup to initialize the environment by running `bash --login` and pulling in its environment variables. The details are handled in my non-Emacs [[https://github.com/mnewt/dotfiles][dotfiles]].
+
 *** Eshell.
     There is nothing like Eshell. It is truly amazing the way it enables powerful new ways to handle remote systems administration. There are extensive customizations to make it seamless with the rest of the environment and UI.
+
 *** File operations and Dired.
-    Make the uniquely powerful Dired more comfortable, informative, and reliable.
+    Make the uniquely powerful Dired more comfortable, informative, and reliable. Heavily reliant on the awesome [[https://github.com/Fuco1/dired-hacks][dired-hacks]] collection.
+
 *** Persistence.
-    Persist buffers (optionally), undo, command completions, recent files, etc.
+    Manage window configuration and buffer persistence using [[https://github.com/nex3/perspective-el][perspective]], undo, command completions, recent files, etc.
+
 *** Navigation.
     Some innovative intra- and extra- buffer navigation strategies. Check out =winner-wrong-window= for an example.
+
 *** Version control.
     [[https://magit.vc/][Magit]] and more. But mostly magit.
+
 *** Language support.
     - [[https://www.gnu.org/software/bash/][Bash]] and [[https://en.wikipedia.org/wiki/Unix_shell#Bourne_shell][friends]]
     - [[https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/][C#]] by way of [[https://github.com/OmniSharp/omnisharp-emacs][omnisharp]]
