@@ -5,6 +5,7 @@
   [[file:screenshot.png]]
 
 ** Goals
+
 *** Always fast and responsive.
     Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] and =ssh= have been ironed out through heavy use.
 
@@ -87,7 +88,7 @@
     - Nested language support with [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
 
 ** Supported Emacs versions
-   25.3, however a few features are 27.1 (master) only.
+   25.3+, however a few features are 27.1+ only.
 
 ** Install
    1. Clone the repo:

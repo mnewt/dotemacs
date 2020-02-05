@@ -2,15 +2,15 @@
 
 ;;; Commentary:
 
-;; Emacs 27+ introduces early-init.el, which is run before init.el,
-;; before package and UI initialization happens.
+;; Emacs 27 introduced early-init.el, which is run before init.el, before
+;; package and UI initialization happens.
 
 ;;; Code:
 
 (defconst emacs-start-time (current-time))
 
 ;; Uncomment this to debug.
-;; (setq init-file-debug t)
+(setq init-file-debug t)
 
 (setq load-prefer-newer t)
 

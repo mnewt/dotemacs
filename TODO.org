@@ -1,4 +1,5 @@
 * Tasks
+** TODO Submit patch to Org for =org-do-emphasis-faces=
 ** TODO Make =dired-rainbow-listing= into a package
 ** TODO Complete =counsel-web=
 ** TODO =counsel-term= stuff

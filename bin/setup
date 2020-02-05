@@ -82,7 +82,7 @@ emacs_configure_opts=(
 	--with-ns
 	--disable-ns-self-contained
 	--with-cairo
-	--with-imagemagick
+	# --with-imagemagick
 	--with-modules
 	--program-transform-name='s/^ctags$/ctags.emacs/'
 	"${configure_opts[@]}"

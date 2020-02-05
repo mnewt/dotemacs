@@ -12,12 +12,12 @@
 ;; Things that run at the very beginning of Emacs startup
 
 (when (eval-when-compile (version< emacs-version "27"))
-  (load "~/.emacs.d/early-init.el")
+  (load "~/.emacs.d/early-init.el"))
 
 ;;;;; Security
 
-  (with-eval-after-load 'gnutls
-    (defvar gnutls-verify-error t)))
+(with-eval-after-load 'gnutls
+  (defvar gnutls-verify-error t))
 
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
@@ -43,32 +43,11 @@
 (add-to-list 'load-path elisp-directory)
 
 
-;;;;; straight
-
-;; (defvar bootstrap-version)
-;; (let ((bootstrap-file
-;;        (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-;;       (bootstrap-version 5))
-;;   (unless (file-exists-p bootstrap-file)
-;;     (with-current-buffer
-;;         (url-retrieve-synchronously
-;;          "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-;;          'silent 'inhibit-cookies)
-;;       (goto-char (point-max))
-;;       (eval-print-last-sexp)))
-;;   (load bootstrap-file nil 'nomessage))
-
-;; (custom-set-variables
-;;  '(straight-check-for-modifications '(check-on-save find-when-checking)))
-
-;; (straight-use-package 'use-package)
-
-
 ;;;;; use-package
 
 (eval-when-compile
   (custom-set-variables
-   '(use-package-always-ensure t)
+   ;; '(use-package-always-ensure t)
    '(use-package-always-defer t)
    '(use-package-enable-imenu-support t)
    '(use-package-hook-name-suffix nil))
@@ -91,38 +70,37 @@
 
 ;;;;; git-package
 
-(let ((url "https://github.com/mnewt/git-package")
+;; Use `git-package' to install all that declared using `use-package'.
+(custom-set-variables '(git-package-use-package-always-ensure nil))
+
+(let ((url "https://github.com/mnewt/git-package.git")
       (dir (expand-file-name "git/git-package" user-emacs-directory)))
-  (unless (file-exists-p dir)
-    (make-directory dir)
+  (unless (file-directory-p dir)
+    (make-directory dir t)
     (shell-command (format "git clone '%s' '%s'" url dir)))
   (add-to-list 'load-path dir)
-  (require 'git-package-use-package
-           (expand-file-name "git-package-use-package.el" dir))
-  ;; (git-package 'git-package url)
+  (require 'git-package-use-package)
+  (require 'git-package-tasks)
+  (git-package url)
   (git-package-setup-use-package))
-
-;; Use `git-package' to install all that declared using `use-package'.
-(custom-set-variables
- '(git-package-use-package-always-ensure nil))
 
 ;;;;; package management
 
-(defvar git-package--packages)
-(defvar emacs-start-time)
+;; (defvar git-package-alist)
+;; (defvar emacs-start-time)
 
-(defun emacs-startup-message ()
-  "Display a message after Emacs startup."
-  (defconst emacs-load-time
-    (float-time (time-subtract (current-time) emacs-start-time)))
+;; (defun emacs-startup-message ()
+;;   "Display a message after Emacs startup."
+;;   (defconst emacs-load-time
+;;     (float-time (time-subtract (current-time) emacs-start-time)))
 
-  (message "Emacs loaded %d packages in %.1f seconds."
-           (+ (length package-activated-list)
-              ;; (length (hash-table-keys straight--success-cache)))
-              (length git-package--packages))
-           emacs-load-time))
+;;   (message "Emacs loaded %d packages in %.1f seconds."
+;;            (+ (length package-activated-list)
+;;               ;; (length (hash-table-keys straight--success-cache)))
+;;               (length git-package-alist))
+;;            emacs-load-time))
 
-(add-hook 'emacs-startup-hook #'emacs-startup-message)
+;; (add-hook 'emacs-startup-hook #'emacs-startup-message)
 
 (use-package paradox
   :custom
@@ -349,7 +327,6 @@ level up to the top level form."
       undo-limit 5242880)
 
 (use-package saveplace
-  :git nil
   :ensure nil
   :config
   (save-place-mode)
@@ -357,7 +334,6 @@ level up to the top level form."
   (find-file-hook . save-place-find-file-hook))
 
 (use-package recentf
-  :git nil
   :ensure nil
   :custom
   (recentf-max-saved-items 100)
@@ -416,7 +392,6 @@ level up to the top level form."
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
-  :git nil
   :ensure nil
   :custom
   ;; Don't print auto revert messages.
@@ -425,7 +400,6 @@ level up to the top level form."
   (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
 
 (use-package savehist
-  :git nil
   :ensure nil
   :demand t
   :custom
@@ -538,7 +512,6 @@ returned."
           mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
   ;; (use-package pixel-scroll
-  ;;   :git nil
   ;;   :ensure nil
   ;;   :config
   ;;   (pixel-scroll-mode))
@@ -550,7 +523,8 @@ returned."
       (unless (derived-mode-p 'dns-mode)
         (mixed-pitch-mode)))
     :hook
-    (text-mode-hook . maybe-enable-mixed-pitch-mode))
+    (text-mode-hook . maybe-enable-mixed-pitch-mode)
+    (Info-mode-hook . mixed-pitch-mode))
 
   (use-package fontify-face
     :hook
@@ -630,8 +604,10 @@ See `theme-attribute'."
  ("M-m M-t" . counsel-load-theme))
 
 (use-package window-highlight
+  :if (and window-system
+           (>= emacs-major-version 27)
+           (not (eq window-system 'windows-nt)))
   :demand t
-  :if (and window-system (>= emacs-major-version 27))
   :ensure nil
   :git "https://github.com/dcolascione/emacs-window-highlight"
   ;; :straight (:host github :repo "dcolascione/emacs-window-highlight")
@@ -643,14 +619,16 @@ See `theme-attribute'."
   (set-frame-parameter (selected-frame) 'last-focus-update t)
   (window-highlight-mode))
 
-;; (use-package spacemacs-theme
-;;   :custom
-;;   (spacemacs-theme-comment-bg nil))
-
 (use-package doom-themes
   :config
-  (doom-themes-visual-bell-config))
-;; (doom-themes-org-config))
+  (doom-themes-visual-bell-config)
+
+  (defun doom-themes-setup-org ()
+    "Customize `doom-themes-org-config'."
+    (doom-themes-org-config)
+    (custom-set-variables '(org-hide-leading-stars nil)))
+  :hook
+  (org-mode-hook . doom-themes-setup-org))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -768,7 +746,7 @@ Return nil if the buffer is local."
             ('no-checker ""))))
 
   (defun mood-line-segment-flycheck ()
-    "Displays color-coded flycheck information in the mode-line (if available)."
+    "Display color-coded flycheck information in the mode-line (if available)."
     (when (mood-line-window-active-p) mood-line--flycheck-text))
 
   (defun mood-line-segment-misc-info ()
@@ -776,18 +754,31 @@ Return nil if the buffer is local."
     (when (mood-line-window-active-p)
       (apply #'concat
              (mapcar (lambda (e)
-                       (let ((s (format-mode-line e)))
+                       (let ((s (format-mode-line (cadr e))))
                          (if (string-blank-p s)
                              ""
-                           (concat (string-trim (format-mode-line e)) " "))))
+                           (concat (string-trim s) " "))))
                      mode-line-misc-info))))
 
   (defun outline-minor-mode-info ()
-    "Displays an indicator when `outline-minor-mode' is enabled."
+    "Display an indicator when `outline-minor-mode' is enabled."
     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
           (list (when (bound-and-true-p outline-minor-mode) "Ⓞ"))))
 
   (add-hook 'outline-minor-mode-hook #'outline-minor-mode-info)
+
+  (defvar buffer-narrowed nil
+    "Non-nil if the buffer is currently narrowed.")
+
+  (defun narrowed-info (&optional _start _end)
+    "Display an indicator when the buffer is narrowed."
+    (setq buffer-narrowed (buffer-narrowed-p))
+    (setf (alist-get 'buffer-narrowed mode-line-misc-info)
+          (when buffer-narrowed (list "n"))))
+
+  ;; npostavs suggests hooking `post-command-hook'.
+  ;; https://emacs.stackexchange.com/questions/33288
+  ;; (advice-add #'post-command-hook :after #'narrowed-info)
 
   (defvar parinfer--mode)
   (defvar parinfer-lighters)
@@ -809,16 +800,16 @@ Return nil if the buffer is local."
 
   (defun hs-minor-mode-info ()
     "Display an indicator when `hs-minor-mode' is enabled."
-    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
-          (list (when (bound-and-true-p hs-minor-mode) '("hs")))))
+    (setcdr (assoc 'hs-minor-mode mode-line-misc-info)
+            (list (when (bound-and-true-p hs-minor-mode) '("hs")))))
 
   (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
 
   (defun mood-line-segment-major-mode ()
     "Displays the current major mode in the mode-line."
     (propertize " %m " 'face (if (mood-line-window-active-p)
-                                'mode-line-emphasis
-                              'mode-line)))
+                                 'mode-line-emphasis
+                               'mode-line)))
 
   (defun --format-mood-line (left right)
     "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
@@ -958,8 +949,7 @@ This sets things up for `window-highlight' and `mode-line'."
   (load-theme fiat-theme t))
 
 (use-package hl-line
-  :git nil
-  :ensure nil
+    :ensure nil
   :defer 2
   :custom
   (global-hl-line-sticky-flag t)
@@ -998,9 +988,9 @@ This sets things up for `window-highlight' and `mode-line'."
         ("M-s h n" . hl-todo-next)
         ("M-s h o" . hl-todo-occur)))
 
-(use-package font-lock-studio
-  :commands
-  font-lock-studio)
+;; (use-package font-lock-studio
+;;   :commands
+;;   font-lock-studio)
 
 
 ;;;; Navigation
@@ -1187,8 +1177,7 @@ See `scratch-new-buffer'."
         (if this-win-2nd (other-window 1))))))
 
 (use-package ffap
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (defun find-file-at-point-with-line (&optional filename)
     "Open FILENAME at point and move point to line specified next to file name."
@@ -1279,14 +1268,12 @@ return them in the Emacs format."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package goto-addr
-  :git nil
-  :ensure nil
+    :ensure nil
   :hook
   ((prog-mode-hook text-mode-hook) . goto-address-mode))
 
 (use-package bug-reference
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (bug-reference-bug-regexp
    "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
@@ -1329,8 +1316,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
 
 (use-package winner
-  :git nil
-  :ensure nil
+    :ensure nil
   :defer 10
   :commands
   winner-mode
@@ -1400,6 +1386,8 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   (persp-modestring-dividers '("" "" "|"))
 
   :config
+  (make-directory (file-name-directory persp-state-default-file) t)
+  
   (defun choose-by-number (options &optional prompt)
     "Display a list and choose among OPTIONS by pressing its number."
     (interactive)
@@ -1543,16 +1531,15 @@ _d_ subtree
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
 
-(use-package outorg
-  :init
-  (defvar outline-minor-mode-prefix "\M-#")
-  :bind
-  ("M-# #" . outorg-edit-as-org))
+;; (use-package outorg
+;;   :init
+;;   (defvar outline-minor-mode-prefix "\M-#")
+;;   :bind
+;;   ("M-# #" . outorg-edit-as-org))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :commands
@@ -1591,6 +1578,8 @@ _q_ quit
         ("C-<tab>" . hs-toggle-hiding)))
 
 (use-package symbol-overlay
+  :config
+  (set-face-attribute 'symbol-overlay-default-face nil :background "gray")
   :hook
   (prog-mode-hook . symbol-overlay-mode)
   :bind
@@ -1621,14 +1610,17 @@ _q_ quit
 
 (use-package crux
   :bind
-  ("C-x C-j" . crux-eval-and-replace)
   ("M-s-<backspace>" . crux-kill-line-backwards)
   ("C-s-c" . crux-duplicate-current-line-or-region)
   (:map m-window-map
         ("k" . crux-kill-other-buffers))
   (:map m-file-map
         ("d" . crux-delete-file-and-buffer)
-        ("r" . crux-rename-file-and-buffer)))
+        ("r" . crux-rename-file-and-buffer))
+  (:map emacs-lisp-mode-map
+        ("C-x C-j" . crux-eval-and-replace))
+  (:map lisp-interaction-mode-map
+        ("C-x C-j" . crux-eval-and-replace)))
 
 (defun save-kill-buffers-and-quit ()
   "Kill all buffers, clean up tramp caches, and quit Emacs."
@@ -1727,8 +1719,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
 ;; (use-package matcha
-;;   :git nil
-;;   :ensure nil
+;;   ;;   :ensure nil
 ;;   :git "https://github.com/jojojames/matcha"
 ;;   :custom
 ;;   (matcha-mode-list
@@ -1739,8 +1730,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 ;;   (matcha-setup))
 
 (use-package ibuffer
-  :git nil
-  :ensure nil
+    :ensure nil
   :bind
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
@@ -1897,8 +1887,7 @@ Each EXPR should create one window."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package imenu
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (defun imenu-goto-item (direction)
     "Jump to the next or previous imenu item, depending on DIRECTION.
@@ -1945,7 +1934,11 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("C-c i p" . imenu-goto-previous)
   ("C-c i n" . imenu-goto-next)
   ("C-'" . imenu)
-  ("s-r" . imenu))
+  ("s-R" . imenu))
+
+(use-package imenu-anywhere
+  :bind
+  ("s-r" . ivy-imenu-anywhere))
 
 ;; (use-package visual-regexp-steroids
 ;;   :bind
@@ -1967,8 +1960,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp)))
 
 (use-package re-builder
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   ;; string syntax means you don't need to double escape things.
   (reb-re-syntax 'read)
@@ -2025,7 +2017,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
-  :git swiper
+  ;; :git swiper
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -2062,6 +2054,12 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
         ("C-e" . ivy-partial-or-done)
         ("M-/" . ivy-done)
         ("M-J" . ivy-yank-complete-symbol-at-point)))
+
+;; (use-package ivy-posframe
+;;   :custom
+;;   (ivy-posframe-display-functions-alist '((t . ivy-posframe-display-at-frame-center)))
+;;   :hook
+;;   (ivy-mode-hook . ivy-posframe-mode))
 
 (use-package swiper
   :config
@@ -2250,8 +2248,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
-  :git nil
-  :ensure nil
+    :ensure nil
   :git "https://github.com/tautologyclub/counsel-term.git"
   ;; :straight (:type git :repo "https://github.com/tautologyclub/counsel-term.git")
   :config
@@ -2333,7 +2330,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (compilation-scroll-output t)
   :config
   ;; When switching projects, go straight to dired in the project root.
-  (setf (car counsel-projectile-switch-project-action) 4)
+  (setcar counsel-projectile-switch-project-action 4)
   (counsel-projectile-mode)
   :bind
   ("s-p" . counsel-projectile)
@@ -2445,13 +2442,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-." . dumb-jump-go)
         ("s-J" . dumb-jump-quick-look)))
 
-(use-package spotlight.el
-  :git nil
-  :ensure nil
-  :git "https://github.com/mnewt/spotlight.el"
-  ;; :straight (:host github :repo "mnewt/spotlight.el")
-  :commands
-  (spotlight spotlight-fast)
+(use-package spotlight
   :bind
   (:map m-search-map
         ("s" . spotlight)
@@ -2462,24 +2453,12 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 ;;;; File Management
 
 (use-package files
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (remote-file-name-inhibit-cache nil))
 
-;; Sometimes (depending on how it's compiled and/or where the binary is?)
-;; `auto-compression-mode' doesn't load quite right, and then `find-library' and
-;; friends can't locate elisp source. Setting up the mode explicitly seems to
-;; fix it.
-;; (use-package jka-cmpr-hook
-;;   :git nil
-;;   :ensure nil
-;;   :config
-;;   (auto-compression-mode))
-
 (use-package epg
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (epg-pinentry-mode 'loopback))
 
@@ -2530,6 +2509,14 @@ Tries to find a file at point."
   (interactive)
   (print (shell-command-to-string "df -h")))
 
+(defmacro expand-file-name* (&rest names)
+  "Like `expand-file-name' but expands more than two NAMES."
+  (let* ((names (reverse names))
+         (expr `(expand-file-name ,(pop names))))
+    (while (> (length names) 0)
+      (setq expr `(expand-file-name ,(pop names) ,expr)))
+    expr))
+
 (use-package x509-mode
   :commands
   x509-viewcert
@@ -2575,8 +2562,7 @@ See: https://github.com/mnewt/psync"
 ;;;; OS program interaction
 
 (use-package server
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (unless (server-running-p)
     (server-start)))
@@ -2630,8 +2616,7 @@ With a prefix ARG always prompt for command to use."
 ;;;; Dired
 
 (use-package dired
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (dired-recursive-deletes 'always)
   (dired-recursive-copies 'always)
@@ -2728,8 +2713,7 @@ With a prefix ARG always prompt for command to use."
         (";" . dired-git-add)))
 
 (use-package dired-x
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
@@ -2748,8 +2732,7 @@ With a prefix ARG always prompt for command to use."
         ("C-)" . disk-usage)))
 
 (use-package wdired
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (wdired-allow-to-change-permissions t)
   (wdired-create-parent-directories t)
@@ -2797,8 +2780,7 @@ With a prefix ARG always prompt for command to use."
   (dired-mode-hook . dired-rainbow-setup))
 
 (use-package dired-rainbow-listing
-  :git nil
-  :ensure nil
+    :ensure nil
   :hook
   (dired-mode-hook . dired-rainbow-listing-mode))
 
@@ -2814,8 +2796,7 @@ With a prefix ARG always prompt for command to use."
         ("/" . dired-narrow)))
 
 ;; (use-package dired-list
-;;   :git nil
-;;   :ensure nil
+;;   ;;   :ensure nil
 ;;   :git (:url "https://github.com/Fuco1/dired-hacks"
 ;;              :files "dired-list.el")
 ;;   :commands
@@ -2910,7 +2891,7 @@ With a prefix ARG always prompt for command to use."
 
 (use-package helpful
   :config
-  (set-face-attribute 'helpful-heading nil :inherit 'org-level-1)
+  (set-face-attribute 'helpful-heading nil :inherit 'org-level-3)
 
   (defun helpful-keymap ()
     "Select keymap with ivy, display help with helpful."
@@ -2943,11 +2924,12 @@ With a prefix ARG always prompt for command to use."
         ("M-n" . imenu-goto-next)
         ("o" . push-button-other-window)))
 
-(run-with-timer
- 20 nil
- #'(lambda ()
-     (eldoc-add-command #'keyboard-quit)
-     (global-eldoc-mode)))
+(use-package eldoc
+  :ensure nil
+  :defer 20
+  :config
+  (eldoc-add-command #'keyboard-quit)
+  (global-eldoc-mode))
 
 (use-package which-key
   :custom
@@ -3017,8 +2999,7 @@ Include PREFIX in prompt if given."
   ("M-s-h" . which-key-show-top-level))
 
 (use-package man
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   ;; Make the manpage the current buffer in the other window
   (Man-notify-method 'aggressive)
@@ -3031,11 +3012,12 @@ Include PREFIX in prompt if given."
   ("C-h M-m" . man))
 
 (use-package woman
-  :git nil
-  :ensure nil
+    :ensure nil
   :bind
   ("C-h C-m" . woman))
 
+;; TODO Make this usable by:
+;;   1. Search the remote MANPATH for the file
 (defun tramp-aware-woman (man-page-path)
   "Open a remote man page at MAN-PAGE-PATH via TRAMP."
   (interactive)
@@ -3107,8 +3089,7 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 ;; (use-package devdocs-lookup
-;;   :git nil
-;;   :ensure nil
+;;   ;;   :ensure nil
 ;;   :git "https://github.com/skeeto/devdocs-lookup"
 ;;   :commands
 ;;   devdocs-setup
@@ -3339,8 +3320,7 @@ Include PREFIX in prompt if given."
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :git nil
-  :ensure nil
+    :ensure nil
   :git "https://github.com/mnewt/counsel-web"
   ;; :straight (:host github :repo "mnewt/counsel-web")
   :bind
@@ -3381,8 +3361,7 @@ Include PREFIX in prompt if given."
 ;;;; Org
 
 (use-package org
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
@@ -3398,13 +3377,13 @@ Include PREFIX in prompt if given."
   (org-src-tab-acts-natively t)
   ;; Code highlighting in code blocks
   (org-src-fontify-natively t)
-  ;; (org-hide-leading-stars t)
   (org-export-with-section-numbers nil)
+  ;; (org-ellipsis "...")
   ;; Customize todo keywords
   (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
   (org-todo-keyword-faces '(("TODO" (:underline t))
                             ("WIP" (:foreground "lime green" :underline t))
-                            ("DONE" (:foreground "gray" :underline t))))
+                            ("DONE" (:inherit font-link-comment-fac))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
@@ -3422,6 +3401,7 @@ Include PREFIX in prompt if given."
   (org-image-actual-width 500)
   ;; When exporting to odt, actually create a docx
   (org-odt-preferred-output-format "docx")
+
   :commands
   org-todo
   org-entry-get
@@ -3581,9 +3561,21 @@ With a prefix ARG, create it in `org-directory'."
 
   (advice-add #'org-do-emphasis-faces :override #'org-do-emphasis-faces-improved)
 
+  (defun org-show-only-current-subtree (&rest _)
+    "Fold all other trees, then show entire current subtree."
+    (interactive)
+    (org-overview)
+    (org-reveal)
+    (org-show-subtree))
+
   (use-package org-download
     :hook
     (dired-mode-hook . org-download-enable))
+
+  (use-package htmlize
+    :commands
+    htmlize-buffer
+    htmlize-file)
 
   (use-package org-preview-html
     :commands
@@ -3618,7 +3610,8 @@ With a prefix ARG, create it in `org-directory'."
         ("M-p" . org-backward-heading-same-level)
         ("M-n" . org-forward-heading-same-level)
         ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element))
+        ("C-M-d" . org-down-element)
+        ("C-s-t" . org-show-only-current-subtree))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
@@ -3648,8 +3641,7 @@ With a prefix ARG, create it in `org-directory'."
 ;;;; Calendar and Journal
 
 (use-package calendar
-  :git nil
-  :ensure nil
+    :ensure nil
   :commands
   calendar-current-date
   :config
@@ -3716,8 +3708,7 @@ With a prefix ARG, create it in `org-directory'."
 ;; Math utilities.
 
 (use-package calc
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (defvar math-additional-units)
   (setq math-additional-units
@@ -3746,14 +3737,12 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Automate communication with services, such as nicserv.
 (use-package erc
-  :git nil
-  :ensure nil
+    :ensure nil
   :hook
   (erc-connect-pre-hook . erc-services-mode))
 
 (use-package url
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (defun public-ip ()
     "Display the local host's apparent public IP address."
@@ -3918,12 +3907,18 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
     (git-worktree-unlink (getenv "HOME"))
     (message "Unlinked repo at %s" f)))
 
-(with-eval-after-load 'vc
+(use-package vc
+  :ensure nil
+  :custom
   ;; VC follows the link and visits the real file, telling you about it in the
   ;; echo area.
-  (setq vc-follow-symlinks t
-        ;; Backup even if file is in vc.
-        vc-make-backup-files t))
+  (vc-follow-symlinks t)
+  ;; Backup even if file is in vc.
+  (vc-make-backup-files t))
+
+(use-package gitconfig-mode
+  :mode ("/\\.gitconfig\\'" "/\\.git/config\\'" "/modules/.*/config\\'"
+         "/git/config\\'" "/\\.gitmodules\\'" "/etc/gitconfig\\'"))
 
 (use-package magit
   :custom
@@ -3979,8 +3974,7 @@ Stolen from https://gitlab.com/jessieh/mood-one-theme.")
   (dired-mode-hook . diff-hl-dired-mode))
 
 (use-package smerge-mode
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (radian-protect-macros
     (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
@@ -4047,9 +4041,9 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 (setq-default fill-column 80)
 
 ;; Newline at end of file.
-(setq require-final-newline t
+(setq require-final-newline t)
       ;; Sentences end with one space.
-      sentence-end-double-space nil)
+      ;; sentence-end-double-space nil)
 
 ;; Tabs
 (setq-default indent-tabs-mode nil
@@ -4071,8 +4065,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
 (use-package so-long
   :if (>= emacs-major-version 27)
-  :git nil
-  :ensure nil
+    :ensure nil
   :hook
   (ivy-mode-hook . global-so-long-mode))
 
@@ -4094,68 +4087,67 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (interactive)
   (join-line -1))
 
-;; (use-package undo-tree
-;;   :git nil
-;;   :ensure nil
-;;   :git "http://www.dr-qubit.org/git/undo-tree.git"
-;;   :config
-;;   (global-undo-tree-mode)
-;;   :bind
-;;   ("s-z" . undo-tree-undo)
-;;   ("s-Z" . undo-tree-redo)
-;;   ("C-s-z" . undo-tree-visualize))
+(use-package undo-tree
+  :init
+  (defun undo-tree-save-history-from-hook () nil)
+  :config
+  (global-undo-tree-mode)
+  :bind
+  ("s-z" . undo-tree-undo)
+  ("s-Z" . undo-tree-redo)
+  ("C-s-z" . undo-tree-visualize))
 
 ;; (use-package undo-redo
 ;;   :git "https://github.com/clemera-dev/undo-redo"
-;;   ;; :straight (:host github :repo "clemera-dev/undo-redo")
 ;;   :bind
 ;;   ("s-z" . undo-modern)
 ;;   ("s-Z" . redo))
 
-(use-package undo-fu
-  :bind
-  ("s-z" . undo-fu-only-undo)
-  ("s-Z" . undo-fu-only-redo))
+;; (use-package undo-fu
+;;   :git "https://gitlab.com/ideasman42/emacs-undo-fu.git"
+;;   :custom
+;;   (undo-fu-allow-undo-in-region t)
+;;   :bind
+;;   ("s-z" . undo-fu-only-undo)
+;;   ("s-Z" . undo-fu-only-redo))
 
-(use-package undohist
-  :demand t
-  :git nil
-  :ensure nil
-  :git "https://github.com/clemera-dev/undohist"
-  ;; :straight (:host github :repo "clemera-dev/undohist")
-  :custom
-  (undohist-ignored-files '("COMMIT_EDITMSG"
-                            "\\.gpg\\'"
-                            file-remote-p))
-  :config
-  ;; https://www.reddit.com/r/emacs/comments/dyv74e/
-  (advice-add 'undohist-save-1 :before-while
-              (defun undohist-only-save-file-buffers+ (&rest _)
-                (and (buffer-file-name (current-buffer))
-                     (undohist-recover-file-p (buffer-file-name (current-buffer))))))
-  (undohist-initialize))
+;; (use-package undohist
+;;   :demand t
+;;   ;;   :ensure nil
+;;   :git "https://github.com/clemera-dev/undohist"
+;;   :custom
+;;   (undohist-ignored-files '("COMMIT_EDITMSG"
+;;                             "\\.gpg\\'"
+;;                             file-remote-p))
+;;   :config
+;;   ;; https://www.reddit.com/r/emacs/comments/dyv74e/
+;;   (advice-add 'undohist-save-1 :before-while
+;;               (defun undohist-only-save-file-buffers+ (&rest _)
+;;                 (and (buffer-file-name (current-buffer))
+;;                      (undohist-recover-file-p (buffer-file-name (current-buffer))))))
+;;   (undohist-initialize))
 
-(use-package undo-propose
-  :bind
-  ("M-s-z" . undo-propose))
+;; (use-package undo-propose
+;;   :bind
+;;   ("M-s-z" . undo-propose))
 
 ;; TODO: Keep this from bringing in `etags'.
-(use-package volatile-highlights
-  :defer 30
-  :config
-  (vhl/define-extension 'undo-redo 'undo-modern 'undo)
-  (vhl/install-extension 'undo-redo)
-  (volatile-highlights-mode t))
+;; (use-package volatile-highlights
+;;   :defer 30
+;;   :config
+;;   (vhl/define-extension 'undo-redo 'undo-modern 'undo)
+;;   (vhl/install-extension 'undo-redo)
+;;   (volatile-highlights-mode t))
 
 (use-package goto-chg
   :bind
   ("C-." . goto-last-change)
-  ("C-;" . goto-last-change-reverse))
+  ("C-s-." . goto-last-change-reverse))
 
-(use-package easy-kill
-  :bind
-  (([remap kill-ring-save] . easy-kill)
-   ([remap mark-sexp] . easy-mark)))
+;; (use-package easy-kill
+;;   :bind
+;;   (([remap kill-ring-save] . easy-kill)
+;;    ([remap mark-sexp] . easy-mark)))
 
 (use-package mwim
   :bind
@@ -4289,10 +4281,21 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ;; sexp entirely.)
   (sp-cancel-autoskip-on-backward-movement nil)
 
-  :commands
-  sp-get-pair
+  :functions
   sp--get-opening-regexp
   sp--get-closing-regexp
+  sp-local-pair
+  sp-get-pair
+  sp-with-modes
+  sp-point-in-string-or-comment
+  
+  :commands
+  sp-forward-slurp-sexp
+  sp-backward-symbol
+  sp-backward-symbol
+  sp-down-sexp
+  sp-forward-sexp
+  sp-backward-sexp
 
   :config
   (defun sp-add-space-after-sexp-insertion (id action _context)
@@ -4515,16 +4518,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ;; The scratch buffer loads before smartparens.
   (with-current-buffer "*scratch*" (turn-on-smartparens-mode))
 
-  :commands
-  sp-local-pair
-  sp-with-modes
-  sp-point-in-string-or-comment
-  sp-forward-slurp-sexp
-  sp-backward-symbol
-  sp-backward-symbol
-  sp-down-sexp
-  sp-forward-sexp
-  sp-backward-sexp
+  (eldoc-add-command #'sp-newline)
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
@@ -4704,8 +4698,7 @@ If no region is selected, toggles comments for the line."
 ;; Shell, Term, Tramp, Scripting, and related things.
 
 (use-package comint
-  :git nil
-  :ensure nil
+    :ensure nil
   :custom
   (comint-buffer-maximum-size 20000)
   (comint-prompt-read-only t))
@@ -4812,8 +4805,7 @@ If no region is selected, toggles comments for the line."
      (find-file (concat "/ssh:" host ":")))))
 
 (use-package shell
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   ;; http://whattheemacsd.com/setup-shell.el-01.html
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -4966,8 +4958,7 @@ predicate returns true."
 ;;   (advice-add c :around #'maybe-with-sudo))
 
 (use-package term
-  :git nil
-  :ensure nil
+    :ensure nil
   :bind
   (:map term-mode-map
         ("M-p" . term-send-up)
@@ -5069,8 +5060,7 @@ predicate returns true."
   (shell-mode-hook . xterm-color-shell-setup))
 
 (use-package piper
-  :git nil
-  :ensure nil
+    :ensure nil
   :git "https://gitlab.com/howardabrams/emacs-piper"
   ;; :straight (:host gitlab :repo "howardabrams/emacs-piper")
   :init
@@ -5110,7 +5100,6 @@ See https://github.com/mnewt/fpw."
 ;;;; Eshell
 
 (use-package eshell
-  :git nil
   :ensure nil
   :custom
   (eshell-banner-message "")
@@ -5122,10 +5111,10 @@ See https://github.com/mnewt/fpw."
   (eshell-prompt-function 'm-eshell-prompt-function)
   (eshell-prompt-regexp "^(#?) ")
   (eshell-highlight-prompt nil)
-  (eshell-ls-clutter-regexp (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock"
-                                          "_history" "-history" ".tmp" "~"
-                                          "desktop.ini" "Icon\r" "Thumbs.db"
-                                          "$RECYCLE_BIN" "lost+found")))
+  (eshell-ls-clutter-regexp
+   (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock" "_history" "-history"
+                 ".tmp" "~" "desktop.ini" "Icon\r" "Thumbs.db" "$RECYCLE_BIN"
+                 "lost+found")))
   :commands
   eshell
   eshell-previous-input
@@ -5617,11 +5606,6 @@ Advise `eshell-ls-decorated-name'."
         ("<return>" . popup-select)
         ("<tab>" . popup-select)))
 
-(defun advice-remove-all (symbol)
-  "Remove all advices from SYMBOL."
-  (interactive "aFunction symbol: ")
-  (advice-mapc (lambda (advice _props) (advice-remove symbol advice)) symbol))
-
 (defun void-calculate-lisp-indent (&optional parse-start)
   "Add better indentation for quoted and backquoted lists.
 
@@ -5804,25 +5788,59 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
 
 (advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
 
-(defvar ert-test-file-regexp "\\(.*\\)-?\\(tests?\.el\\)$"
-  "Regexp matching test files.")
+(defun advice-remove-all (symbol)
+  "Remove all advices from SYMBOL."
+  (interactive "aFunction symbol: ")
+  (advice-mapc (lambda (advice _props) (advice-remove symbol advice)) symbol))
 
-(defun ert-reload-and-run-tests (&optional arg)
-  "Try to find a test file, reload it, and run tests."
-  (interactive "p")
-  (when arg (ert-delete-all-tests))
-  (dolist (file (directory-files default-directory nil ert-test-file-regexp))
-    (load file nil nil nil t)
-    (ert-run-tests-interactively
-     (replace-regexp-in-string ert-test-file-regexp "" file nil nil 2))))
+(defun unintern-prefix (prefix)
+  "Unintern all symbols starting with PREFIX."
+  (interactive
+   (list (completing-read
+          "Prefix: " features nil nil
+          (file-name-nondirectory (file-name-sans-extension buffer-file-name)))))
+  (mapatoms (lambda (symbol)
+              (if (string-prefix-p prefix (symbol-name symbol))
+                  (unintern symbol)))))
+
+(defun ert-reload-and-run-tests-in-project (&optional reset)
+  "Reload project and test files and then run tests.
+
+When RESET is non-nil, unintern all the functions with the
+project prefix, and unintern all `ert' tests."
+  (interactive "P")
+  (require 'ert)
+  (let ((el-file-regexp "\\.el\\'")
+        (test-file-regexp "\\(.*\\)-?\\(tests?\.el\\)\\'")
+        (prefix (file-name-nondirectory (directory-file-name default-directory))))
+    (when reset
+      ;; Delete all functions with the project prefix
+      (mapatoms (lambda (symbol)
+                  (and (functionp symbol)
+                       (string-prefix-p prefix (symbol-name symbol))
+                       (reset symbol))))
+      ;; Delete all tests.
+      (ert-delete-all-tests))
+    ;; Reload the project namespace.
+    (dolist (file (directory-files default-directory nil el-file-regexp))
+      (unless (string-match-p test-file-regexp file)
+        (message "Loading file %s" file)
+        (load file nil nil nil t)))
+    ;; Reload tests.
+    (dolist (file (directory-files default-directory nil test-file-regexp)))
+    ;; Run tests.
+    (dolist (file (directory-files default-directory nil ert-test-file-regexp))
+      (load file nil nil nil t)
+      (ert-run-tests-interactively
+       (replace-regexp-in-string ert-test-file-regexp "" file nil nil 2)))))
 
 (define-minor-mode ert-run-on-save-mode
   "Minor mode to run `ert' tests on save."
   :init-value nil
   :group 'ert
   (if ert-run-on-save-mode
-      (add-hook 'after-save-hook #'ert-reload-and-run-tests nil 'local)
-    (remove-hook 'after-save-hook #'ert-reload-and-run-tests 'local)))
+      (add-hook 'after-save-hook #'ert-reload-and-run-tests-in-project nil 'local)
+    (remove-hook 'after-save-hook #'ert-reload-and-run-tests-in-project 'local)))
 
 (defun eval-last-sexp-other-window (arg)
   "Run `eval-last-sexp' with ARG in the other window."
@@ -5990,8 +6008,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
         ("M-h" . sly-documentation-lookup)))
 
 (use-package scheme
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode ("\\.scheme\\'" . scheme-mode)
   :commands
   scheme-syntax-propertize-sexp-comment
@@ -6094,7 +6111,17 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
  ("C-x M-e" . pp-macroexpand-last-sexp)
  ("C-x r E" . expression-to-register)
  ("C-x r e" . eval-register)
- ("C-s-t" . ert-reload-and-run-tests))
+ ("C-s-t" . ert-reload-and-run-tests-in-project)
+ :map lisp-interaction-mode-map
+ ("s-<return>" . eval-last-sexp)
+ ("C-s-<return>" . eval-last-sexp-other-window)
+ ("C-c C-k" . eval-buffer)
+ ("C-x C-r" . eval-region)
+ ("C-x M-p" . pp-eval-last-sexp)
+ ("C-x M-e" . pp-macroexpand-last-sexp)
+ ("C-x r E" . expression-to-register)
+ ("C-x r e" . eval-register)
+ ("C-s-t" . ert-reload-and-run-tests-in-project))
 
 
 ;;;; Reading
@@ -6170,8 +6197,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   (imagemagick-register-types))
 
 (use-package eww
-  :git nil
-  :ensure nil
+    :ensure nil
   :config
   (use-package shr-tag-pre-highlight
     :after shr
@@ -6260,8 +6286,7 @@ Open the `eww' buffer in another window."
   (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode "\\.css\\'"
   :custom
   (css-indent-offset tab-width))
@@ -6299,8 +6324,7 @@ Open the `eww' buffer in another window."
     web-mode-hook) . add-node-modules-path))
 
 (use-package js
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode ("\\.jsx?\\'" . js-mode)
   :custom
   (js-indent-level tab-width))
@@ -6683,8 +6707,7 @@ Open the `eww' buffer in another window."
   ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode ("\\.sh\\'" . sh-mode)
   :interpreter
   ("\\(?:\\(?:ba\\|[az]\\)?sh\\)" . sh-mode)
@@ -6751,8 +6774,7 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
 
 (use-package perl-mode
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode "\\.pl\\'"
   :custom
   (perl-indent-level tab-width))
@@ -6771,8 +6793,7 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 
 ;; DNS
 (use-package dns-mode
-  :git nil
-  :ensure nil
+    :ensure nil
   :mode "\\.rpz\\'"
   :config
   (defun dns-insert-timestamp ()
@@ -6857,7 +6878,6 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
-  :git nil
   :ensure nil
   :custom
   (c-basic-offset tab-width)
@@ -6912,7 +6932,7 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 
 (use-package plantuml-mode
   ;; :ensure-system-package plantuml
-  :mode "\\.plantuml\\'"
+  :mode "\\.puml\\'"
   :custom
   ;; The server doesn't work right because of encoding problems.
   ;; TODO: File a bug report
@@ -6923,7 +6943,8 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
 
-  (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t)))
+  (add-to-list 'org-babel-load-languages '(plantuml . t))
+  (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages)
   (defvar org-plantuml-jar-path)
   (setq org-plantuml-jar-path plantuml-jar-path)
 
@@ -6984,7 +7005,6 @@ configuration when invoked to evaluate a line."
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :git nil
   :ensure nil
   :git "https://github.com/aaronbieber/fence-edit.el"
   ;; :straight (:host github :repo "aaronbieber/fence-edit.el")
