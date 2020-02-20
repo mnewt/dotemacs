@@ -10,7 +10,7 @@
 (defconst emacs-start-time (current-time))
 
 ;; Uncomment this to debug.
-(setq init-file-debug t)
+;; (setq init-file-debug t)
 
 (setq load-prefer-newer t)
 

@@ -1,5 +1,9 @@
 * Tasks
+** TODO Rendering issues
+   - https://lists.gnu.org/archive/html/emacs-devel/2020-02/msg00079.html
+   - https://debbugs.gnu.org/cgi/bugreport.cgi?bug=32932#412
 ** TODO Submit patch to Org for =org-do-emphasis-faces=
+** TODO Extract =load-theme= stuff to =theme-utils= package
 ** TODO Make =dired-rainbow-listing= into a package
 ** TODO Complete =counsel-web=
 ** TODO =counsel-term= stuff

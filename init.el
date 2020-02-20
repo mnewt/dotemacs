@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; It's an Emacs init file. Relies on heavily on use-package for organization
-;; and delayed loading.
+;; It's an Emacs init file.  It relies on heavily on use-package for
+;; organization and delayed loading.
 
 ;;; Code:
 
@@ -47,7 +47,7 @@
 
 (eval-when-compile
   (custom-set-variables
-   ;; '(use-package-always-ensure t)
+   '(use-package-always-ensure t)
    '(use-package-always-defer t)
    '(use-package-enable-imenu-support t)
    '(use-package-hook-name-suffix nil))
@@ -86,21 +86,26 @@
 
 ;;;;; package management
 
-;; (defvar git-package-alist)
-;; (defvar emacs-start-time)
+(defvar git-package-alist)
+(defvar emacs-start-time)
 
-;; (defun emacs-startup-message ()
-;;   "Display a message after Emacs startup."
-;;   (defconst emacs-load-time
-;;     (float-time (time-subtract (current-time) emacs-start-time)))
+(defun emacs-startup-message ()
+  "Display a message after Emacs startup."
+  (defconst emacs-load-time
+    (float-time (time-subtract (current-time) emacs-start-time)))
 
-;;   (message "Emacs loaded %d packages in %.1f seconds."
-;;            (+ (length package-activated-list)
-;;               ;; (length (hash-table-keys straight--success-cache)))
-;;               (length git-package-alist))
-;;            emacs-load-time))
+  ;; FIXME Until I can figure out what is adding (require . info) to
+  ;; `load-history'.
+  (dolist (e load-history)
+    (unless (stringp (car e))
+      (setq load-history (delete e load-history))))
 
-;; (add-hook 'emacs-startup-hook #'emacs-startup-message)
+  (message "Emacs loaded %d packages in %.1f seconds."
+           (+ (length package-activated-list)
+              (length git-package-alist))
+           emacs-load-time))
+
+(add-hook 'emacs-startup-hook #'emacs-startup-message)
 
 (use-package paradox
   :custom
@@ -791,17 +796,17 @@ Return nil if the buffer is local."
                       (cdr parinfer-lighters)
                     (car parinfer-lighters))))))
 
-  (add-hook 'parinfer-mode-hook #'parinfer-mode-info)
+  (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
+  (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
   (add-hook 'parinfer-switch-mode-hook #'parinfer-mode-info)
-  ;; ;; KLUDGE: `parinfer-switch-mode-hook' doesn't get called when parinfer is
-  ;; ;; initialized so we have to catch up somehow. We could find a better way, I'm
-  ;; ;; sure.
+  ;; KLUDGE None of the above hooks get called when parinfer is initialized
+  ;; so we have to catch up somehow. I'm sure there's a better way.
   (add-hook 'window-state-change-hook #'parinfer-mode-info)
 
   (defun hs-minor-mode-info ()
     "Display an indicator when `hs-minor-mode' is enabled."
-    (setcdr (assoc 'hs-minor-mode mode-line-misc-info)
-            (list (when (bound-and-true-p hs-minor-mode) '("hs")))))
+    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
+          (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
 
   (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
 
@@ -949,7 +954,7 @@ This sets things up for `window-highlight' and `mode-line'."
   (load-theme fiat-theme t))
 
 (use-package hl-line
-    :ensure nil
+  :ensure nil
   :defer 2
   :custom
   (global-hl-line-sticky-flag t)
@@ -1316,10 +1321,8 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
 
 (use-package winner
-    :ensure nil
+  :ensure nil
   :defer 10
-  :commands
-  winner-mode
   :config
   (defun winner-wrong-window ()
     "Open the last opened buffer in the other window."
@@ -1347,32 +1350,32 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-H-A" . buf-move-left)
   ("C-H-D" . buf-move-right))
 
-(use-package winum
-  :custom
-  (winum-auto-setup-mode-line nil)
-  :config
-  (winum-mode)
-  :bind
-  ("s-1" . winum-select-window-1)
-  ("C-c 1" . winum-select-window-1)
-  ("s-2" . winum-select-window-2)
-  ("C-c 2" . winum-select-window-2)
-  ("s-3" . winum-select-window-3)
-  ("C-c 3" . winum-select-window-3)
-  ("s-4" . winum-select-window-4)
-  ("C-c 4" . winum-select-window-4)
-  ("s-5" . winum-select-window-5)
-  ("C-c 5" . winum-select-window-5)
-  ("s-6" . winum-select-window-6)
-  ("C-c 6" . winum-select-window-6)
-  ("s-7" . winum-select-window-7)
-  ("C-c 7" . winum-select-window-7)
-  ("s-8" . winum-select-window-8)
-  ("C-c 8" . winum-select-window-8)
-  ("s-9" . winum-select-window-9)
-  ("C-c 9" . winum-select-window-9)
-  ("s-0" . winum-select-window-0)
-  ("C-c 0" . winum-select-window-0))
+;; (use-package winum
+;;   :custom
+;;   (winum-auto-setup-mode-line nil)
+;;   :config
+;;   (winum-mode)
+;;   :bind
+;;   ("s-1" . winum-select-window-1)
+;;   ("C-c 1" . winum-select-window-1)
+;;   ("s-2" . winum-select-window-2)
+;;   ("C-c 2" . winum-select-window-2)
+;;   ("s-3" . winum-select-window-3)
+;;   ("C-c 3" . winum-select-window-3)
+;;   ("s-4" . winum-select-window-4)
+;;   ("C-c 4" . winum-select-window-4)
+;;   ("s-5" . winum-select-window-5)
+;;   ("C-c 5" . winum-select-window-5)
+;;   ("s-6" . winum-select-window-6)
+;;   ("C-c 6" . winum-select-window-6)
+;;   ("s-7" . winum-select-window-7)
+;;   ("C-c 7" . winum-select-window-7)
+;;   ("s-8" . winum-select-window-8)
+;;   ("C-c 8" . winum-select-window-8)
+;;   ("s-9" . winum-select-window-9)
+;;   ("C-c 9" . winum-select-window-9)
+;;   ("s-0" . winum-select-window-0)
+;;   ("C-c 0" . winum-select-window-0))
 
 ;; (use-package rotate
 ;;   :bind
@@ -1446,10 +1449,13 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   (defvar ediff-window-setup-function)
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
+(use-package outline
+  :ensure nil
+  :custom
+  (outline-minor-mode-prefix "\M-#"))
+
 (use-package outshine
   :config
-  (eldoc-add-command #'outshine-self-insert-command)
-
   (defun outline-show-current-sublevel ()
     "Show only the current top level section."
     (interactive)
@@ -1481,6 +1487,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ;; Narrowing now works within the headline rather than requiring to be on it
   (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
 
+  (eldoc-add-command #'outshine-self-insert-command)
+
+  (defun outline-show-current-sublevel ())
   (radian-protect-macros
     (defhydra hydra-outline (:color pink :hint nil)
       "
@@ -1531,11 +1540,10 @@ _d_ subtree
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
 
-;; (use-package outorg
-;;   :init
-;;   (defvar outline-minor-mode-prefix "\M-#")
-;;   :bind
-;;   ("M-# #" . outorg-edit-as-org))
+(use-package outorg
+  :bind
+  (:map outline-mode-map
+        ("#" . outorg-edit-as-org)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
@@ -1887,7 +1895,7 @@ Each EXPR should create one window."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package imenu
-    :ensure nil
+  :ensure nil
   :config
   (defun imenu-goto-item (direction)
     "Jump to the next or previous imenu item, depending on DIRECTION.
@@ -1937,6 +1945,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("s-R" . imenu))
 
 (use-package imenu-anywhere
+  :custom
+  (imenu-anywhere-buffer-filter-functions '(imenu-anywhere-same-project-p))
   :bind
   ("s-r" . ivy-imenu-anywhere))
 
@@ -2022,7 +2032,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
   (ivy-count-format "[%d/%d] ")
-  ;; Don't exit the minibuffer and pressing backspace on an empty line.
+  ;; (ivy-read-action-function 'ivy-hydra-read-action)
+  ;; Don't exit the minibuffer when pressing backspace on an empty line.
   (ivy-on-del-error-function (lambda (&rest _) nil))
 
   :commands
@@ -2317,6 +2328,8 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (projectile-after-switch-project-hook . projectile-load-settings)
   :commands
   projectile-register-project-type
+  :bind-keymap
+  ("C-c p" . projectile-command-map)
   :bind
   ("s-}" . projectile-next-project-buffer)
   ("C-c }" . projectile-next-project-buffer)
@@ -2518,12 +2531,8 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :commands
-  x509-viewcert
-  x509-viewcrl
-  x509-viewasn1
-  x509-viewkey
-  x509-viewdh)
+  :git "https://github.com/mnewt/x509-mode"
+  :defer t)
 
 ;;;;; psync (https://github.com/mnewt/psync)
 
@@ -2616,7 +2625,7 @@ With a prefix ARG always prompt for command to use."
 ;;;; Dired
 
 (use-package dired
-    :ensure nil
+  :ensure nil
   :custom
   (dired-recursive-deletes 'always)
   (dired-recursive-copies 'always)
@@ -2713,7 +2722,7 @@ With a prefix ARG always prompt for command to use."
         (";" . dired-git-add)))
 
 (use-package dired-x
-    :ensure nil
+  :ensure nil
   :custom
   (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
@@ -2732,7 +2741,7 @@ With a prefix ARG always prompt for command to use."
         ("C-)" . disk-usage)))
 
 (use-package wdired
-    :ensure nil
+  :ensure nil
   :custom
   (wdired-allow-to-change-permissions t)
   (wdired-create-parent-directories t)
@@ -2749,24 +2758,60 @@ With a prefix ARG always prompt for command to use."
   (defun dired-rainbow-setup ()
     "Set up `dired-rainbow'."
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
-    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx" "vsd" "vsdx" "plantuml"))
-    (dired-rainbow-define markdown "#4dc0b5" ("org" "org_archive" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
-    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
-    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
-    (dired-rainbow-define log "#c17d11" ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6" "log.7" "log.8" "log.9"))
-    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
-    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn" "scala" "js" "jsx"))
-    (dired-rainbow-define compiled "#6cb2eb" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs" "pyc" "java"))
-    (dired-rainbow-define executable "#8cc4ff" ("com" "exe" "msi"))
-    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
-    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
-    (dired-rainbow-define encrypted "#f2d024" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-    (dired-rainbow-define fonts "#f6993f" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff" "woff2" "eot"))
-    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
-    (dired-rainbow-define vc "#6cb2eb" ("git" "gitignore" "gitattributes" "gitmodules"))
+    (dired-rainbow-define html "#eb5286"
+                          ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
+                          "eml" "mustache" "xhtml"))
+    (dired-rainbow-define xml "#f2d024"
+                          ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
+                          "pgn" "rss" "yaml" "yml" "rdata"))
+    (dired-rainbow-define document "#9561e2"
+                          ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
+                          "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
+                          "vsd" "vsdx" "plantuml"))
+    (dired-rainbow-define markdown "#4dc0b5"
+                          ("org" "org_archive" "etx" "info" "markdown" "md"
+                          "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
+    (dired-rainbow-define database "#6574cd"
+                          ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+    (dired-rainbow-define media "#de751f"
+                          ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
+                          "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+    (dired-rainbow-define image "#f66d9b"
+                          ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
+                          "psd" "eps" "svg"))
+    (dired-rainbow-define log "#c17d11"
+                          ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
+                          "log.7" "log.8" "log.9"))
+    (dired-rainbow-define shell "#f6993f"
+                          ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+    (dired-rainbow-define interpreted "#38c172"
+                          ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
+                          "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
+                          "scala" "js" "jsx"))
+    (dired-rainbow-define compiled "#6cb2eb"
+                          ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
+                          "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
+                          "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs"
+                          "pyc" "java"))
+    (dired-rainbow-define executable "#8cc4ff"
+                          ("com" "exe" "msi"))
+    (dired-rainbow-define compressed "#51d88a"
+                          ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
+                          "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
+    (dired-rainbow-define packaged "#faad63"
+                          ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
+                          "vpk" "bsp"))
+    (dired-rainbow-define encrypted "#f2d024"
+                          ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
+                          "pem"))
+    (dired-rainbow-define fonts "#f6993f"
+                          ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
+                          "woff2" "eot"))
+    (dired-rainbow-define partition "#e3342f"
+                          ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
+                          "bak"))
+    (dired-rainbow-define vc "#6cb2eb"
+                          ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
 
@@ -3314,15 +3359,14 @@ Include PREFIX in prompt if given."
   :custom
   (counsel-ffdata-database-path
    (car (file-expand-wildcards
-         "/Users/mn/Library/Application Support/Firefox/Profiles/*")))
+         "/Users/mn/Library/Application Support/Firefox/Profiles/*/places.sqlite")))
   :bind
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-    :ensure nil
+  :ensure nil
   :git "https://github.com/mnewt/counsel-web"
-  ;; :straight (:host github :repo "mnewt/counsel-web")
   :bind
   (:map m-search-map
         ("w" . counsel-web-suggest)
@@ -3361,7 +3405,7 @@ Include PREFIX in prompt if given."
 ;;;; Org
 
 (use-package org
-    :ensure nil
+  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
@@ -3611,7 +3655,9 @@ With a prefix ARG, create it in `org-directory'."
         ("M-n" . org-forward-heading-same-level)
         ("C-M-u" . org-up-element)
         ("C-M-d" . org-down-element)
-        ("C-s-t" . org-show-only-current-subtree))
+        ("C-s-t" . org-show-only-current-subtree)
+        ("C-M-u" . org-up-element)
+        ("C-M-d" . org-down-element))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
@@ -3708,7 +3754,7 @@ With a prefix ARG, create it in `org-directory'."
 ;; Math utilities.
 
 (use-package calc
-    :ensure nil
+  :ensure nil
   :config
   (defvar math-additional-units)
   (setq math-additional-units
@@ -3737,27 +3783,9 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Automate communication with services, such as nicserv.
 (use-package erc
-    :ensure nil
+  :ensure nil
   :hook
   (erc-connect-pre-hook . erc-services-mode))
-
-(use-package url
-    :ensure nil
-  :config
-  (defun public-ip ()
-    "Display the local host's apparent public IP address."
-    (interactive)
-    (url-retrieve "https://diagnostic.opendns.com/myip"
-                  (lambda (_)
-                    (goto-char (point-min))
-                    (re-search-forward "^$")
-                    (delete-char 1)
-                    (delete-region (point) (point-min))
-                    (let ((ip (buffer-string)))
-                      (kill-new ip)
-                      (message ip)))))
-  :commands
-  (public-ip url-retrieve))
 
 (use-package request
   :commands
@@ -3782,6 +3810,19 @@ With a prefix ARG, create it in `org-directory'."
       "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
      (cygwin
       "ipconfig | awk -F' .' '/Address/ {print $NF}'"))))
+
+(defun public-ip ()
+  "Display the local host's apparent public IP address."
+  (interactive)
+  (url-retrieve "https://diagnostic.opendns.com/myip"
+                (lambda (_)
+                  (goto-char (point-min))
+                  (re-search-forward "^$")
+                  (delete-char 1)
+                  (delete-region (point) (point-min))
+                  (let ((ip (buffer-string)))
+                    (kill-new ip)
+                    (message ip)))))
 
 (use-package wttrin
   :custom
@@ -5039,12 +5080,10 @@ predicate returns true."
   (advice-add #'shell-command :after #'xterm-color-shell-command)
   (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
 
-  ;; xterm colors
-  (with-eval-after-load 'eshell
-    (add-to-list 'eshell-preoutput-filter-functions 'xterm-color-filter)
+  (with-eval-after-load 'esh-mode
+    (add-to-list 'eshell-preoutput-filter-functions #'xterm-color-filter)
     (setq eshell-output-filter-functions
           (remove 'eshell-handle-ansi-color eshell-output-filter-functions)))
-
 
   (with-eval-after-load 'compile
     (eval-when-compile (defvar compilation-environment))
@@ -5060,9 +5099,8 @@ predicate returns true."
   (shell-mode-hook . xterm-color-shell-setup))
 
 (use-package piper
-    :ensure nil
+  :ensure nil
   :git "https://gitlab.com/howardabrams/emacs-piper"
-  ;; :straight (:host gitlab :repo "howardabrams/emacs-piper")
   :init
   ;; Define "C-c |" as a prefix key.
   (bind-key "C-c |" nil)
@@ -5072,6 +5110,12 @@ predicate returns true."
   ("C-c | |" . piper)
   ("C-c | o" . piper-other)
   ("C-c | r" . piper-remote))
+
+(defun copy-buffer-file-name ()
+  "Copy `buffer-file-name' to the kill ring."
+  (interactive)
+  (kill-new buffer-file-name)
+  (message buffer-file-name))
 
 (defun fpw (command)
   "Run `fpw' command as COMMAND.
@@ -5803,6 +5847,20 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
               (if (string-prefix-p prefix (symbol-name symbol))
                   (unintern symbol)))))
 
+(defun elisp-test-file-p (file)
+  "Check whether the file name is an Elisp test file."
+  (or (string-suffix-p "-test.el" file)
+      (string-match-p "test/" file)))
+
+(defun ert-run-test-at-point ()
+  "Run the test at point."
+  (interactive)
+  (save-excursion
+    (beginning-of-defun)
+    (forward-symbol 2)
+    (ert-run-tests-interactively
+     (substring-no-properties (symbol-name (symbol-at-point))))))
+
 (defun ert-reload-and-run-tests-in-project (&optional reset)
   "Reload project and test files and then run tests.
 
@@ -5810,9 +5868,12 @@ When RESET is non-nil, unintern all the functions with the
 project prefix, and unintern all `ert' tests."
   (interactive "P")
   (require 'ert)
-  (let ((el-file-regexp "\\.el\\'")
-        (test-file-regexp "\\(.*\\)-?\\(tests?\.el\\)\\'")
-        (prefix (file-name-nondirectory (directory-file-name default-directory))))
+  (require 'projectile)
+  (let* ((default-directory (projectile-project-root))
+         (all-el-files (split-string (shell-command-to-string "find . -name '*.el'")))
+         (el-files (remove-if #'elisp-test-file-p all-el-files))
+         (test-files (remove-if-not #'elisp-test-file-p all-el-files))
+         (prefix (file-name-nondirectory (directory-file-name default-directory))))
     (when reset
       ;; Delete all functions with the project prefix
       (mapatoms (lambda (symbol)
@@ -5822,17 +5883,11 @@ project prefix, and unintern all `ert' tests."
       ;; Delete all tests.
       (ert-delete-all-tests))
     ;; Reload the project namespace.
-    (dolist (file (directory-files default-directory nil el-file-regexp))
-      (unless (string-match-p test-file-regexp file)
-        (message "Loading file %s" file)
-        (load file nil nil nil t)))
+    (dolist (file el-files) (load file nil nil nil t))
     ;; Reload tests.
-    (dolist (file (directory-files default-directory nil test-file-regexp)))
+    (dolist (file test-files) (load file nil nil nil t))
     ;; Run tests.
-    (dolist (file (directory-files default-directory nil ert-test-file-regexp))
-      (load file nil nil nil t)
-      (ert-run-tests-interactively
-       (replace-regexp-in-string ert-test-file-regexp "" file nil nil 2)))))
+    (ert-run-tests-interactively prefix)))
 
 (define-minor-mode ert-run-on-save-mode
   "Minor mode to run `ert' tests on save."
@@ -6000,12 +6055,12 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :hook
   (clojure-mode-hook . subword-mode))
 
-(use-package sly
-  :custom
-  (inferior-lisp-program (executable-find "sbcl"))
-  :bind
-  (:map sly-prefix-map
-        ("M-h" . sly-documentation-lookup)))
+;; (use-package sly
+;;   :custom
+;;   (inferior-lisp-program (executable-find "sbcl"))
+;;   :bind
+;;   (:map sly-prefix-map
+;;         ("M-h" . sly-documentation-lookup)))
 
 (use-package scheme
     :ensure nil
@@ -6111,6 +6166,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
  ("C-x M-e" . pp-macroexpand-last-sexp)
  ("C-x r E" . expression-to-register)
  ("C-x r e" . eval-register)
+ ("M-s-t" . ert-run-test-at-point)
  ("C-s-t" . ert-reload-and-run-tests-in-project)
  :map lisp-interaction-mode-map
  ("s-<return>" . eval-last-sexp)
@@ -6502,6 +6558,11 @@ Open the `eww' buffer in another window."
   ("C-c ! !" . flycheck-mode)
   (:map flycheck-mode-map
         ("C-c ! ." . hydra-flycheck/body)))
+
+(use-package package-lint
+  :bind
+  (:map flycheck-mode-map
+        ("C-c ! C-l" . package-lint-current-buffer)))
 
 (use-package lsp-mode
   :custom
