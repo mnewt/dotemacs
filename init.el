@@ -43,18 +43,35 @@
 (add-to-list 'load-path elisp-directory)
 
 
+;;;;; straight
+
+(custom-set-variables
+ '(straight-repository-branch "develop")
+ '(straight-check-for-modifications '(check-on-save find-when-checking))
+ '(straight-use-package-by-default t)
+ '(straight-vc-git-default-clone-depth 1))
+
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
 ;;;;; use-package
 
-(eval-when-compile
-  (custom-set-variables
-   '(use-package-always-ensure t)
-   '(use-package-always-defer t)
-   '(use-package-enable-imenu-support t)
-   '(use-package-hook-name-suffix nil))
-  (unless (fboundp 'use-package)
-    (package-refresh-contents)
-    (package-install 'use-package))
-  (require 'use-package-ensure))
+(custom-set-variables
+ '(use-package-always-defer t)
+ '(use-package-enable-imenu-support t)
+ '(use-package-hook-name-suffix nil))
+
+(straight-use-package 'use-package)
 
 (when init-file-debug
   (setq use-package-verbose t
@@ -67,26 +84,25 @@
     ;; To disable collection of benchmark data after init is done.
     (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
 
-
 ;;;;; git-package
 
 ;; Use `git-package' to install all that declared using `use-package'.
-(custom-set-variables '(git-package-use-package-always-ensure nil))
+;; (custom-set-variables '(git-package-use-package-always-ensure nil))
 
-(let ((url "https://github.com/mnewt/git-package.git")
-      (dir (expand-file-name "git/git-package" user-emacs-directory)))
-  (unless (file-directory-p dir)
-    (make-directory dir t)
-    (shell-command (format "git clone '%s' '%s'" url dir)))
-  (add-to-list 'load-path dir)
-  (require 'git-package-use-package)
-  (require 'git-package-tasks)
-  (git-package url)
-  (git-package-setup-use-package))
+;; (let ((url "https://github.com/mnewt/git-package.git")
+;;       (dir (expand-file-name "git/git-package" user-emacs-directory)))
+;;   (unless (file-directory-p dir)
+;;     (make-directory dir t)
+;;     (shell-command (format "git clone '%s' '%s'" url dir)))
+;;   (add-to-list 'load-path dir)
+;;   (require 'git-package-use-package)
+;;   (require 'git-package-tasks)
+;;   (git-package url)
+;;   (git-package-setup-use-package))
 
 ;;;;; package management
 
-(defvar git-package-alist)
+;; (defvar git-package-alist)
 (defvar emacs-start-time)
 
 (defun emacs-startup-message ()
@@ -96,30 +112,15 @@
 
   ;; FIXME Until I can figure out what is adding (require . info) to
   ;; `load-history'.
-  (dolist (e load-history)
-    (unless (stringp (car e))
-      (setq load-history (delete e load-history))))
+  ;; (dolist (e load-history)
+  ;;   (unless (stringp (car e))
+  ;;     (setq load-history (delete e load-history))))
 
   (message "Emacs loaded %d packages in %.1f seconds."
-           (+ (length package-activated-list)
-              (length git-package-alist))
+           (length (hash-table-values straight--repo-cache))
            emacs-load-time))
 
 (add-hook 'emacs-startup-hook #'emacs-startup-message)
-
-(use-package paradox
-  :custom
-  (paradox-automatically-star t)
-  :commands
-  paradox-list-packages
-  paradox-upgrade-packages)
-
-;; TODO: Isn't this supposed to delete old packages? Doesn't seem to.
-(use-package auto-package-update
-  :custom
-  (auto-package-update-delete-old-versions t)
-  :commands
-  auto-package-update-now)
 
 (defmacro radian-protect-macros (&rest body)
   "Eval BODY, protecting macros from incorrect expansion.
@@ -221,7 +222,8 @@ level up to the top level form."
   "Run update scripts for the computer and Emacs."
   (interactive)
   (async-shell-command "update" "*update*")
-  (paradox-upgrade-packages)
+  (straight-normalize-all)
+  (straight-pull-all)
   (git-package-upgrade-all-packages))
 
 ;;;; Bindings
@@ -614,7 +616,7 @@ See `theme-attribute'."
            (not (eq window-system 'windows-nt)))
   :demand t
   :ensure nil
-  :git "https://github.com/dcolascione/emacs-window-highlight"
+  :straight (:repo "https://github.com/dcolascione/emacs-window-highlight")
   ;; :straight (:host github :repo "dcolascione/emacs-window-highlight")
   :config
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
@@ -1491,8 +1493,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   (defun outline-show-current-sublevel ())
   (radian-protect-macros
-    (defhydra hydra-outline (:color pink :hint nil)
-      "
+    (with-eval-after-load 'hydra
+      (defhydra hydra-outline (:color pink :hint nil)
+        "
 Outline
 
 ^Hide^             ^Show^           ^Move
@@ -1505,26 +1508,26 @@ _l_ leaves        _s_ subtree     _b_ backward same level
 _d_ subtree
 
 "
-      ;; Hide
-      ("q" outline-hide-sublevels) ; Hide everything but the top-level headings
-      ("t" outline-hide-body)      ; Hide everything but headings (all body lines)
-      ("o" outline-hide-other)     ; Hide other branches
-      ("c" outline-hide-entry)     ; Hide this entry's body
-      ("l" outline-hide-leaves)    ; Hide body lines in this entry and sub-entries
-      ("d" outline-hide-subtree)   ; Hide everything in this entry and sub-entries
-      ;; Show
-      ("a" outline-show-all)      ; Show (expand) everything
-      ("e" outline-show-entry)    ; Show this heading's body
-      ("i" outline-show-children) ; Show this heading's immediate child sub-headings
-      ("k" outline-show-branches) ; Show all sub-headings under this heading
-      ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
-      ;; Move
-      ("u" outline-up-heading)               ; Up
-      ("n" outline-next-visible-heading)     ; Next
-      ("p" outline-previous-visible-heading) ; Previous
-      ("f" outline-forward-same-level)       ; Forward - same level
-      ("b" outline-backward-same-level)      ; Backward - same level
-      ("q" nil "leave")))
+        ;; Hide
+        ("q" outline-hide-sublevels)  ; Hide everything but the top-level headings
+        ("t" outline-hide-body)    ; Hide everything but headings (all body lines)
+        ("o" outline-hide-other)   ; Hide other branches
+        ("c" outline-hide-entry)   ; Hide this entry's body
+        ("l" outline-hide-leaves)  ; Hide body lines in this entry and sub-entries
+        ("d" outline-hide-subtree) ; Hide everything in this entry and sub-entries
+        ;; Show
+        ("a" outline-show-all)            ; Show (expand) everything
+        ("e" outline-show-entry)          ; Show this heading's body
+        ("i" outline-show-children) ; Show this heading's immediate child sub-headings
+        ("k" outline-show-branches) ; Show all sub-headings under this heading
+        ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
+        ;; Move
+        ("u" outline-up-heading)               ; Up
+        ("n" outline-next-visible-heading)     ; Next
+        ("p" outline-previous-visible-heading) ; Previous
+        ("f" outline-forward-same-level)       ; Forward - same level
+        ("b" outline-backward-same-level)      ; Backward - same level
+        ("q" nil "leave"))))
 
   :hook
   (outline-minor-mode-hook . outshine-mode)
@@ -1547,7 +1550,6 @@ _d_ subtree
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
-    :ensure nil
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :commands
@@ -1728,7 +1730,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 
 ;; (use-package matcha
 ;;   ;;   :ensure nil
-;;   :git "https://github.com/jojojames/matcha"
+;;   :straight (:repo "https://github.com/jojojames/matcha")
 ;;   :custom
 ;;   (matcha-mode-list
 ;;    '(cider dired js json-mode lua-mode org
@@ -2027,7 +2029,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
-  ;; :git swiper
+  ;; :straight swiper
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -2110,7 +2112,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
-  ;; :git swiper
+  ;; :straight swiper
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -2259,11 +2261,12 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
-    :ensure nil
-  :git "https://github.com/tautologyclub/counsel-term.git"
+  :ensure nil
+  :straight (:repo "https://github.com/tautologyclub/counsel-term.git")
   ;; :straight (:type git :repo "https://github.com/tautologyclub/counsel-term.git")
   :config
   (with-eval-after-load 'vterm
+    (defvar vterm-mode-map)
     (bind-keys :map vterm-mode-map
                ("M-r" . counsel-term-history)
                ("M-^" . term-downdir)
@@ -2466,12 +2469,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 ;;;; File Management
 
 (use-package files
-    :ensure nil
+  :straight (:type built-in)
   :custom
   (remote-file-name-inhibit-cache nil))
 
 (use-package epg
-    :ensure nil
   :custom
   (epg-pinentry-mode 'loopback))
 
@@ -2531,7 +2533,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :git "https://github.com/mnewt/x509-mode"
+  :straight (:repo "https://github.com/mnewt/x509-mode")
   :defer t)
 
 ;;;;; psync (https://github.com/mnewt/psync)
@@ -2571,7 +2573,6 @@ See: https://github.com/mnewt/psync"
 ;;;; OS program interaction
 
 (use-package server
-    :ensure nil
   :config
   (unless (server-running-p)
     (server-start)))
@@ -2625,7 +2626,7 @@ With a prefix ARG always prompt for command to use."
 ;;;; Dired
 
 (use-package dired
-  :ensure nil
+  :straight (:type built-in)
   :custom
   (dired-recursive-deletes 'always)
   (dired-recursive-copies 'always)
@@ -2664,8 +2665,9 @@ With a prefix ARG always prompt for command to use."
       (os-open-file file)))
 
   (radian-protect-macros
-    (defhydra hydra-dired (:hint nil :color pink)
-      "
+    (with-eval-after-load 'hydra
+      (defhydra hydra-dired (:hint nil :color pink)
+        "
   _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
   _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
   _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
@@ -2676,39 +2678,39 @@ With a prefix ARG always prompt for command to use."
 
   C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
   "
-      ("(" dired-hide-details-mode)
-      (")" dired-omit-mode)
-      ("+" dired-create-directory)
-      ("?" dired-summary)
-      ("A" dired-do-find-regexp)
-      ("C" dired-do-copy) ;; Copy all marked files
-      ("D" dired-do-delete)
-      ("E" dired-mark-extension)
-      ("e" dired-ediff-files)
-      ("F" dired-do-find-marked-files)
-      ("G" dired-do-chgrp)
-      ("g" revert-buffer) ;; read all directories again (refresh)
-      ("i" dired-maybe-insert-subdir)
-      ("l" dired-do-redisplay) ;; relist the marked or single directory
-      ("M" dired-do-chmod)
-      ("m" dired-mark)
-      ("O" dired-display-file)
-      ("o" dired-find-file-other-window)
-      ("Q" dired-do-find-regexp-and-replace)
-      ("R" dired-do-rename)
-      ("r" dired-rsync)
-      ("S" dired-do-symlink)
-      ("s" dired-sort-toggle-or-edit)
-      ("t" dired-toggle-marks)
-      ("U" dired-unmark-all-marks)
-      ("u" dired-unmark)
-      ("v" dired-view-file) ;; q to exit, s to search, = gets line #
-      ("w" dired-kill-subdir)
-      ("W" wdired-change-to-wdired-mode)
-      ("Y" dired-do-relsymlink)
-      ("z" dired-do-compress)
-      ("q" nil)
-      ("." nil :color blue)))
+        ("(" dired-hide-details-mode)
+        (")" dired-omit-mode)
+        ("+" dired-create-directory)
+        ("?" dired-summary)
+        ("A" dired-do-find-regexp)
+        ("C" dired-do-copy) ;; Copy all marked files
+        ("D" dired-do-delete)
+        ("E" dired-mark-extension)
+        ("e" dired-ediff-files)
+        ("F" dired-do-find-marked-files)
+        ("G" dired-do-chgrp)
+        ("g" revert-buffer) ;; read all directories again (refresh)
+        ("i" dired-maybe-insert-subdir)
+        ("l" dired-do-redisplay) ;; relist the marked or single directory
+        ("M" dired-do-chmod)
+        ("m" dired-mark)
+        ("O" dired-display-file)
+        ("o" dired-find-file-other-window)
+        ("Q" dired-do-find-regexp-and-replace)
+        ("R" dired-do-rename)
+        ("r" dired-rsync)
+        ("S" dired-do-symlink)
+        ("s" dired-sort-toggle-or-edit)
+        ("t" dired-toggle-marks)
+        ("U" dired-unmark-all-marks)
+        ("u" dired-unmark)
+        ("v" dired-view-file) ;; q to exit, s to search, = gets line #
+        ("w" dired-kill-subdir)
+        ("W" wdired-change-to-wdired-mode)
+        ("Y" dired-do-relsymlink)
+        ("z" dired-do-compress)
+        ("q" nil)
+        ("." nil :color blue))))
 
   :hook
   (dired-mode-hook . dired-hide-details-mode)
@@ -2722,7 +2724,7 @@ With a prefix ARG always prompt for command to use."
         (";" . dired-git-add)))
 
 (use-package dired-x
-  :ensure nil
+  :straight (:type built-in)
   :custom
   (dired-clean-confirm-killing-deleted-buffers nil)
   :bind
@@ -2741,7 +2743,6 @@ With a prefix ARG always prompt for command to use."
         ("C-)" . disk-usage)))
 
 (use-package wdired
-  :ensure nil
   :custom
   (wdired-allow-to-change-permissions t)
   (wdired-create-parent-directories t)
@@ -2760,56 +2761,56 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
     (dired-rainbow-define html "#eb5286"
                           ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
-                          "eml" "mustache" "xhtml"))
+                           "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024"
                           ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
-                          "pgn" "rss" "yaml" "yml" "rdata"))
+                           "pgn" "rss" "yaml" "yml" "rdata"))
     (dired-rainbow-define document "#9561e2"
                           ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
-                          "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
-                          "vsd" "vsdx" "plantuml"))
+                           "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
+                           "vsd" "vsdx" "plantuml"))
     (dired-rainbow-define markdown "#4dc0b5"
                           ("org" "org_archive" "etx" "info" "markdown" "md"
-                          "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
+                           "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd"
                           ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f"
                           ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
-                          "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+                           "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
     (dired-rainbow-define image "#f66d9b"
                           ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
-                          "psd" "eps" "svg"))
+                           "psd" "eps" "svg"))
     (dired-rainbow-define log "#c17d11"
                           ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
-                          "log.7" "log.8" "log.9"))
+                           "log.7" "log.8" "log.9"))
     (dired-rainbow-define shell "#f6993f"
                           ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
     (dired-rainbow-define interpreted "#38c172"
                           ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
-                          "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                          "scala" "js" "jsx"))
+                           "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
+                           "scala" "js" "jsx"))
     (dired-rainbow-define compiled "#6cb2eb"
                           ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
-                          "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
-                          "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs"
-                          "pyc" "java"))
+                           "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
+                           "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs"
+                           "pyc" "java"))
     (dired-rainbow-define executable "#8cc4ff"
                           ("com" "exe" "msi"))
     (dired-rainbow-define compressed "#51d88a"
                           ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
-                          "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
+                           "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
     (dired-rainbow-define packaged "#faad63"
                           ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
-                          "vpk" "bsp"))
+                           "vpk" "bsp"))
     (dired-rainbow-define encrypted "#f2d024"
                           ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
-                          "pem"))
+                           "pem"))
     (dired-rainbow-define fonts "#f6993f"
                           ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
-                          "woff2" "eot"))
+                           "woff2" "eot"))
     (dired-rainbow-define partition "#e3342f"
                           ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
-                          "bak"))
+                           "bak"))
     (dired-rainbow-define vc "#6cb2eb"
                           ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
@@ -2825,7 +2826,7 @@ With a prefix ARG always prompt for command to use."
   (dired-mode-hook . dired-rainbow-setup))
 
 (use-package dired-rainbow-listing
-    :ensure nil
+  :straight (:type built-in)
   :hook
   (dired-mode-hook . dired-rainbow-listing-mode))
 
@@ -2841,8 +2842,7 @@ With a prefix ARG always prompt for command to use."
         ("/" . dired-narrow)))
 
 ;; (use-package dired-list
-;;   ;;   :ensure nil
-;;   :git (:url "https://github.com/Fuco1/dired-hacks"
+;;   :straight (:url "https://github.com/Fuco1/dired-hacks"
 ;;              :files "dired-list.el")
 ;;   :commands
 ;;   dired-list
@@ -2970,7 +2970,6 @@ With a prefix ARG always prompt for command to use."
         ("o" . push-button-other-window)))
 
 (use-package eldoc
-  :ensure nil
   :defer 20
   :config
   (eldoc-add-command #'keyboard-quit)
@@ -3044,7 +3043,6 @@ Include PREFIX in prompt if given."
   ("M-s-h" . which-key-show-top-level))
 
 (use-package man
-    :ensure nil
   :custom
   ;; Make the manpage the current buffer in the other window
   (Man-notify-method 'aggressive)
@@ -3057,7 +3055,6 @@ Include PREFIX in prompt if given."
   ("C-h M-m" . man))
 
 (use-package woman
-    :ensure nil
   :bind
   ("C-h C-m" . woman))
 
@@ -3079,7 +3076,7 @@ Include PREFIX in prompt if given."
        man-page-path))))
 
 (use-package eg
-  :git "https://github.com/mnewt/eg.el"
+  :straight (:repo "https://github.com/mnewt/eg.el")
   ;; :straight (:type git :repo "https://github.com/mnewt/eg.el")
   ;;  :ensure-system-package
   ;;  (eg . "pip install eg")
@@ -3134,8 +3131,7 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 ;; (use-package devdocs-lookup
-;;   ;;   :ensure nil
-;;   :git "https://github.com/skeeto/devdocs-lookup"
+;;   :straight (:repo "https://github.com/skeeto/devdocs-lookup")
 ;;   :commands
 ;;   devdocs-setup
 ;;   :config
@@ -3365,8 +3361,7 @@ Include PREFIX in prompt if given."
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :ensure nil
-  :git "https://github.com/mnewt/counsel-web"
+  :straight (:repo "https://github.com/mnewt/counsel-web")
   :bind
   (:map m-search-map
         ("w" . counsel-web-suggest)
@@ -3405,7 +3400,6 @@ Include PREFIX in prompt if given."
 ;;;; Org
 
 (use-package org
-  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :custom
   (org-directory "~/org")
@@ -3543,6 +3537,7 @@ With a prefix ARG, create it in `org-directory'."
     "Face for Org emphasis markers"
     :group 'org-faces)
 
+  (defvar org-element-paragraph-separate)
   ;; This is a re-definition of a built in function.
   ;; TODO Follow up with Org mailing list on this approach.
   (defun org-do-emphasis-faces-improved (limit)
@@ -3625,6 +3620,8 @@ With a prefix ARG, create it in `org-directory'."
     :commands
     org-preview-html-mode)
 
+  (defvar org-odt-convert-processes)
+  
   (defun setup-odt-org-convert-process ()
     (interactive)
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
@@ -3687,7 +3684,6 @@ With a prefix ARG, create it in `org-directory'."
 ;;;; Calendar and Journal
 
 (use-package calendar
-    :ensure nil
   :commands
   calendar-current-date
   :config
@@ -3754,7 +3750,6 @@ With a prefix ARG, create it in `org-directory'."
 ;; Math utilities.
 
 (use-package calc
-  :ensure nil
   :config
   (defvar math-additional-units)
   (setq math-additional-units
@@ -3783,7 +3778,6 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Automate communication with services, such as nicserv.
 (use-package erc
-  :ensure nil
   :hook
   (erc-connect-pre-hook . erc-services-mode))
 
@@ -3894,13 +3888,13 @@ The config is specified in the config file in `~/.mnt/'."
       (error "Failed to add file %s to the git repo %s at %s"
              (buffer-file-name) name dir))))
 
-(defun dired-git-add ()
-  "Run `git add' on the selected files in a dired buffer."
-  (interactive)
-  (let ((files (dired-get-marked-files)))
-    (message "> git add %s" files)
-    (dired-do-shell-command "git add" nil files)
-    (dired-revert)))
+;; (defun dired-git-add ()
+;;   "Run `git add' on the selected files in a dired buffer."
+;;   (interactive)
+;;   (let ((files (dired-get-marked-files)))
+;;     (message "> git add %s" files)
+;;     (dired-do-shell-command "git add" nil files)
+;;     (dired-revert)))
 
 (defvar git-home-repo-dir
   (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
@@ -3949,7 +3943,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
     (message "Unlinked repo at %s" f)))
 
 (use-package vc
-  :ensure nil
   :custom
   ;; VC follows the link and visits the real file, telling you about it in the
   ;; echo area.
@@ -4015,7 +4008,6 @@ Stolen from https://gitlab.com/jessieh/mood-one-theme.")
   (dired-mode-hook . diff-hl-dired-mode))
 
 (use-package smerge-mode
-    :ensure nil
   :config
   (radian-protect-macros
     (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
@@ -4106,7 +4098,6 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
 (use-package so-long
   :if (>= emacs-major-version 27)
-    :ensure nil
   :hook
   (ivy-mode-hook . global-so-long-mode))
 
@@ -4139,13 +4130,13 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   ("C-s-z" . undo-tree-visualize))
 
 ;; (use-package undo-redo
-;;   :git "https://github.com/clemera-dev/undo-redo"
+;;   :straight (:repo "https://github.com/clemera-dev/undo-redo")
 ;;   :bind
 ;;   ("s-z" . undo-modern)
 ;;   ("s-Z" . redo))
 
 ;; (use-package undo-fu
-;;   :git "https://gitlab.com/ideasman42/emacs-undo-fu.git"
+;;   :straight (:repo "https://gitlab.com/ideasman42/emacs-undo-fu.git")
 ;;   :custom
 ;;   (undo-fu-allow-undo-in-region t)
 ;;   :bind
@@ -4154,8 +4145,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
 
 ;; (use-package undohist
 ;;   :demand t
-;;   ;;   :ensure nil
-;;   :git "https://github.com/clemera-dev/undohist"
+;;   :straight (:repo "https://github.com/clemera-dev/undohist")
 ;;   :custom
 ;;   (undohist-ignored-files '("COMMIT_EDITMSG"
 ;;                             "\\.gpg\\'"
@@ -4739,7 +4729,7 @@ If no region is selected, toggles comments for the line."
 ;; Shell, Term, Tramp, Scripting, and related things.
 
 (use-package comint
-    :ensure nil
+  :straight (:type built-in)
   :custom
   (comint-buffer-maximum-size 20000)
   (comint-prompt-read-only t))
@@ -4846,7 +4836,6 @@ If no region is selected, toggles comments for the line."
      (find-file (concat "/ssh:" host ":")))))
 
 (use-package shell
-    :ensure nil
   :config
   ;; http://whattheemacsd.com/setup-shell.el-01.html
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -4999,7 +4988,6 @@ predicate returns true."
 ;;   (advice-add c :around #'maybe-with-sudo))
 
 (use-package term
-    :ensure nil
   :bind
   (:map term-mode-map
         ("M-p" . term-send-up)
@@ -5099,8 +5087,7 @@ predicate returns true."
   (shell-mode-hook . xterm-color-shell-setup))
 
 (use-package piper
-  :ensure nil
-  :git "https://gitlab.com/howardabrams/emacs-piper"
+  :straight (:repo "https://gitlab.com/howardabrams/emacs-piper")
   :init
   ;; Define "C-c |" as a prefix key.
   (bind-key "C-c |" nil)
@@ -5144,7 +5131,6 @@ See https://github.com/mnewt/fpw."
 ;;;; Eshell
 
 (use-package eshell
-  :ensure nil
   :custom
   (eshell-banner-message "")
   (eshell-buffer-shorthand t)
@@ -5845,7 +5831,7 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
           (file-name-nondirectory (file-name-sans-extension buffer-file-name)))))
   (mapatoms (lambda (symbol)
               (if (string-prefix-p prefix (symbol-name symbol))
-                  (unintern symbol)))))
+                  (unintern symbol nil)))))
 
 (defun elisp-test-file-p (file)
   "Check whether the file name is an Elisp test file."
@@ -5871,8 +5857,8 @@ project prefix, and unintern all `ert' tests."
   (require 'projectile)
   (let* ((default-directory (projectile-project-root))
          (all-el-files (split-string (shell-command-to-string "find . -name '*.el'")))
-         (el-files (remove-if #'elisp-test-file-p all-el-files))
-         (test-files (remove-if-not #'elisp-test-file-p all-el-files))
+         (el-files (cl-remove-if #'elisp-test-file-p all-el-files))
+         (test-files (cl-remove-if-not #'elisp-test-file-p all-el-files))
          (prefix (file-name-nondirectory (directory-file-name default-directory))))
     (when reset
       ;; Delete all functions with the project prefix
@@ -5982,6 +5968,7 @@ of problems in that context."
       (async-shell-command "lumo -d -n 2000")
       (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
 
+    (defvar inf-clojure-minor-mode-map)
     (bind-keys :map inf-clojure-minor-mode-map
                ("s-<return>" . inf-clojure-eval-last-sexp)
                ("C-c C-k" . inf-clojure-eval-buffer)))
@@ -5994,7 +5981,7 @@ of problems in that context."
     (cider-edit-jack-in-command t)
 
     :config
-    (defun cider-find-var-other-window (&optional arg var line)
+    (defun cider-find-var-other-window (&optional arg _var _line)
       "Find the var in the other window."
       (interactive "P")
       (funcall (cider-prompt-for-symbol-function arg)
@@ -6063,7 +6050,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 ;;         ("M-h" . sly-documentation-lookup)))
 
 (use-package scheme
-    :ensure nil
   :mode ("\\.scheme\\'" . scheme-mode)
   :commands
   scheme-syntax-propertize-sexp-comment
@@ -6253,7 +6239,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   (imagemagick-register-types))
 
 (use-package eww
-    :ensure nil
   :config
   (use-package shr-tag-pre-highlight
     :after shr
@@ -6342,7 +6327,6 @@ Open the `eww' buffer in another window."
   (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
-    :ensure nil
   :mode "\\.css\\'"
   :custom
   (css-indent-offset tab-width))
@@ -6380,7 +6364,6 @@ Open the `eww' buffer in another window."
     web-mode-hook) . add-node-modules-path))
 
 (use-package js
-    :ensure nil
   :mode ("\\.jsx?\\'" . js-mode)
   :custom
   (js-indent-level tab-width))
@@ -6768,7 +6751,6 @@ Open the `eww' buffer in another window."
   ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
-    :ensure nil
   :mode ("\\.sh\\'" . sh-mode)
   :interpreter
   ("\\(?:\\(?:ba\\|[az]\\)?sh\\)" . sh-mode)
@@ -6835,7 +6817,6 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
 
 (use-package perl-mode
-    :ensure nil
   :mode "\\.pl\\'"
   :custom
   (perl-indent-level tab-width))
@@ -6854,7 +6835,6 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 
 ;; DNS
 (use-package dns-mode
-    :ensure nil
   :mode "\\.rpz\\'"
   :config
   (defun dns-insert-timestamp ()
@@ -6934,12 +6914,10 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :mode "\\.php\\'")
 
 (use-package IOS-config-mode
-  :ensure nil
-  :git "https://github.com/nibrahim/IOS-config-mode"
+  :straight (:repo "https://github.com/nibrahim/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
-  :ensure nil
   :custom
   (c-basic-offset tab-width)
   (c-default-style "ellemtel")
@@ -7066,8 +7044,7 @@ configuration when invoked to evaluate a line."
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :ensure nil
-  :git "https://github.com/aaronbieber/fence-edit.el"
+  :straight (:repo "https://github.com/aaronbieber/fence-edit.el")
   ;; :straight (:host github :repo "aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks

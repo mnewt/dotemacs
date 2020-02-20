@@ -18,15 +18,8 @@
 (setq gc-cons-threshold 1073741824
       gc-cons-percentage 1.0)
 
-;; Package initialize occurs automatically, before `user-init-file' is loaded,
-;; but after `early-init-file'.
-(setq ;package-quickstart t
-      package-archives '(("melpa" . "https://melpa.org/packages/")
-                         ("elpa" . "https://elpa.gnu.org/packages/"))
-      ;; Higher number = higher priority.
-      package-archive-priorities '(("melpa" . 2)
-                                   ("elpa" . 1))
-      custom-file "~/.emacs.d/custom.el")
+;; Write any customizations to a temp file so they are discarded.
+(setq custom-file (make-temp-file "custom-" nil ".el"))
 
 ;; Faster to disable these here (before they've been initialized)
 ;; 
@@ -36,10 +29,10 @@
   (push '(menu-bar-lines . 0) default-frame-alist))
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
-(tool-bar-mode   -1)
-(menu-bar-mode   -1)
-(scroll-bar-mode -1)
-(tooltip-mode    -1)
+;; (tool-bar-mode   -1)
+;; (menu-bar-mode   -1)
+;; (scroll-bar-mode -1)
+;; (tooltip-mode    -1)
 
 ;; Give the frame basic coloring while waiting for the theme to load. The main
 ;; purpose of this is to not blind me when it's dark. These colors are from
