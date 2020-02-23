@@ -73,6 +73,8 @@
 
 (straight-use-package 'use-package)
 
+(eval-when-compile (require 'use-package))
+
 (when init-file-debug
   (setq use-package-verbose t
         use-package-expand-minimally nil
@@ -201,12 +203,6 @@ level up to the top level form."
    ;; Pass right option through to OS.
    (setq ns-right-alternate-modifier 'none
          ns-function-modifier 'hyper
-         ;; ns-alternate-modifier 'meta
-         ;; ns-command-modifier 'super
-         ;; ns-right-command-modifier 'left
-         ;; ns-control-modifier 'control
-         ;; ns-right-control-modifier 'left
-         ;; Open files from Finder in the same frame.
          ns-pop-up-frames nil))
   (windows-nt
    (defvar w32-pass-lwindow-to-system)
@@ -221,10 +217,10 @@ level up to the top level form."
 (defun update ()
   "Run update scripts for the computer and Emacs."
   (interactive)
+  (require 'straight-x)
   (async-shell-command "update" "*update*")
-  (straight-normalize-all)
-  (straight-pull-all)
-  (git-package-upgrade-all-packages))
+  (other-window)
+  (straight-x-fetch-all))
 
 ;;;; Bindings
 
@@ -1947,8 +1943,9 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("s-R" . imenu))
 
 (use-package imenu-anywhere
-  :custom
-  (imenu-anywhere-buffer-filter-functions '(imenu-anywhere-same-project-p))
+  ;; FIXME With this setting, often it returns no results at all.
+  ;; :custom
+  ;; (imenu-anywhere-buffer-filter-functions '(imenu-anywhere-same-project-p))
   :bind
   ("s-r" . ivy-imenu-anywhere))
 
@@ -2060,12 +2057,17 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
 
   (ivy-mode)
 
+  (defun ivy-end-of-line-or-partial ()
+    "If `eolp' then done, else move to eol."
+    (interactive)
+    (if (eolp) (ivy-partial) (end-of-line)))
+
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
         :map ivy-minibuffer-map
-        ("C-e" . ivy-partial-or-done)
-        ("M-/" . ivy-done)
+        ("C-e" . ivy-end-of-line-or-partial)
+        ("M-/" . ivy-partial-or-done)
         ("M-J" . ivy-yank-complete-symbol-at-point)))
 
 ;; (use-package ivy-posframe
@@ -2420,10 +2422,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
 
-;; (use-package company-posframe
-;;   :hook
-;;   (company-mode-hook . company-posframe-mode))
-
 (use-package prescient
   :hook
   (ivy-mode-hook . prescient-persist-mode))
@@ -2457,6 +2455,11 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-j" . dumb-jump-go-prompt)
         ("s-." . dumb-jump-go)
         ("s-J" . dumb-jump-quick-look)))
+
+(use-package smart-jump
+  :defer 13
+  :config
+  (smart-jump-setup-default-registers))
 
 (use-package spotlight
   :bind
