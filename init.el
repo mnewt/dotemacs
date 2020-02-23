@@ -5302,6 +5302,21 @@ because I dynamically rename the buffer according to
         (goto-char (point-max))
         (switch-to-buffer-other-window buf))))
 
+  (defface eshell-prompt-sigil '((default :weight bold)
+                                 (((background  dark)) :foreground "white")
+                                 (((background light)) :foreground "black"))
+    "Face for the prompt sigil."
+    :group 'eshell)
+
+  (defface eshell-prompt-error
+    '((t :background "red" :foreground "white" :weight bold))
+    "Face for prompt errors."
+    :group 'eshell)
+
+  (defface eshell-prompt-directory '((t :background "cyan" :foreground "black"))
+    "Face for the directory in the prompt."
+    :group 'eshell)
+
   (defun m-eshell-prompt-function ()
     "Produce a highlighted prompt for Eshell."
     (mapconcat
@@ -5313,15 +5328,11 @@ because I dynamically rename the buffer according to
                      'front-sticky '(font-lock-face read-only)
                      'rear-nonsticky '(font-lock-face read-only))))
      `(,(unless (eshell-exit-success-p)
-         `(,(number-to-string eshell-last-command-status)
-           :background "red" :foreground "white" :weight bold))
-       (,(abbreviate-file-name (eshell/pwd)) :background "cyan" :foreground "black")
+         `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
+       (,(abbreviate-file-name (eshell/pwd)) eshell-prompt-directory)
        (,(if (or (zerop (user-uid)) (string-match-p "sudo:" default-directory))
              "\n##" "\n()")
-        :foreground ,(if (equal 'light (frame-parameter nil 'background-mode))
-                         "black"
-                       "white")
-        :weight bold))
+        eshell-prompt-sigil))
      ""))
 
   (defun tramp-colon-prefix-expand (path)
