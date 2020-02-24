@@ -181,9 +181,9 @@ level up to the top level form."
 
 (use-package async
   :commands
-  async-let
-  :hook
-  (dired-mode-hook . dired-async-mode))
+  async-let)
+  ;; :hook
+  ;; (dired-mode-hook . dired-async-mode))
 
 
 ;;;; Operating System
@@ -611,9 +611,7 @@ See `theme-attribute'."
            (>= emacs-major-version 27)
            (not (eq window-system 'windows-nt)))
   :demand t
-  :ensure nil
-  :straight (:repo "https://github.com/dcolascione/emacs-window-highlight")
-  ;; :straight (:host github :repo "dcolascione/emacs-window-highlight")
+  :straight (:repo "dcolascione/emacs-window-highlight")
   :config
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
@@ -1725,7 +1723,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
 ;; (use-package matcha
-;;   ;;   :ensure nil
+;;   :defer 22
 ;;   :straight (:repo "https://github.com/jojojames/matcha")
 ;;   :custom
 ;;   (matcha-mode-list
@@ -1736,17 +1734,10 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 ;;   (matcha-setup))
 
 (use-package ibuffer
-    :ensure nil
+  :ensure nil
   :bind
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
-
-;; TODO Seems interesting but caused all sorts of weird problems. Maybe check it
-;; out in another few months.
-;; (use-package buffer-expose
-;;   :bind
-;;   ("C-tab" . buffer-expose-no-stars)
-;;   ("C-c <C-tab>" buffer-expose-current-mode))
 
 (defvar hide-mode-line nil
   "Save old `mode-line-format'.")
@@ -2026,7 +2017,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-mode-hook . wgrep-ag-setup))
 
 (use-package ivy
-  ;; :straight swiper
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -2114,7 +2104,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
-  ;; :straight swiper
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -2264,8 +2253,7 @@ force `counsel-rg' to search in `default-directory.'"
 
 (use-package counsel-term
   :ensure nil
-  :straight (:repo "https://github.com/tautologyclub/counsel-term.git")
-  ;; :straight (:type git :repo "https://github.com/tautologyclub/counsel-term.git")
+  :straight (:repo "tautologyclub/counsel-term.git")
   :config
   (with-eval-after-load 'vterm
     (defvar vterm-mode-map)
@@ -2536,8 +2524,9 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (:repo "https://github.com/mnewt/x509-mode")
-  :defer t)
+  :straight (:repo "mnewt/x509-mode")
+  :commands
+  x509-viewcert)
 
 ;;;;; psync (https://github.com/mnewt/psync)
 
@@ -3079,8 +3068,7 @@ Include PREFIX in prompt if given."
        man-page-path))))
 
 (use-package eg
-  :straight (:repo "https://github.com/mnewt/eg.el")
-  ;; :straight (:type git :repo "https://github.com/mnewt/eg.el")
+  :straight (:repo "mnewt/eg.el")
   ;;  :ensure-system-package
   ;;  (eg . "pip install eg")
   :bind
@@ -3134,7 +3122,7 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 ;; (use-package devdocs-lookup
-;;   :straight (:repo "https://github.com/skeeto/devdocs-lookup")
+;;   :straight (:repo "skeeto/devdocs-lookup")
 ;;   :commands
 ;;   devdocs-setup
 ;;   :config
@@ -3364,7 +3352,7 @@ Include PREFIX in prompt if given."
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :straight (:repo "https://github.com/mnewt/counsel-web")
+  :straight (:repo "mnewt/counsel-web")
   :bind
   (:map m-search-map
         ("w" . counsel-web-suggest)
@@ -4133,7 +4121,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   ("C-s-z" . undo-tree-visualize))
 
 ;; (use-package undo-redo
-;;   :straight (:repo "https://github.com/clemera-dev/undo-redo")
+;;   :straight (:repo "clemera-dev/undo-redo")
 ;;   :bind
 ;;   ("s-z" . undo-modern)
 ;;   ("s-Z" . redo))
@@ -4148,7 +4136,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
 
 ;; (use-package undohist
 ;;   :demand t
-;;   :straight (:repo "https://github.com/clemera-dev/undohist")
+;;   :straight (:repo "clemera-dev/undohist")
 ;;   :custom
 ;;   (undohist-ignored-files '("COMMIT_EDITMSG"
 ;;                             "\\.gpg\\'"
@@ -6928,7 +6916,7 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :mode "\\.php\\'")
 
 (use-package IOS-config-mode
-  :straight (:repo "https://github.com/nibrahim/IOS-config-mode")
+  :straight (:repo "nibrahim/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
@@ -7058,8 +7046,7 @@ configuration when invoked to evaluate a line."
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :straight (:repo "https://github.com/aaronbieber/fence-edit.el")
-  ;; :straight (:host github :repo "aaronbieber/fence-edit.el")
+  :straight (:repo "aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks
         (append '(("---" "---" yaml)
