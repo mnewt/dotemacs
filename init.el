@@ -611,7 +611,7 @@ See `theme-attribute'."
            (>= emacs-major-version 27)
            (not (eq window-system 'windows-nt)))
   :demand t
-  :straight (:repo "dcolascione/emacs-window-highlight")
+  :straight (:repo "https://github.com/dcolascione/emacs-window-highlight")
   :config
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
@@ -2253,7 +2253,7 @@ force `counsel-rg' to search in `default-directory.'"
 
 (use-package counsel-term
   :ensure nil
-  :straight (:repo "tautologyclub/counsel-term.git")
+  :straight (:repo "https://github.com/tautologyclub/counsel-term.git")
   :config
   (with-eval-after-load 'vterm
     (defvar vterm-mode-map)
@@ -2524,7 +2524,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (:repo "mnewt/x509-mode")
+  :straight (:repo "https://github.com/mnewt/x509-mode")
   :commands
   x509-viewcert)
 
@@ -3068,7 +3068,7 @@ Include PREFIX in prompt if given."
        man-page-path))))
 
 (use-package eg
-  :straight (:repo "mnewt/eg.el")
+  :straight (eg :fetcher github :repo "mnewt/eg.el")
   ;;  :ensure-system-package
   ;;  (eg . "pip install eg")
   :bind
@@ -3122,7 +3122,7 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 ;; (use-package devdocs-lookup
-;;   :straight (:repo "skeeto/devdocs-lookup")
+;;   :straight (:repo "https://github.com/skeeto/devdocs-lookup")
 ;;   :commands
 ;;   devdocs-setup
 ;;   :config
@@ -3352,7 +3352,7 @@ Include PREFIX in prompt if given."
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :straight (:repo "mnewt/counsel-web")
+  :straight (:repo "https://github.com/mnewt/counsel-web")
   :bind
   (:map m-search-map
         ("w" . counsel-web-suggest)
@@ -4121,7 +4121,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   ("C-s-z" . undo-tree-visualize))
 
 ;; (use-package undo-redo
-;;   :straight (:repo "clemera-dev/undo-redo")
+;;   :straight (:repo "https://github.com/clemera-dev/undo-redo")
 ;;   :bind
 ;;   ("s-z" . undo-modern)
 ;;   ("s-Z" . redo))
@@ -4136,7 +4136,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
 
 ;; (use-package undohist
 ;;   :demand t
-;;   :straight (:repo "clemera-dev/undohist")
+;;   :straight (:repo "https://github.com/clemera-dev/undohist")
 ;;   :custom
 ;;   (undohist-ignored-files '("COMMIT_EDITMSG"
 ;;                             "\\.gpg\\'"
@@ -6916,7 +6916,7 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :mode "\\.php\\'")
 
 (use-package IOS-config-mode
-  :straight (:repo "nibrahim/IOS-config-mode")
+  :straight (:repo "https://github.com/nibrahim/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
@@ -7046,7 +7046,7 @@ configuration when invoked to evaluate a line."
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :straight (:repo "aaronbieber/fence-edit.el")
+  :straight (:repo "https://github.com/aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks
         (append '(("---" "---" yaml)
