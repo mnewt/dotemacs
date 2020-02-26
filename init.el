@@ -173,15 +173,16 @@ level up to the top level form."
 
 ;; Common libraries and associated functions.
 
-(use-package dash :demand t)
+(use-package dash)
 
-(use-package s :demand t)
+(use-package s)
 
-(use-package f :demand t)
+(use-package f)
 
 (use-package async
-  :commands
+  :functions
   async-let)
+  ;; FIXME Still has too many failures and timeouts.
   ;; :hook
   ;; (dired-mode-hook . dired-async-mode))
 
@@ -220,7 +221,8 @@ level up to the top level form."
   (require 'straight-x)
   (async-shell-command "update" "*update*")
   (other-window)
-  (straight-x-fetch-all))
+  (straight-x-fetch-all)
+  (straight-x-pull-all))
 
 ;;;; Bindings
 
