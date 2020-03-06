@@ -11,8 +11,9 @@
 
 ;; Things that run at the very beginning of Emacs startup
 
-(when (eval-when-compile (version< emacs-version "27"))
-  (load "~/.emacs.d/early-init.el"))
+(eval-when-compile
+  (when (version< emacs-version "27")
+    (load "~/.emacs.d/early-init.el")))
 
 ;;;;; Security
 
@@ -104,20 +105,13 @@
 
 ;;;;; package management
 
-;; (defvar git-package-alist)
 (defvar emacs-start-time)
+(defvar straight--repo-cache)
 
 (defun emacs-startup-message ()
   "Display a message after Emacs startup."
   (defconst emacs-load-time
     (float-time (time-subtract (current-time) emacs-start-time)))
-
-  ;; FIXME Until I can figure out what is adding (require . info) to
-  ;; `load-history'.
-  ;; (dolist (e load-history)
-  ;;   (unless (stringp (car e))
-  ;;     (setq load-history (delete e load-history))))
-
   (message "Emacs loaded %d packages in %.1f seconds."
            (length (hash-table-values straight--repo-cache))
            emacs-load-time))
@@ -129,19 +123,26 @@
 This macro should be used in the following situation: Some form
 is being evaluated, and this form contains as a sub-form some
 code that will not be evaluated immediately, but will be
-evaluated later. The code uses a macro that is not defined at the
-time the top level form is evaluated, but will be defined by time
-the sub-form's code is evaluated. This macro handles its
-arguments in some way other than evaluating them directly. And
+evaluated later.  The code uses a macro that is not defined at
+the time the top level form is evaluated, but will be defined by
+time the sub-form's code is evaluated.  This macro handles its
+arguments in some way other than evaluating them directly.  And
 finally, one of the arguments of this macro could be interpreted
 itself as a macro invocation, and expanding the invocation would
-break the evaluation of the outer macro. You might think this
+break the evaluation of the outer macro.  You might think this
 situation is such an edge case that it would never happen, but
-you'd be wrong, unfortunately. In such a situation, you must wrap
-at least the outer macro in this form, but can wrap at any higher
-level up to the top level form."
+you'd be wrong, unfortunately.  In such a situation, you must
+wrap at least the outer macro in this form, but can wrap at any
+higher level up to the top level form."
   (declare (indent 0))
   `(eval '(progn ,@body)))
+
+(defun update ()
+  "Run update scripts for the computer and Emacs."
+  (interactive)
+  (async-shell-command "update" "*update*")
+  (straight-pull-all)
+  (straight-check-all))
 
 
 ;;;; Environment Variables
@@ -173,7 +174,7 @@ level up to the top level form."
 
 ;; Common libraries and associated functions.
 
-(use-package dash)
+(use-package dash :demand t)
 
 (use-package s)
 
@@ -214,15 +215,6 @@ level up to the top level form."
          w32-lwindow-modifier 'super
          w32-pass-rwindow-to-system nil
          w32-rwindow-modifier 'super)))
-
-(defun update ()
-  "Run update scripts for the computer and Emacs."
-  (interactive)
-  (require 'straight-x)
-  (async-shell-command "update" "*update*")
-  (other-window)
-  (straight-x-fetch-all)
-  (straight-x-pull-all))
 
 ;;;; Bindings
 
@@ -332,14 +324,12 @@ level up to the top level form."
       undo-limit 5242880)
 
 (use-package saveplace
-  :ensure nil
   :config
   (save-place-mode)
   :hook
   (find-file-hook . save-place-find-file-hook))
 
 (use-package recentf
-  :ensure nil
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
@@ -397,7 +387,6 @@ level up to the top level form."
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
-  :ensure nil
   :custom
   ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
@@ -405,7 +394,6 @@ level up to the top level form."
   (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
 
 (use-package savehist
-  :ensure nil
   :demand t
   :custom
   (savehist-autosave-interval 60)
@@ -517,7 +505,6 @@ returned."
           mouse-wheel-scroll-amount '(1 ((shift) . 1))))
 
   ;; (use-package pixel-scroll
-  ;;   :ensure nil
   ;;   :config
   ;;   (pixel-scroll-mode))
 
@@ -556,9 +543,9 @@ Example usage
 
 Note that unlike `face-attribute', which gets the *current*
 attribute value as displayed on the screen, this function gets
-the attribute as specified in the *original* theme settings. This
-is useful when you switch themes and want to calculate new faces
-derived from existing ones."
+the attribute as specified in the *original* theme settings.
+This is useful when you switch themes and want to calculate new
+faces derived from existing ones."
   (get-attribute custom-enabled-themes 'theme-settings attribute name))
 
 (defun theme-face (face)
@@ -865,7 +852,7 @@ This sets things up for `window-highlight' and `mode-line'."
              (window-highlight-focused-window ((t :background ,active-bg)))
              (vertical-border ((t :foreground ,inactive-bg)))
              (cursor ((t :background "magenta")))
-             (mode-line ((t :box nil)))
+             ;(mode-line ((t :box nil)))
              ;; :background ,(color-blend active-bg active-fg 0.8)
              ;; :foreground ,(color-blend active-fg active-bg 0.9))))
              ;; (mode-line-emphasis ((t :background ,(color-blend active-bg active-fg 0.7)
@@ -875,74 +862,11 @@ This sets things up for `window-highlight' and `mode-line'."
              ;; (mode-line-buffer-id ((t :background ,(color-blend active-bg active-fg 0.2)
              ;;                        :foreground ,inactive-bg
              ;;                        :bold t)))
-             (mode-line-inactive ((t :box nil)))
+             ;(mode-line-inactive ((t :box nil)))
              (sp-show-pair-match-face ((t :inherit highlight
                                         :underline nil
                                         :foreground nil
                                         :background nil))))))
-
-  (when (>= emacs-major-version 27)
-    (with-eval-after-load 'org
-      (dolist (face '(org-block
-                      org-block-begin-line
-                      org-block-end-line
-                      org-level-1))
-        (set-face-attribute face nil :extend t)))
-    (with-eval-after-load 'magit
-      (dolist (face '(magit-diff-hunk-heading
-                      magit-diff-hunk-heading-highlight
-                      magit-diff-hunk-heading-selection
-                      magit-diff-hunk-region
-                      magit-diff-lines-heading
-                      magit-diff-lines-boundary
-                      magit-diff-conflict-heading
-                      magit-diff-added
-                      magit-diff-removed
-                      magit-diff-our
-                      magit-diff-base
-                      magit-diff-their
-                      magit-diff-context
-                      magit-diff-added-highlight
-                      magit-diff-removed-highlight
-                      magit-diff-our-highlight
-                      magit-diff-base-highlight
-                      magit-diff-their-highlight
-                      magit-diff-context-highlight
-                      magit-diff-whitespace-warning
-                      magit-diffstat-added
-                      magit-diffstat-removed
-                      magit-section-heading
-                      magit-section-heading-selection
-                      magit-section-highlight
-                      magit-section-secondary-heading
-                      magit-diff-file-heading
-                      magit-diff-file-heading-highlight
-                      magit-diff-file-heading-selection))
-        (set-face-attribute face nil :extend t)))
-    (with-eval-after-load 'ediff
-      (dolist (face '(ediff-current-diff-A
-                      ediff-current-diff-Ancestor
-                      ediff-current-diff-B
-                      ediff-current-diff-C
-                      ediff-even-diff-A
-                      ediff-even-diff-Ancestor
-                      ediff-even-diff-B
-                      ediff-even-diff-C
-                      ediff-fine-diff-A
-                      ediff-fine-diff-Ancestor
-                      ediff-fine-diff-B
-                      ediff-fine-diff-C
-                      ediff-odd-diff-A
-                      ediff-odd-diff-Ancestor
-                      ediff-odd-diff-B
-                      ediff-odd-diff-C))
-        (set-face-attribute face nil :extend t)))
-    (with-eval-after-load 'hl-line
-      (set-face-attribute 'hl-line nil :extend t))
-    (with-eval-after-load 'faces
-      (dolist (face '(region
-                      secondary-selection))
-        (set-face-attribute face nil :extend t))))
   (mood-line--refresh-bar))
 
 (advice-add #'load-theme :before #'custom-enabled-themes-reset)
@@ -952,7 +876,6 @@ This sets things up for `window-highlight' and `mode-line'."
   (load-theme fiat-theme t))
 
 (use-package hl-line
-  :ensure nil
   :defer 2
   :custom
   (global-hl-line-sticky-flag t)
@@ -1091,7 +1014,7 @@ If it's already there, scroll `scroll-margin' lines down."
   '(lisp-interaction-mode js-mode js-jsx-mode)
   "Modes to add to the new scratch buffer list.
 This list exists because these modes may not be added
-  automatically. See `list-major-modes'.")
+  automatically.  See `list-major-modes'.")
 
 (defun filter-buffers-by-name (regexp)
   "Return a list of buffers whose names match REGEXP."
@@ -1113,7 +1036,7 @@ This list exists because these modes may not be added
   "Return a list of all major modes.
 
 It actually does not list them all because I don't know how to do
-that. So, we find only ones which are associated with a magic
+that.  So, we find only ones which are associated with a magic
 string or file extension."
   (delete-dups (mapcar #'cdr (append magic-mode-alist
                                      auto-mode-alist
@@ -1180,7 +1103,6 @@ See `scratch-new-buffer'."
         (if this-win-2nd (other-window 1))))))
 
 (use-package ffap
-    :ensure nil
   :config
   (defun find-file-at-point-with-line (&optional filename)
     "Open FILENAME at point and move point to line specified next to file name."
@@ -1246,7 +1168,7 @@ way Emacs expects."
   "Wrap F (`server-visit-files') and modify ARGS to support colon notation.
 
 Open files with emacsclient with cursors according to colon
-notation. When the file name has line numbers and optionally
+notation.  When the file name has line numbers and optionally
 columns specified like `filename:line:column', parse those and
 return them in the Emacs format."
   (message "%s" args)
@@ -1271,12 +1193,10 @@ return them in the Emacs format."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package goto-addr
-    :ensure nil
   :hook
   ((prog-mode-hook text-mode-hook) . goto-address-mode))
 
 (use-package bug-reference
-    :ensure nil
   :custom
   (bug-reference-bug-regexp
    "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
@@ -1319,7 +1239,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
 
 (use-package winner
-  :ensure nil
   :defer 10
   :config
   (defun winner-wrong-window ()
@@ -1448,7 +1367,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
 
 (use-package outline
-  :ensure nil
   :custom
   (outline-minor-mode-prefix "\M-#"))
 
@@ -1640,10 +1558,11 @@ _q_ quit
   "Define a special version of `beginning-of-buffer' in MODE.
 
 The special function is defined such that the point first moves
-to `point-min' and then FORMS are evaluated. If the point did not
-change because of the evaluation of FORMS, jump unconditionally
-to `point-min'. This way repeated invocations toggle between real
-beginning and logical beginning of the buffer.
+to `point-min' and then FORMS are evaluated.  If the point did
+not change because of the evaluation of FORMS, jump
+unconditionally to `point-min'.  This way repeated invocations
+toggle between real beginning and logical beginning of the
+buffer.
 
 https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-special-mode-buffers-(dired-etc.).html"
   (declare (indent 1))
@@ -1690,6 +1609,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
           (define-key ,mode-map
             [remap end-of-buffer] ',fname))))))
 
+(defvar dired-mode-map)
 (specialize-beginning-of-buffer dired
   (while (not (ignore-errors (dired-get-filename))) (dired-next-line 1)))
 (specialize-end-of-buffer dired (dired-previous-line 1))
@@ -1736,7 +1656,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 ;;   (matcha-setup))
 
 (use-package ibuffer
-  :ensure nil
   :bind
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
@@ -1886,7 +1805,6 @@ Each EXPR should create one window."
 (setq list-matching-lines-jump-to-current-line t)
 
 (use-package imenu
-  :ensure nil
   :config
   (defun imenu-goto-item (direction)
     "Jump to the next or previous imenu item, depending on DIRECTION.
@@ -1962,7 +1880,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp)))
 
 (use-package re-builder
-    :ensure nil
   :custom
   ;; string syntax means you don't need to double escape things.
   (reb-re-syntax 'read)
@@ -2011,8 +1928,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; (rg . ripgrep)
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
-  :commands
-  rg-enable-default-bindings
   :config
   (rg-enable-default-bindings (kbd "C-r"))
   :hook
@@ -2023,7 +1938,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
   (ivy-count-format "[%d/%d] ")
-  ;; (ivy-read-action-function 'ivy-hydra-read-action)
   ;; Don't exit the minibuffer when pressing backspace on an empty line.
   (ivy-on-del-error-function (lambda (&rest _) nil))
 
@@ -2053,6 +1967,12 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     "If `eolp' then done, else move to eol."
     (interactive)
     (if (eolp) (ivy-partial) (end-of-line)))
+
+  (use-package ivy-hydra
+    :demand t
+    :custom
+    ;; FIXME https://github.com/abo-abo/swiper/issues/2397
+    (ivy-read-action-function #'ivy-hydra-read-action))
 
   :bind
   (:map ivy-mode-map
@@ -2106,6 +2026,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
+  :defer 2
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -2232,6 +2153,7 @@ force `counsel-rg' to search in `default-directory.'"
   ("C-x C-f" . counsel-find-file)
   ("C-x f" . counsel-recentf)
   ("C-x j" . counsel-file-jump)
+  ("C-x C-j" . counsel-dired-jump)
   ("s-b" . counsel-switch-buffer)
   ("s-S-b" . counsel-switch-buffer-other-window)
   ("C-h <tab>" . counsel-info-lookup-symbol)
@@ -2254,7 +2176,6 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
-  :ensure nil
   :straight (:repo "https://github.com/tautologyclub/counsel-term.git")
   :config
   (with-eval-after-load 'vterm
@@ -2332,6 +2253,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   ("C-c {" . projectile-previous-project-buffer))
 
 (use-package counsel-projectile
+  :defer 12
   :custom
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
@@ -2447,7 +2369,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
         ("s-J" . dumb-jump-quick-look)))
 
 (use-package smart-jump
-  :defer 13
+  :defer 14
   :config
   (smart-jump-setup-default-registers))
 
@@ -2526,7 +2448,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (:repo "https://github.com/mnewt/x509-mode")
+  :straight (x509-mode :fetcher github :repo "mnewt/x509-mode")
   :commands
   x509-viewcert)
 
@@ -2554,7 +2476,7 @@ See: https://github.com/mnewt/psync"
              default-directory))))
 
 (defun psync-clone (local remote)
-  "Clone a new repository for use with `psync' from SOURCE to DESTINATION."
+  "Clone a new repository for use with `psync' from LOCAL to REMOTE."
   (interactive (list (read-directory-name "Local directory: ")
                      (read-directory-name "Remote directory: ")))
   (async-shell-command (format "psync -v clone '%s' '%s'" local remote)))
@@ -2677,13 +2599,13 @@ With a prefix ARG always prompt for command to use."
         ("+" dired-create-directory)
         ("?" dired-summary)
         ("A" dired-do-find-regexp)
-        ("C" dired-do-copy) ;; Copy all marked files
+        ("C" dired-do-copy)
         ("D" dired-do-delete)
         ("E" dired-mark-extension)
         ("e" dired-ediff-files)
         ("F" dired-do-find-marked-files)
         ("G" dired-do-chgrp)
-        ("g" revert-buffer) ;; read all directories again (refresh)
+        ("g" revert-buffer)
         ("i" dired-maybe-insert-subdir)
         ("l" dired-do-redisplay) ;; relist the marked or single directory
         ("M" dired-do-chmod)
@@ -2715,7 +2637,8 @@ With a prefix ARG always prompt for command to use."
         ("C-c C-o" . dired-open-file)
         ("T" . touch)
         ("F" . tail-file)
-        (";" . dired-git-add)))
+        (";" . dired-git-add)
+        (")" . disk-usage-here)))
 
 (use-package dired-x
   :straight (:type built-in)
@@ -2730,11 +2653,7 @@ With a prefix ARG always prompt for command to use."
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
 
-(use-package disk-usage
-  :bind
-  (:map dired-mode-map
-        (")" . disk-usage-here)
-        ("C-)" . disk-usage)))
+(use-package disk-usage)
 
 (use-package wdired
   :custom
@@ -2807,6 +2726,8 @@ With a prefix ARG always prompt for command to use."
                            "bak"))
     (dired-rainbow-define vc "#6cb2eb"
                           ("git" "gitignore" "gitattributes" "gitmodules"))
+    (dired-rainbow-define config "#5040e2"
+                          ("cfg" "conf"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
     (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
 
@@ -3069,12 +2990,17 @@ Include PREFIX in prompt if given."
             man-page-path))
        man-page-path))))
 
-(use-package eg
-  :straight (eg :fetcher github :repo "mnewt/eg.el")
-  ;;  :ensure-system-package
-  ;;  (eg . "pip install eg")
+;; FIXME Fix fontification.
+;; (use-package eg.el
+;;   :straight (:repo "https://github.com/mnewt/eg.el")
+;;   ;;  :ensure-system-package
+;;   ;;  (eg . "pip install eg")
+;;   :bind
+;;   ("C-h e" . eg))
+
+(use-package tldr
   :bind
-  ("C-h e" . eg))
+  ("C-h t" . tldr))
 
 (use-package counsel-dash
   ;; :ensure-system-package sqlite3
@@ -3392,10 +3318,11 @@ Include PREFIX in prompt if given."
 
 ;;;; Org
 
+(defvar org-directory "~/org")
+
 (use-package org
   :mode ("\\.org\\'" . org-mode)
   :custom
-  (org-directory "~/org")
   ;; Indent text according to the outline structure (`org-indent-mode')
   ;; (org-startup-indented t)
   ;; Quit adding 2 spaces to source block
@@ -4083,7 +4010,9 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 (electric-indent-mode)
 
 (defun auto-fill-mode-init ()
-  "Automatically fill comments. Wraps on `fill-column' columns."
+  "Automatically fill comments.
+
+Wraps on `fill-column' columns."
   (set (make-local-variable 'comment-auto-fill-only-comments) t)
   (auto-fill-mode t))
 
@@ -4113,9 +4042,28 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (join-line -1))
 
 (use-package undo-tree
-  :init
-  (defun undo-tree-save-history-from-hook () nil)
+  ;; :init
+  ;; (defun undo-tree-save-history-from-hook () nil)
+  :custom
+  (undo-tree-enable-undo-in-region t)
+
   :config
+  (defun undo-keep-region (f &optional arg)
+    "Keep region when undoing in region.
+
+Adapted from http://whattheemacsd.com/my-misc.el-02.html."
+    (if (use-region-p)
+        (let ((m (set-marker (make-marker) (mark)))
+              (p (set-marker (make-marker) (point))))
+          (funcall f arg)
+          (goto-char p)
+          (set-mark m)
+          (set-marker p nil)
+          (set-marker m nil))
+      (funcall f arg)))
+  
+  (advice-add 'undo-tree-undo :around #'undo-keep-region)
+    
   (global-undo-tree-mode)
   :bind
   ("s-z" . undo-tree-undo)
@@ -4626,7 +4574,7 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
 (defun copy-line-or-region ()
   "Copy the current line or active-bg region.
 
-When called repeatedly, append copy subsequent lines. When
+When called repeatedly, append copy subsequent lines.  When
 `universal-argument' is called first, copy whole
 buffer (respects`narrow-to-region').
 
@@ -4761,7 +4709,7 @@ If no region is selected, toggles comments for the line."
 (with-eval-after-load 'tramp
   (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
 
-(defun expand-environment-variable ()
+(defun insert-environment-variable ()
   "Insert contents of an envionment variable at point."
   (interactive)
   (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
@@ -5092,31 +5040,39 @@ predicate returns true."
   ("C-c | r" . piper-remote))
 
 (defun copy-buffer-file-name ()
-  "Copy `buffer-file-name' to the kill ring."
+  "Copy variable `buffer-file-name' to the kill ring."
   (interactive)
   (kill-new buffer-file-name)
   (message buffer-file-name))
 
+(defvar fpw-args "-pLUDS"
+  "Arguments for the `fpw' command.")
+
 (defun fpw (command)
   "Run `fpw' command as COMMAND.
 
-Copy the result to the `kill-ring'. Call with a prefix argument
+Copy the result to the `kill-ring'.  Call with a prefix argument
 to modify the args.
 
 See https://github.com/mnewt/fpw."
-  (interactive (list (if current-prefix-arg
-                         (read-shell-command "Run fpw (like this): "
-                                             "fpw " 'fpw-history)
-                       "fpw")))
-  (let ((result
-         (replace-regexp-in-string "\n" "" (shell-command-to-string command))))
+  (interactive
+   (list (let ((command (concat "fpw " fpw-args)))
+           (if current-prefix-arg
+               (read-shell-command "Run fpw (like this): "
+                                   command
+                                   'fpw-history)
+             command))))
+  (let ((result (string-trim (shell-command-to-string command))))
     (kill-new result)
     (message result)))
 
 (bind-keys
- ("C-c C-v" . expand-environment-variable)
+ ("C-c C-v" . insert-environment-variable)
  ("C-:" . tramp-insert-remote-part)
- ("M-m p" . fpw)
+ :map m-map
+ ("p" . fpw)
+ :map m-file-map
+ ("c" . copy-buffer-file-name)
  :map m-toggle-map
  ("s" . sudo-toggle))
 
@@ -5838,7 +5794,7 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
                   (unintern symbol nil)))))
 
 (defun elisp-test-file-p (file)
-  "Check whether the file name is an Elisp test file."
+  "Check whether the FILE name is an Elisp test file."
   (or (string-suffix-p "-test.el" file)
       (string-match-p "test/" file)))
 
@@ -5852,7 +5808,7 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
      (substring-no-properties (symbol-name (symbol-at-point))))))
 
 (defun ert-reload-and-run-tests-in-project (&optional reset)
-  "Reload project and test files and then run tests.
+  "Reload project and test files and then run deftests.
 
 When RESET is non-nil, unintern all the functions with the
 project prefix, and unintern all `ert' tests."
@@ -5895,7 +5851,7 @@ project prefix, and unintern all `ert' tests."
 
 (defun expression-to-register (register)
   "Interactively store an Emacs Lisp expression in a REGISTER.
-If region is active-bg, store that. Otherwise, store the sexp at
+If region is active-bg, store that.  Otherwise, store the sexp at
   point."
   (interactive (list (register-read-with-preview "Copy expression to register: ")))
   (set-register register
@@ -6373,10 +6329,13 @@ Open the `eww' buffer in another window."
   (js-indent-level tab-width))
 
 (use-package json-mode
-                                        ;  :ensure-system-package jq
+;;  :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 ;; :hook
 ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
+
+(use-package jq-mode
+  :mode "\\.jq$")
 
 (use-package graphql-mode
   :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
@@ -6756,9 +6715,7 @@ Open the `eww' buffer in another window."
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
-  :interpreter
-  ("\\(?:\\(?:ba\\|[az]\\)?sh\\)" . sh-mode)
-
+  :interpreter ("\\(?:\\(?:ba\\|[az]\\)?sh\\)" . sh-mode)
   :custom
   (sh-basic-offset tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
@@ -6797,6 +6754,31 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
                                       (1 'default t)
                                       (2 font-lock-variable-name-face t))))
 
+  (defvar async-shell-command-current-file-history nil)
+
+
+  ;; WIP
+  (defun async-shell-command-current-file (arg)
+    "Run the current file, editing command line if ARG is non-nil.
+
+This command defaults to running the previous command."
+    (interactive "P")
+    (let ((command (or (car async-shell-command-current-file-history)
+                       (concat buffer-file-name " "))))
+      (when arg
+        (setq command (read-shell-command
+                       (if shell-command-prompt-show-cwd
+                           (format-message "Async shell command in `%s': "
+                                           (abbreviate-file-name default-directory))
+                         "Async shell command: ")
+                       command
+                       'async-shell-command-current-file-history)))
+      (async-shell-command command)))
+
+  (with-eval-after-load 'org
+    (add-to-list 'org-babel-load-languages '(shell . t))
+    (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
+
   :hook
   (before-save-hook . maybe-reset-major-mode)
   (after-save-hook . executable-make-buffer-file-executable-if-script-p)
@@ -6805,9 +6787,8 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
         ("<return>" . newline-and-indent)
         ("RET" . newline-and-indent)
         ("C-c m" . executable-set-magic)
-        ;; Don't shadow `yasnippet'.
-        ("C-c C-s" . nil)
-        ("C-c M-s" . sh-select)))
+        ("C-c M-s" . sh-select)
+        ("C-c 7" . async-shell-command-current-file)))
 
 ;; git config files
 (add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
@@ -6917,8 +6898,8 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 (use-package php-mode
   :mode "\\.php\\'")
 
-(use-package IOS-config-mode
-  :straight (:repo "https://github.com/nibrahim/IOS-config-mode")
+(use-package ios-config-mode
+  :straight (:fetcher github :repo "mnewt/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
@@ -6986,8 +6967,10 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
 
-  (add-to-list 'org-babel-load-languages '(plantuml . t))
-  (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages)
+  (with-eval-after-load 'org
+    (add-to-list 'org-babel-load-languages '(plantuml . t))
+    (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
+  
   (defvar org-plantuml-jar-path)
   (setq org-plantuml-jar-path plantuml-jar-path)
 
@@ -7036,7 +7019,6 @@ configuration when invoked to evaluate a line."
   ("s-<return>" . eir-eval-in-shell)
   ("M-s-<return>" . eir-eval-in-shell-and-advance))
 
-
 ;; ;;;; Multiple Major Modes
 
 ;; TODO: I can't figure out how to defer loading of polymode without separating
@@ -7073,9 +7055,5 @@ configuration when invoked to evaluate a line."
 
 
 (provide 'init)
-
-;; Local Variables:
-;; flycheck-mode: nil
-;; End:
 
 ;;; init.el ends here
