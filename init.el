@@ -65,6 +65,18 @@
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
+(autoload #'straight-x-clean-unused-repos "straight-x" nil t)
+(autoload #'straight-x-fetch-all "straight-x" nil t)
+
+(defun straight-x-delete-repo (repo)
+  "Prompt for REPO and delete it from the file system."
+  (interactive (completing-read
+                "Delete repo: "
+                (straight--directory-files (straight--repos-dir))))
+  (when (y-or-n-p (format "Delete repository %S? " repo))
+    (delete-directory (straight--repos-dir repo) 'recursive 'trash)))
+
+
 ;;;;; use-package
 
 (custom-set-variables
@@ -137,12 +149,25 @@ higher level up to the top level form."
   (declare (indent 0))
   `(eval '(progn ,@body)))
 
+(defun update-emacs-pacakges ()
+  "Update Emacs packages using `straight'."
+  (interactive)
+  (straight-x-fetch-all)
+  (straight-merge-all)
+  (straight-check-all))
+
+(defun update-system-packages ()
+  "Update system packages using the dotfiles update scripts."
+  (interactive)
+  (async-shell-command "update" "*update*"))
+
 (defun update ()
   "Run update scripts for the computer and Emacs."
   (interactive)
-  (async-shell-command "update" "*update*")
-  (straight-pull-all)
-  (straight-check-all))
+  ;; FIXME Emacs is updated first because asking for a password while straight
+  ;; is updating causes Emacs to lose all key bindings.
+  (update-emacs-packages)
+  (update-system-packages))
 
 
 ;;;; Environment Variables
@@ -775,11 +800,12 @@ Return nil if the buffer is local."
 
   (defun parinfer-mode-info (&optional _mode)
     "Display an indicator when `parinfer-mode' is enabled."
-    (when (bound-and-true-p parinfer-mode)
-      (setf (alist-get 'parinfer-mode mode-line-misc-info)
-            (list (if (eq 'paren parinfer--mode)
-                      (cdr parinfer-lighters)
-                    (car parinfer-lighters))))))
+    (setf (alist-get 'parinfer-mode mode-line-misc-info)
+          (when (bound-and-true-p parinfer-mode)
+            (setf (alist-get 'parinfer-mode mode-line-misc-info)
+                  (list (if (eq 'paren parinfer--mode)
+                            (cdr parinfer-lighters)
+                          (car parinfer-lighters)))))))
 
   (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
   (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
@@ -1423,25 +1449,30 @@ _d_ subtree
 
 "
         ;; Hide
-        ("q" outline-hide-sublevels)  ; Hide everything but the top-level headings
-        ("t" outline-hide-body)    ; Hide everything but headings (all body lines)
-        ("o" outline-hide-other)   ; Hide other branches
-        ("c" outline-hide-entry)   ; Hide this entry's body
-        ("l" outline-hide-leaves)  ; Hide body lines in this entry and sub-entries
-        ("d" outline-hide-subtree) ; Hide everything in this entry and sub-entries
+        ("q" outline-hide-sublevels)
+        ("t" outline-hide-body)
+        ("o" outline-hide-other)
+        ("c" outline-hide-entry)
+        ("l" outline-hide-leaves)
+        ("d" outline-hide-subtree)
         ;; Show
-        ("a" outline-show-all)            ; Show (expand) everything
-        ("e" outline-show-entry)          ; Show this heading's body
-        ("i" outline-show-children) ; Show this heading's immediate child sub-headings
-        ("k" outline-show-branches) ; Show all sub-headings under this heading
-        ("s" outline-show-subtree) ; Show (expand) everything in this heading & below
+        ("a" outline-show-all)
+        ("e" outline-show-entry)
+        ("i" outline-show-children)
+        ("k" outline-show-branches)
+        ("s" outline-show-subtree)
         ;; Move
-        ("u" outline-up-heading)               ; Up
-        ("n" outline-next-visible-heading)     ; Next
-        ("p" outline-previous-visible-heading) ; Previous
-        ("f" outline-forward-same-level)       ; Forward - same level
-        ("b" outline-backward-same-level)      ; Backward - same level
+        ("u" outline-up-heading)
+        ("n" outline-next-visible-heading)
+        ("p" outline-previous-visible-heading)
+        ("f" outline-forward-same-level)
+        ("b" outline-backward-same-level)
         ("q" nil "leave"))))
+
+  (use-package outorg
+    :bind
+    (:map outline-minor-mode-map
+          ("M-# #" . outorg-edit-as-org)))
 
   :hook
   (outline-minor-mode-hook . outshine-mode)
@@ -1456,11 +1487,6 @@ _d_ subtree
         ("M-=" . outline-show-current-sublevel)
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
-
-(use-package outorg
-  :bind
-  (:map outline-mode-map
-        ("#" . outorg-edit-as-org)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
@@ -1794,7 +1820,7 @@ Each EXPR should create one window."
   "Immediately replace PATTERN with REPLACEMENT throughout the buffer."
   (interactive
    (let ((args (query-replace-read-args "Replace in entire buffer" t)))
-     (setcdr (cdr args) nil)    ; remove third value returned from query---args
+     (setcdr (cdr args) nil)
      args))
   (save-excursion
     (goto-char (point-min))
@@ -2165,6 +2191,9 @@ force `counsel-rg' to search in `default-directory.'"
   ("C-c M-o" . counsel-outline)
   ("M-s-v" . counsel-yank-pop)
   ("M-Y" . counsel-yank-pop)
+  ("C-x r h" . counsel-register)
+  ("C-c C-j" . counsel-register)
+  ("C-c C-b" . counsel-bookmark)
   (:map counsel-mode-map
         ;; Don't shadow default binding.
         ([remap yank-pop] . nil))
@@ -2448,7 +2477,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (x509-mode :fetcher github :repo "mnewt/x509-mode")
+  :straight (x509-mode :host github :repo "mnewt/x509-mode")
   :commands
   x509-viewcert)
 
@@ -2653,7 +2682,10 @@ With a prefix ARG always prompt for command to use."
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
 
-(use-package disk-usage)
+(use-package disk-usage
+  :defer t
+  :straight (disk-usage
+             :fork (:host nil :repo "git@gitlab.com:mnewt/emacs-disk-usage")))
 
 (use-package wdired
   :custom
@@ -2989,6 +3021,10 @@ Include PREFIX in prompt if given."
             (tramp-file-name-host vec)
             man-page-path))
        man-page-path))))
+
+(use-package info-colors
+  :hook
+  (Info-selection-hook . info-colors-fontify-node))
 
 ;; FIXME Fix fontification.
 ;; (use-package eg.el
@@ -3700,10 +3736,6 @@ With a prefix ARG, create it in `org-directory'."
 (use-package erc
   :hook
   (erc-connect-pre-hook . erc-services-mode))
-
-(use-package request
-  :commands
-  request)
 
 (defun dis (hostname)
   "Resolve a HOSTNAME to its IP address."
@@ -6496,7 +6528,13 @@ Open the `eww' buffer in another window."
     :fringe-bitmap 'my-flycheck-fringe-indicator
     :fringe-face 'flycheck-fringe-info)
 
-
+  (use-package flycheck-package
+    :demand t
+    :config
+    (flycheck-package-setup)
+    :bind
+    (:map flycheck-mode-map
+          ("C-c ! C-l" . package-lint-current-buffer)))
   :hook
   (prog-mode-hook . flycheck-mode)
 
@@ -6505,10 +6543,7 @@ Open the `eww' buffer in another window."
   (:map flycheck-mode-map
         ("C-c ! ." . hydra-flycheck/body)))
 
-(use-package package-lint
-  :bind
-  (:map flycheck-mode-map
-        ("C-c ! C-l" . package-lint-current-buffer)))
+
 
 (use-package lsp-mode
   :custom
@@ -6546,172 +6581,258 @@ Open the `eww' buffer in another window."
 ;; TODO Test out `dap-mode'.
 ;; (use-package dap-mode)
 
-(use-package reformatter
-  :defer 20
+(use-package apheleia
+  :straight (apheleia :host github :repo "raxod502/apheleia")
+  :demand t
   :config
-  (radian-protect-macros
-    (defgroup reformatter nil
-      "Customized reformatter parts."
-      :prefix "reformatter-"
-      :group 'tools)
+  (dolist (formatter '((zprint . ("zprint" "{:map {:comma? false}}"))
+                       (xmllint . ("xmllint" "--format" "-"))
+                       (shfmt . ("shfmt"))))
+    (add-to-list 'apheleia-formatters formatter))
 
-    (defvar reformatter-alist nil
-      "Alist mapping major mode to formatter commands.
+  (dolist (mode '((clojure-mode . zprint)
+                  (clojurec-mode . zprint)
+                  (clojurescript-mode . zprint)
+                  (graphql-mode . prettier)
+                  (markdown-mode . prettier)
+                  (nxml-mode . xmllint)
+                  (sh-mode . shfmt)))
+    (add-to-list 'apheleia-mode-alist mode))
 
-  KEY is a major mode symbol.
+  ;; WIP
+  ;; (defun apheleia-format-region (start end)
+  ;;   "Format from BEG to END with `apheleia'."
+  ;;   (interactive "r")
+  ;;   (let ((buffer (current-buffer))
+  ;;         (temp-buffer (get-buffer-create "*apheleia-temp*")))
+  ;;     (with-current-buffer temp-buffer
+  ;;       (insert-buffer-substring-no-properties buffer start end)
+  ;;       (when apheleia-mode
+  ;;         (when-let ((command (apheleia--get-formatter-command)))
+  ;;           (apheleia-format-buffer
+  ;;            command
+  ;;            (lambda ()
+  ;;              (let (temp-beg temp-end)
+  ;;                (with-current-buffer temp-buffer
+  ;;                  (setq temp-beg (point-min)
+  ;;                        temp-end (point-max)))
+  ;;                (with-current-buffer buffer
+  ;;                  (delete-region)
+  ;;                  (insert-buffer-substring-no-properties temp-buffer
+  ;;                                                         temp-beg
+  ;;                                                         temp-max))))))))))
 
-  VALUE is a `reformatter' symbol which is either the symbol from a
-  `reformatter-define' statement (e.g. `zprint') or the symbol
-  referencing a format region function, which takes two arguments:
-  `beginning' and `end' (e.g. `format-region').")
+  ;; (defun apheleia-format-region (start end)
+  ;;   "Format from START to END with `apheleia'."
+  ;;   (interactive "r")
+  ;;   (save-restriction
+  ;;     (narrow-to-region start end)
+  ;;     (apheleia--format-after-save)))
+  
+  (apheleia-global-mode))
 
-    ;; Try to use the native image version, fall back to the JVM.
-    (defvar reformatter-zprint-command nil)
-    (defvar reformatter-zprint-args '("{:map {:comma? false}}"))
-    (if-let ((zp (executable-find "~/.bin/zprint")))
-        (setq reformatter-zprint-command zp)
-      (progn
-        (setq reformatter-zprint-command (executable-find "clojure"))
-        (push '("-A:zprint") reformatter-zprint-args)))
-    (reformatter-define zprint
-      :program reformatter-zprint-command
-      :args reformatter-zprint-args
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(clojure-mode . zprint))
-    (add-to-list 'reformatter-alist '(clojurec-mode . zprint))
-    (add-to-list 'reformatter-alist '(clojurescript-mode . zprint))
+(defun indent-buffer ()
+  "Indent the buffer."
+  (interactive)
+  (indent-region (point-min) (point-max)))
 
-    (defvar reformatter-prettier-command (executable-find "prettier"))
-    (reformatter-define prettier-babel
-      :program reformatter-prettier-command
-      :args '("--parser" "babel")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(js-mode . prettier-babel))
+(defun format-buffer-or-region (beg end &optional thing)
+  "Format the THING from BEG to END.
 
-    (reformatter-define prettier-json
-      :program reformatter-prettier-command
-      :args '("--parser" "json")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(json-mode . prettier-json))
+If no region is active, format the buffer.
 
-    (reformatter-define prettier-css
-      :program reformatter-prettier-command
-      :args '("--parser" "css")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(css-mode . prettier-css))
+Prefix ARG is passed to `fill-paragraph'."
+  (interactive "r")
+  (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
+  (call-interactively #'crux-cleanup-buffer-or-region)
+  (indent-region (or beg (if (use-region-p) (region-beginning) (point-min)))
+                 (or end (if (use-region-p) (region-end) (point-max))))
+  (message "Formatted the %s." (or thing (if (use-region-p) 'region 'buffer))))
 
-    (reformatter-define prettier-scss
-      :program reformatter-prettier-command
-      :args '("--parser" "scss")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(scss-mode . prettier-scss))
+(defun format-defun-or-region ()
+  "Reformat the current defun or region."
+  (interactive)
+  (if (use-region-p)
+      (format-buffer-or-region (region-beginning) (region-end) 'region)
+    (save-excursion
+      (mark-defun)
+      (format-buffer-or-region (region-beginning) (region-end) 'defun))))
 
-    (reformatter-define prettier-html
-      :program reformatter-prettier-command
-      :args '("--parser" "html")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(html-mode . prettier-html))
-    (add-to-list 'reformatter-alist '(web-mode . prettier-html))
+(defun indent-line ()
+  "Reformat the current line."
+  (interactive)
+  (format-buffer-or-region (line-beginning-position) (line-end-position) 'line))
 
-    (reformatter-define prettier-graphql
-      :program reformatter-prettier-command
-      :args '("--parser" "graphql")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(graphql-mode . prettier-graphql))
+(bind-keys
+ ("C-M-\\" . format-buffer-or-region)
+ ("C-\\" . format-defun-or-region))
 
-    (reformatter-define prettier-markdown
-      :program reformatter-prettier-command
-      :args '("--parser" "markdown")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(markdown-mode . prettier-markdown))
+;; (use-package reformatter
+;;   :defer 20
+;;   :config
+;;   (radian-protect-macros
+;;     (defgroup reformatter nil
+;;       "Customized reformatter parts."
+;;       :prefix "reformatter-"
+;;       :group 'tools)
 
-    (reformatter-define prettier-yaml
-      :program reformatter-prettier-command
-      :args '("--parser" "yaml")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(yaml-mode . prettier-yaml))
+;;     (defvar reformatter-alist nil
+;;       "Alist mapping major mode to formatter commands.
 
-    (defvar reformatter-xmllint-command (executable-find "xmllint"))
-    (reformatter-define xmllint
-      :program reformatter-xmllint-command
-      :args '("--format" "-")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(nxml-mode . xmllint))
+;;   KEY is a major mode symbol.
 
-    (defvar reformatter-black-command (executable-find "black"))
-    (reformatter-define black
-      :program reformatter-black-command
-      :args '("--line-length" "80" "-")
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(python-mode . black))
+;;   VALUE is a `reformatter' symbol which is either the symbol from a
+;;   `reformatter-define' statement (e.g. `zprint') or the symbol
+;;   referencing a format region function, which takes two arguments:
+;;   `beginning' and `end' (e.g. `format-region').")
 
-    (defvar reformatter-shfmt-command (executable-find "shfmt"))
-    (reformatter-define shfmt
-      :program reformatter-shfmt-command
-      :group 'reformatter-reformatter)
-    (add-to-list 'reformatter-alist '(sh-mode . shfmt))
+;;     ;; Try to use the native image version, fall back to the JVM.
+;;     (defvar reformatter-zprint-command nil)
+;;     (defvar reformatter-zprint-args '("{:map {:comma? false}}"))
+;;     (if-let ((zp (executable-find "~/.bin/zprint")))
+;;         (setq reformatter-zprint-command zp)
+;;       (progn
+;;         (setq reformatter-zprint-command (executable-find "clojure"))
+;;         (push '("-A:zprint") reformatter-zprint-args)))
+;;     (reformatter-define zprint
+;;       :program reformatter-zprint-command
+;;       :args reformatter-zprint-args
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(clojure-mode . zprint))
+;;     (add-to-list 'reformatter-alist '(clojurec-mode . zprint))
+;;     (add-to-list 'reformatter-alist '(clojurescript-mode . zprint))
 
-    ;; Add format on save mode for each pair in `reformatter-alist'.
-    (cl-loop for (mode . sym) in reformatter-alist do
-             (add-hook (intern (concat (symbol-name mode) "-hook"))
-                       (intern (concat (symbol-name sym) "-on-save-mode"))))
+;;     (defvar reformatter-prettier-command (executable-find "prettier"))
+;;     (reformatter-define prettier-babel
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "babel")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(js-mode . prettier-babel))
 
-    (add-hook 'json-mode-hook
-              (lambda () (remove-hook 'before-save-hook 'prettier-babel-buffer 'local)))
+;;     (reformatter-define prettier-json
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "json")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(json-mode . prettier-json))
 
-    (defun reformat-region (beg end)
-      "Reformat the region.
+;;     (reformatter-define prettier-css
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "css")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(css-mode . prettier-css))
 
-  This is a fallback in case we can't find a dedicated reformatter
-  for the buffer."
-      (interactive)
-      (indent-region beg end))
+;;     (reformatter-define prettier-scss
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "scss")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(scss-mode . prettier-scss))
 
-    (defun reformat-buffer ()
-      "Reformat the buffer.
+;;     (reformatter-define prettier-html
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "html")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(html-mode . prettier-html))
+;;     (add-to-list 'reformatter-alist '(web-mode . prettier-html))
 
-  This is a fallback in case we can't find a dedicated reformatter
-  for the buffer."
-      (interactive)
-      (reformat-region (point-min) (point-max)))
+;;     (reformatter-define prettier-graphql
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "graphql")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(graphql-mode . prettier-graphql))
 
-    (defun reformat-buffer-or-region (beg end &optional thing)
-      "Reformat the region from BEG to END.
+;;     (reformatter-define prettier-markdown
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "markdown")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(markdown-mode . prettier-markdown))
 
-  If no region is active-bg, format the buffer.
+;;     (reformatter-define prettier-yaml
+;;       :program reformatter-prettier-command
+;;       :args '("--parser" "yaml")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(yaml-mode . prettier-yaml))
 
-  Prefix ARG is passed to `fill-paragraph'."
-      (interactive "r")
-      (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
-      (call-interactively #'crux-cleanup-buffer-or-region)
-      (let ((format-region-fn (let ((f (alist-get major-mode reformatter-alist)))
-                                (cl-some (lambda (x) (when (fboundp x) x))
-                                         (list (intern (format "%s-region" f))
-                                               f
-                                               'reformat-region))))
-            (beg (or beg (if (use-region-p) (region-beginning) (point-min))))
-            (end (or end (if (use-region-p) (region-end) (point-max))))
-            (thing (or thing (if (use-region-p) "region" "buffer"))))
-        (funcall-interactively format-region-fn beg end)
-        (message "Formatted the %s." thing)))
+;;     (defvar reformatter-xmllint-command (executable-find "xmllint"))
+;;     (reformatter-define xmllint
+;;       :program reformatter-xmllint-command
+;;       :args '("--format" "-")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(nxml-mode . xmllint))
 
-    (defun reformat-defun-or-region ()
-      "Reformat the current defun or region."
-      (interactive)
-      (if (use-region-p)
-          (reformat-buffer-or-region (region-beginning) (region-end) "region")
-        (save-excursion
-          (mark-defun)
-          (reformat-buffer-or-region (region-beginning) (region-end) "defun"))))
+;;     (defvar reformatter-black-command (executable-find "black"))
+;;     (reformatter-define black
+;;       :program reformatter-black-command
+;;       :args '("--line-length" "80" "-")
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(python-mode . black))
 
-    (defun reformat-line ()
-      "Reformat the current line."
-      (interactive)
-      (reformat-buffer-or-region (line-beginning-position) (line-end-position) "line")))
+;;     (defvar reformatter-shfmt-command (executable-find "shfmt"))
+;;     (reformatter-define shfmt
+;;       :program reformatter-shfmt-command
+;;       :group 'reformatter-reformatter)
+;;     (add-to-list 'reformatter-alist '(sh-mode . shfmt))
 
-  :bind
-  ("C-M-\\" . reformat-buffer-or-region)
-  ("C-\\" . reformat-defun-or-region))
+;;     ;; Add format on save mode for each pair in `reformatter-alist'.
+;;     (cl-loop for (mode . sym) in reformatter-alist do
+;;              (add-hook (intern (concat (symbol-name mode) "-hook"))
+;;                        (intern (concat (symbol-name sym) "-on-save-mode"))))
+
+;;     (add-hook 'json-mode-hook
+;;               (lambda () (remove-hook 'before-save-hook 'prettier-babel-buffer 'local)))
+
+;;     (defun reformat-region (beg end)
+;;       "Reformat the region.
+
+;;   This is a fallback in case we can't find a dedicated reformatter
+;;   for the buffer."
+;;       (interactive)
+;;       (indent-region beg end))
+
+;;     (defun reformat-buffer ()
+;;       "Reformat the buffer.
+
+;;   This is a fallback in case we can't find a dedicated reformatter
+;;   for the buffer."
+;;       (interactive)
+;;       (reformat-region (point-min) (point-max)))
+
+;;     (defun reformat-buffer-or-region (beg end &optional thing)
+;;       "Reformat the region from BEG to END.
+
+;;   If no region is active-bg, format the buffer.
+
+;;   Prefix ARG is passed to `fill-paragraph'."
+;;       (interactive "r")
+;;       (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
+;;       (call-interactively #'crux-cleanup-buffer-or-region)
+;;       (let ((format-region-fn (let ((f (alist-get major-mode reformatter-alist)))
+;;                                 (cl-some (lambda (x) (when (fboundp x) x))
+;;                                          (list (intern (format "%s-region" f))
+;;                                                f
+;;                                                'reformat-region))))
+;;             (beg (or beg (if (use-region-p) (region-beginning) (point-min))))
+;;             (end (or end (if (use-region-p) (region-end) (point-max))))
+;;             (thing (or thing (if (use-region-p) "region" "buffer"))))
+;;         (funcall-interactively format-region-fn beg end)
+;;         (message "Formatted the %s." thing)))
+
+;;     (defun reformat-defun-or-region ()
+;;       "Reformat the current defun or region."
+;;       (interactive)
+;;       (if (use-region-p)
+;;           (reformat-buffer-or-region (region-beginning) (region-end) "region")
+;;         (save-excursion
+;;           (mark-defun)
+;;           (reformat-buffer-or-region (region-beginning) (region-end) "defun"))))
+
+;;     (defun reformat-line ()
+;;       "Reformat the current line."
+;;       (interactive)
+;;       (reformat-buffer-or-region (line-beginning-position) (line-end-position) "line")))
+
+;;   :bind
+;;   ("C-M-\\" . reformat-buffer-or-region)
+;;   ("C-\\" . reformat-defun-or-region))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -6899,7 +7020,7 @@ This command defaults to running the previous command."
   :mode "\\.php\\'")
 
 (use-package ios-config-mode
-  :straight (:fetcher github :repo "mnewt/IOS-config-mode")
+  :straight (ios-config-mode :host github :repo "mnewt/IOS-config-mode")
   :mode "\\.cfg\\'")
 
 (use-package cc-mode
