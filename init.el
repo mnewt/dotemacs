@@ -535,10 +535,50 @@ returned."
 
   (use-package mixed-pitch
     :config
+    ;; FIXME: This reverts the commit discussed here:
+    ;; https://gitlab.com/jabranham/mixed-pitch/-/issues/6
+    (define-minor-mode mixed-pitch-mode
+      "Change the default face of the current buffer to a variable pitch, while keeping some faces fixed pitch.
+
+See the variable `mixed-pitch-fixed-pitch-faces' for a list of
+which faces remain fixed pitch. The height and pitch of faces is
+inherited from `variable-pitch' and `default'."
+      :lighter " MPM"
+      (let ((var-pitch (face-attribute 'variable-pitch :family))
+            (var-height (face-attribute 'variable-pitch :height))
+            (fix-pitch (face-attribute 'default :family))
+            (fix-height (face-attribute 'default :height)))
+        ;; Turn mixed-pitch-mode on:
+        (if mixed-pitch-mode
+            (progn
+              ;; remember cursor type
+              (when mixed-pitch-variable-pitch-cursor
+                (setq mixed-pitch-cursor-type cursor-type))
+              ;; remap default face to variable pitch
+              (setq mixed-pitch-variable-cookie
+                    (face-remap-add-relative
+                     'default :family var-pitch :height var-height))
+              (setq mixed-pitch-fixed-cookie nil)
+              ;; keep fonts in `mixed-pitch-fixed-pitch-faces' as fixed-pitch.
+              (dolist (face mixed-pitch-fixed-pitch-faces)
+                (add-to-list 'mixed-pitch-fixed-cookie
+                             (face-remap-add-relative
+                              face :family fix-pitch :height fix-height)))
+              ;; Change the cursor if the user requested:
+              (when mixed-pitch-variable-pitch-cursor (setq cursor-type mixed-pitch-variable-pitch-cursor)))
+          ;; Turn mixed-pitch-mode off:
+          (progn (face-remap-remove-relative mixed-pitch-variable-cookie)
+                 (dolist (cookie mixed-pitch-fixed-cookie)
+                   (face-remap-remove-relative cookie))
+                 ;; Restore the cursor if we changed it:
+                 (when mixed-pitch-variable-pitch-cursor
+                   (setq cursor-type mixed-pitch-cursor-type))))))
+
     (defun maybe-enable-mixed-pitch-mode ()
       "Maybe enable `mixed-pitch-mode'."
       (unless (derived-mode-p 'dns-mode)
         (mixed-pitch-mode)))
+
     :hook
     (text-mode-hook . maybe-enable-mixed-pitch-mode)
     (Info-mode-hook . mixed-pitch-mode))
@@ -1333,7 +1373,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   :config
   (make-directory (file-name-directory persp-state-default-file) t)
-  
+
   (defun choose-by-number (options &optional prompt)
     "Display a list and choose among OPTIONS by pressing its number."
     (interactive)
@@ -3577,7 +3617,7 @@ With a prefix ARG, create it in `org-directory'."
     org-preview-html-mode)
 
   (defvar org-odt-convert-processes)
-  
+
   (defun setup-odt-org-convert-process ()
     (interactive)
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
@@ -4093,9 +4133,9 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
           (set-marker p nil)
           (set-marker m nil))
       (funcall f arg)))
-  
+
   (advice-add 'undo-tree-undo :around #'undo-keep-region)
-    
+
   (global-undo-tree-mode)
   :bind
   ("s-z" . undo-tree-undo)
@@ -4292,7 +4332,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   sp-get-pair
   sp-with-modes
   sp-point-in-string-or-comment
-  
+
   :commands
   sp-forward-slurp-sexp
   sp-backward-symbol
@@ -6001,7 +6041,7 @@ of problems in that context."
       (cider-eval-last-sexp '(1)))
 
     (defvar cider-stacktrace-frames-background-color)
-    
+
     (defun cider-stacktrace-adapt-to-theme (&rest _)
       "The standard advice function runs at the wrong time I guess?
   Anyway, it often gets set to the wrong color when switching
@@ -6628,7 +6668,7 @@ Open the `eww' buffer in another window."
   ;;   (save-restriction
   ;;     (narrow-to-region start end)
   ;;     (apheleia--format-after-save)))
-  
+
   (apheleia-global-mode))
 
 (defun indent-buffer ()
@@ -7055,7 +7095,7 @@ This command defaults to running the previous command."
   omnisharp-code-format-entire-file
   :config
   (defvar reformatter-alist)
-  
+
   (defun m-csharp-mode-setup ()
     "Set up C# mode."
     (omnisharp-install-server nil)
@@ -7068,7 +7108,7 @@ This command defaults to running the previous command."
     (setq truncate-lines t)
     (setq tab-width tab-width)
     (add-to-list 'reformatter-alist '(csharp-mode . omnisharp-code-format-entire-file)))
-  
+
   :hook
   (csharp-mode-hook . m-csharp-mode-setup))
 
@@ -7091,7 +7131,7 @@ This command defaults to running the previous command."
   (with-eval-after-load 'org
     (add-to-list 'org-babel-load-languages '(plantuml . t))
     (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
-  
+
   (defvar org-plantuml-jar-path)
   (setq org-plantuml-jar-path plantuml-jar-path)
 
