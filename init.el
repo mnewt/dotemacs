@@ -665,7 +665,7 @@ See `theme-attribute'."
            (>= emacs-major-version 27)
            (not (eq window-system 'windows-nt)))
   :demand t
-  :straight (:repo "https://github.com/dcolascione/emacs-window-highlight")
+  :straight (window-highlight :host github :repo "dcolascione/emacs-window-highlight")
   :config
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
@@ -1712,7 +1712,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 
 ;; (use-package matcha
 ;;   :defer 22
-;;   :straight (:repo "https://github.com/jojojames/matcha")
+;;   :straight (matcha :host github :repo "jojojames/matcha")
 ;;   :custom
 ;;   (matcha-mode-list
 ;;    '(cider dired js json-mode lua-mode org
@@ -2245,7 +2245,7 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
-  :straight (:repo "https://github.com/tautologyclub/counsel-term.git")
+  :straight (counsel-term :host github :repo "tautologyclub/counsel-term")
   :config
   (with-eval-after-load 'vterm
     (defvar vterm-mode-map)
@@ -2829,7 +2829,7 @@ With a prefix ARG always prompt for command to use."
         ("/" . dired-narrow)))
 
 ;; (use-package dired-list
-;;   :straight (:url "https://github.com/Fuco1/dired-hacks"
+;;   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
 ;;              :files "dired-list.el")
 ;;   :commands
 ;;   dired-list
@@ -3068,7 +3068,7 @@ Include PREFIX in prompt if given."
 
 ;; FIXME Fix fontification.
 ;; (use-package eg.el
-;;   :straight (:repo "https://github.com/mnewt/eg.el")
+;;   :straight (eg.el :host github :repo "mnewt/eg.el")
 ;;   ;;  :ensure-system-package
 ;;   ;;  (eg . "pip install eg")
 ;;   :bind
@@ -3126,7 +3126,7 @@ Include PREFIX in prompt if given."
   ("M-s-." . counsel-dash-at-point))
 
 ;; (use-package devdocs-lookup
-;;   :straight (:repo "https://github.com/skeeto/devdocs-lookup")
+;;   :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
 ;;   :commands
 ;;   devdocs-setup
 ;;   :config
@@ -3356,7 +3356,7 @@ Include PREFIX in prompt if given."
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
 
 (use-package counsel-web
-  :straight (:repo "https://github.com/mnewt/counsel-web")
+  :straight (counsel-web :host github :repo "mnewt/counsel-web")
   :bind
   (:map m-search-map
         ("w" . counsel-web-suggest)
@@ -4143,13 +4143,13 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   ("C-s-z" . undo-tree-visualize))
 
 ;; (use-package undo-redo
-;;   :straight (:repo "https://github.com/clemera-dev/undo-redo")
+;;   :straight (undo-redo :host github :repo "clemera-dev/undo-redo")
 ;;   :bind
 ;;   ("s-z" . undo-modern)
 ;;   ("s-Z" . redo))
 
 ;; (use-package undo-fu
-;;   :straight (:repo "https://gitlab.com/ideasman42/emacs-undo-fu.git")
+;;   :straight (undo-fu :host gitlab :repo "ideasman42/emacs-undo-fu")
 ;;   :custom
 ;;   (undo-fu-allow-undo-in-region t)
 ;;   :bind
@@ -4158,7 +4158,7 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 
 ;; (use-package undohist
 ;;   :demand t
-;;   :straight (:repo "https://github.com/clemera-dev/undohist")
+;;   :straight (undohist :host github :repo "clemera-dev/undohist")
 ;;   :custom
 ;;   (undohist-ignored-files '("COMMIT_EDITMSG"
 ;;                             "\\.gpg\\'"
@@ -5100,7 +5100,7 @@ predicate returns true."
   (shell-mode-hook . xterm-color-shell-setup))
 
 (use-package piper
-  :straight (:repo "https://gitlab.com/howardabrams/emacs-piper")
+  :straight (piper :host gitlab :repo "howardabrams/emacs-piper")
   :init
   ;; Define "C-c |" as a prefix key.
   (bind-key "C-c |" nil)
@@ -7173,7 +7173,9 @@ configuration when invoked to evaluate a line."
     (let ((eir-jump-after-eval t))
       (eir-eval-in-shell)))
 
-  (defun eval-in-repl-sh-mode-setup () (require 'eval-in-repl-shell))
+  (defun eval-in-repl-sh-mode-setup ()
+    (require 'eval-in-repl-shell))
+  
   :hook
   (sh-mode-hook . eval-in-repl-sh-mode-setup)
   :bind
@@ -7191,7 +7193,7 @@ configuration when invoked to evaluate a line."
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
 
 (use-package fence-edit
-  :straight (:repo "https://github.com/aaronbieber/fence-edit.el")
+  :straight (fence-edit :host github :repo "aaronbieber/fence-edit.el")
   :config
   (setq fence-edit-blocks
         (append '(("---" "---" yaml)
