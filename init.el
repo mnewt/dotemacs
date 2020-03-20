@@ -208,9 +208,9 @@ higher level up to the top level form."
 (use-package async
   :functions
   async-let)
-  ;; FIXME Still has too many failures and timeouts.
-  ;; :hook
-  ;; (dired-mode-hook . dired-async-mode))
+;; FIXME Still has too many failures and timeouts.
+;; :hook
+;; (dired-mode-hook . dired-async-mode))
 
 
 ;;;; Operating System
@@ -243,47 +243,24 @@ higher level up to the top level form."
 
 ;;;; Bindings
 
-;; Define base key bindings and prefixes.
+;; Define an additional set of prefixes for commands that don't seem to have a
+;; good home elsewhere.
 
-;; Define "M-m" as a prefix key.
-(bind-key "M-m" nil)
-(define-prefix-command 'm-map)
-(defvar m-map (make-sparse-keymap "M"))
+(defmacro bind-prefix (command key description)
+  "Define KEY as a prefix COMMAND with DESCRIPTION."
+  `(progn
+     (define-prefix-command ',command)
+     (global-set-key (kbd ,key) ',command)
+     (defvar ,command (make-sparse-keymap ,description))))
 
-;; Prefix key "M-m i": Insert commands.
-(define-prefix-command 'm-insert-map)
-(global-set-key (kbd "M-m i") 'm-insert-map)
-(defvar m-insert-map (make-sparse-keymap "M-Insert"))
-
-;; Prefix key "M-m w": Window configurations.
-(define-prefix-command 'm-window-map)
-(global-set-key (kbd "M-m w") 'm-window-map)
-(defvar m-window-map (make-sparse-keymap "M-Window"))
-
-;; Prefix key "M-m f": File operations.
-(define-prefix-command 'm-file-map)
-(global-set-key (kbd "M-m f") 'm-file-map)
-(defvar m-file-map (make-sparse-keymap "M-File"))
-
-;; Prefix key "M-m h": Help & Hydra.
-(define-prefix-command 'm-help-map)
-(global-set-key (kbd "M-m h") 'm-help-map)
-(defvar m-help-map (make-sparse-keymap "M-Help"))
-
-;; Prefix key "M-m t": Toggles
-(define-prefix-command 'm-toggle-map)
-(global-set-key (kbd "M-m t") 'm-toggle-map)
-(defvar m-toggle-map (make-sparse-keymap "M-Toggle"))
-
-;; Prefix key "M-m s": Search
-(define-prefix-command 'm-search-map)
-(global-set-key (kbd "M-m s") 'm-search-map)
-(defvar m-search-map (make-sparse-keymap "M-Search"))
-
-;; Prefix key "M-m o": Org
-(define-prefix-command 'm-org-map)
-(global-set-key (kbd "M-m o") 'm-org-map)
-(defvar m-org-map (make-sparse-keymap "M-Org"))
+(bind-prefix m-map "M-m" "A prefix binding")
+(bind-prefix m-insert-map "M-m i" "Insert commands")
+(bind-prefix m-window-map "M-m w" "Window commands")
+(bind-prefix m-file-map "M-m f" "File commands")
+(bind-prefix m-help-map "M-m h" "Help and Hydra commands")
+(bind-prefix m-toggle-map "M-m t" "Toggle commands")
+(bind-prefix m-search-map "M-m s" "Search commands")
+(bind-prefix m-org-map "M-m o" "Org commands")
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -909,16 +886,16 @@ This sets things up for `window-highlight' and `mode-line'."
          (inactive-bg (color-blend active-bg
                                    (theme-face-attribute 'default :foreground)
                                    0.95)))
-         ;; (active-fg (theme-face-attribute 'default :foreground))
-         ;; (highlight-fg (theme-face-attribute 'highlight :foreground))
-         ;; (inactive-fg (color-blend active-bg active-fg 0.4)))
+    ;; (active-fg (theme-face-attribute 'default :foreground))
+    ;; (highlight-fg (theme-face-attribute 'highlight :foreground))
+    ;; (inactive-fg (color-blend active-bg active-fg 0.4)))
     (apply #'custom-set-faces
            `((default ((t :background ,inactive-bg)))
              (fringe ((t :background ,inactive-bg)))
              (window-highlight-focused-window ((t :background ,active-bg)))
              (vertical-border ((t :foreground ,inactive-bg)))
              (cursor ((t :background "magenta")))
-             ;(mode-line ((t :box nil)))
+                                        ;(mode-line ((t :box nil)))
              ;; :background ,(color-blend active-bg active-fg 0.8)
              ;; :foreground ,(color-blend active-fg active-bg 0.9))))
              ;; (mode-line-emphasis ((t :background ,(color-blend active-bg active-fg 0.7)
@@ -928,7 +905,7 @@ This sets things up for `window-highlight' and `mode-line'."
              ;; (mode-line-buffer-id ((t :background ,(color-blend active-bg active-fg 0.2)
              ;;                        :foreground ,inactive-bg
              ;;                        :bold t)))
-             ;(mode-line-inactive ((t :box nil)))
+                                        ;(mode-line-inactive ((t :box nil)))
              (sp-show-pair-match-face ((t :inherit highlight
                                         :underline nil
                                         :foreground nil
@@ -976,8 +953,8 @@ This sets things up for `window-highlight' and `mode-line'."
   :bind
   (:map hl-todo-mode-map
         ("M-s h i" . hl-todo-insert)
-        ("M-s h p" . hl-todo-previous)
-        ("M-s h n" . hl-todo-next)
+        ("M-s h C-p" . hl-todo-previous)
+        ("M-s h C-n" . hl-todo-next)
         ("M-s h o" . hl-todo-occur)))
 
 ;; (use-package font-lock-studio
@@ -2521,6 +2498,25 @@ Tries to find a file at point."
   :commands
   x509-viewcert)
 
+(defun unison-sync (command)
+  "Run a Unison sync of files using COMMAND."
+  (interactive)
+  (let ((buffer (get-buffer-create "*unison-sync*")))
+    (with-current-buffer buffer
+      (setq-local comint-output-filter-functions
+                  '(comint-postoutput-scroll-to-bottom
+                    comint-watch-for-password-prompt
+                    (lambda (_) (font-lock-ensure))))
+      (async-shell-command command buffer)
+      (font-lock-add-keywords
+       nil
+       '(("^\\(\\[\\(?:BGN\\|END\\)\\]\\) \\(.*\\)$"
+          (1 font-lock-builtin-face)
+          (2 font-lock-type-face))
+         ("^Failed: .*" . 'compilation-error)
+         ("^Synchronization .*" . 'font-lock-keyword-face)
+         ("^\\(?:Unison\\|UNISON\\|Connected\\|Looking\\|Reconciling\\|Propagating\\|Saving\\|Nothing\\|  Waiting\\) .*" . 'font-lock-comment-face))))))
+
 ;;;;; psync (https://github.com/mnewt/psync)
 
 (add-to-list 'auto-mode-alist '("psync_config\\'" . sh-mode))
@@ -3682,6 +3678,10 @@ With a prefix ARG, create it in `org-directory'."
 (use-package calendar
   :commands
   calendar-current-date
+  calendar-gregorian-from-absolute
+  new-journal-entry
+  calendar-insert-date
+  calendar-choose-date
   :config
   (defun calendar-iso8601-date-string (date)
     "Create an ISO8601 date string from DATE."
@@ -3725,16 +3725,12 @@ With a prefix ARG, create it in `org-directory'."
           (progn
             (insert "journal")
             (yas-expand)))))
-
-  :commands
-  (calendar-gregorian-from-absolute
-   new-journal-entry
-   calendar-insert-date
-   calendar-choose-date)
   :bind
-  ("M-m i d" . calendar-insert-date)
-  ("M-m i t" . calendar-insert-date-today)
-  ("M-m j" . journal-new-entry))
+  (:map m-insert-map
+        ("d" . calendar-insert-date)
+        ("t" . calendar-insert-date-today))
+  (:map m-map
+        ("C-j" . journal-new-entry)))
 
 ;;;; Mail
 
@@ -4067,8 +4063,8 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
 ;; Newline at end of file.
 (setq require-final-newline t)
-      ;; Sentences end with one space.
-      ;; sentence-end-double-space nil)
+;; Sentences end with one space.
+;; sentence-end-double-space nil)
 
 ;; Tabs
 (setq-default indent-tabs-mode nil
@@ -5102,10 +5098,7 @@ predicate returns true."
 (use-package piper
   :straight (piper :host gitlab :repo "howardabrams/emacs-piper")
   :init
-  ;; Define "C-c |" as a prefix key.
-  (bind-key "C-c |" nil)
-  (define-prefix-command 'piper-map)
-  (defvar piper-map (make-sparse-keymap "piper"))
+  (bind-prefix piper-map "C-c |" "Piper commands")
   :bind
   ("C-c | |" . piper)
   ("C-c | o" . piper-other)
@@ -6401,7 +6394,7 @@ Open the `eww' buffer in another window."
   (js-indent-level tab-width))
 
 (use-package json-mode
-;;  :ensure-system-package jq
+  ;;  :ensure-system-package jq
   :mode "\\.json\\|prettierrc\\'")
 ;; :hook
 ;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
@@ -6583,8 +6576,6 @@ Open the `eww' buffer in another window."
   (:map flycheck-mode-map
         ("C-c ! ." . hydra-flycheck/body)))
 
-
-
 (use-package lsp-mode
   :custom
   (lsp-enable-snippet t)
@@ -6598,7 +6589,8 @@ Open the `eww' buffer in another window."
                 enh-ruby-mode-hook nxml-mode-hook rust-mode-hook sass-mode-hook
                 sh-mode-hook html-mode-hook web-mode-hook xml-mode-hook) .
                 lsp-deferred)
-  (lsp-after-open-hook . lsp-enable-imenu))
+  (lsp-after-open-hook . lsp-enable-imenu)
+  (lsp-mode . lsp-enable-which-key-integration))
 
 (use-package lsp-ui
   :commands lsp-ui-mode
@@ -6625,15 +6617,17 @@ Open the `eww' buffer in another window."
   :straight (apheleia :host github :repo "raxod502/apheleia")
   :demand t
   :config
-  (dolist (formatter '((zprint . ("zprint" "{:map {:comma? false}}"))
+  (dolist (formatter '((lua-fmt . ("luafmt" "--stdin"))
+                       (shfmt . ("shfmt"))
                        (xmllint . ("xmllint" "--format" "-"))
-                       (shfmt . ("shfmt"))))
+                       (zprint . ("zprint" "{:map {:comma? false}}"))))
     (add-to-list 'apheleia-formatters formatter))
 
   (dolist (mode '((clojure-mode . zprint)
                   (clojurec-mode . zprint)
                   (clojurescript-mode . zprint)
                   (graphql-mode . prettier)
+                  (lua-mode . lua-fmt)
                   (markdown-mode . prettier)
                   (nxml-mode . xmllint)
                   (sh-mode . shfmt)))
@@ -7175,7 +7169,7 @@ configuration when invoked to evaluate a line."
 
   (defun eval-in-repl-sh-mode-setup ()
     (require 'eval-in-repl-shell))
-  
+
   :hook
   (sh-mode-hook . eval-in-repl-sh-mode-setup)
   :bind
@@ -7218,5 +7212,9 @@ configuration when invoked to evaluate a line."
 
 
 (provide 'init)
+
+;; Local Variables:
+;; flycheck-checkers: (emacs-lisp emacs-lisp-checkdoc)
+;; End:
 
 ;;; init.el ends here
