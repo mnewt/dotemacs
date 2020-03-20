@@ -70,11 +70,12 @@
 
 (defun straight-x-delete-repo (repo)
   "Prompt for REPO and delete it from the file system."
-  (interactive (completing-read
-                "Delete repo: "
-                (straight--directory-files (straight--repos-dir))))
+  (interactive (list (completing-read
+                      "Delete repo: "
+                      (straight--directory-files (straight--repos-dir)))))
   (when (y-or-n-p (format "Delete repository %S? " repo))
-    (delete-directory (straight--repos-dir repo) 'recursive 'trash)))
+    (delete-directory (straight--repos-dir repo) 'recursive 'trash)
+    (message "Deleted repo %s." repo)))
 
 
 ;;;;; use-package
@@ -149,17 +150,26 @@ higher level up to the top level form."
   (declare (indent 0))
   `(eval '(progn ,@body)))
 
-(defun update-emacs-pacakges ()
+(defun update-emacs-packages-sync ()
+  "Synchronously update Emacs packages using `straight'."
+  (straight-pull-all)
+  (straight-check-all))
+
+(defun update-emacs-packages ()
   "Update Emacs packages using `straight'."
   (interactive)
-  (straight-x-fetch-all)
-  (straight-merge-all)
-  (straight-check-all))
+  (make-process
+   :name "*update-emacs-packages*"
+   :buffer "*update-emacs-packages*"
+   :command `("emacs" "--batch"
+              "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
+              "--load" ,(expand-file-name "init.el" user-emacs-directory)
+              "--funcall" "update-emacs-packages-sync")))
 
 (defun update-system-packages ()
   "Update system packages using the dotfiles update scripts."
   (interactive)
-  (async-shell-command "update" "*update*"))
+  (async-shell-command "update" "*update-system-packages*"))
 
 (defun update ()
   "Run update scripts for the computer and Emacs."

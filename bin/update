@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+emacs_dir="$HOME/.emacs.d"
+
+if [ -e "#$emacs_dir/.git" ] && [ -n "$(git -C "$emacs_dir" status --porcelain)" ]; then
+	echo "Pulling changes from the current remote..."
+	git -C "$HOME" pull
+else
+	echo "Not pulling becase no clean repo was found at $emacs_dir."
+fi
+
+if [ -f "$emacs_dir/bin/setup" ]; then
+	echo "Building a new version of Emacs..."
+	"$emacs_dir/bin/setup"
+else
+	echo "Emacs build script not found, skipping"
+fi
+
+echo "Updating Emacs packages..."
+emacs --batch --load "$emacs_dir/early-init.el" --load "$emacs_dir/init.el" \
+	--funcall update-emacs-packages-sync
