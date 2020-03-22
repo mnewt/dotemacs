@@ -1402,3 +1402,81 @@ https://github.com/bbatsov/crux/blob/master/crux.el
 :ARCHIVE_TODO: DONE
 :END:
 - State "DONE"       from "WIP"        [2019-08-16 Fri 15:11]
+
+* DONE Rendering issues
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:28]
+  - https://lists.gnu.org/archive/html/emacs-devel/2020-02/msg00079.html
+  - https://debbugs.gnu.org/cgi/bugreport.cgi?bug=32932#412
+
+* DONE Improve =source-sh=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:28]
+** TODO Make it into a package?
+** TODO Make it async?
+
+* DONE Simplify =fiat-color.el=
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:28]
+
+* DONE Figure out magit wip modes
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:29]
+
+* DONE Get Eshell/tramp to cache and/or save passwords [0/2]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:29]
+Enable logging with =(setq auth-source-DEBUG T)=
+** TODO What about when sudo is called in other ways, such as from a script? it doesn't seem to cache the password then.
+** TODO How to ignore password prompting for just for a specific command?
+See:
+#+begin_src emacs-lisp
+(add-hook 'comint-output-filter-functions
+          'comint-watch-for-password-prompt)
+#+end_src
+This is already added. do we have to do something else?
+
+
+* DONE dired-rainbow-x
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2020-03-21 Sat 21:30
+  :ARCHIVE_FILE: ~/.emacs.d/TODO.org
+  :ARCHIVE_OLPATH: Tasks
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+  - State "DONE"       from "WIP"        [2020-03-21 Sat 21:30]
+** TODO Fix remaining bugs
+** TODO Show to Fuco1
+
