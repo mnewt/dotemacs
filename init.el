@@ -155,16 +155,20 @@ higher level up to the top level form."
   (straight-pull-all)
   (straight-check-all))
 
+;; WIP This doesn't ever prompt for decisions, like what to do if the repo is
+;; dirty.
 (defun update-emacs-packages ()
   "Update Emacs packages using `straight'."
   (interactive)
-  (make-process
-   :name "*update-emacs-packages*"
-   :buffer "*update-emacs-packages*"
-   :command `("emacs" "--batch"
-              "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
-              "--load" ,(expand-file-name "init.el" user-emacs-directory)
-              "--funcall" "update-emacs-packages-sync")))
+  (pop-to-buffer
+   (process-buffer
+    (make-process
+     :name "*update-emacs-packages*"
+     :buffer "*update-emacs-packages*"
+     :command `("emacs" "--batch"
+                "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
+                "--load" ,(expand-file-name "init.el" user-emacs-directory)
+                "--funcall" "update-emacs-packages-sync")))))
 
 (defun update-system-packages ()
   "Update system packages using the dotfiles update scripts."
@@ -176,7 +180,7 @@ higher level up to the top level form."
   (interactive)
   ;; FIXME Emacs is updated first because asking for a password while straight
   ;; is updating causes Emacs to lose all key bindings.
-  (update-emacs-packages)
+  ;; (update-emacs-packages-sync)
   (update-system-packages))
 
 
@@ -449,7 +453,8 @@ higher level up to the top level form."
 
 ;; GUI Configuration
 (when window-system
-  (setq ;; We don't set a frame title because Emacs on macOS renders the
+  (setq
+   ;; We don't set a frame title because Emacs on macOS renders the
    ;; frame title face terribly. No rendering is better than terrible
    ;; rendering. Also, it is clean and nice this way.
    frame-title-format nil
@@ -521,46 +526,9 @@ returned."
   ;;   (pixel-scroll-mode))
 
   (use-package mixed-pitch
+    :custom
+    (mixed-pitch-set-height t)
     :config
-    ;; FIXME: This reverts the commit discussed here:
-    ;; https://gitlab.com/jabranham/mixed-pitch/-/issues/6
-    (define-minor-mode mixed-pitch-mode
-      "Change the default face of the current buffer to a variable pitch, while keeping some faces fixed pitch.
-
-See the variable `mixed-pitch-fixed-pitch-faces' for a list of
-which faces remain fixed pitch. The height and pitch of faces is
-inherited from `variable-pitch' and `default'."
-      :lighter " MPM"
-      (let ((var-pitch (face-attribute 'variable-pitch :family))
-            (var-height (face-attribute 'variable-pitch :height))
-            (fix-pitch (face-attribute 'default :family))
-            (fix-height (face-attribute 'default :height)))
-        ;; Turn mixed-pitch-mode on:
-        (if mixed-pitch-mode
-            (progn
-              ;; remember cursor type
-              (when mixed-pitch-variable-pitch-cursor
-                (setq mixed-pitch-cursor-type cursor-type))
-              ;; remap default face to variable pitch
-              (setq mixed-pitch-variable-cookie
-                    (face-remap-add-relative
-                     'default :family var-pitch :height var-height))
-              (setq mixed-pitch-fixed-cookie nil)
-              ;; keep fonts in `mixed-pitch-fixed-pitch-faces' as fixed-pitch.
-              (dolist (face mixed-pitch-fixed-pitch-faces)
-                (add-to-list 'mixed-pitch-fixed-cookie
-                             (face-remap-add-relative
-                              face :family fix-pitch :height fix-height)))
-              ;; Change the cursor if the user requested:
-              (when mixed-pitch-variable-pitch-cursor (setq cursor-type mixed-pitch-variable-pitch-cursor)))
-          ;; Turn mixed-pitch-mode off:
-          (progn (face-remap-remove-relative mixed-pitch-variable-cookie)
-                 (dolist (cookie mixed-pitch-fixed-cookie)
-                   (face-remap-remove-relative cookie))
-                 ;; Restore the cursor if we changed it:
-                 (when mixed-pitch-variable-pitch-cursor
-                   (setq cursor-type mixed-pitch-cursor-type))))))
-
     (defun maybe-enable-mixed-pitch-mode ()
       "Maybe enable `mixed-pitch-mode'."
       (unless (derived-mode-p 'dns-mode)
@@ -1599,14 +1567,6 @@ _q_ quit
   (:map lisp-interaction-mode-map
         ("C-x C-j" . crux-eval-and-replace)))
 
-(defun save-kill-buffers-and-quit ()
-  "Kill all buffers, clean up tramp caches, and quit Emacs."
-  (interactive)
-  (save-some-buffers)
-  (desktop-clear)
-  (tramp-cleanup-all)
-  (kill-emacs))
-
 (defmacro specialize-beginning-of-buffer (mode &rest forms)
   "Define a special version of `beginning-of-buffer' in MODE.
 
@@ -1709,6 +1669,9 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 ;;   (matcha-setup))
 
 (use-package ibuffer
+  :commands
+  ibuffer-forward-line
+  ibuffer-backward-line
   :bind
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
@@ -1757,22 +1720,12 @@ Each EXPR should create one window."
   "Set up dotemacs window config."
   (interactive)
   (delete-other-windows)
-  (dired "~/.emacs.d/init")
+  (find-file "~/.emacs.d/init.el")
   (switch-to-buffer-other-window (current-buffer))
   (find-file "~/.emacs.d/TODO.org")
   (other-window 1))
 
-(defun window-config-org ()
-  "Set up Org window config."
-  (interactive)
-  (delete-other-windows)
-  (dired org-directory)
-  (switch-to-buffer-other-window (current-buffer))
-  (find-file (expand-file-name "TODO.org" org-directory))
-  (other-window 1))
-
 (bind-keys
- ("M-s-q" . save-kill-buffers-and-quit)
  ("s-x" . kill-line-or-region)
  ("s-c" . copy-line-or-region)
  ("s-v" . clipboard-yank-and-indent)
@@ -2197,6 +2150,11 @@ force `counsel-rg' to search in `default-directory.'"
 
   (ivy-configure 'counsel-imenu :update-fn 'auto)
 
+  (with-eval-after-load 'em-hist
+    (defvar eshell-hist-mode-map)
+    (bind-keys :map eshell-hist-mode-map
+               ("M-r" . counsel-esh-history)))
+
   (counsel-mode)
   :bind
   ("M-x" . counsel-M-x)
@@ -2232,7 +2190,12 @@ force `counsel-rg' to search in `default-directory.'"
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package counsel-term
-  :straight (counsel-term :host github :repo "tautologyclub/counsel-term")
+  :straight (counsel-term
+             :host github :repo "tautologyclub/counsel-term"
+             :fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
+  :commands
+  counsel-term-cd
+  counsel-eshell-cd
   :config
   (with-eval-after-load 'vterm
     (defvar vterm-mode-map)
@@ -2240,6 +2203,10 @@ force `counsel-rg' to search in `default-directory.'"
                ("M-r" . counsel-term-history)
                ("M-^" . term-downdir)
                ("C-x d" . counsel-term-cd)))
+
+  (with-eval-after-load 'em-hist
+    (bind-keys :map eshell-hist-mode-map
+               ("C-x d" . counsel-eshell-cd)))
   :bind
   (:map term-mode-map
         ("M-r" . counsel-term-history)
@@ -2255,6 +2222,8 @@ force `counsel-rg' to search in `default-directory.'"
   (projectile-mode-line nil)
   :commands
   projectile-project-root
+  :functions
+  projectile-project-p
   :config
   (defun projectile-load-settings (&optional file)
     "Load project elisp settings from FILE.
@@ -2564,6 +2533,8 @@ See: https://github.com/mnewt/psync"
 ;;;; OS program interaction
 
 (use-package server
+  :functions
+  server-running-p
   :config
   (unless (server-running-p)
     (server-start)))
@@ -2834,16 +2805,32 @@ With a prefix ARG always prompt for command to use."
   (:map dired-mode-map
         ("/" . dired-narrow)))
 
-;; (use-package dired-list
-;;   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
-;;              :files "dired-list.el")
-;;   :commands
-;;   dired-list
-;;   dired-list-git-ls-files
-;;   dired-list-locate
-;;   dired-list-find-file
-;;   dired-list-find-name
-;;   dired-list-grep)
+(use-package dired-list
+  :straight (dired-list :host github :repo "Fuco1/dired-hacks"
+                        :files ("dired-list.el"))
+  :commands
+  dired-list
+  dired-list-git-ls-files
+  dired-list-locate
+  dired-list-find-file
+  dired-list-find-name
+  dired-list-grep
+  dired-list-init-files
+  dired-list-dotfiles
+
+  :config
+  (defun dired-list-init-files ()
+    "List Emacs init files."
+    (interactive)
+    (dired-list-git-ls-files user-emacs-directory)
+    (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1)))
+
+  (defun dired-list-dotfiles ()
+    "List Emacs init files."
+    (interactive)
+    (git-home-link "dotfiles")
+    (dired-list-git-ls-files "~")
+    (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1))))
 
 (use-package dired-subtree
   :bind
@@ -2871,19 +2858,6 @@ With a prefix ARG always prompt for command to use."
                                  (auto-revert-mode))))
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
-
-(defun dired-list-init-files ()
-  "List Emacs init files."
-  (interactive)
-  (git-home-link "dotemacs")
-  (dired-list-git-ls-files user-emacs-directory)
-  (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1)))
-
-(defun dired-list-dotfiles ()
-  "List Emacs init files."
-  (interactive)
-  (git-home-link "dotfiles")
-  (dired-list-git-ls-files "~"))
 
 (use-package counsel-tramp
   :hook
@@ -3091,6 +3065,11 @@ Include PREFIX in prompt if given."
   (dash-docs-enable-debugging nil)
   (dash-docs-docsets-path "~/.config/docsets")
 
+  :functions
+  dash-docs-installed-docsets
+  dash-docs-official-docsets
+  dash-docs-unofficial-docsets
+
   :config
   (make-directory dash-docs-docsets-path t)
 
@@ -3144,6 +3123,13 @@ Include PREFIX in prompt if given."
 ;; TODO: Defer loading of hydra.
 (use-package hydra
   :defer 10
+  :functions
+  hydra-default-pre
+  hydra-keyboard-quit
+  hydra--call-interactively-remap-maybe
+  hydra-show-hint
+  hydra-set-transient-map
+
   :config
   (autoload #'windmove-find-other-window "windmove")
   (radian-protect-macros
@@ -3233,6 +3219,20 @@ Include PREFIX in prompt if given."
       ("c" goto-last-change)
       ("q" nil))
 
+    (defhydra hydra-flycheck
+      (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
+            :post (progn (setq hydra-hint-display-type nil)
+                         (quit-windows-on "*Flycheck errors*"))
+            :hint nil)
+      "Errors"
+      ("f" flycheck-error-list-set-filter "Filter")
+      ("n" flycheck-next-error "Next")
+      ("p" flycheck-previous-error "Previous")
+      ("<" flycheck-first-error "First")
+      (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
+      ("q" nil)))
+
+  (radian-protect-macros
     (defhydra hydra-ibuffer-main (:color pink :hint nil)
       "
     ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
@@ -3326,27 +3326,7 @@ Include PREFIX in prompt if given."
       (">" ibuffer-filter-by-size-gt "size")
       ("<" ibuffer-filter-by-size-lt "size")
       ("/" ibuffer-filter-disable "disable")
-      ("b" hydra-ibuffer-main/body "back" :color blue))
-
-    (defhydra hydra-flycheck
-      (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
-            :post (progn (setq hydra-hint-display-type nil)
-                         (quit-windows-on "*Flycheck errors*"))
-            :hint nil)
-      "Errors"
-      ("f" flycheck-error-list-set-filter "Filter")
-      ("n" flycheck-next-error "Next")
-      ("p" flycheck-previous-error "Previous")
-      ("<" flycheck-first-error "First")
-      (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-      ("q" nil)))
-
-  :functions
-  hydra-default-pre
-  hydra-keyboard-quit
-  hydra--call-interactively-remap-maybe
-  hydra-show-hint
-  hydra-set-transient-map
+      ("b" hydra-ibuffer-main/body "back" :color blue)))
 
   :bind
   ("C-s-v" . hydra-move/body)
@@ -3360,6 +3340,18 @@ Include PREFIX in prompt if given."
   :bind
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
+
+(use-package atomic-chrome
+  :defer 16
+  :custom
+  (atomic-chrome-default-major-mode 'markdown-mode)
+  (atomic-chrome-start-server)
+  :config
+  (defun atomic-chrome-switch-to-firefox ()
+    "Switch to Firefox."
+    (call-process "open" nil nil nil "-a" "FirefoxDeveloperEdition"))
+  :hook
+  (atomic-chrome-edit-done-hook . atomic-chrome-switch-to-firefox))
 
 (use-package counsel-web
   :straight (counsel-web :host github :repo "mnewt/counsel-web")
@@ -3375,6 +3367,8 @@ Include PREFIX in prompt if given."
   (gif-screencast-cropping-program "mogrify")
   (gif-screencast-capture-format "ppm")
   (gif-screencast-output-directory (expand-file-name "~/Downloads"))
+  :functions
+  git-screencast--cropping-region
   :config
   ;; FIXME: https://gitlab.com/ambrevar/emacs-gif-screencast/issues/14
   ;; Double the size of the window because the cropping region is not
@@ -3451,6 +3445,15 @@ Include PREFIX in prompt if given."
   org-capture-refile
   :config
 
+  (defun window-config-org ()
+    "Set up Org window config."
+    (interactive)
+    (delete-other-windows)
+    (dired org-directory)
+    (switch-to-buffer-other-window (current-buffer))
+    (find-file (expand-file-name "TODO.org" org-directory))
+    (other-window 1))
+
   (defun org-todo-file (arg)
     "Open the appropriate Org TODO.org file, informed by ARG.
 
@@ -3509,6 +3512,8 @@ With a prefix ARG, create it in `org-directory'."
                                    (cdr keywords))))
                       (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
                   org-todo-keywords))))
+
+  (defvar org-default-priority)
 
   (defun org-sort-entries--todo-status-key ()
     "Sort Org TODO entries by their status."
@@ -4485,19 +4490,12 @@ ID, ACTION, CONTEXT."
     "Open a new brace or bracket expression, with relevant newlines and indent.
 
 See https://github.com/Fuco1/smartparens/issues/80."
-    (message "sp-newline-etc")
     (newline)
     (indent-according-to-mode)
     (forward-line -1)
     (indent-according-to-mode))
 
   (require 'smartparens-config)
-
-  ;; Smartparens is broken in `cc-mode' as of Emacs 27. See
-  ;; https://github.com/Fuco1/smartparens/issues/963
-  (when (version<= "27" emacs-version)
-    (dolist (fun '(c-electric-paren c-electric-brace))
-      (add-to-list 'sp--special-self-insert-commands fun)))
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
                    javascript-mode js-mode js2-mode json-mode
@@ -4938,6 +4936,9 @@ If no region is selected, toggles comments for the line."
    ((string-match-p "|sudo:root@" path)
     (replace-regexp-in-string "|sudo:root@[^:]*" "" path))))
 
+(declare-function 'eshell-return-to-prompt "em-hist")
+(declare-function 'eshell-send-input "esh-mode")
+
 (defun sudo-toggle ()
   "Reopen the current file, directory, or shell as root.
 
@@ -5169,6 +5170,8 @@ See https://github.com/mnewt/fpw."
    (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock" "_history" "-history"
                  ".tmp" "~" "desktop.ini" "Icon\r" "Thumbs.db" "$RECYCLE_BIN"
                  "lost+found")))
+  (eshell-history-size 10000)
+
   :commands
   eshell
   eshell-previous-input
@@ -5177,6 +5180,7 @@ See https://github.com/mnewt/fpw."
   eshell-ls-applicable
   eshell/cd
   eshell/pwd
+
   :config
   (defun eshell-prompt-housekeeping ()
     "Housekeeping for Eshell prompt."
@@ -5442,7 +5446,9 @@ Call it a second time to print the prompt."
   (defun eshell-exec-visual (&rest args)
     "Run the specified PROGRAM in a terminal emulation buffer.
  ARGS are passed to the program.  At the moment, no piping of input is
- allowed."
+ allowed.
+
+Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
     (let* (eshell-interpreter-alist
            (original-args args)
            (interp (eshell-find-interpreter (car args) (cdr args)))
@@ -5456,7 +5462,7 @@ Call it a second time to print the prompt."
            (args (if in-ssh-tramp
                      (let ((dir-name (tramp-dissect-file-name default-directory)))
                        (flatten-tree
-                        (el
+                        (list
                          "-t"
                          (tramp-file-name-host dir-name)
                          (format
@@ -5464,7 +5470,7 @@ Call it a second time to print the prompt."
                           (tramp-file-name-localname dir-name)
                           (string-join
                            (append
-                            (el (tramp-file-name-localname (tramp-dissect-file-name (car interp))))
+                            (list (tramp-file-name-localname (tramp-dissect-file-name (car interp))))
                             (cdr args))
                            " ")))))
                    (flatten-tree
@@ -5532,10 +5538,7 @@ Call it a second time to print the prompt."
      ("M-<up>" . eshell-previous-prompt)
      ("C-M-S-n" . eshell-next-prompt)
      ("M-<down>" . eshell-next-prompt)
-     ("C-h C-e" . esh-help-run-help)
-     :map eshell-hist-mode-map
-     ("M-r" . counsel-esh-history)
-     ("C-x d" . counsel-eshell-cd)))
+     ("C-h C-e" . esh-help-run-help)))
 
   (defun eshell-ls-find-file-at-point ()
     "RET on Eshell's `ls' output to open files."
@@ -5882,6 +5885,8 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
     (ert-run-tests-interactively
      (substring-no-properties (symbol-name (symbol-at-point))))))
 
+(declare-function ert-delete-all-tests "ert")
+
 (defun ert-reload-and-run-tests-in-project (&optional reset)
   "Reload project and test files and then run deftests.
 
@@ -5900,7 +5905,7 @@ project prefix, and unintern all `ert' tests."
       (mapatoms (lambda (symbol)
                   (and (functionp symbol)
                        (string-prefix-p prefix (symbol-name symbol))
-                       (reset symbol))))
+                       (fmakunbound symbol))))
       ;; Delete all tests.
       (ert-delete-all-tests))
     ;; Reload the project namespace.
@@ -5959,6 +5964,8 @@ Interactively, reads the register using `register-read-with-preview'."
   debbugs-gnu-search
   debbugs-gnu-bugs)
 
+(defvar cider-mode-map)
+
 (use-package clojure-mode
   :mode
   ("\\.clj[sc]?\\'" . clojure-mode)
@@ -5968,6 +5975,8 @@ Interactively, reads the register using `register-read-with-preview'."
 
   :config
   (use-package clojure-mode-extra-font-locking)
+
+  (use-package edn :defer t)
 
   (use-package clj-refactor
     :config
@@ -6014,6 +6023,10 @@ of problems in that context."
     (cider-prompt-for-symbol nil)
     ;; Always prompt for the jack in command.
     (cider-edit-jack-in-command t)
+
+    :functions
+    cider--find-var
+    cider--find-var-other-window
 
     :config
     (defun cider-find-var-other-window (&optional arg _var _line)
@@ -6309,18 +6322,22 @@ Open the `eww' buffer in another window."
   :custom
   (w3m-search-engine-alist
    '(("google" "https://www.google.com/search?q=%s&ie=utf-8&oe=utf-8&gbv=1" utf-8)
-     ("emacswiki" "https://www.emacswiki.org/cgi-bin/wiki?search=%s")
-     ("en.wikipedia" "https://en.wikipedia.org/wiki/Special:Search?search=%s")
+     ("wikipedia" "https://en.wikipedia.org/wiki/Special:Search?search=%s")
      ("duckduckgo" "https://duckduckgo.com/lite&q=%s" utf-8)))
   (w3m-search-default-engine "duckduckgo")
   :commands
-  (w3m w3m-goto-url w3m-search))
+  w3m
+  w3m-goto-url
+  w3m-search)
 
 (use-package markdown-mode
   :mode "\\.md\\|markdown\\'"
   :custom
   (markdown-list-indent-width tab-width)
-  (markdown-command "multimarkdown"))
+  (markdown-command "multimarkdown")
+  :bind
+  (:map markdown-mode-map
+        ("C-c '" . fence-edit-dwim)))
 
 (use-package web-mode
   :mode ("\\.phtml\\'"
@@ -6643,35 +6660,40 @@ Open the `eww' buffer in another window."
                   (sh-mode . shfmt)))
     (add-to-list 'apheleia-mode-alist mode))
 
-  ;; WIP
-  ;; (defun apheleia-format-region (start end)
-  ;;   "Format from BEG to END with `apheleia'."
-  ;;   (interactive "r")
-  ;;   (let ((buffer (current-buffer))
-  ;;         (temp-buffer (get-buffer-create "*apheleia-temp*")))
-  ;;     (with-current-buffer temp-buffer
-  ;;       (insert-buffer-substring-no-properties buffer start end)
-  ;;       (when apheleia-mode
-  ;;         (when-let ((command (apheleia--get-formatter-command)))
-  ;;           (apheleia-format-buffer
-  ;;            command
-  ;;            (lambda ()
-  ;;              (let (temp-beg temp-end)
-  ;;                (with-current-buffer temp-buffer
-  ;;                  (setq temp-beg (point-min)
-  ;;                        temp-end (point-max)))
-  ;;                (with-current-buffer buffer
-  ;;                  (delete-region)
-  ;;                  (insert-buffer-substring-no-properties temp-buffer
-  ;;                                                         temp-beg
-  ;;                                                         temp-max))))))))))
+  ;; FIXME This is a naive work in progress. Problems include:
+  ;; - Inadvertently trims newlines/whitespace.
+  ;; - Doesn't work if the region doesn't parse.
+  ;; - Visibly moves point around
+  ;; - It's async so if the formatter command takes a long time you could edit
+  ;;   it and then lose your edits
+  (defun apheleia-format-region (start end &optional callback)
+    "Format from START to END with `apheleia'."
+    (interactive "r")
+    (when-let ((command (apheleia--get-formatter-command
+                         (if current-prefix-arg
+                             'prompt
+                           'interactive)))
+               (cur-buffer (current-buffer))
+               (formatted-buffer (get-buffer-create " *apheleia-formatted*")))
+      (with-current-buffer formatted-buffer
+        (erase-buffer)
+        (insert-buffer-substring-no-properties cur-buffer start end)
+        (apheleia-format-buffer
+         command
+         (lambda ()
+           (with-current-buffer cur-buffer
+             (delete-region start end)
+             (insert-buffer-substring-no-properties formatted-buffer)
+             (when callback (funcall callback))))))))
 
-  ;; (defun apheleia-format-region (start end)
-  ;;   "Format from START to END with `apheleia'."
-  ;;   (interactive "r")
-  ;;   (save-restriction
-  ;;     (narrow-to-region start end)
-  ;;     (apheleia--format-after-save)))
+  (defun apheleia-format-defun ()
+    "Format the defun with `apheleia'."
+    (interactive)
+    (let ((pos (point))
+          (start (progn (beginning-of-defun) (point)))
+          (end (progn (end-of-defun) (point))))
+      (apheleia-format-region start end
+                              (lambda () (goto-char pos)))))
 
   (apheleia-global-mode))
 
