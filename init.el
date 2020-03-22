@@ -87,7 +87,7 @@
 
 (straight-use-package 'use-package)
 
-(eval-when-compile (require 'use-package))
+(require 'use-package)
 
 (when init-file-debug
   (setq use-package-verbose t
