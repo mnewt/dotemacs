@@ -23,16 +23,10 @@
 
 ;; Faster to disable these here (before they've been initialized)
 ;; 
-;; TODO: It seems they get enabled anyway and we have to disable them through
-;; their packages. Is there a way to short circuit loading these packages?
 (unless (and (display-graphic-p) (eq system-type 'darwin))
   (push '(menu-bar-lines . 0) default-frame-alist))
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
-;; (tool-bar-mode   -1)
-;; (menu-bar-mode   -1)
-;; (scroll-bar-mode -1)
-;; (tooltip-mode    -1)
 
 ;; Give the frame basic coloring while waiting for the theme to load. The main
 ;; purpose of this is to not blind me when it's dark. These colors are from

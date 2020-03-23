@@ -6,7 +6,7 @@
 ** TODO Complete =counsel-web=
 ** TODO =counsel-term= stuff
 *** TODO Make =counsel-term-cd= into =counsel-dired-jump=
-*** WIP =counsel-term-cd=
+*** TODO =counsel-term-cd=
 
     https://github.com/tautologyclub/counsel-term/pull/2
 

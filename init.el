@@ -7186,6 +7186,13 @@ This command defaults to running the previous command."
   :hook
   (plantuml-mode-hook . flycheck-plantuml-setup))
 
+(use-package mermaid-mode
+  :mode "\\.mmd\\'")
+
+(use-package ob-mermaid
+  :functions
+  org-babel-execute:mermaid)
+
 (use-package eval-in-repl
   :custom
   (eir-jump-after-eval nil)
