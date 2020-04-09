@@ -150,25 +150,27 @@ higher level up to the top level form."
   (declare (indent 0))
   `(eval '(progn ,@body)))
 
-(defun update-emacs-packages-sync ()
+(defun update-emacs-packages ()
   "Synchronously update Emacs packages using `straight'."
+  (interactive)
   (straight-pull-all)
   (straight-check-all))
 
 ;; WIP This doesn't ever prompt for decisions, like what to do if the repo is
 ;; dirty.
-(defun update-emacs-packages ()
-  "Update Emacs packages using `straight'."
-  (interactive)
-  (pop-to-buffer
-   (process-buffer
-    (make-process
-     :name "*update-emacs-packages*"
-     :buffer "*update-emacs-packages*"
-     :command `("emacs" "--batch"
-                "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
-                "--load" ,(expand-file-name "init.el" user-emacs-directory)
-                "--funcall" "update-emacs-packages-sync")))))
+;; See https://github.com/raxod502/straight.el/issues/103
+;; (defun update-emacs-packages-async ()
+;;   "Update Emacs packages using `straight'."
+;;   (interactive)
+;;   (pop-to-buffer
+;;    (process-buffer
+;;     (make-process
+;;      :name "*update-emacs-packages*"
+;;      :buffer "*update-emacs-packages*"
+;;      :command `("emacs" "--batch"
+;;                 "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
+;;                 "--load" ,(expand-file-name "init.el" user-emacs-directory)
+;;                 "--funcall" "update-emacs-packages-sync")))))
 
 (defun update-system-packages ()
   "Update system packages using the dotfiles update scripts."
@@ -178,9 +180,7 @@ higher level up to the top level form."
 (defun update ()
   "Run update scripts for the computer and Emacs."
   (interactive)
-  ;; FIXME Emacs is updated first because asking for a password while straight
-  ;; is updating causes Emacs to lose all key bindings.
-  ;; (update-emacs-packages-sync)
+  (update-emacs-packages)
   (update-system-packages))
 
 
@@ -233,12 +233,7 @@ higher level up to the top level form."
 
 (cl-case system-type
   (darwin
-   (defvar ns-alternate-modifier)
    (defvar ns-right-alternate-modifier)
-   (defvar ns-command-modifier)
-   (defvar ns-right-command-modifier)
-   (defvar ns-control-modifier)
-   (defvar ns-right-control-modifier)
    (defvar ns-function-modifier)
    (defvar ns-pop-up-frames)
    ;; Pass right option through to OS.
@@ -283,6 +278,11 @@ higher level up to the top level form."
 ;; below.
 
 (bind-keys
+ ;; Editing
+ ("C-d" . delete-forward-char)
+ ("M-c" . capitalize-dwim)
+ ("M-l" . downcase-dwim)
+ ("M-u" . upcase-dwim)
  ("s-o" . find-file)
  ("s-O" . find-file-other-window)
  ("s-s" . save-buffer)
@@ -293,7 +293,7 @@ higher level up to the top level form."
  ("s-a" . mark-whole-buffer)
  ("s-g" . isearch-repeat-forward)
  ("s-G" . isearch-repeat-backward)
- ("C-S-s" . isearch-forward-symbol-at-point)
+ ("C-s-s" . isearch-forward-symbol-at-point)
  ("s-l" . select-current-line)
  ("C-S-L" . select-current-line)
  ("M-o" . other-window)
@@ -864,30 +864,16 @@ This sets things up for `window-highlight' and `mode-line'."
          (inactive-bg (color-blend active-bg
                                    (theme-face-attribute 'default :foreground)
                                    0.95)))
-    ;; (active-fg (theme-face-attribute 'default :foreground))
-    ;; (highlight-fg (theme-face-attribute 'highlight :foreground))
-    ;; (inactive-fg (color-blend active-bg active-fg 0.4)))
     (apply #'custom-set-faces
            `((default ((t :background ,inactive-bg)))
              (fringe ((t :background ,inactive-bg)))
              (window-highlight-focused-window ((t :background ,active-bg)))
              (vertical-border ((t :foreground ,inactive-bg)))
              (cursor ((t :background "magenta")))
-                                        ;(mode-line ((t :box nil)))
-             ;; :background ,(color-blend active-bg active-fg 0.8)
-             ;; :foreground ,(color-blend active-fg active-bg 0.9))))
-             ;; (mode-line-emphasis ((t :background ,(color-blend active-bg active-fg 0.7)
-             ;;                       :foreground ,active-fg)))
-             ;; (mode-line-highlight ((t :background ,highlight-fg
-             ;;                        :foreground ,active-bg)))
-             ;; (mode-line-buffer-id ((t :background ,(color-blend active-bg active-fg 0.2)
-             ;;                        :foreground ,inactive-bg
-             ;;                        :bold t)))
-                                        ;(mode-line-inactive ((t :box nil)))
              (sp-show-pair-match-face ((t :inherit highlight
-                                        :underline nil
-                                        :foreground nil
-                                        :background nil))))))
+                                          :underline nil
+                                          :foreground nil
+                                          :background nil))))))
   (mood-line--refresh-bar))
 
 (advice-add #'load-theme :before #'custom-enabled-themes-reset)
@@ -898,10 +884,20 @@ This sets things up for `window-highlight' and `mode-line'."
 
 (use-package hl-line
   :defer 2
+  
   :custom
   (global-hl-line-sticky-flag t)
+  
   :config
-  (global-hl-line-mode))
+  (defun maybe-enable-hl-line-mode ()
+    (unless (eq major-mode 'vterm-mode)
+      (hl-line-mode +1)))
+
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (maybe-enable-hl-line-mode)))
+
+  (add-hook 'after-change-major-mode-hook #'maybe-enable-hl-line-mode))
 
 (use-package page-break-lines
   :hook
@@ -1063,7 +1059,7 @@ string or file extension."
                                      auto-mode-alist
                                      magic-fallback-mode-alist))))
 
-(defun scratch-new-buffer (arg)
+(defun scratch-buffer (arg)
   "Create or go to a scratch buffer.
 
 If ARG is provided then create a new buffer regardless of whether
@@ -1079,16 +1075,16 @@ one exists already."
         (select-window win)
       (switch-to-buffer buffer))))
 
-(defun scratch-new-buffer-other-window (arg)
+(defun scratch-buffer-other-window (arg)
   "Create or go to a scratch buffer in the current mode.
 
 If ARG is provided then create a new buffer regardless of whether
 one exists already.
 
-See `scratch-new-buffer'."
+See `scratch-buffer'."
   (interactive "P")
   (switch-to-buffer-other-window (current-buffer))
-  (scratch-new-buffer arg))
+  (scratch-buffer arg))
 
 ;; kill buffer and window
 (defun kill-other-buffer-and-window ()
@@ -1729,10 +1725,11 @@ Each EXPR should create one window."
  ("s-x" . kill-line-or-region)
  ("s-c" . copy-line-or-region)
  ("s-v" . clipboard-yank-and-indent)
+ ("M-;" . comment-toggle)
  ("s-/" . comment-toggle)
- ("s-n" . scratch-new-buffer)
- ("s-N" . scratch-new-buffer-other-window)
- ("C-c C-n" . scratch-new-buffer)
+ ("s-n" . scratch-buffer)
+ ("s-N" . scratch-buffer-other-window)
+ ("C-c C-n" . scratch-buffer)
  ("C-c M-n" . scratch-new-buffer-other-window)
  ("C-S-p" . scroll-up-margin)
  ("C-S-n" . scroll-down-margin)
@@ -2198,7 +2195,6 @@ force `counsel-rg' to search in `default-directory.'"
   counsel-eshell-cd
   :config
   (with-eval-after-load 'vterm
-    (defvar vterm-mode-map)
     (bind-keys :map vterm-mode-map
                ("M-r" . counsel-term-history)
                ("M-^" . term-downdir)
@@ -3007,7 +3003,7 @@ Include PREFIX in prompt if given."
   :hook
   (ivy-mode-hook . which-key-mode)
   :bind
-  ("M-s-h" . which-key-show-top-level))
+  ("C-s-h" . which-key-show-top-level))
 
 (use-package man
   :custom
@@ -3019,40 +3015,44 @@ Include PREFIX in prompt if given."
   (set-face-attribute 'Man-underline nil
                       :inherit font-lock-keyword-face :underline t)
   :bind
-  ("C-h M-m" . man))
+  ("C-h C-m" . man))
 
 (use-package woman
+  :functions
+  tramp-aware-woman
+  
+  :config
+  ;; TODO Make this usable by:
+  ;;   1. Search the remote MANPATH for the file
+  (defun tramp-aware-woman (man-page-path)
+    "Open a remote man page at MAN-PAGE-PATH via TRAMP."
+    (interactive)
+    (require 'tramp)
+    (let ((dir default-directory))
+      (woman-find-file
+       (if (file-remote-p dir)
+           (let ((vec (tramp-dissect-file-name dir)))
+             (tramp-make-tramp-file-name
+              (tramp-file-name-method vec)
+              (tramp-file-name-user vec)
+              (tramp-file-name-host vec)
+              man-page-path))
+         man-page-path))))
+  
   :bind
-  ("C-h C-m" . woman))
-
-;; TODO Make this usable by:
-;;   1. Search the remote MANPATH for the file
-(defun tramp-aware-woman (man-page-path)
-  "Open a remote man page at MAN-PAGE-PATH via TRAMP."
-  (interactive)
-  (require 'tramp)
-  (let ((dir default-directory))
-    (woman-find-file
-     (if (file-remote-p dir)
-         (let ((vec (tramp-dissect-file-name dir)))
-           (tramp-make-tramp-file-name
-            (tramp-file-name-method vec)
-            (tramp-file-name-user vec)
-            (tramp-file-name-host vec)
-            man-page-path))
-       man-page-path))))
+  ("C-h M-m" . woman))
 
 (use-package info-colors
   :hook
   (Info-selection-hook . info-colors-fontify-node))
 
 ;; FIXME Fix fontification.
-;; (use-package eg.el
-;;   :straight (eg.el :host github :repo "mnewt/eg.el")
-;;   ;;  :ensure-system-package
-;;   ;;  (eg . "pip install eg")
-;;   :bind
-;;   ("C-h e" . eg))
+(use-package eg.el
+  :straight (eg.el :host github :repo "mnewt/eg.el")
+  ;;  :ensure-system-package
+  ;;  (eg . "pip install eg")
+  :bind
+  ("C-h C-e" . eg))
 
 (use-package tldr
   :bind
@@ -3684,9 +3684,21 @@ With a prefix ARG, create it in `org-directory'."
   :bind
   ("C-c C-'" . poporg-dwim))
 
-;; (use-package orglink
-;;   :hook
-;;   (prog-mode-hook . orglink-mode))
+;; TODO Currently, this sometimes does bad things like putting multiple headings
+;; on the same line.
+(use-package org-spacer
+  :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
+  :commands
+  org-spacer-enforce
+  :config
+  (defun org-spacer-enable-before-save-hook ()
+    (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
+  ;; :hook
+  ;; (org-mode-hook . org-spacer-enable-before-save-hook))
+
+(use-package orglink
+  :hook
+  (prog-mode-hook . orglink-mode))
 
 ;;;; Calendar and Journal
 
@@ -3891,13 +3903,13 @@ The config is specified in the config file in `~/.mnt/'."
       (error "Failed to add file %s to the git repo %s at %s"
              (buffer-file-name) name dir))))
 
-;; (defun dired-git-add ()
-;;   "Run `git add' on the selected files in a dired buffer."
-;;   (interactive)
-;;   (let ((files (dired-get-marked-files)))
-;;     (message "> git add %s" files)
-;;     (dired-do-shell-command "git add" nil files)
-;;     (dired-revert)))
+(defun dired-git-add ()
+  "Run `git add' on the selected files in a dired buffer."
+  (interactive)
+  (let ((files (dired-get-marked-files)))
+    (message "> git add %s" files)
+    (dired-do-shell-command "git add" nil files)
+    (dired-revert)))
 
 (defvar git-home-repo-dir
   (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
@@ -4759,17 +4771,15 @@ If no region is selected, toggles comments for the line."
 
 (use-package ssh-config-mode
   :mode
-  ("/\\.ssh/config\\'" . ssh-config-mode)
-  ("/sshd?_config\\'" . ssh-config-mode)
+  ("/\\.?sshd?/config\\'" . ssh-config-mode)
   ("/known_hosts\\'" . ssh-known-hosts-mode)
   ("/authorized_keys2?\\'" . ssh-authorized-keys-mode))
 
+;; WIP
 (defun tramp-cleanup-all ()
   "Clean up all tramp buffers and connections."
   (interactive)
-  (cl-letf (((symbol-function #'password-reset)
-             (lambda ())))
-    (tramp-cleanup-all-connections))
+  (tramp-cleanup-all-connections)
   (setq ivy-history
         (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
                     ivy-history)))
@@ -4877,7 +4887,7 @@ If no region is selected, toggles comments for the line."
   (shell-mode-hook . shell-dirtrack-mode)
   (comint-output-filter-functions . shell-rename-buffer)
   :bind
-  ("C-s-s" . async-shell-command-run-last)
+  ("C-S-s" . async-shell-command-run-last)
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
@@ -5024,27 +5034,21 @@ predicate returns true."
   ;;   "Tell `vterm' to compile if necessary.")
 
   :config
-  ;; (defun vterm--rename-buffer-as-title (title)
-  ;;   (rename-buffer (format "*VTerm %s*" title) t))
+  (defun vterm--rename-buffer-as-title (title)
+    (rename-buffer (format "*VTerm %s*" title) t))
 
-  ;; (defun vterm--set-background-color ()
-  ;;   (make-local-variable 'ansi-color-names-vector)
-  ;;   (aset ansi-color-names-vector 0
-  ;;         (plist-get (face-spec-choose (theme-face 'default)) :background)))
+  (defun vterm--set-background-color ()
+    (make-local-variable 'ansi-color-names-vector)
+    (aset ansi-color-names-vector 0
+          (plist-get (face-spec-choose (theme-face 'default)) :background)))
 
-  ;; (defun maybe-enable-hl-line-mode ()
-  ;;   (if (eq major-mode 'vterm-mode)
-  ;;       (global-hl-line-mode -1)
-  ;;     (global-hl-line-mode +1)))
+  (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
 
-  ;; (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
+  (with-eval-after-load 'vterm
+    (bind-key "s-v" #'yank vterm-mode-map))
 
-  ;; (with-eval-after-load 'vterm
-  ;;   (bind-key "s-v" #'yank vterm-mode-map))
-
-  ;; :hook
-  ;; (vterm-mode-hook . vterm--set-background-color)
-  ;; (window-configuration-change-hook . maybe-enable-hl-line-mode)
+  :hook
+  (vterm-mode-hook . vterm--set-background-color)
 
   :bind
   ("s-t" . vterm)
@@ -5356,7 +5360,7 @@ because I dynamically rename the buffer according to
          `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
        (,(abbreviate-file-name (eshell/pwd)) eshell-prompt-directory)
        (,(if (or (zerop (user-uid)) (string-match-p "sudo:" default-directory))
-             "\n##" "\n()")
+             "\n(#)" "\n()")
         eshell-prompt-sigil))
      ""))
 
@@ -5513,6 +5517,7 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
     (defvar eshell-visual-commands)
     (add-to-list 'eshell-visual-commands "n")
     (add-to-list 'eshell-visual-commands "htop")
+    (add-to-list 'eshell-visual-commands "glances")
     (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
 
     ;; Load the Eshell versions of `su' and `sudo'
@@ -5854,7 +5859,37 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
               (t
                normal-indent))))))
 
-(advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
+;; (advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
+
+(defun advice-functions-on-symbol (symbol)
+  "Return a list of functions advising SYMBOL."
+  (let (advices)
+    (advice-mapc (lambda (advice _props) (push advice advices))
+                 symbol)
+    advices))
+
+(defun advice-symbols ()
+  "Return a list of symbols which have been advised."
+  (let (symbols)
+    (mapatoms
+     (lambda (symbol)
+       (when-let ((advices (advice-functions-on-symbol symbol)))
+         (push (cons symbol advices) symbols))))
+    symbols))
+
+;; TODO Look at point for an `advice-add' expression.
+(defun advice-remove-interactively (symbol function)
+  "Interactively remove FUNCTION advice on SYMBOL."
+  (interactive
+   (let* ((symbols (advice-symbols))
+          (symbol (intern (completing-read "Remove advice from symbol: "
+                                           (mapcar #'car symbols))))
+          (function (intern (completing-read
+                             (format "Remove function advice from %s: " symbol)
+                             (assoc-default symbol symbols)))))
+     (list symbol function)))
+  (advice-remove symbol function)
+  (message "Removed advice from %s: %s." symbol function))
 
 (defun advice-remove-all (symbol)
   "Remove all advices from SYMBOL."
@@ -6289,14 +6324,10 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 (use-package eww
   :config
   (use-package shr-tag-pre-highlight
+    :demand t
     :after shr
     :config
-    (add-to-list 'shr-external-rendering-functions
-                 '(pre . shr-tag-pre-highlight))
-    (when (version< emacs-version "26")
-      (with-eval-after-load 'eww
-        (advice-add 'eww-display-html :around
-                    'eww-display-html--override-shr-external-rendering-functions))))
+    (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight)))
 
   (defun eww-other-window (url)
     "Fetch URL and render the page.
@@ -6308,7 +6339,6 @@ Open the `eww' buffer in another window."
                             (if uris (format " (default %s)" (car uris)) "")
                             ": ")))
        (list (read-string prompt nil 'eww-prompt-history uris))))
-    (require 'eww)
     (switch-to-buffer-other-window (current-buffer))
     (eww url t))
 
@@ -6316,7 +6346,8 @@ Open the `eww' buffer in another window."
   eww-other-window
 
   :bind
-  ("M-m e" . eww))
+  ("M-m e" . eww)
+  ("M-m E" . eww-other-window))
 
 (use-package w3m
   :custom
@@ -6326,9 +6357,7 @@ Open the `eww' buffer in another window."
      ("duckduckgo" "https://duckduckgo.com/lite&q=%s" utf-8)))
   (w3m-search-default-engine "duckduckgo")
   :commands
-  w3m
-  w3m-goto-url
-  w3m-search)
+  w3m)
 
 (use-package markdown-mode
   :mode "\\.md\\|markdown\\'"

@@ -16,6 +16,6 @@ else
 	echo "Emacs build script not found, skipping"
 fi
 
-echo "Updating Emacs packages..."
-emacs --batch --load "$emacs_dir/early-init.el" --load "$emacs_dir/init.el" \
-	--funcall update-emacs-packages-sync
+# echo "Updating Emacs packages..."
+# emacs --batch --load "$emacs_dir/early-init.el" --load "$emacs_dir/init.el" \
+# 	--funcall update-emacs-packages-sync
