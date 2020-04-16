@@ -404,7 +404,6 @@ higher level up to the top level form."
 
 (use-package autorevert
   :custom
-  ;; Don't print auto revert messages.
   (auto-revert-verbose nil)
   :hook
   (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
@@ -593,25 +592,50 @@ See `theme-attribute'."
 
 (advice-add #'load-theme :after #'fiat-save-theme)
 
+(defun fiat-current ()
+  "Get the Alist key corresponding to the current theme."
+  (cl-some (lambda (theme) (when (member (alist-get theme fiat-themes)
+                                         custom-enabled-themes)
+                             theme))
+           (mapcar #'car fiat-themes)))
+
+(defun fiat (&optional key)
+  "Let the Emacs theme be changed.
+
+KEY is a key in the Alist `fiat-themes'.  If KEY isn't specified
+then choose the next key in the Alist `fiat-themes'."
+  (interactive)
+  (unless key
+    (setq key
+          (car (elt fiat-themes
+                    (mod (1+ (cl-position (fiat-current) (mapcar #'car fiat-themes)))
+                         (length fiat-themes))))))
+  (unless (member (alist-get key fiat-themes) custom-enabled-themes)
+    (load-theme (alist-get key fiat-themes) t)))
+
 (defun fiat-lux ()
   "Let the Emacs theme be light."
   (interactive)
-  (load-theme (alist-get 'light fiat-themes) t))
+  (fiat 'light))
 
 (defun fiat-nox ()
   "Let the Emacs theme be dark."
   (interactive)
-  (load-theme (alist-get 'dark fiat-themes) t))
+  (fiat 'dark))
 
-(defun fiat ()
-  "Let the Emacs theme be toggled."
-  (interactive)
-  (if (member (alist-get 'dark fiat-themes) custom-enabled-themes)
-      (fiat-lux)
-    (fiat-nox)))
+(when (eql system-type 'darwin)
+  (with-eval-after-load 'server
+    (let* ((buffer (get-buffer-create " *dark-mode-notifier*"))
+           (process (make-process
+                     :name "dark-mode-notifier"
+                     :buffer buffer
+                     :command (list (executable-find "dark-mode-notifier")))))
+      (bury-buffer buffer)
+      (set-process-query-on-exit-flag process nil))))
 
 (bind-keys
  ("C-M-s-t" . fiat)
+ ("M-m t t" . fiat)
  ("C-M-S-s-t" . counsel-load-theme)
  ("M-m M-t" . counsel-load-theme))
 
@@ -631,14 +655,14 @@ See `theme-attribute'."
 
 (use-package doom-themes
   :config
-  (doom-themes-visual-bell-config)
+  (doom-themes-visual-bell-config))
 
-  (defun doom-themes-setup-org ()
-    "Customize `doom-themes-org-config'."
-    (doom-themes-org-config)
-    (custom-set-variables '(org-hide-leading-stars nil)))
-  :hook
-  (org-mode-hook . doom-themes-setup-org))
+  ;; (defun doom-themes-setup-org ()
+  ;;   "Customize `doom-themes-org-config'."
+  ;;   (doom-themes-org-config)
+  ;;   (custom-set-variables '(org-hide-leading-stars nil))))
+  ;; :hook
+  ;; (org-mode-hook . doom-themes-setup-org))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1725,8 +1749,6 @@ Each EXPR should create one window."
  ("s-x" . kill-line-or-region)
  ("s-c" . copy-line-or-region)
  ("s-v" . clipboard-yank-and-indent)
- ("M-;" . comment-toggle)
- ("s-/" . comment-toggle)
  ("s-n" . scratch-buffer)
  ("s-N" . scratch-buffer-other-window)
  ("C-c C-n" . scratch-buffer)
@@ -2223,7 +2245,7 @@ force `counsel-rg' to search in `default-directory.'"
   :config
   (defun projectile-load-settings (&optional file)
     "Load project elisp settings from FILE.
-Look in active-bg project root directory, or if in the case of
+Look in active project root directory, or if in the case of
   undefined root directory, file is otherwise path resolvable.
 
 https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-settings.el"
@@ -2521,14 +2543,12 @@ See: https://github.com/mnewt/psync"
                      (read-directory-name "Remote directory: ")))
   (async-shell-command (format "psync -v clone '%s' '%s'" local remote)))
 
-;; FIXME Seems this is causing Emacs to hang?
-;; Think it's because `after-save-hook' runs whenever backup files are saved
-;; too. Is there a way to only run a hook on interactive save?
 (add-hook 'after-save-hook #'psync-maybe)
 
 ;;;; OS program interaction
 
 (use-package server
+  :demand t
   :functions
   server-running-p
   :config
@@ -2734,7 +2754,7 @@ With a prefix ARG always prompt for command to use."
                           ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f"
                           ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
-                           "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
+                           "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
     (dired-rainbow-define image "#f66d9b"
                           ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
                            "psd" "eps" "svg"))
@@ -2750,7 +2770,7 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define compiled "#6cb2eb"
                           ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                            "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
-                           "f90" "f95" "f03" "f08" "s" "rs" "active-bg" "hs"
+                           "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
                            "pyc" "java"))
     (dired-rainbow-define executable "#8cc4ff"
                           ("com" "exe" "msi"))
@@ -3814,7 +3834,7 @@ With a prefix ARG, create it in `org-directory'."
   (shell-command
    (cl-case system-type
      (gnu/linux
-      "ip address show | awk '/inet /{if ($5 != \"inactive-bg\") { print $7 \": \" $2 }}'")
+      "ip address show | awk '/inet /{if ($5 != \"inactive\") { print $7 \": \" $2 }}'")
      (darwin
       "/sbin/ifconfig | awk '/^[a-z0-9]+:/{ i=$1 } /inet / { if (i != \"lo0:\") { print i \" \" $2 }}'")
      (cygwin
@@ -4509,9 +4529,9 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   (require 'smartparens-config)
 
-  (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode
-                   javascript-mode js-mode js2-mode json-mode
-                   objc-mode java-mode web-mode)
+  (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode java-mode
+                   javascript-mode js-mode js2-mode json-mode objc-mode
+                   swift-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
@@ -4644,7 +4664,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   (call-interactively 'indent-region))
 
 (defun kill-line-or-region ()
-  "Kill the current line or active-bg region.
+  "Kill the current line or active region.
 
 When `universal-argument' is called first, kill the whole
 buffer (respects `narrow-to-region').
@@ -4660,7 +4680,7 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
              (kill-region (line-beginning-position) (line-beginning-position 2))))))
 
 (defun copy-line-or-region ()
-  "Copy the current line or active-bg region.
+  "Copy the current line or active region.
 
 When called repeatedly, append copy subsequent lines.  When
 `universal-argument' is called first, copy whole
@@ -4696,23 +4716,30 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
             (end-of-line)
             (forward-char)))))))
 
-(defun comment-toggle ()
-  "Toggle comments for the region.
-If no region is selected, toggles comments for the line."
-  (interactive)
-  (let ((start (line-beginning-position))
-        (end (line-end-position)))
-    (when (or (not transient-mark-mode) (region-active-p))
-      (setq start (save-excursion
-                    (goto-char (region-beginning))
-                    (beginning-of-line)
-                    (point))
-            end (save-excursion
-                  (goto-char (region-end))
-                  (end-of-line)
-                  (point))))
-    (comment-or-uncomment-region start end))
-  (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
+;; (defun comment-toggle ()
+;;   "Toggle comments for the region.
+;; If no region is selected, toggles comments for the line."
+;;   (interactive)
+;;   (let ((start (line-beginning-position))
+;;         (end (line-end-position)))
+;;     (when (or (not transient-mark-mode) (region-active-p))
+;;       (setq start (save-excursion
+;;                     (goto-char (region-beginning))
+;;                     (beginning-of-line)
+;;                     (point))
+;;             end (save-excursion
+;;                   (goto-char (region-end))
+;;                   (end-of-line)
+;;                   (point))))
+;;     (comment-or-uncomment-region start end))
+;;   (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
+
+(use-package evil-nerd-commenter
+  :bind
+  ("M-;" . evilnc-comment-or-uncomment-lines)
+  ("s-/" . evilnc-comment-or-uncomment-lines)
+  ("C-M-;" . evilnc-quick-comment-or-uncomment-to-the-line)
+  ("C-s-;" . evilnc-comment-or-uncomment-paragraphs))
 
 (defun select-current-line ()
   "Select the current line."
@@ -4862,6 +4889,27 @@ If no region is selected, toggles comments for the line."
        host
      (find-file (concat "/ssh:" host ":")))))
 
+(defun shorten-file-name (file-name &optional max-length)
+  "Shorten FILE-NAME to no more than MAX-LENGTH characters."
+  (let* ((max-length (or max-length 40))
+         (separator (if (eq system-type 'windows-nt) "\\" "/"))
+         (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
+         (right (split-string (abbreviate-file-name (expand-file-name file-name))
+                              separator))
+         left output)
+    (while (and (< 1 (length right))
+                (< max-length (length (string-join (append left right) separator))))
+      (push (let ((r (pop right)))
+              (if (< 0 (length r))
+                  (substring r 0 1)
+                ""))
+            left))
+    (setq output (string-join (append (reverse left) right) separator))
+    (if (< max-length (length output))
+        (concat ellipsis
+                (substring output (- (length output) (length ellipsis) max-length)))
+      output)))
+
 (use-package shell
   :config
   ;; http://whattheemacsd.com/setup-shell.el-01.html
@@ -4874,18 +4922,25 @@ If no region is selected, toggles comments for the line."
 
   (defun shell-rename-buffer (_)
     "Rename buffer to `default-directory'."
-    (rename-buffer (format "*shell* (%s)" default-directory) t))
+    (rename-buffer (format "*shell* (%s)" (shorten-file-name default-directory)) t))
 
   (defun async-shell-command-run-last ()
     "Run the last shell command asynchronously."
     (interactive)
     (async-shell-command (car shell-command-history)))
 
+  (use-package native-complete
+    :demand t
+    :config
+    (native-complete-setup-bash))
+
   :commands
   shell
+  
   :hook
   (shell-mode-hook . shell-dirtrack-mode)
   (comint-output-filter-functions . shell-rename-buffer)
+  
   :bind
   ("C-S-s" . async-shell-command-run-last)
   (:map shell-mode-map
@@ -4907,13 +4962,6 @@ If no region is selected, toggles comments for the line."
   (fish-completion-fallback-on-bash-p t)
   :hook
   ((eshell-mode-hook shell-mode-hook) . fish-completion-mode))
-
-(use-package company-shell
-  :config
-  (add-to-list
-   'company-backends
-   `(company-shell company-shell-env
-     ,(when (executable-find "fish") 'company-fish-shell))))
 
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
@@ -5966,7 +6014,7 @@ project prefix, and unintern all `ert' tests."
 
 (defun expression-to-register (register)
   "Interactively store an Emacs Lisp expression in a REGISTER.
-If region is active-bg, store that.  Otherwise, store the sexp at
+If region is active, store that.  Otherwise, store the sexp at
   point."
   (interactive (list (register-read-with-preview "Copy expression to register: ")))
   (set-register register
@@ -6489,7 +6537,6 @@ Open the `eww' buffer in another window."
 ;;;; Swift
 
 ;; Swift is WIP.
-;; brew install sourcekitten
 
 (use-package swift-mode
   :mode "\\.swift"
@@ -6497,25 +6544,29 @@ Open the `eww' buffer in another window."
   :hook
   (swift-mode-hook . lsp-deferred))
 
+;; 1. Install https://github.com/apple/sourcekit-lsp
+;; 2. Install https://swift.org/download/#releases
 (use-package lsp-sourcekit
-  :after lsp-mode
   :config
-  (setenv "SOURCEKIT_TOOLCHAIN_PATH"
-          "/Library/Developer/Toolchains/swift-latest.xctoolchain")
-  (setq lsp-sourcekit-executable
-        "/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/sourcekit-lsp"))
-
-(use-package company-sourcekit
-  :config
-  (defun company-sourcekit-setup ()
-    "Configure `company-sourcekit'."
-    (add-to-list 'company-backends 'company-sourcekit))
+  (defun lsp-sourcekit-setup ()
+    (let ((toolchain (concat "/Applications/Xcode.app/Contents/Developer/Toolchains"
+                             "/XcodeDefault.xctoolchain")))
+      (setenv "SOURCEKIT_TOOLCHAIN_PATH" toolchain)
+      (setq lsp-sourcekit-executable (concat toolchain "/usr/bin/sourcekit-lsp"))))
   :hook
-  (swift-mode-hook . company-sourcekit-setup))
+  (swift-mode-hook . lsp-sourcekit-setup))
 
-(use-package flycheck-swift
-  :hook
-  (swift-mode-hook . flycheck-swift-setup))
+;; (use-package company-sourcekit
+;;   :config
+;;   (defun company-sourcekit-setup ()
+;;     "Configure `company-sourcekit'."
+;;     (add-to-list 'company-backends 'company-sourcekit))
+;;   :hook
+;;   (swift-mode-hook . company-sourcekit-setup))
+
+;; (use-package flycheck-swift
+;;   :hook
+;;   (swift-mode-hook . flycheck-swift-setup))
 
 ;; TODO Seems broken
 ;; (use-package swift-playground-mode
@@ -6639,6 +6690,8 @@ Open the `eww' buffer in another window."
   (lsp-eldoc-render-all t)
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
+  :config
+  (add-to-list 'flycheck-checkers #'lsp)
   :hook
   ((c-mode-hook c-mode c++-mode-hook css-mode-hook go-mode-hook java-mode-hook
                 js-mode-hook php-mode-hook powershell-mode-hook
@@ -6659,7 +6712,12 @@ Open the `eww' buffer in another window."
         ("C-h ." . lsp-ui-doc-show)))
 
 (use-package company-lsp
-  :commands company-lsp)
+  :config
+  (defun company-lsp-setup ()
+    "Set up `company-lsp'."
+    (add-to-list 'company-backends #'company-lsp))
+  :hook
+  (lsp-mode-hook . company-lsp-setup))
 
 (use-package lsp-ivy
   :commands
@@ -6673,10 +6731,11 @@ Open the `eww' buffer in another window."
   :straight (apheleia :host github :repo "raxod502/apheleia")
   :demand t
   :config
-  (dolist (formatter '((lua-fmt . ("luafmt" "--stdin"))
-                       (shfmt . ("shfmt"))
-                       (xmllint . ("xmllint" "--format" "-"))
-                       (zprint . ("zprint" "{:map {:comma? false}}"))))
+  (dolist (formatter '((lua-fmt "luafmt" "--stdin")
+                       (swift-format "xcrun" "swift-format")
+                       (shfmt  "shfmt")
+                       (xmllint "xmllint" "--format" "-")
+                       (zprint "zprint" "{:map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
 
   (dolist (mode '((clojure-mode . zprint)
@@ -6686,7 +6745,8 @@ Open the `eww' buffer in another window."
                   (lua-mode . lua-fmt)
                   (markdown-mode . prettier)
                   (nxml-mode . xmllint)
-                  (sh-mode . shfmt)))
+                  (sh-mode . shfmt)
+                  (swift-mode . swift-format)))
     (add-to-list 'apheleia-mode-alist mode))
 
   ;; FIXME This is a naive work in progress. Problems include:
@@ -6695,6 +6755,7 @@ Open the `eww' buffer in another window."
   ;; - Visibly moves point around
   ;; - It's async so if the formatter command takes a long time you could edit
   ;;   it and then lose your edits
+  ;; See https://github.com/raxod502/apheleia/issues/11
   (defun apheleia-format-region (start end &optional callback)
     "Format from START to END with `apheleia'."
     (interactive "r")
@@ -6894,7 +6955,7 @@ Prefix ARG is passed to `fill-paragraph'."
 ;;     (defun reformat-buffer-or-region (beg end &optional thing)
 ;;       "Reformat the region from BEG to END.
 
-;;   If no region is active-bg, format the buffer.
+;;   If no region is active, format the buffer.
 
 ;;   Prefix ARG is passed to `fill-paragraph'."
 ;;       (interactive "r")
@@ -6931,7 +6992,7 @@ Prefix ARG is passed to `fill-paragraph'."
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
-  :interpreter ("\\(?:\\(?:ba\\|[az]\\)?sh\\)" . sh-mode)
+  :interpreter ("\\(?:ba\\|[az]\\)?sh" . sh-mode)
   :custom
   (sh-basic-offset tab-width)
   ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
@@ -6940,6 +7001,7 @@ Prefix ARG is passed to `fill-paragraph'."
   :config
   (defun maybe-reset-major-mode ()
     "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+
 Mostly useful as a `before-save-hook', to guess mode when saving
 a new file for the first time."
     (when (and (eq major-mode 'fundamental-mode)
@@ -6971,7 +7033,18 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
                                       (2 font-lock-variable-name-face t))))
 
   (defvar async-shell-command-current-file-history nil)
-
+  
+  (use-package company-shell
+    :config
+    (defun company-shell-setup ()
+      "set up `company-shell'."
+      (add-to-list
+       'company-backends
+       `(company-shell company-shell-env
+                       ,(when (executable-find "fish") 'company-fish-shell))))
+    :hook
+    ((sh-mode-hook fish-mode-hook shell-mode-hook eshell-mode-hook) .
+     company-shell-setup))
 
   ;; WIP
   (defun async-shell-command-current-file (arg)
@@ -7277,7 +7350,6 @@ configuration when invoked to evaluate a line."
                      ("C-c '" . nil))))
   :bind
   ("C-c '" . fence-edit-dwim))
-
 
 (provide 'init)
 
