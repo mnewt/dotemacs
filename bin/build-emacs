@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+. build-utils
+
+DO_BASE_DIR="$HOME/.emacs.d/src"
+
+DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
+
+DO_REPO_DIRECTORY="emacs"
+
+DO_REPO_BRANCH="master"
+
+DO_BREW_PACKAGES=(
+	autoconf
+	cmake
+	texinfo
+	libxml2
+	# The macOS build uses the Cocoa image library
+	# imagemagick
+	librsvg
+	gnutls
+	gnupg
+	jansson
+	cairo
+	libvterm
+)
+
+DO_BREW_CASKS=(
+	mactex
+)
+
+DO_LIBS=(
+	gcc
+	giflib
+	jpeg
+	libtiff
+	libxml2
+	jansson
+	gnutls
+	# Required by gnutls
+	nettle
+	libtasn1
+	p11-kit
+)
+
+DO_CONFIGURE_OPTS=(
+	--config-cache
+	--without-pop
+	--with-ns
+	--disable-ns-self-contained
+	--with-cairo
+	# --with-imagemagick
+	--with-modules
+	--with-nativecomp
+	--with-xml2
+	--with-gnutls
+	--with-jansson
+	--program-transform-name='s/^ctags$/ctags.emacs/'
+)
+
+# native-comp optimization
+BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 0)'"
+export BYTE_COMPILE_EXTRA_FLAGS
+
+# Install Emacs from the build directory
+do_install() {
+	heading "Installing $1..."
+
+	# Ensure the directory to which we will install Emacs exists and has the correct
+	# permissions set.
+	local libexec=/usr/local/libexec/emacs
+	if [ ! -d $libexec ]; then
+		sudo mkdir -p $libexec
+		chown $USER $libexec
+	fi
+
+	pushd "$DO_BASE_DIR/$target"
+
+	# Even though we move the binary ourselves, we still need to install to get
+	# the Emacs Lisp and C source files in the right place.
+	make -j $DO_CORES install
+	rm -rf "$HOME/Applications/Emacs.app"
+	mv nextstep/Emacs.app "$HOME/Applications/"
+
+	popd
+}
+
+do_all

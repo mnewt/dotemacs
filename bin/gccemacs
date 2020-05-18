@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+libs=(
+	/usr/local/Cellar/gcc/9.3.0_1
+	/usr/local/Cellar/giflib/5.2.1
+	/usr/local/Cellar/jpeg/9d
+	/usr/local/Cellar/libtiff/4.1.0
+	/usr/local/Cellar/gnutls/3.6.13
+
+	# Required by gnutls
+	/usr/local/Cellar/nettle/3.4.1
+	/usr/local/Cellar/libtasn1/4.16.0
+	/usr/local/Cellar/p11-kit/0.23.20
+)
+
+export PATH="/usr/local/Cellar/gcc/9.3.0_1/bin:${PATH}"
+
+export CC="gcc-9"
+export CPP="cpp-9"
+CFLAGS=""
+LDFLAGS=""
+PKG_CONFIG_PATH=""
+
+for dir in "${libs[@]}"; do
+	CFLAGS="${CFLAGS}-I${dir}/include "
+	LDFLAGS="${LDFLAGS}-L${dir}/lib "
+	PKG_CONFIG_PATH="${PKG_CONFIG_PATH}${dir}/lib/pkgconfig:"
+done
+
+export CPPFLAGS="${CFLAGS}"
+export CFLAGS
+export LDFLAGS
+export PKG_CONFIG_PATH
+
+make distclean
+./autogen.sh
+./configure \
+	--prefix="${HOME}"/gccemacs \
+	--with-nativecomp \
+	--without-ns
+# make bootstrap
+# make install

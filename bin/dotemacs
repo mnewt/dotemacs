@@ -51,6 +51,7 @@ required=(
 	cmake
 	texinfo
 	libxml2
+	# The macOS build uses the Cocoa image library
 	# imagemagick
 	librsvg
 	gnutls
@@ -58,6 +59,20 @@ required=(
 	jansson
 	cairo
 	libvterm
+)
+
+libs=(
+	gcc
+	giflib
+	jpeg
+	libtiff
+	libxml2
+	jansson
+	gnutls
+	# Required by gnutls
+	nettle
+	libtasn1
+	p11-kit
 )
 
 required_mu4e=(
@@ -75,12 +90,21 @@ required_mu4e=(
 
 required_casks=(mactex)
 
-configure_opts=(
-	CFLAGS="-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check -I/usr/local/opt/libxml2/include/libxml2"
-	LDFLAGS="-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib"
-	CPPFLAGS="-I/usr/local/opt/llvm/include"
-	PKG_CONFIG_PATH="PKG_CONFIG_PATH:/usr/local/opt/gnutls/lib/pkgconfig:/usr/local/opt/nettle/lib/pkgconfig:/usr/local/opt/libtasn1/lib/pkgconfig:/usr/local/opt/p11-kit/lib/pkgconfig:/usr/local/opt/imagemagick/lib/pkgconfig"
-)
+CFLAGS="-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check"
+LDFLAGS=""
+PKG_CONFIG_PATH=""
+
+for lib in "${libs[@]}"; do
+	dir="$(brew --prefix $lib)"
+	CFLAGS="${CFLAGS} -I${dir}/include "
+	LDFLAGS="${LDFLAGS} -L${dir}/lib "
+	PKG_CONFIG_PATH=":${PKG_CONFIG_PATH}${dir}/lib/pkgconfig"
+done
+
+export CFLAGS
+export CPPFLAGS="${CFLAGS}"
+export LDFLAGS
+export PKG_CONFIG_PATH
 
 # The ctags bit is to rename the ctags binary so it doesn't conflict with an
 # existing, non-emacs ctags installation
@@ -93,6 +117,9 @@ emacs_configure_opts=(
 	# --with-imagemagick
 	--with-modules
 	--with-nativecomp
+	--with-xml2
+	--with-gnutls
+	--with-jansson
 	--program-transform-name='s/^ctags$/ctags.emacs/'
 	"${configure_opts[@]}"
 )
@@ -171,8 +198,8 @@ deps_emacs() {
 	brew_ensure cask "${required_casks[@]}"
 	brew install --HEAD universal-ctags/universal-ctags/universal-ctags
 
-	# Apparently gnutls is bottled now.
-	which gnutls || PATH="$(brew --prefix gnutls):$PATH"
+	# gnutls is bottled so may not be on the PATH.
+	which gnutls-cli || PATH="$(brew --prefix gnutls)/bin:$PATH"
 }
 
 # Install Emacs dependencies
@@ -205,7 +232,8 @@ fetch() {
 
 	git fetch
 	git checkout "$ref"
-	# git pull
+	git clean -dxf
+	git pull
 }
 
 # Build Emacs from source

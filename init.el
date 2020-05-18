@@ -405,6 +405,7 @@ higher level up to the top level form."
 (use-package autorevert
   :custom
   (auto-revert-verbose nil)
+  (revert-without-query '(".*"))
   :hook
   (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
 
@@ -528,10 +529,17 @@ returned."
     :custom
     (mixed-pitch-set-height t)
     :config
+
+    (defvar mixed-pitch-exclude-modes
+      '(dns-mode yaml-mode xml-mode)
+      "Modes excluded from `mixed-pitch-mode'.")
     (defun maybe-enable-mixed-pitch-mode ()
       "Maybe enable `mixed-pitch-mode'."
-      (unless (derived-mode-p 'dns-mode)
-        (mixed-pitch-mode)))
+      (let ((enable t))
+        (dolist (mode mixed-pitch-exclude-modes)
+          (when (derived-mode-p mode)
+            (setq enable nil)))
+        (when enable (mixed-pitch-mode))))
 
     :hook
     (text-mode-hook . maybe-enable-mixed-pitch-mode)
@@ -623,15 +631,14 @@ then choose the next key in the Alist `fiat-themes'."
   (interactive)
   (fiat 'dark))
 
-(when (eql system-type 'darwin)
+(when (eq system-type 'darwin)
   (with-eval-after-load 'server
-    (let* ((buffer (get-buffer-create " *dark-mode-notifier*"))
-           (process (make-process
-                     :name "dark-mode-notifier"
-                     :buffer buffer
-                     :command (list (executable-find "dark-mode-notifier")))))
-      (bury-buffer buffer)
-      (set-process-query-on-exit-flag process nil))))
+    (set-process-query-on-exit-flag
+     (make-process
+      :name "dark-mode-notifier"
+      :buffer " *dark-mode-notifier*"
+      :command (list (executable-find "dark-mode-notifier")))
+     nil)))
 
 (bind-keys
  ("C-M-s-t" . fiat)
@@ -656,13 +663,6 @@ then choose the next key in the Alist `fiat-themes'."
 (use-package doom-themes
   :config
   (doom-themes-visual-bell-config))
-
-  ;; (defun doom-themes-setup-org ()
-  ;;   "Customize `doom-themes-org-config'."
-  ;;   (doom-themes-org-config)
-  ;;   (custom-set-variables '(org-hide-leading-stars nil))))
-  ;; :hook
-  ;; (org-mode-hook . doom-themes-setup-org))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1383,7 +1383,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   (:map persp-mode-map
         ("C-x x l" . persp-state-load)
         ("C-x x C-s" . persp-state-save)
-        ("C-x x x" . persp-switch-nth)))
+        ("C-x x x" . persp-switch-nth)
+        ("C-s-[" . persp-prev)
+        ("C-s-]" . persp-next)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -1893,6 +1895,11 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 ;;   ("C-c q" . vr/query-replace)
 ;;   ("C-c m" . vr/mc-mark))
 
+(use-package phi-search
+  :bind
+  ([remap isearch-forward] . phi-search)
+  ([remap isearch-backward] . phi-search-backward))
+
 (use-package anzu
   :config
   ;; (set-face-attribute 'anzu-replace-to nil :foreground nil :background "lime green")
@@ -2185,7 +2192,7 @@ force `counsel-rg' to search in `default-directory.'"
   ("C-x j" . counsel-file-jump)
   ("C-x C-j" . counsel-dired-jump)
   ("s-b" . counsel-switch-buffer)
-  ("s-S-b" . counsel-switch-buffer-other-window)
+  ("s-B" . counsel-switch-buffer-other-window)
   ("C-h <tab>" . counsel-info-lookup-symbol)
   ("C-h C-f" . counsel-describe-face)
   ("C-h C-a" . counsel-apropos)
@@ -2271,15 +2278,18 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
       (rename-buffer (format "*git ls-files %s*" dir))))
 
   ;; Why doesn't projectile have this as a default?
-  (projectile-register-project-type 'generic nil
-                                    :compile ""
-                                    :test ""
-                                    :test-suffix "_test")
+  ;; (projectile-register-project-type 'generic nil
+  ;;                                   :compile ""
+  ;;                                   :test ""
+  ;;                                   :test-suffix "_test")
   (projectile-register-project-type 'npm '("package.json")
                                     :compile "npm start"
                                     :test "npm test"
                                     :test-suffix ".test")
   (projectile-register-project-type 'clojure-cli '("deps.edn")
+                                    :compile "clj "
+                                    :test-suffix "_test")
+  (projectile-register-project-type 'shadow-cljs '("shadow-cljs.edn")
                                     :compile "clj "
                                     :test-suffix "_test")
   (projectile-mode)
@@ -2327,12 +2337,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :hook
   ;; Incrementally update TAGS file when the file is saved.
   (prog-mode-hook . counsel-etags-maybe-update)
-  ((js-mode-hook js2-mode-hook) . counsel-etags-setup-smart-rules)
-
-  :commands
-  counsel-etags-find-tag-at-point
-  counsel-etags-scan-code
-  counsel-etags-list-tag)
+  (js-mode-hook . counsel-etags-setup-smart-rules))
 
 (use-package company
   :defer 5
@@ -2354,7 +2359,14 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
           (company-dabbrev-code company-gtags company-etags company-keywords)
           company-dabbrev))
 
+  (use-package company-box
+    :custom
+    (company-box-enable-icon nil)
+    :hook
+    (company-mode-hook . company-box-mode))
+
   (global-company-mode)
+  
   :hook
   ((prog-mode-hook
     lisp-interaction-mode-hook
@@ -2414,7 +2426,20 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
 (use-package smart-jump
   :defer 14
   :config
-  (smart-jump-setup-default-registers))
+  (defun smart-jump-go-other-window (&optional smart-list continue)
+    "Show the function/variable declartion for thing at point in other window.
+
+SMART-LIST will be set (or nil) if this is a continuation of a previous jump.
+
+CONTINUE will be non nil if this is a continuation of a previous jump."
+    (interactive)
+    (switch-to-buffer-other-window (current-buffer))
+    (smart-jump-go smart-list continue))
+  
+  (smart-jump-setup-default-registers)
+
+  :bind
+  ("C-x 4 ." . smart-jump-go-other-window))
 
 (use-package spotlight
   :bind
@@ -2742,7 +2767,8 @@ With a prefix ARG always prompt for command to use."
                            "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024"
                           ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
-                           "pgn" "rss" "yaml" "yml" "rdata"))
+                           "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
+                           "meta" "unity"))
     (dired-rainbow-define document "#9561e2"
                           ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
                            "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
@@ -2766,7 +2792,7 @@ With a prefix ARG always prompt for command to use."
     (dired-rainbow-define interpreted "#38c172"
                           ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
                            "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                           "scala" "js" "jsx"))
+                           "scala" "js" "jsx" "lua" "fnl"))
     (dired-rainbow-define compiled "#6cb2eb"
                           ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                            "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
@@ -3066,7 +3092,6 @@ Include PREFIX in prompt if given."
   :hook
   (Info-selection-hook . info-colors-fontify-node))
 
-;; FIXME Fix fontification.
 (use-package eg.el
   :straight (eg.el :host github :repo "mnewt/eg.el")
   ;;  :ensure-system-package
@@ -3093,12 +3118,33 @@ Include PREFIX in prompt if given."
   :config
   (make-directory dash-docs-docsets-path t)
 
-  (defun dash-docs-update-docsets-var (&optional _docset-name)
-    "Update `dash-docs-common-docsets' variable."
-    (setq dash-docs-common-docsets (dash-docs-installed-docsets)))
+  (defcustom dash-docs-docset-modes
+    '((emacs-lisp-mode . "Emacs Lisp")
+      (lisp-interaction-mode . "Emacs Lisp")
+      (clojure-mode . "Clojure")
+      (clojurescript-mode . "ClojureScript")
+      (js-mode . "JavaScript")
+      (csharp-mode . "Unity 3D"))
+    "Alist mapping major modes to docsets.
+If the current major mode is in this list, scope the search to
+the corresponding docset."
+    :type 'list
+    :group 'dash-docs)
 
-  (advice-add 'dash-docs-install-docset :after #'dash-docs-activate-docset)
-  (advice-add 'dash-docs-install-user-docset :after #'dash-docs-update-docsets-var)
+  (defun counsel-dash-with-docset (docset &optional initial)
+    "Query dash DOCSET.
+INITIAL will be used as the initial input, if given."
+    (interactive (list (assoc-default major-mode dash-docs-docset-modes)))
+    (when docset
+      (setq initial (concat docset " " initial)))
+    (counsel-dash initial))
+
+  (defun dash-docs-update-docsets-var (&rest _)
+    "Update `dash-docs-common-docsets' variable."
+    (setq dash-docs-common-docsets (dash-docs-installed-docsets))
+    (dash-docs-reset-connections))
+
+  (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
 
   (defun dash-docs-update-all-docsets ()
     "Update all official and unofficial docsets."
@@ -3108,7 +3154,8 @@ Include PREFIX in prompt if given."
     (insert "Updating Dash Docs\n==================\n\n")
     (let ((official-docsets (dash-docs-official-docsets))
           (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
-      (dolist (d (dash-docs-installed-docsets))
+      (dolist (d (mapcar (lambda (s) (replace-regexp-in-string " " "_" s))
+                         (dash-docs-installed-docsets)))
         (insert (propertize (concat"  " d ": ") 'face 'bold))
         (cond
          ((member d official-docsets)
@@ -3130,17 +3177,14 @@ Include PREFIX in prompt if given."
   ("C-h C-d" . counsel-dash)
   ("M-s-." . counsel-dash-at-point))
 
-;; (use-package devdocs-lookup
-;;   :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
-;;   :commands
-;;   devdocs-setup
-;;   :config
-;;   (devdocs-setup)
-;;   :bind
-;;   ("C-h M-l" . devdocs-lookup))
+(use-package devdocs-lookup
+  :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
+  :config
+  (devdocs-setup)
+  :bind
+  ("C-h M-l" . devdocs-lookup))
 
 
-;; TODO: Defer loading of hydra.
 (use-package hydra
   :defer 10
   :functions
@@ -3356,7 +3400,8 @@ Include PREFIX in prompt if given."
   :custom
   (counsel-ffdata-database-path
    (car (file-expand-wildcards
-         "/Users/mn/Library/Application Support/Firefox/Profiles/*/places.sqlite")))
+         (concat (getenv "HOME")
+                 "/Library/Application Support/Firefox/Profiles/*/places.sqlite"))))
   :bind
   ("C-c F h" . counsel-ffdata-firefox-history)
   ("C-c F b" . counsel-ffdata-firefox-bookmarks))
@@ -3365,11 +3410,11 @@ Include PREFIX in prompt if given."
   :defer 16
   :custom
   (atomic-chrome-default-major-mode 'markdown-mode)
-  (atomic-chrome-start-server)
   :config
   (defun atomic-chrome-switch-to-firefox ()
     "Switch to Firefox."
     (call-process "open" nil nil nil "-a" "FirefoxDeveloperEdition"))
+  (atomic-chrome-start-server)
   :hook
   (atomic-chrome-edit-done-hook . atomic-chrome-switch-to-firefox))
 
@@ -3403,6 +3448,10 @@ Include PREFIX in prompt if given."
              (split-string (apply oldfun r) "[+x]")))))
   :commands
   gif-screencast)
+
+;; SICP in Info Format.
+;; (use-package sicp
+;;   :defer t)
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)
@@ -3647,13 +3696,29 @@ With a prefix ARG, create it in `org-directory'."
     :commands
     org-preview-html-mode)
 
+  ;; (use-package inherit-org
+  ;;   :demand t
+  ;;   :straight (:host github :repo "chenyanming/inherit-org")
+  ;;   :config
+  ;;   (with-eval-after-load 'info
+  ;;     (add-hook 'Info-mode-hook 'inherit-org-mode))
+
+  ;;   (with-eval-after-load 'helpful
+  ;;     (add-hook 'helpful-mode-hook 'inherit-org-mode))
+
+  ;;   (with-eval-after-load 'w3m
+  ;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
+  ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
+
   (defvar org-odt-convert-processes)
 
   (defun setup-odt-org-convert-process ()
     (interactive)
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
-        (setq org-odt-convert-processes '(("LibreOffice" "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
+        (setq org-odt-convert-processes
+              '(("LibreOffice"
+                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
 
   :hook
   (org-mode-hook . setup-odt-org-convert-process)
@@ -3681,7 +3746,8 @@ With a prefix ARG, create it in `org-directory'."
         ("C-M-d" . org-down-element)
         ("C-s-t" . org-show-only-current-subtree)
         ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element))
+        ("C-M-d" . org-down-element)
+        ([remap org-return] . org-return-indent))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
@@ -3706,19 +3772,27 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; TODO Currently, this sometimes does bad things like putting multiple headings
 ;; on the same line.
-(use-package org-spacer
-  :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
-  :commands
-  org-spacer-enforce
-  :config
-  (defun org-spacer-enable-before-save-hook ()
-    (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
+;; (use-package org-spacer
+;;   :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
+;;   :commands
+;;   org-spacer-enforce
+;;   :config
+;;   (defun org-spacer-enable-before-save-hook ()
+;;     (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
   ;; :hook
   ;; (org-mode-hook . org-spacer-enable-before-save-hook))
 
 (use-package orglink
   :hook
   (prog-mode-hook . orglink-mode))
+
+(use-package ox-clip
+  :config
+  ;; `ov' is an implicit dependency.
+  (use-package ov :demand t)
+  :bind
+  ("M-m o w" . ox-clip-formatted-copy)
+  ("M-m o W" . ox-clip-image-to-clipboard))
 
 ;;;; Calendar and Journal
 
@@ -4530,7 +4604,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   (require 'smartparens-config)
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode java-mode
-                   javascript-mode js-mode js2-mode json-mode objc-mode
+                   javascript-mode js-mode js2-mode json-mode lua-mode objc-mode
                    swift-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
@@ -4788,7 +4862,16 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
   :straight (:type built-in)
   :custom
   (comint-buffer-maximum-size 20000)
-  (comint-prompt-read-only t))
+  (comint-prompt-read-only t)
+  (comint-terminfo-terminal "eterm-256color")
+  :config
+  (defun comint-setup ()
+    "Set up `comint-mode'."
+    ;; Remove the echo of input after pressing RET in `shell-mode'. Not sure why
+    ;; this is needed. Is it a zsh thing?
+    (setq comint-process-echoes t))
+  :hook
+  (comint-mode-hook . comint-setup))
 
 (use-package ssh
   :custom
@@ -4912,9 +4995,10 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
 
 (use-package shell
   :config
-  ;; http://whattheemacsd.com/setup-shell.el-01.html
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
-    "`C-d' on an empty line in the shell terminates the process, accepts ARG."
+    "`C-d' on an empty line in the shell terminates the process, accepts ARG.
+
+ Stolen from http://whattheemacsd.com/setup-shell.el-01.html."
     (interactive "p")
     (if (null (get-buffer-process (current-buffer)))
         (kill-buffer)
@@ -4934,34 +5018,25 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
     :config
     (native-complete-setup-bash))
 
-  :commands
-  shell
-  
+  (defun shell-mode-setup ()
+    "Set up `shell-mode'."
+    (message "Running `shell-mode-setup'...")
+    (setenv "TERM" "xterm-256color"))
+
   :hook
   (shell-mode-hook . shell-dirtrack-mode)
-  (comint-output-filter-functions . shell-rename-buffer)
+  (shell-mode-hook . shell-mode-setup)
+  ;; Disabled because it turns out multiple things assume `shell-mode' buffers
+  ;; have their default naming conventions.
+  ;; (comint-output-filter-functions . shell-rename-buffer)
   
   :bind
   ("C-S-s" . async-shell-command-run-last)
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
-        ("M-r" . counsel-shell-history)))
-
-(use-package bash-completion
-  :custom
-  ;; So that it doesn't sometimes insert a space ('\ ') after completing the
-  ;; file name.
-  (bash-completion-nospace t)
-  :hook
-  (shell-dynamic-complete-functions . bash-completion-dynamic-complete))
-
-(use-package fish-completion
-  ;; :ensure-system-package fish
-  :custom
-  (fish-completion-fallback-on-bash-p t)
-  :hook
-  ((eshell-mode-hook shell-mode-hook) . fish-completion-mode))
+        ("M-r" . counsel-shell-history)
+        ("M-/" . completion-at-point)))
 
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
@@ -5081,16 +5156,14 @@ predicate returns true."
   ;; (defvar vterm-install nil
   ;;   "Tell `vterm' to compile if necessary.")
 
-  :config
-  (defun vterm--rename-buffer-as-title (title)
-    (rename-buffer (format "*VTerm %s*" title) t))
+  :custom
+  (vterm-buffer-name-string "*vterm %s*")
 
+  :config
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
           (plist-get (face-spec-choose (theme-face 'default)) :background)))
-
-  (add-to-list 'vterm-set-title-functions #'vterm--rename-buffer-as-title)
 
   (with-eval-after-load 'vterm
     (bind-key "s-v" #'yank vterm-mode-map))
@@ -5099,10 +5172,8 @@ predicate returns true."
   (vterm-mode-hook . vterm--set-background-color)
 
   :bind
-  ("s-t" . vterm)
   ("C-c t" . vterm)
-  ("s-T" . vterm-other-window)
-  ("C-c T" . vterm-other-window))
+  ("C-c C-t" . vterm-other-window))
 
 (custom-set-variables
  ;; Shut up compile saves
@@ -5141,19 +5212,22 @@ predicate returns true."
   (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
 
   (with-eval-after-load 'esh-mode
+    (defvar eshell-preoutput-filter-functions)
+    (defvar eshell-output-filter-functions)
     (add-to-list 'eshell-preoutput-filter-functions #'xterm-color-filter)
     (setq eshell-output-filter-functions
           (remove 'eshell-handle-ansi-color eshell-output-filter-functions)))
 
   (with-eval-after-load 'compile
-    (eval-when-compile (defvar compilation-environment))
-    (add-to-list 'compilation-environment "TERM=xterm-256color")
+    (defvar compilation-environment)
+    ;; TODO Is this necessary given `comint-terminfo-terminal'?
+    ;; (add-to-list 'compilation-environment "TERM=xterm-256color")
     (defun xterm-color-compilation-filter (f proc string)
       (funcall f proc (xterm-color-filter string)))
 
     (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
 
-  (setenv "TERM" "xterm-256color")
+  (setenv "TERM" "eterm-256color")
 
   :hook
   (shell-mode-hook . xterm-color-shell-setup))
@@ -5405,7 +5479,7 @@ because I dynamically rename the buffer according to
                      'front-sticky '(font-lock-face read-only)
                      'rear-nonsticky '(font-lock-face read-only))))
      `(,(unless (eshell-exit-success-p)
-         `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
+          `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
        (,(abbreviate-file-name (eshell/pwd)) eshell-prompt-directory)
        (,(if (or (zerop (user-uid)) (string-match-p "sudo:" default-directory))
              "\n(#)" "\n()")
@@ -5641,6 +5715,44 @@ Advise `eshell-ls-decorated-name'."
     (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
              '(((name 64 64 :left) " " (process 0 -1 :right)))))
 
+  ;; (use-package bash-completion
+  ;;   :custom
+  ;;   ;; So that it doesn't sometimes insert a space ('\ ') after completing the
+  ;;   ;; file name.
+  ;;   (bash-completion-nospace t))
+
+  ;; (use-package fish-completion
+  ;;   ;; :ensure-system-package fish
+  ;;   :custom
+  ;;   (fish-completion-fallback-on-bash-p t)
+  ;;   :hook
+  ;;   (eshell-mode-hook . fish-completion-mode))
+
+  ;; ElDoc in Eshell.
+  (use-package esh-help
+    :config
+    (defun esh-help-setup ()
+      "Setup eldoc function for Eshell."
+      (make-local-variable 'eldoc-documentation-function)
+      (setq eldoc-documentation-function
+            'esh-help-eldoc-command))
+    :hook
+    (eshell-mode-hook . esh-help-setup))
+
+  ;; Fish-like autosuggestions.
+  (use-package esh-autosuggest
+    :config
+    (defun esh-autosuggest-setup ()
+      "Set up `esh-autosuggest-mode'."
+      (esh-autosuggest-mode)
+      (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
+    :hook
+    (eshell-mode-hook . esh-autosuggest-setup))
+
+  (use-package eshell-bookmark
+    :hook
+    (eshell-mode-hook . eshell-bookmark-setup))
+
   :hook
   (eshell-mode-hook . eshell/init)
   (eshell-before-prompt-hook . eshell-prompt-housekeeping)
@@ -5655,25 +5767,6 @@ Advise `eshell-ls-decorated-name'."
    ("C-c M-e" . ibuffer-show-eshell-buffers)
    :map prog-mode-map
    ("M-P" . eshell-send-previous-input)))
-
-;; ElDoc and topical help in Eshell.
-(use-package esh-help
-  :hook
-  (eshell-mode-hook . setup-esh-help-eldoc))
-
-;; Fish-like autosuggestions.
-(use-package esh-autosuggest
-  :config
-  (defun esh-autosuggest-setup ()
-    "Set up `esh-autosuggest-mode'."
-    (esh-autosuggest-mode)
-    (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
-  :hook
-  (eshell-mode-hook . esh-autosuggest-setup))
-
-(use-package eshell-bookmark
-  :hook
-  (eshell-mode-hook . eshell-bookmark-setup))
 
 
 ;;;; Lisp
@@ -5727,188 +5820,6 @@ Advise `eshell-ls-decorated-name'."
         ("<return>" . popup-select)
         ("<tab>" . popup-select)))
 
-(defun void-calculate-lisp-indent (&optional parse-start)
-  "Add better indentation for quoted and backquoted lists.
-
-Optionally specify the PARSE-START.
-
-Source and discussion:
-https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quoted_lists/."
-  ;; This line because `calculate-lisp-indent-last-sexp` was defined with
-  ;; `defvar` with it's value ommited, marking it special and only defining it
-  ;; locally. So if you don't have this, you'll get a void variable error.
-  (defvar calculate-lisp-indent-last-sexp)
-  (save-excursion
-    (beginning-of-line)
-    (let ((indent-point (point))
-          state
-          ;; setting this to a number inhibits calling hook
-          (desired-indent nil)
-          (retry t)
-          calculate-lisp-indent-last-sexp containing-sexp)
-      (cond ((or (markerp parse-start) (integerp parse-start))
-             (goto-char parse-start))
-            ((null parse-start) (beginning-of-defun))
-            (t (setq state parse-start)))
-      (unless state
-        ;; Find outermost containing sexp
-        (while (< (point) indent-point)
-          (setq state (parse-partial-sexp (point) indent-point 0))))
-      ;; Find innermost containing sexp
-      (while (and retry
-                  state
-                  (> (elt state 0) 0))
-        (setq retry nil)
-        (setq calculate-lisp-indent-last-sexp (elt state 2))
-        (setq containing-sexp (elt state 1))
-        ;; Position following last unclosed open.
-        (goto-char (1+ containing-sexp))
-        ;; Is there a complete sexp since then?
-        (if (and calculate-lisp-indent-last-sexp
-                 (> calculate-lisp-indent-last-sexp (point)))
-            ;; Yes, but is there a containing sexp after that?
-            (let ((peek (parse-partial-sexp calculate-lisp-indent-last-sexp
-                                            indent-point 0)))
-              (if (setq retry (car (cdr peek))) (setq state peek)))))
-      (if retry
-          nil
-        ;; Innermost containing sexp found
-        (goto-char (1+ containing-sexp))
-        (if (not calculate-lisp-indent-last-sexp)
-            ;; indent-point immediately follows open paren.
-            ;; Don't call hook.
-            (setq desired-indent (current-column))
-          ;; Find the start of first element of containing sexp.
-          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
-          (cond ((looking-at "\\s("))
-                ;; First element of containing sexp is a list.
-                ;; Indent under that list.
-
-                ((> (save-excursion (forward-line 1) (point))
-                    calculate-lisp-indent-last-sexp)
-                 ;; This is the first line to start within the containing sexp.
-                 ;; It's almost certainly a function call.
-                 (if (or
-                      ;; Containing sexp has nothing before this line
-                      ;; except the first element. Indent under that element.
-                      (= (point) calculate-lisp-indent-last-sexp)
-
-                      ;; First sexp after `containing-sexp' is a keyword. This
-                      ;; condition is more debatable. It's so that I can have
-                      ;; unquoted plists in macros. It assumes that you won't
-                      ;; make a function whose name is a keyword.
-                      ;; (when-let (char-after (char-after (1+ containing-sexp)))
-                      ;;   (char-equal char-after ?:))
-
-                      ;; Check for quotes or backquotes around.
-                      (let* ((positions (elt state 9))
-                             (last (car (last positions)))
-                             (rest (reverse (butlast positions)))
-                             (any-quoted-p nil)
-                             (point nil))
-                        (or
-                         (when-let (char (char-before last))
-                           (or (char-equal char ?')
-                               (char-equal char ?`)))
-                         (progn
-                           (while (and rest (not any-quoted-p))
-                             (setq point (pop rest))
-                             (setq any-quoted-p
-                                   (or
-                                    (when-let (char (char-before point))
-                                      (or (char-equal char ?')
-                                          (char-equal char ?`)))
-                                    (save-excursion
-                                      (goto-char (1+ point))
-                                      (looking-at-p
-                                       "\\(?:back\\)?quote[\t\n\f\s]+(")))))
-                           any-quoted-p))))
-                     ;; Containing sexp has nothing before this line
-                     ;; except the first element.  Indent under that element.
-                     nil
-                   ;; Skip the first element, find start of second (the first
-                   ;; argument of the function call) and indent under.
-                   (progn (forward-sexp 1)
-                          (parse-partial-sexp (point)
-                                              calculate-lisp-indent-last-sexp
-                                              0 t)))
-                 (backward-prefix-chars))
-                (t
-                 ;; Indent beneath first sexp on same line as
-                 ;; `calculate-lisp-indent-last-sexp'.  Again, it's
-                 ;; almost certainly a function call.
-                 (goto-char calculate-lisp-indent-last-sexp)
-                 (beginning-of-line)
-                 (parse-partial-sexp (point) calculate-lisp-indent-last-sexp
-                                     0 t)
-                 (backward-prefix-chars)))))
-      ;; Point is at the point to indent under unless we are inside a string.
-      ;; Call indentation hook except when overridden by lisp-indent-offset
-      ;; or if the desired indentation has already been computed.
-      (let ((normal-indent (current-column)))
-        (cond ((elt state 3)
-               ;; Inside a string, don't change indentation.
-               nil)
-              ((and (integerp lisp-indent-offset) containing-sexp)
-               ;; Indent by constant offset
-               (goto-char containing-sexp)
-               (+ (current-column) lisp-indent-offset))
-              ;; in this case calculate-lisp-indent-last-sexp is not nil
-              (calculate-lisp-indent-last-sexp
-               (or
-                ;; try to align the parameters of a known function
-                (and lisp-indent-function
-                     (not retry)
-                     (funcall lisp-indent-function indent-point state))
-                ;; If the function has no special alignment
-                ;; or it does not apply to this argument,
-                ;; try to align a constant-symbol under the last
-                ;; preceding constant symbol, if there is such one of
-                ;; the last 2 preceding symbols, in the previous
-                ;; uncommented line.
-                (and (save-excursion
-                       (goto-char indent-point)
-                       (skip-chars-forward " \t")
-                       (looking-at ":"))
-                     ;; The last sexp may not be at the indentation
-                     ;; where it begins, so find that one, instead.
-                     (save-excursion
-                       (goto-char calculate-lisp-indent-last-sexp)
-                       ;; Handle prefix characters and whitespace
-                       ;; following an open paren.  (Bug#1012)
-                       (backward-prefix-chars)
-                       (while (not (or (looking-back "^[ \t]*\\|([ \t]+"
-                                                     (line-beginning-position))
-                                       (and containing-sexp
-                                            (>= (1+ containing-sexp) (point)))))
-                         (forward-sexp -1)
-                         (backward-prefix-chars))
-                       (setq calculate-lisp-indent-last-sexp (point)))
-                     (> calculate-lisp-indent-last-sexp
-                        (save-excursion
-                          (goto-char (1+ containing-sexp))
-                          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
-                          (point)))
-                     (let ((parse-sexp-ignore-comments t)
-                           indent)
-                       (goto-char calculate-lisp-indent-last-sexp)
-                       (or (and (looking-at ":")
-                                (setq indent (current-column)))
-                           (and (< (line-beginning-position)
-                                   (prog2 (backward-sexp) (point)))
-                                (looking-at ":")
-                                (setq indent (current-column))))
-                       indent))
-                ;; another symbols or constants not preceded by a constant
-                ;; as defined above.
-                normal-indent))
-              ;; in this case calculate-lisp-indent-last-sexp is nil
-              (desired-indent)
-              (t
-               normal-indent))))))
-
-;; (advice-add #'calculate-lisp-indent :override #'void-calculate-lisp-indent)
-
 (defun advice-functions-on-symbol (symbol)
   "Return a list of functions advising SYMBOL."
   (let (advices)
@@ -5925,7 +5836,8 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
          (push (cons symbol advices) symbols))))
     symbols))
 
-;; TODO Look at point for an `advice-add' expression.
+;; TODO Look at point for an `advice-add' expression to pre-populate
+;; `completing-read'.
 (defun advice-remove-interactively (symbol function)
   "Interactively remove FUNCTION advice on SYMBOL."
   (interactive
@@ -5943,6 +5855,34 @@ https://www.reddit.com/r/emacs/comments/d7x7x8/finally_fixing_indentation_of_quo
   "Remove all advices from SYMBOL."
   (interactive "aFunction symbol: ")
   (advice-mapc (lambda (advice _props) (advice-remove symbol advice)) symbol))
+
+(defun hook-symbols ()
+  "Return a list symbols which are likely to be hooks variables."
+  (let (symbols)
+    (mapatoms
+     (lambda (symbol)
+       (let ((name (symbol-name symbol)))
+         (when (and (or (string-suffix-p "-hook" name)
+                        (string-suffix-p "-functions" name))
+                    (boundp symbol)
+                    (consp (symbol-value symbol)))
+           (push symbol symbols)))))
+    symbols))
+
+;; TODO Look at point for an `add-hook' expression to pre-populate
+;; `completing-read'.
+(defun remove-hook-interactively (hook function)
+  "Interactively remove FUNCTION from HOOK."
+  (interactive
+   (let* ((hooks (hook-symbols))
+          (hook (intern (completing-read "Remove function from hook: "
+                                         hooks)))
+          (function (intern (completing-read
+                             (format "Remove function from hook %s: " hook)
+                             (symbol-value hook)))))
+     (list hook function)))
+  (remove-hook hook function)
+  (message "Removed %s from hook %s." function hook))
 
 (defun unintern-prefix (prefix)
   "Unintern all symbols starting with PREFIX."
@@ -6051,15 +5991,16 @@ Interactively, reads the register using `register-read-with-preview'."
 
 (use-package clojure-mode
   :mode
-  ("\\.clj[sc]?\\'" . clojure-mode)
+  ("\\.clj\\'" . clojure-mode)
+  ("\\.cljs\\'" . clojurescript-mode)
+  ("\\.cljc\\'" . clojurec-mode)
+  ("\\.edn\\'" . clojure-mode)
 
   :interpreter
   ("inlein" . clojure-mode)
 
   :config
-  (use-package clojure-mode-extra-font-locking)
-
-  (use-package edn :defer t)
+  (use-package clojure-mode-extra-font-locking :demand t)
 
   (use-package clj-refactor
     :config
@@ -6073,10 +6014,9 @@ Interactively, reads the register using `register-read-with-preview'."
     (:map clojure-mode-map
           ("C-s-r" . cljr-rename-symbol)))
 
-  (use-package flycheck-clojure
-    :demand t
-    :config
-    (flycheck-clojure-setup))
+  ;; brew install borkdude/brew/clj-kondo
+  (use-package flycheck-clj-kondo
+    :demand t)
 
   (use-package inf-clojure
     :commands
@@ -6159,7 +6099,8 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
       (cider--pprint-eval-form (get-register register)))
 
     :hook
-    (cider-mode-hook . eldoc-mode)
+    (cider-mode-hook . cider-company-enable-fuzzy-completion)
+    (cider-repl-mode-hook . cider-company-enable-fuzzy-completion)
 
     :bind
     (:map cider-mode-map
@@ -6369,14 +6310,39 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 (when (fboundp 'imagemagick-register-types)
   (imagemagick-register-types))
 
-(use-package eww
+(use-package shr
   :config
   (use-package shr-tag-pre-highlight
     :demand t
-    :after shr
     :config
-    (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight)))
+    (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))))
 
+  ;; TODO Get `shrface' to work.
+  ;; (use-package shrface
+  ;;   :demand t
+  ;;   :custom
+  ;;   (shrface-href-versatile t)
+  ;;   :config
+  ;;   (shrface-basic)
+  ;;   ;; (shrface-trial)
+    
+  ;;   ;; eww support
+  ;;   (with-eval-after-load 'eww
+  ;;     (add-hook 'eww-after-render-hook 'shrface-mode))
+
+  ;;   ;; nov support
+  ;;   (with-eval-after-load 'nov
+  ;;     (setq nov-shr-rendering-functions '((img . nov-render-img) (title . nov-render-title)))
+  ;;     (setq nov-shr-rendering-functions
+  ;;           (append nov-shr-rendering-functions shr-external-rendering-functions))
+  ;;     (add-hook 'nov-mode-hook 'shrface-mode))
+
+  ;;   ;; mu4e support
+  ;;   (with-eval-after-load 'mu4e
+  ;;     (add-hook 'mu4e-view-mode-hook 'shrface-mode))))
+
+(use-package eww
+  :config
   (defun eww-other-window (url)
     "Fetch URL and render the page.
 
@@ -6425,15 +6391,17 @@ Open the `eww' buffer in another window."
          "\\.mustache\\'"
          "\\.djhtml\\'"
          "\\.html?\\'")
+
   :init
-  ;; from web-mode FAQ to work with smartparens
   (defun web-mode-setup ()
+    "From the `web-mode' FAQ to work with smartparens."
     (setq web-mode-enable-auto-pairing nil))
 
   (defun sp-web-mode-is-code-context (_id action _context)
     (and (eq action 'insert)
          (not (or (get-text-property (point) 'part-side)
                   (get-text-property (point) 'block-side)))))
+
   :custom
   (sgml-basic-offset tab-width)
   (web-mode-markup-indent-offset tab-width)
@@ -6445,41 +6413,60 @@ Open the `eww' buffer in another window."
   (web-mode-ac-sources-alist
    '(("css" . (ac-source-css-property))
      ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
+
   :config
   (use-package company-web
     :commands
-    (company-web-html)
+    company-web-html
+    :config
+    (defun company-web-setup ()
+      "Set up `company-web'."
+      (make-local-variable 'company-backends)
+      (add-to-list 'company-backends 'company-web-html))
     :hook
-    (web-mode-hook . (lambda () (set (make-local-variable 'company-backends)
-                                     (cons 'company-web-html company-backends)))))
+    (web-mode-hook . company-web-setup))
+
   :hook
+  (web-mode-hook . lsp-deferred)
   (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
   :mode "\\.css\\'"
   :custom
-  (css-indent-offset tab-width))
+  (css-indent-offset tab-width)
+  :hook
+  (css-mode-hook . lsp-deferred))
 
 (use-package sass-mode
   ;; :ensure-system-package
   ;; (sass . "gem install sass")
-  :mode "\\(?:s\\(?:[ac]?ss\\)\\)")
+  :mode "\\(?:s\\(?:[ac]?ss\\)\\)"
+  :hook
+  (sass-mode-hook . lsp-deferred))
 
 (use-package restclient
   :mode ("\\.restclient\\'" . restclient-mode)
+
+  :commands
+  restclient-outline-mode
+
   :config
   (use-package company-restclient
+    :config
+    (defun company-restclient-setup ()
+      "Set up `company-restclient'."
+      (make-local-variable 'company-backends)
+      (add-to-list 'company-backends 'company-restclient))
+
     :hook
-    (restclient-mode-hook . (lambda ()
-                              (add-to-list 'company-backends 'company-restclient))))
+    (restclient-mode-hook . company-restclient-setup))
 
   (use-package know-your-http-well
     :commands
-    (http-header http-method http-relation http-status-code))
-
-  :commands
-  (restclient-mode restclient-outline-mode))
-
+    http-header
+    http-method
+    http-relation
+    http-status-code))
 
 ;;;; Javascript
 
@@ -6487,7 +6474,7 @@ Open the `eww' buffer in another window."
   :hook
   ((css-mode-hook
     graphql-mode-hook
-    js2-mode-hook
+    js-mode-hook
     markdown-mode-hook
     sass-mode-hook
     web-mode-hook) . add-node-modules-path))
@@ -6495,32 +6482,36 @@ Open the `eww' buffer in another window."
 (use-package js
   :mode ("\\.jsx?\\'" . js-mode)
   :custom
-  (js-indent-level tab-width))
+  (js-indent-level tab-width)
+  :hook
+  (js-mode-hook . lsp-deferred))
 
 (use-package json-mode
-  ;;  :ensure-system-package jq
-  :mode "\\.json\\|prettierrc\\'")
-;; :hook
-;; (json-mode-hook . (lambda () (prettier-babel-on-save-mode -1))))
+  :mode ("\\.json\\'" "prettierrc\\'"))
 
 (use-package jq-mode
+  ;;  :ensure-system-package jq
   :mode "\\.jq$")
 
 (use-package graphql-mode
-  :mode "\\(?:\\.g\\(?:\\(?:raph\\)?ql\\)\\)\\'")
+  :mode "\\.g\\(?:raph\\)?ql\\'")
 
 
 ;;;; Python
 
-;; (use-package python
-;;   :mode ("\\.py\\'" . python-mode)
-;;   :interpreter ("python3?" . python-mode)
-;;   :custom
-;;   (gud-pdb-command-name "python -m pdb")
-;;   :bind
-;;   (:map python-mode-map
-;;         ("s-v" . yank)
-;;         ("s-<return>" . python-shell-send-defun)))
+;; pip install python-language-server
+(use-package python
+  :straight (:type built-in)
+  :mode ("\\.py\\'" . python-mode)
+  :interpreter ("python3?" . python-mode)
+  :custom
+  (gud-pdb-command-name "python -m pdb")
+  :bind
+  (:map python-mode-map
+        ("s-v" . yank)
+        ("s-<return>" . python-shell-send-defun))
+  :hook
+  (python-mode-hook . lsp-deferred))
 
 (use-package pipenv
   :mode ("Pipfile\\'" . conf-mode)
@@ -6529,14 +6520,8 @@ Open the `eww' buffer in another window."
   :config
   :hook (python-mode-hook . pipenv-mode))
 
-(use-package lsp-python-ms
-  :hook
-  (python-mode-hook . lsp-deferred))
-
 
 ;;;; Swift
-
-;; Swift is WIP.
 
 (use-package swift-mode
   :mode "\\.swift"
@@ -6544,8 +6529,6 @@ Open the `eww' buffer in another window."
   :hook
   (swift-mode-hook . lsp-deferred))
 
-;; 1. Install https://github.com/apple/sourcekit-lsp
-;; 2. Install https://swift.org/download/#releases
 (use-package lsp-sourcekit
   :config
   (defun lsp-sourcekit-setup ()
@@ -6556,22 +6539,6 @@ Open the `eww' buffer in another window."
   :hook
   (swift-mode-hook . lsp-sourcekit-setup))
 
-;; (use-package company-sourcekit
-;;   :config
-;;   (defun company-sourcekit-setup ()
-;;     "Configure `company-sourcekit'."
-;;     (add-to-list 'company-backends 'company-sourcekit))
-;;   :hook
-;;   (swift-mode-hook . company-sourcekit-setup))
-
-;; (use-package flycheck-swift
-;;   :hook
-;;   (swift-mode-hook . flycheck-swift-setup))
-
-;; TODO Seems broken
-;; (use-package swift-playground-mode
-;;   :hook
-;;   (swift-mode-hook . swift-playground-mode))
 
 ;;;; Applescript
 
@@ -6691,13 +6658,9 @@ Open the `eww' buffer in another window."
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
   :config
-  (add-to-list 'flycheck-checkers #'lsp)
+  (with-eval-after-load 'flycheck
+    (add-to-list 'flycheck-checkers #'lsp))
   :hook
-  ((c-mode-hook c-mode c++-mode-hook css-mode-hook go-mode-hook java-mode-hook
-                js-mode-hook php-mode-hook powershell-mode-hook
-                enh-ruby-mode-hook nxml-mode-hook rust-mode-hook sass-mode-hook
-                sh-mode-hook html-mode-hook web-mode-hook xml-mode-hook) .
-                lsp-deferred)
   (lsp-after-open-hook . lsp-enable-imenu)
   (lsp-mode . lsp-enable-which-key-integration))
 
@@ -6709,15 +6672,19 @@ Open the `eww' buffer in another window."
   (:map lsp-ui-mode-map
         ("M-." . lsp-ui-peek-find-definitions)
         ("M-?" . lsp-ui-peek-find-references)
-        ("C-h ." . lsp-ui-doc-show)))
+        ("C-h ." . lsp-ui-doc-show))
+  (:map lsp-ui-peek-mode-map
+        ("<return>" . lsp-ui-peek--goto-xref)
+        ("M-/" . lsp-ui-peek--goto-xref)))
 
-(use-package company-lsp
-  :config
-  (defun company-lsp-setup ()
-    "Set up `company-lsp'."
-    (add-to-list 'company-backends #'company-lsp))
-  :hook
-  (lsp-mode-hook . company-lsp-setup))
+;; (use-package company-lsp
+;;   :config
+;;   (defun company-lsp-setup ()
+;;     "Set up `company-lsp'."
+;;     (make-local-variable 'company-backends)
+;;     (add-to-list 'company-backends #'company-lsp))
+;;   :hook
+;;   (lsp-mode-hook . company-lsp-setup))
 
 (use-package lsp-ivy
   :commands
@@ -6735,7 +6702,7 @@ Open the `eww' buffer in another window."
                        (swift-format "xcrun" "swift-format")
                        (shfmt  "shfmt")
                        (xmllint "xmllint" "--format" "-")
-                       (zprint "zprint" "{:map {:comma? false}}")))
+                       (zprint "zprint" "{:style :community :map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
 
   (dolist (mode '((clojure-mode . zprint)
@@ -6746,7 +6713,8 @@ Open the `eww' buffer in another window."
                   (markdown-mode . prettier)
                   (nxml-mode . xmllint)
                   (sh-mode . shfmt)
-                  (swift-mode . swift-format)))
+                  (swift-mode . swift-format)
+                  (web-mode . prettier)))
     (add-to-list 'apheleia-mode-alist mode))
 
   ;; FIXME This is a naive work in progress. Problems include:
@@ -7034,19 +7002,18 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
 
   (defvar async-shell-command-current-file-history nil)
   
-  (use-package company-shell
-    :config
-    (defun company-shell-setup ()
-      "set up `company-shell'."
-      (add-to-list
-       'company-backends
-       `(company-shell company-shell-env
-                       ,(when (executable-find "fish") 'company-fish-shell))))
-    :hook
-    ((sh-mode-hook fish-mode-hook shell-mode-hook eshell-mode-hook) .
-     company-shell-setup))
+  ;; (use-package company-shell
+  ;;   :config
+  ;;   (defun company-shell-setup ()
+  ;;     "set up `company-shell'."
+  ;;     (add-to-list
+  ;;      'company-backends
+  ;;      `(company-shell company-shell-env
+  ;;                      ,(when (executable-find "fish") 'company-fish-shell))))
+  ;;   :hook
+  ;;   ((sh-mode-hook fish-mode-hook shell-mode-hook eshell-mode-hook) .
+  ;;    company-shell-setup))
 
-  ;; WIP
   (defun async-shell-command-current-file (arg)
     "Run the current file, editing command line if ARG is non-nil.
 
@@ -7069,6 +7036,7 @@ This command defaults to running the previous command."
     (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
 
   :hook
+  (sh-mode-hook . lsp-deferred)
   (before-save-hook . maybe-reset-major-mode)
   (after-save-hook . executable-make-buffer-file-executable-if-script-p)
   :bind
@@ -7138,7 +7106,7 @@ This command defaults to running the previous command."
   :mode "\\`Caddyfile.*")
 
 (use-package yaml-mode
-  :mode "\\.ya\?ml\\'")
+  :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'")
 
 (use-package toml-mode
   :mode "\\.toml\\'")
@@ -7158,34 +7126,52 @@ This command defaults to running the previous command."
     :bind
     (:map inf-ruby-minor-mode-map
           ("s-<return>". ruby-send-last-sexp)
-          ("C-M-x" . ruby-send-block))))
+          ("C-M-x" . ruby-send-block)))
+  :hook
+  (enh-ruby-mode-hook . lsp-deferred))
 
 (use-package lua-mode
   :mode "\\.lua\\'"
   :custom
-  (lua-indent-level tab-width))
+  (lua-indent-level tab-width)
+  :hook
+  (lua-mode-hook . lsp-deferred))
+
+(use-package fennel-mode
+  :mode "\\.fnl\\'")
 
 (use-package rust-mode
   :mode "\\.rs\\'"
   :custom
-  (rust-indent-offset tab-width))
+  (rust-indent-offset tab-width)
+  :hook
+  (rust-mode-hook . lsp-deferred))
 
 (use-package go-mode
   :mode "\\.go\\'"
   :config
   (use-package company-go
+    :config
+    (defun company-go-setup ()
+      "Set up `company-go'."
+      (make-local-variable 'company-backends)
+      (add-to-list 'company-backends 'company-go))
     :hook
-    (go-mode-hook
-     . (lambda () (set (make-local-variable 'company-backends) '(company-go))))))
+    (go-mode-hook . company-go-setup)
+    (go-mode-hook . lsp-deferred)))
 
 (use-package powershell
   :mode "\\.ps1\\'"
   :custom
   (powershell-indent tab-width)
-  (powershell-continuation-indent tab-width))
+  (powershell-continuation-indent tab-width)
+  :hook
+  (powershell-mode-hook . lsp-deferred))
 
 (use-package php-mode
-  :mode "\\.php\\'")
+  :mode "\\.php\\'"
+  :hook
+  (php-mode-hook . lsp-deferred))
 
 (use-package ios-config-mode
   :straight (ios-config-mode :host github :repo "mnewt/IOS-config-mode")
@@ -7195,50 +7181,66 @@ This command defaults to running the previous command."
   :custom
   (c-basic-offset tab-width)
   (c-default-style "ellemtel")
+  :hook
+  ((c-mode-hook c++-mode-hook java-mode-hook) . lsp-deferred)
   :bind
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
         (">" . c-electric-lt-gt)))
 
-;; Perhaps add these to the path:
-;; TODO: Is there an omnisharp or lsp method to add to the path?
-;; - /Library/Frameworks/Mono.framework/Versions/Current/bin
-;; - /Library/Frameworks/Mono.framework/Versions/Current/Commands
-;; - /usr/local/share/dotnet
-;; - $HOME/.dotnet/tools
+(use-package nxml-mode
+  :straight (:type built-in)
+  :hook
+  (nxml-mode-hook . lsp-deferred))
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
+  ;; :custom
+  ;; (lsp-csharp-server-path "/Users/mn/code/omnisharp-osx/omnisharp/OmniSharp.exe")
+  :config
+  (defun csharp-mode-setup ()
+    "Set up C# mode."
+    ;; (exec-path-from-shell-setenv
+    ;;  "PATH"
+    ;;  (concat "/Users/mn/.emacs.d/.cache/lsp/omnisharp-roslyn/" "/bin" ":"
+    ;;          (exec-path-from-shell-getenv "PATH")))
+    (exec-path-from-shell-setenv
+     "PATH"
+     (concat "/Library/Frameworks/Mono.framework/Versions/Current/Commands" ":"
+             (exec-path-from-shell-getenv "PATH")))
+    (setq c-syntactic-indentation t)
+    (c-set-style "ellemtel")
+    (setq c-basic-offset 4)
+    (setq truncate-lines t)
+    (setq tab-width 4))
+    ;; (lsp-deferred))
+  :hook
+  (csharp-mode-hook . csharp-mode-setup)
   :bind
   (:map csharp-mode-map
         ("<" . c-electric-lt-gt)
         (">" . c-electric-lt-gt)))
 
-;; TODO: Maybe do away with this when `lsp-mode' is ready?
-;; https://github.com/emacs-lsp/lsp-mode/pull/1024
 (use-package omnisharp
+  :custom
+  (omnisharp-imenu-support t)
   ;; Use `omnisharp-install-server' to set things up after installing the
   ;; package.
-  :functions
-  omnisharp-code-format-entire-file
   :config
-  (defvar reformatter-alist)
-
-  (defun m-csharp-mode-setup ()
+  (defun omnisharp-mode-setup ()
     "Set up C# mode."
     (omnisharp-install-server nil)
     (omnisharp-mode)
+    (make-local-variable 'company-backends)
     (add-to-list 'company-backends #'company-omnisharp)
-    (add-hook 'before-save-hook #'omnisharp-code-format-entire-file)
-    (setq c-syntactic-indentation t)
-    (c-set-style "ellemtel")
-    (setq c-basic-offset tab-width)
-    (setq truncate-lines t)
-    (setq tab-width tab-width)
-    (add-to-list 'reformatter-alist '(csharp-mode . omnisharp-code-format-entire-file)))
-
+    (add-hook 'before-save-hook #'omnisharp-code-format-entire-file))
   :hook
-  (csharp-mode-hook . m-csharp-mode-setup))
+  (csharp-mode-hook . omnisharp-mode-setup)
+
+  :bind
+  (:map omnisharp-mode-map
+        ("C-c r" . omnisharp-run-code-action-refactoring)
+        ("C-c C-c" . recompile)))
 
 (use-package ahk-mode
   :mode "\\.ahk\\'")
@@ -7314,15 +7316,13 @@ configuration when invoked to evaluate a line."
   :hook
   (sh-mode-hook . eval-in-repl-sh-mode-setup)
   :bind
-  ("s-<return>" . eir-eval-in-shell)
-  ("M-s-<return>" . eir-eval-in-shell-and-advance))
+  (:map sh-mode-map
+        ("s-<return>" . eir-eval-in-shell)
+        ("M-s-<return>" . eir-eval-in-shell-and-advance)))
 
 ;; ;;;; Multiple Major Modes
 
-;; TODO: I can't figure out how to defer loading of polymode without separating
-;; it into its own file. Why is this necessary?
-;;
-;; TODO: Also polymode with this config causes rjsx files to explode, it's
+;; TODO: `polymode' with this config causes rjsx files to explode, it's
 ;; really bad.
 ;;
 ;; (run-with-timer 8 nil (lambda () (require 'polymode-setup)))
@@ -7336,6 +7336,7 @@ configuration when invoked to evaluate a line."
                   ("graphql[ \t\n]*(?`" "`" graphql)
                   ("<svg" "</svg>" nxml t)
                   ("<html" "</html>" web t)
+                  ("<style type=\"text/css\">" "</style>" css)
                   ("<div" "</div>" web t)
                   ;; TODO: How to ignore escaped double quotes? (`\"') polymode
                   ;; uses functions to determine start and end. That's probably
@@ -7346,8 +7347,8 @@ configuration when invoked to evaluate a line."
                 fence-edit-blocks))
 
   (with-eval-after-load 'markdown-mode
-    (bind-keys (:map markdown-mode-map
-                     ("C-c '" . nil))))
+    (bind-keys :map markdown-mode-map
+               ("C-c '" . nil)))
   :bind
   ("C-c '" . fence-edit-dwim))
 
