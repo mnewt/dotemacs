@@ -94,27 +94,21 @@
         use-package-expand-minimally nil
         use-package-compute-statistics t
         debug-on-error t)
+
   (use-package benchmark-init
     :demand t
     :config
     ;; To disable collection of benchmark data after init is done.
-    (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
+    (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
-;;;;; git-package
-
-;; Use `git-package' to install all that declared using `use-package'.
-;; (custom-set-variables '(git-package-use-package-always-ensure nil))
-
-;; (let ((url "https://github.com/mnewt/git-package.git")
-;;       (dir (expand-file-name "git/git-package" user-emacs-directory)))
-;;   (unless (file-directory-p dir)
-;;     (make-directory dir t)
-;;     (shell-command (format "git clone '%s' '%s'" url dir)))
-;;   (add-to-list 'load-path dir)
-;;   (require 'git-package-use-package)
-;;   (require 'git-package-tasks)
-;;   (git-package url)
-;;   (git-package-setup-use-package))
+  (use-package explain-pause-mode
+    :demand t
+    :straight (explain-pause-mode :host github
+                                  :repo "lastquestion/explain-pause-mode")
+    :config
+    (setq profiler-max-stack-depth 50)
+    (explain-pause-mode t)))
+  
 
 ;;;;; package management
 
@@ -309,6 +303,20 @@ higher level up to the top level form."
  ("C-c U" . revert-buffer)
  ("s-<return>" . eval-last-sexp)
  ("s-RET" . eval-last-sexp))
+
+
+;;;; Outline
+
+;; `outline' must be loaded before `persistent-scratch' to ensure that the
+;; prefix is set before `outline-mode' is autoloaded.
+
+(use-package outline
+  :custom
+  (outline-minor-mode-prefix (kbd "M-#"))
+  :hook
+  (prog-mode-hook . outline-minor-mode)
+  :bind
+  (:map outline-minor-mode-map))
 
 
 ;;;; Persistence
@@ -894,6 +902,12 @@ This sets things up for `window-highlight' and `mode-line'."
              (window-highlight-focused-window ((t :background ,active-bg)))
              (vertical-border ((t :foreground ,inactive-bg)))
              (cursor ((t :background "magenta")))
+             ;; (eldoc-box-body ((t :inherit default
+             ;;                     :background
+             ;;                     ,(color-blend
+             ;;                       active-bg
+             ;;                       (theme-face-attribute 'default :foreground)
+             ;;                       1.2))))
              (sp-show-pair-match-face ((t :inherit highlight
                                           :underline nil
                                           :foreground nil
@@ -908,10 +922,10 @@ This sets things up for `window-highlight' and `mode-line'."
 
 (use-package hl-line
   :defer 2
-  
+
   :custom
   (global-hl-line-sticky-flag t)
-  
+
   :config
   (defun maybe-enable-hl-line-mode ()
     (unless (eq major-mode 'vterm-mode)
@@ -964,6 +978,97 @@ This sets things up for `window-highlight' and `mode-line'."
 
 ;; Navigation tools
 
+(use-package outshine
+  :config
+  (defun outline-show-current-sublevel ()
+    "Show only the current top level section."
+    (interactive)
+    (unless (bound-and-true-p 'outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-hide-sublevels 1)
+    (outline-show-subtree))
+
+  (defun outline-subtree-previous ()
+    "Go to and expand previous sublevel."
+    (interactive)
+    (unless (bound-and-true-p outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-previous-visible-heading 1)
+    (outline-show-subtree))
+
+  (defun outline-subtree-next ()
+    "Go to and expand previous sublevel."
+    (interactive)
+    (unless (bound-and-true-p outline-minor-mode)
+      (outline-minor-mode t))
+    (outline-next-visible-heading 1)
+    (outline-show-subtree))
+
+  (defun outshine-narrow-dwim (&rest _args)
+    (unless (outline-on-heading-p t)
+      (outline-previous-visible-heading 1)))
+
+  ;; Narrowing now works within the headline rather than requiring to be on it
+  (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
+
+  (eldoc-add-command #'outshine-self-insert-command)
+
+  (defun outline-show-current-sublevel ())
+  (radian-protect-macros
+    (with-eval-after-load 'hydra
+      (defhydra hydra-outline (:color pink :hint nil)
+        "
+Outline
+
+^Hide^             ^Show^           ^Move
+^^^^^^------------------------------------------------------
+_s_ sublevels     _a_ all         _u_ up
+_t_ body          _e_ entry       _n_ next visible
+_o_ other         _i_ children    _p_ previous visible
+_c_ entry         _k_ branches    _f_ forward same level
+_l_ leaves        _s_ subtree     _b_ backward same level
+_d_ subtree
+
+"
+        ;; Hide
+        ("q" outline-hide-sublevels)
+        ("t" outline-hide-body)
+        ("o" outline-hide-other)
+        ("c" outline-hide-entry)
+        ("l" outline-hide-leaves)
+        ("d" outline-hide-subtree)
+        ;; Show
+        ("a" outline-show-all)
+        ("e" outline-show-entry)
+        ("i" outline-show-children)
+        ("k" outline-show-branches)
+        ("s" outline-show-subtree)
+        ;; Move
+        ("u" outline-up-heading)
+        ("n" outline-next-visible-heading)
+        ("p" outline-previous-visible-heading)
+        ("f" outline-forward-same-level)
+        ("b" outline-backward-same-level)
+        ("q" nil "leave"))))
+
+  (use-package outorg
+    :bind
+    (:map outline-minor-mode-map
+          ("M-# #" . outorg-edit-as-org)))
+
+  :hook
+  (outline-minor-mode-hook . outshine-mode)
+  :bind
+  (:map outline-minor-mode-map
+        ("C-c #" . hydra-outline/body)
+        ;; Don't shadow smarparens or org bindings
+        ("M-<up>" . nil)
+        ("M-<down>" . nil)
+        ("C-<tab>" . outshine-cycle-buffer)
+        ("M-=" . outline-show-current-sublevel)
+        ("M-p" . outline-subtree-previous)
+        ("M-n" . outline-subtree-next)))
+
 (defun fullscreen ()
   "Toggle fullscreen mode."
   (interactive)
@@ -977,7 +1082,7 @@ Ripped out of function `line-move-visual'."
   (let ((hscroll (window-hscroll)))
     (if (and (consp temporary-goal-column)
              (memq last-command `(next-line previous-line scroll-window-up
-                                  scroll-window-down ,this-command)))
+                                            scroll-window-down ,this-command)))
 
         (progn
           (line-move-to-column (truncate (car temporary-goal-column)))
@@ -1371,9 +1476,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
       (bind-key (format "C-x x %d" n) f)
       (bind-key (format "H-%d" n) f)
       (eval `(defun ,f ()
-              ,(format "Switch to perspective number %d." n)
-              (interactive)
-              (persp-switch-nth ,n)))))
+               ,(format "Switch to perspective number %d." n)
+               (interactive)
+               (persp-switch-nth ,n)))))
 
   :hook
   (emacs-startup-hook . persp-mode)
@@ -1400,110 +1505,14 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 ;; Try to re-use help buffers of different sorts
 (setq display-buffer-alist
       `((,(rx bos
-           (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
-           (0+ not-newline))
+              (or "*Apropos*" "*eww*" "*Help*" "*helpful" "*info*" "*Summary*")
+              (0+ not-newline))
          (display-buffer-reuse-mode-window display-buffer-pop-up-window)
          (mode apropos-mode help-mode helpful-mode Info-mode Man-mode))))
 
 (with-eval-after-load 'ediff-wind
   (defvar ediff-window-setup-function)
   (setq ediff-window-setup-function #'ediff-setup-windows-plain))
-
-(use-package outline
-  :custom
-  (outline-minor-mode-prefix "\M-#"))
-
-(use-package outshine
-  :config
-  (defun outline-show-current-sublevel ()
-    "Show only the current top level section."
-    (interactive)
-    (unless (bound-and-true-p 'outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-hide-sublevels 1)
-    (outline-show-subtree))
-
-  (defun outline-subtree-previous ()
-    "Go to and expand previous sublevel."
-    (interactive)
-    (unless (bound-and-true-p outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-previous-visible-heading 1)
-    (outline-show-subtree))
-
-  (defun outline-subtree-next ()
-    "Go to and expand previous sublevel."
-    (interactive)
-    (unless (bound-and-true-p outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-next-visible-heading 1)
-    (outline-show-subtree))
-
-  (defun outshine-narrow-dwim (&rest _args)
-    (unless (outline-on-heading-p t)
-      (outline-previous-visible-heading 1)))
-
-  ;; Narrowing now works within the headline rather than requiring to be on it
-  (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
-
-  (eldoc-add-command #'outshine-self-insert-command)
-
-  (defun outline-show-current-sublevel ())
-  (radian-protect-macros
-    (with-eval-after-load 'hydra
-      (defhydra hydra-outline (:color pink :hint nil)
-        "
-Outline
-
-^Hide^             ^Show^           ^Move
-^^^^^^------------------------------------------------------
-_s_ sublevels     _a_ all         _u_ up
-_t_ body          _e_ entry       _n_ next visible
-_o_ other         _i_ children    _p_ previous visible
-_c_ entry         _k_ branches    _f_ forward same level
-_l_ leaves        _s_ subtree     _b_ backward same level
-_d_ subtree
-
-"
-        ;; Hide
-        ("q" outline-hide-sublevels)
-        ("t" outline-hide-body)
-        ("o" outline-hide-other)
-        ("c" outline-hide-entry)
-        ("l" outline-hide-leaves)
-        ("d" outline-hide-subtree)
-        ;; Show
-        ("a" outline-show-all)
-        ("e" outline-show-entry)
-        ("i" outline-show-children)
-        ("k" outline-show-branches)
-        ("s" outline-show-subtree)
-        ;; Move
-        ("u" outline-up-heading)
-        ("n" outline-next-visible-heading)
-        ("p" outline-previous-visible-heading)
-        ("f" outline-forward-same-level)
-        ("b" outline-backward-same-level)
-        ("q" nil "leave"))))
-
-  (use-package outorg
-    :bind
-    (:map outline-minor-mode-map
-          ("M-# #" . outorg-edit-as-org)))
-
-  :hook
-  (outline-minor-mode-hook . outshine-mode)
-  (prog-mode-hook . outline-minor-mode)
-  :bind
-  (:map outline-minor-mode-map
-        ("C-c #" . hydra-outline/body)
-        ;; Don't shadow smarparens or org bindings
-        ("M-<up>" . nil)
-        ("M-<down>" . nil)
-        ("C-<tab>" . outshine-cycle-buffer)
-        ("M-=" . outline-show-current-sublevel)
-        ("M-p" . outline-subtree-previous)
-        ("M-n" . outline-subtree-next)))
 
 ;; hs-minor-mode for folding top level forms
 (use-package hideshow
@@ -1606,16 +1615,16 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
         (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
     `(progn
        (defun ,fname ()
-        (interactive)
-        (let ((p (point)))
-         (goto-char (point-min))
-         ,@forms
-         (when (= p (point))
-          (goto-char (point-min)))))
+         (interactive)
+         (let ((p (point)))
+           (goto-char (point-min))
+           ,@forms
+           (when (= p (point))
+             (goto-char (point-min)))))
        (add-hook ',mode-hook
-        (lambda ()
-          (define-key ,mode-map
-            [remap beginning-of-buffer] ',fname))))))
+                 (lambda ()
+                   (define-key ,mode-map
+                     [remap beginning-of-buffer] ',fname))))))
 
 (defmacro specialize-end-of-buffer (mode &rest forms)
   "Define a special version of `end-of-buffer' in MODE.
@@ -1633,16 +1642,16 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
         (mode-hook (intern (concat (symbol-name mode) "-mode-hook"))))
     `(progn
        (defun ,fname ()
-        (interactive)
-        (let ((p (point)))
-         (goto-char (point-max))
-         ,@forms
-         (when (= p (point))
-          (goto-char (point-max)))))
+         (interactive)
+         (let ((p (point)))
+           (goto-char (point-max))
+           ,@forms
+           (when (= p (point))
+             (goto-char (point-max)))))
        (add-hook ',mode-hook
-        (lambda ()
-          (define-key ,mode-map
-            [remap end-of-buffer] ',fname))))))
+                 (lambda ()
+                   (define-key ,mode-map
+                     [remap end-of-buffer] ',fname))))))
 
 (defvar dired-mode-map)
 (specialize-beginning-of-buffer dired
@@ -1728,15 +1737,15 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 Each EXPR should create one window."
   (declare (indent defun))
   `(defun ,(intern name) (arg)
-    ,(format "Set up a window configuration for %s." name)
-    (interactive "P")
-    (when arg (message "TODO: Create new perpsective and open it there."))
-    (delete-other-windows)
-    ,(car exprs)
-    (let ((first-window (selected-window)))
-     (switch-to-buffer-other-window (current-buffer))
-     ,(cadr exprs)
-     (select-window first-window))))
+     ,(format "Set up a window configuration for %s." name)
+     (interactive "P")
+     (when arg (message "TODO: Create new perpsective and open it there."))
+     (delete-other-windows)
+     ,(car exprs)
+     (let ((first-window (selected-window)))
+       (switch-to-buffer-other-window (current-buffer))
+       ,(cadr exprs)
+       (select-window first-window))))
 
 (defun window-config-dotemacs ()
   "Set up dotemacs window config."
@@ -2000,10 +2009,21 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     (interactive)
     (if (eolp) (ivy-partial) (end-of-line)))
 
+  ;; (use-package ivy-posframe
+  ;;   :demand t
+  ;;   :custom
+  ;;   (ivy-posframe-display-functions-alist
+  ;;    '((swiper . nil)
+  ;;      (counsel-grep-or-swiper . nil)
+  ;;      (counsel-rg . nil)
+  ;;      (counsel-projectile-rg . nil)
+  ;;      (t . ivy-posframe-display-at-frame-center)))
+  ;;   :config
+  ;;   (ivy-posframe-mode))
+
   (use-package ivy-hydra
     :demand t
     :custom
-    ;; FIXME https://github.com/abo-abo/swiper/issues/2397
     (ivy-read-action-function #'ivy-hydra-read-action))
 
   :bind
@@ -2013,12 +2033,6 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
         ("C-e" . ivy-end-of-line-or-partial)
         ("M-/" . ivy-partial-or-done)
         ("M-J" . ivy-yank-complete-symbol-at-point)))
-
-;; (use-package ivy-posframe
-;;   :custom
-;;   (ivy-posframe-display-functions-alist '((t . ivy-posframe-display-at-frame-center)))
-;;   :hook
-;;   (ivy-mode-hook . ivy-posframe-mode))
 
 (use-package swiper
   :config
@@ -2050,9 +2064,8 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   :hook
   (minibuffer-setup-hook . minibuffer-set-this-command)
   :bind
-  (:map minibuffer-local-map
-        ("C-u" . minibuffer-restart-with-prefix))
   (:map ivy-minibuffer-map
+        ("C-u" . minibuffer-restart-with-prefix)
         ("C-c C-c" . ivy-toggle-calling)
         ("s-5" . ivy--replace-regexp-entire-buffer)
         ("C-u" . minibuffer-restart-with-prefix)))
@@ -2366,7 +2379,7 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
     (company-mode-hook . company-box-mode))
 
   (global-company-mode)
-  
+
   :hook
   ((prog-mode-hook
     lisp-interaction-mode-hook
@@ -2435,7 +2448,7 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
     (interactive)
     (switch-to-buffer-other-window (current-buffer))
     (smart-jump-go smart-list continue))
-  
+
   (smart-jump-setup-default-registers)
 
   :bind
@@ -2974,6 +2987,7 @@ With a prefix ARG always prompt for command to use."
   ("C-h v" . helpful-variable)
   ("C-h C-k" . helpful-keymap)
   (:map helpful-mode-map
+        ("<tab>" . forward-button)
         ("M-p" . imenu-goto-previous)
         ("M-n" . imenu-goto-next)
         ("o" . push-button-other-window)))
@@ -2981,6 +2995,11 @@ With a prefix ARG always prompt for command to use."
 (use-package eldoc
   :defer 20
   :config
+  ;; (use-package eldoc-box
+  ;;   :demand t
+  ;;   :config
+  ;;   (eldoc-box-hover-at-point-mode))
+  
   (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
 
@@ -3066,7 +3085,7 @@ Include PREFIX in prompt if given."
 (use-package woman
   :functions
   tramp-aware-woman
-  
+
   :config
   ;; TODO Make this usable by:
   ;;   1. Search the remote MANPATH for the file
@@ -3084,7 +3103,7 @@ Include PREFIX in prompt if given."
               (tramp-file-name-host vec)
               man-page-path))
          man-page-path))))
-  
+
   :bind
   ("C-h M-m" . woman))
 
@@ -3461,339 +3480,6 @@ INITIAL will be used as the initial input, if given."
  ("k" . previous-line))
 
 
-;;;; Org
-
-(defvar org-directory "~/org")
-
-(use-package org
-  :mode ("\\.org\\'" . org-mode)
-  :custom
-  ;; Indent text according to the outline structure (`org-indent-mode')
-  ;; (org-startup-indented t)
-  ;; Quit adding 2 spaces to source block
-  (org-edit-src-content-indentation 0)
-  (org-special-ctrl-a/e t)
-  (org-special-ctrl-k t)
-  ;; Insert a row in tables
-  (org-special-ctrl-o t)
-  ;; Tab in source blocks should act like in major mode
-  (org-src-tab-acts-natively t)
-  ;; Code highlighting in code blocks
-  (org-src-fontify-natively t)
-  (org-export-with-section-numbers nil)
-  ;; (org-ellipsis "...")
-  ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
-  (org-todo-keyword-faces '(("TODO" (:underline t))
-                            ("WIP" (:foreground "lime green" :underline t))
-                            ("DONE" (:inherit font-link-comment-fac))))
-  (org-catch-invisible-edits 'show-and-error)
-  (org-capture-templates
-   `(("t" "TODO" entry
-      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
-      "* TODO %?\n  %i\n  %a")
-     ("n" "Note" entry
-      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
-      "* %?\n  %i\n  %a")
-     ("m" "TODO respond to email" entry
-      (file ,(expand-file-name "TODO.org" org-directory))
-      "* TODO %^{Description}\n%A\n%?\n")))
-  ;; Don't prompt to confirm if I want to evaluate a source block
-  (org-confirm-babel-evaluate nil)
-  (org-startup-with-inline-images "inlineimages")
-  (org-image-actual-width 500)
-  ;; When exporting to odt, actually create a docx
-  (org-odt-preferred-output-format "docx")
-
-  :commands
-  org-todo
-  org-entry-get
-  org-sort-entries
-  org-map-entries
-  org-capture
-  org-capture-refile
-  :config
-
-  (defun window-config-org ()
-    "Set up Org window config."
-    (interactive)
-    (delete-other-windows)
-    (dired org-directory)
-    (switch-to-buffer-other-window (current-buffer))
-    (find-file (expand-file-name "TODO.org" org-directory))
-    (other-window 1))
-
-  (defun org-todo-file (arg)
-    "Open the appropriate Org TODO.org file, informed by ARG.
-
-When in a project directory, open it in the project root.
-
-When not in a project directory or a prefix ARG is specified,
-open it in `org-directory'."
-    (interactive "P")
-    (find-file (expand-file-name "TODO.org"
-                                 (if (and (not arg) (projectile-project-p))
-                                     (projectile-project-root)
-                                   org-directory))))
-
-  (defun org-directory ()
-    "Open the Org directory"
-    (interactive)
-    (find-file org-directory))
-
-  (defun org-search-org-directory ()
-    "Search ~/org using `counsel-rg'."
-    (interactive)
-    (let ((default-directory org-directory))
-      (counsel-rg)))
-
-  (defun org-new-note (arg)
-    "Create a new Org buffer with ARG controlling the location.
-
-Without prefix ARG, create it in the project root directory (if
-we are in a project) or the current directory.
-
-With a prefix ARG, create it in `org-directory'."
-    (interactive "P")
-    (find-file (expand-file-name "new-note.org"
-                                 (cond
-                                  (arg org-directory)
-                                  ((projectile-project-p)
-                                   (projectile-project-root))))))
-
-  (defun org-dired-org-directory ()
-    "Visit `org-directory' using Dired."
-    (interactive)
-    (dired org-directory))
-
-  (defun org-todo-todo ()
-    "Create or update Org todo entry to TODO status."
-    (interactive)
-    (org-todo "TODO"))
-
-  (defun org-todo-to-int (todo)
-    "Get the number of the TODO based on its status."
-    (car (cl-remove
-          nil
-          (mapcar (lambda (keywords)
-                    (let ((todo-seq
-                           (mapcar (lambda (x) (car (split-string  x "(")))
-                                   (cdr keywords))))
-                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
-                  org-todo-keywords))))
-
-  (defvar org-default-priority)
-
-  (defun org-sort-entries--todo-status-key ()
-    "Sort Org TODO entries by their status."
-    (let* ((todo-max (apply #'max (mapcar #'length org-todo-keywords)))
-           (todo (org-entry-get (point) "TODO"))
-           (todo-int (if todo (org-todo-to-int todo) todo-max))
-           (priority (org-entry-get (point) "PRIORITY"))
-           (priority-int (if priority (string-to-char priority) org-default-priority)))
-      (format "%03d %03d" todo-int priority-int)))
-
-  (defun org-sort-entries-by-todo-status ()
-    "Sort Org TODO entries by their status."
-    (interactive)
-    (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
-
-  (defun org-archive-done-tasks-in-file ()
-    "Archive all tasks marked done."
-    (interactive)
-    (require 'org-archive)
-    (require 'outline)
-    (org-map-entries
-     (lambda ()
-       (org-archive-subtree)
-       (setq org-map-continue-from (outline-previous-heading)))
-     "/DONE" 'file))
-
-  (defface org-emphasis-marker '((t (:inherit shadow)))
-    "Face for Org emphasis markers"
-    :group 'org-faces)
-
-  (defvar org-element-paragraph-separate)
-  ;; This is a re-definition of a built in function.
-  ;; TODO Follow up with Org mailing list on this approach.
-  (defun org-do-emphasis-faces-improved (limit)
-    "Run through the buffer and emphasize strings."
-    (require 'org-macs)
-    (require 'org-compat)
-    (let ((quick-re (format "\\([%s]\\|^\\)\\([~=*/_+]\\)"
-                            (car org-emphasis-regexp-components))))
-      (catch :exit
-        (while (re-search-forward quick-re limit t)
-          (let* ((marker (match-string 2))
-                 (verbatim? (member marker '("~" "="))))
-            (when (save-excursion
-                    (goto-char (match-beginning 0))
-                    (and
-                     ;; Do not match table hlines.
-                     (not (and (equal marker "+")
-                               (org-match-line
-                                "[ \t]*\\(|[-+]+|?\\|\\+[-+]+\\+\\)[ \t]*$")))
-                     ;; Do not match headline stars.  Do not consider
-                     ;; stars of a headline as closing marker for bold
-                     ;; markup either.
-                     (not (and (equal marker "*")
-                               (save-excursion
-                                 (forward-char)
-                                 (skip-chars-backward "*")
-                                 (looking-at-p org-outline-regexp-bol))))
-                     ;; Match full emphasis markup regexp.
-                     (looking-at (if verbatim? org-verbatim-re org-emph-re))
-                     ;; Do not span over paragraph boundaries.
-                     (not (string-match-p org-element-paragraph-separate
-                                          (match-string 2)))
-                     ;; Do not span over cells in table rows.
-                     (not (and (save-match-data (org-match-line "[ \t]*|"))
-                               (string-match-p "|" (match-string 4))))))
-              (pcase-let ((`(,_ ,face ,_) (assoc marker org-emphasis-alist)))
-                (font-lock-prepend-text-property
-                 (match-beginning 2) (match-end 2) 'face face)
-                (when verbatim?
-                  (org-remove-flyspell-overlays-in
-                   (match-beginning 0) (match-end 0))
-                  (remove-text-properties (match-beginning 2) (match-end 2)
-                                          '(display t invisible t intangible t)))
-                (add-text-properties (match-beginning 2) (match-end 2)
-                                     '(font-lock-multiline t org-emphasis t)))
-
-              ;; Begin new code
-              (font-lock-prepend-text-property
-               (match-beginning 3) (match-end 3) 'face 'org-emphasis-marker)
-              (font-lock-prepend-text-property
-               (match-end 4) (match-beginning 5) 'face 'org-emphasis-marker)
-              ;; End new code
-
-              (when org-hide-emphasis-markers
-                (add-text-properties (match-end 4) (match-beginning 5)
-                                     '(invisible org-link))
-                (add-text-properties (match-beginning 3) (match-end 3)
-                                     '(invisible org-link))))
-            (throw :exit t))))))
-
-  (advice-add #'org-do-emphasis-faces :override #'org-do-emphasis-faces-improved)
-
-  (defun org-show-only-current-subtree (&rest _)
-    "Fold all other trees, then show entire current subtree."
-    (interactive)
-    (org-overview)
-    (org-reveal)
-    (org-show-subtree))
-
-  (use-package org-download
-    :hook
-    (dired-mode-hook . org-download-enable))
-
-  (use-package htmlize
-    :commands
-    htmlize-buffer
-    htmlize-file)
-
-  (use-package org-preview-html
-    :commands
-    org-preview-html-mode)
-
-  ;; (use-package inherit-org
-  ;;   :demand t
-  ;;   :straight (:host github :repo "chenyanming/inherit-org")
-  ;;   :config
-  ;;   (with-eval-after-load 'info
-  ;;     (add-hook 'Info-mode-hook 'inherit-org-mode))
-
-  ;;   (with-eval-after-load 'helpful
-  ;;     (add-hook 'helpful-mode-hook 'inherit-org-mode))
-
-  ;;   (with-eval-after-load 'w3m
-  ;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
-  ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
-
-  (defvar org-odt-convert-processes)
-
-  (defun setup-odt-org-convert-process ()
-    (interactive)
-    (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
-      (when (and (eq system-type 'darwin) (file-exists-p cmd))
-        (setq org-odt-convert-processes
-              '(("LibreOffice"
-                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
-
-  :hook
-  (org-mode-hook . setup-odt-org-convert-process)
-  (org-babel-after-execute-hook . org-redisplay-inline-images)
-
-  :bind
-  ("s-o" . org-directory)
-  ("C-c C-o" . org-open-at-point)
-  ("C-c l" . org-store-link)
-  ("C-c C-l" . org-insert-link)
-  ("C-c a" . org-agenda)
-  ("C-c c" . org-capture)
-  ("C-c b" . org-switchb)
-  ("C-c n" . org-new-note)
-  (:map org-mode-map
-        ("C-M-}" . org-forward-sentence)
-        ("C-M-{" . org-backward-sentence)
-        ("M-S-<up>" . org-move-subtree-up)
-        ("M-S-<down>" . org-move-subtree-down)
-        ("s->" . org-shiftright)
-        ("s-<" . org-shiftleft)
-        ("M-p" . org-backward-heading-same-level)
-        ("M-n" . org-forward-heading-same-level)
-        ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element)
-        ("C-s-t" . org-show-only-current-subtree)
-        ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element)
-        ([remap org-return] . org-return-indent))
-  (:map m-org-map
-        ("a" . org-agenda)
-        ("b" . org-switchb)
-        ("c" . org-capture)
-        ("d" . org-dired-org-directory)
-        ("i" . org-insert-link)
-        ("l" . org-store-link)
-        ("n" . org-new-note)
-        ("s" . org-search-org-directory)
-        ("t" . org-todo-file))
-  (:map m-search-map
-        ("o" . org-search-org-directory))
-  (:map m-file-map
-        ("o" . org-dired-org-directory))
-  (:map visual-line-mode-map
-        ;; Don't shadow mwim and org-mode bindings
-        ([remap move-beginning-of-line] . nil)))
-
-(use-package poporg
-  :bind
-  ("C-c C-'" . poporg-dwim))
-
-;; TODO Currently, this sometimes does bad things like putting multiple headings
-;; on the same line.
-;; (use-package org-spacer
-;;   :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
-;;   :commands
-;;   org-spacer-enforce
-;;   :config
-;;   (defun org-spacer-enable-before-save-hook ()
-;;     (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
-  ;; :hook
-  ;; (org-mode-hook . org-spacer-enable-before-save-hook))
-
-(use-package orglink
-  :hook
-  (prog-mode-hook . orglink-mode))
-
-(use-package ox-clip
-  :config
-  ;; `ov' is an implicit dependency.
-  (use-package ov :demand t)
-  :bind
-  ("M-m o w" . ox-clip-formatted-copy)
-  ("M-m o W" . ox-clip-image-to-clipboard))
-
 ;;;; Calendar and Journal
 
 (use-package calendar
@@ -3807,11 +3493,7 @@ With a prefix ARG, create it in `org-directory'."
   (defun calendar-iso8601-date-string (date)
     "Create an ISO8601 date string from DATE."
     (cl-destructuring-bind (month day year) date
-      (concat (format "%4i" year)
-              "-"
-              (format "%02i" month)
-              "-"
-              (format "%02i" day))))
+      (format "%04i-%02i-%02i" year month day)))
 
   (defun calendar-date-add-days (date days)
     "Add DAYS to DATE."
@@ -3977,8 +3659,8 @@ The config is specified in the config file in `~/.mnt/'."
 ;; Ensure `vc' stuff is not making tramp slower
 (custom-set-variables
  `(vc-ignore-dir-regexp ,(format "%s\\|%s"
-                          vc-ignore-dir-regexp
-                          tramp-file-name-regexp)))
+                                 vc-ignore-dir-regexp
+                                 tramp-file-name-regexp)))
 
 (defun git-ls-files (&optional directory)
   "Return a list of the files from `git ls-files DIRECTORY'."
@@ -4092,6 +3774,13 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
 ;;   :commands
 ;;   gist-list)
 
+(use-package diff-mode
+  :bind
+  (:map diff-mode-map
+        ;; Don't shadow the binding for `other-window'.
+        ("M-o" . nil)
+        ("M-." . diff-goto-source)))
+
 (use-package diff-hl
   :config
   (defvar mood-one-theme--diff-hl-bmp
@@ -4169,28 +3858,39 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
 ;; General editing related configuration and functionality
 
-;; Use the system clipboard
-(setq select-enable-clipboard t
-      ;; Save existing system clipboard text into kill ring before replacing it,
-      ;; ensuring it doesn't get irrevocably destroyed.
-      save-interprogram-paste-before-kill t
-      ;; use mouse to kill/yank
-      mouse-yank-at-point t
-      mouse-drag-and-drop-region t
-      mouse-drag-and-drop-region-cut-when-buffers-differ t)
+;; Ensure we are always using UTF-8 encoding.
+(set-charset-priority 'unicode)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(setq default-process-coding-system '(utf-8-unix . utf-8-unix)
+      locale-coding-system 'utf-8)
 
-;; Wrap text.
-(setq-default fill-column 80)
+(setq
+ ;; Use the system clipboard
+ select-enable-clipboard t
+ ;; Save existing system clipboard text into kill ring before replacing it,
+ ;; ensuring it doesn't get irrevocably destroyed.
+ save-interprogram-paste-before-kill t
+ ;; use mouse to kill/yank
+ mouse-yank-at-point t
+ mouse-drag-and-drop-region t
+ mouse-drag-and-drop-region-cut-when-buffers-differ t
+ ;; Fix undo in commands affecting the mark.
+ mark-even-if-inactive nil
+ ;; Newline at end of file.
+ require-final-newline t
+ ;; Double-spaces after periods is morally wrong.
+ sentence-end-double-space nil)
 
-;; Newline at end of file.
-(setq require-final-newline t)
-;; Sentences end with one space.
-;; sentence-end-double-space nil)
-
-;; Tabs
-(setq-default indent-tabs-mode nil
-              tab-width 2
-              tab-stop-list (number-sequence tab-width 120 tab-width))
+(setq-default
+ ;; Wrap text.
+ fill-column 80
+ ;; Tabs
+ indent-tabs-mode nil
+ tab-width 2
+ tab-stop-list (number-sequence tab-width 120 tab-width))
 
 ;; Delete selection on insert or yank
 (delete-selection-mode)
@@ -4198,14 +3898,17 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 ;; Automatically indent after RET
 (electric-indent-mode)
 
-(defun auto-fill-mode-init ()
-  "Automatically fill comments.
+(use-package simple
+  :straight (:type built-in)
+  :config
+  (defun auto-fill-mode-setup ()
+    "Automatically fill comments.
 
 Wraps on `fill-column' columns."
-  (set (make-local-variable 'comment-auto-fill-only-comments) t)
-  (auto-fill-mode t))
-
-(add-hook 'prog-mode-hook #'auto-fill-mode-init)
+    (set (make-local-variable 'comment-auto-fill-only-comments) t)
+    (auto-fill-mode t))
+  :hook
+  (prog-mode-hook . auto-fill-mode-setup))
 
 (use-package so-long
   :if (>= emacs-major-version 27)
@@ -4231,9 +3934,13 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (join-line -1))
 
 (use-package undo-tree
-  ;; :init
-  ;; (defun undo-tree-save-history-from-hook () nil)
+  ;; `global-undo-tree-mode' must be loaded before any files are opened so that
+  ;; the undo history can be restored.
+  :demand t
   :custom
+  (undo-tree-auto-save-history t)
+  (undo-tree-history-directory-alist
+   `(("." . ,(expand-file-name "var/undo-tree" user-emacs-directory))))
   (undo-tree-enable-undo-in-region t)
 
   :config
@@ -4604,8 +4311,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
   (require 'smartparens-config)
 
   (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode java-mode
-                   javascript-mode js-mode js2-mode json-mode lua-mode objc-mode
-                   swift-mode web-mode)
+                          javascript-mode js-mode js2-mode json-mode lua-mode objc-mode
+                          swift-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
@@ -5029,14 +4736,13 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
   ;; Disabled because it turns out multiple things assume `shell-mode' buffers
   ;; have their default naming conventions.
   ;; (comint-output-filter-functions . shell-rename-buffer)
-  
+
   :bind
   ("C-S-s" . async-shell-command-run-last)
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
-        ("M-r" . counsel-shell-history)
-        ("M-/" . completion-at-point)))
+        ("M-r" . counsel-shell-history)))
 
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
@@ -5773,19 +5479,33 @@ Advise `eshell-ls-decorated-name'."
 
 ;; Lisp specific functionality
 
+(use-package elisp-mode
+  :straight (:type built-in)
+  :mode ("Cask\\'" . emacs-lisp-mode)
+  :config
+  (add-to-list 'safe-local-variable-values
+               '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
+  (defun emacs-lisp-mode-setup ()
+    "Set up `emacs-lisp-mode'."
+    ;; Ugh. It's the Emacs Lisp standard.
+    (setq-local sentence-end-double-space t))
+  :hook
+  (emacs-lisp-mode-hook . emacs-lisp-mode-setup))
+
 (use-package parinfer
   :custom
   (parinfer-extensions
-   '(defaults       ; should be included.
-      pretty-parens ; different paren styles for different modes.
-      smart-tab     ; C-b & C-f jump positions and smart shift with tab & S-tab.
-      smart-yank))  ; Yank behavior depends on mode.
+   '(defaults        ; should be included.
+      pretty-parens  ; different paren styles for different modes.
+      smart-tab      ; C-b & C-f jump positions and smart shift with tab & S-tab.
+      smart-yank))   ; Yank behavior depends on mode.
   :config
   (parinfer-strategy-add 'default 'newline-and-indent)
+  (parinfer-strategy-add 'instantly
+    '(parinfer-smart-tab:dwim-right
+      parinfer-smart-tab:dwim-right-or-complete
+      parinfer-smart-tab:dwim-left))
   (setq parinfer-lighters '("➠" ")"))
-  :commands
-  parinfer-strategy-add
-  parinfer--invoke-parinfer
   :hook
   ((clojure-mode-hook
     emacs-lisp-mode-hook
@@ -5795,7 +5515,7 @@ Advise `eshell-ls-decorated-name'."
     scheme-mode-hook) . parinfer-mode)
   :bind
   (:map parinfer-mode-map
-        ("<tab>" . parinfer-smart-tab:dwim-right)
+        ("<tab>" . parinfer-smart-tab:dwim-right-or-complete)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)
         ("C-," . parinfer-toggle-mode)
         ;; Don't interfere with smartparens quote handling
@@ -5806,8 +5526,6 @@ Advise `eshell-ls-decorated-name'."
         ("C-i" . indent-for-tab-command)
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
-
-(add-to-list 'auto-mode-alist '("Cask\\'" . emacs-lisp-mode))
 
 (use-package emr
   :bind
@@ -6285,6 +6003,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
      ("NPM" . ((format . "TIMESTAMP LEVEL NAME THREAD")
                (levels . "NPM"))))))
 
+(use-package journalctl-mode
+  :straight (journalctl-mode :host github :repo "SebastianMeisel/journalctl-mode")
+  :commands
+  journalctl
+  journalctl-unit)
 
 ;;;; Docker
 
@@ -6317,29 +6040,29 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
     :config
     (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))))
 
-  ;; TODO Get `shrface' to work.
-  ;; (use-package shrface
-  ;;   :demand t
-  ;;   :custom
-  ;;   (shrface-href-versatile t)
-  ;;   :config
-  ;;   (shrface-basic)
-  ;;   ;; (shrface-trial)
-    
-  ;;   ;; eww support
-  ;;   (with-eval-after-load 'eww
-  ;;     (add-hook 'eww-after-render-hook 'shrface-mode))
+;; TODO Get `shrface' to work.
+;; (use-package shrface
+;;   :demand t
+;;   :custom
+;;   (shrface-href-versatile t)
+;;   :config
+;;   (shrface-basic)
+;;   ;; (shrface-trial)
 
-  ;;   ;; nov support
-  ;;   (with-eval-after-load 'nov
-  ;;     (setq nov-shr-rendering-functions '((img . nov-render-img) (title . nov-render-title)))
-  ;;     (setq nov-shr-rendering-functions
-  ;;           (append nov-shr-rendering-functions shr-external-rendering-functions))
-  ;;     (add-hook 'nov-mode-hook 'shrface-mode))
+;;   ;; eww support
+;;   (with-eval-after-load 'eww
+;;     (add-hook 'eww-after-render-hook 'shrface-mode))
 
-  ;;   ;; mu4e support
-  ;;   (with-eval-after-load 'mu4e
-  ;;     (add-hook 'mu4e-view-mode-hook 'shrface-mode))))
+;;   ;; nov support
+;;   (with-eval-after-load 'nov
+;;     (setq nov-shr-rendering-functions '((img . nov-render-img) (title . nov-render-title)))
+;;     (setq nov-shr-rendering-functions
+;;           (append nov-shr-rendering-functions shr-external-rendering-functions))
+;;     (add-hook 'nov-mode-hook 'shrface-mode))
+
+;;   ;; mu4e support
+;;   (with-eval-after-load 'mu4e
+;;     (add-hook 'mu4e-view-mode-hook 'shrface-mode))))
 
 (use-package eww
   :config
@@ -6383,14 +6106,14 @@ Open the `eww' buffer in another window."
         ("C-c '" . fence-edit-dwim)))
 
 (use-package web-mode
-  :mode ("\\.phtml\\'"
+  :mode ("\\.jsx?\\'"
+         "\\.p?html?\\'"
          "\\.tpl\\.php\\'"
          "\\.[agj]sp\\'"
          "\\.as[cp]x\\'"
          "\\.erb\\'"
          "\\.mustache\\'"
-         "\\.djhtml\\'"
-         "\\.html?\\'")
+         "\\.djhtml\\'")
 
   :init
   (defun web-mode-setup ()
@@ -6479,12 +6202,12 @@ Open the `eww' buffer in another window."
     sass-mode-hook
     web-mode-hook) . add-node-modules-path))
 
-(use-package js
-  :mode ("\\.jsx?\\'" . js-mode)
-  :custom
-  (js-indent-level tab-width)
-  :hook
-  (js-mode-hook . lsp-deferred))
+;; (use-package js
+;;   :mode ("\\.jsx?\\'" . js-mode)
+;;   :custom
+;;   (js-indent-level tab-width)
+;;   :hook
+;;   (js-mode-hook . lsp-deferred))
 
 (use-package json-mode
   :mode ("\\.json\\'" "prettierrc\\'"))
@@ -6658,6 +6381,8 @@ Open the `eww' buffer in another window."
   (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
   :config
+  ;; Support reading large blobs of data from lsp servers.
+  (setq read-process-output-max (* 1024 1024)) ; 1mb
   (with-eval-after-load 'flycheck
     (add-to-list 'flycheck-checkers #'lsp))
   :hook
@@ -6676,15 +6401,6 @@ Open the `eww' buffer in another window."
   (:map lsp-ui-peek-mode-map
         ("<return>" . lsp-ui-peek--goto-xref)
         ("M-/" . lsp-ui-peek--goto-xref)))
-
-;; (use-package company-lsp
-;;   :config
-;;   (defun company-lsp-setup ()
-;;     "Set up `company-lsp'."
-;;     (make-local-variable 'company-backends)
-;;     (add-to-list 'company-backends #'company-lsp))
-;;   :hook
-;;   (lsp-mode-hook . company-lsp-setup))
 
 (use-package lsp-ivy
   :commands
@@ -6760,29 +6476,35 @@ Open the `eww' buffer in another window."
   (interactive)
   (indent-region (point-min) (point-max)))
 
-(defun format-buffer-or-region (beg end &optional thing)
-  "Format the THING from BEG to END.
+(defun format-buffer-or-region (&optional beg end thing)
+  "Format the buffer or region, if one is active.
 
-If no region is active, format the buffer.
+BEG is the beginning of the region.
+
+END is the end of the region.
+
+THING is used to indicate to the user what was just formatted.
 
 Prefix ARG is passed to `fill-paragraph'."
   (interactive "r")
-  (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
-  (call-interactively #'crux-cleanup-buffer-or-region)
-  (indent-region (or beg (if (use-region-p) (region-beginning) (point-min)))
-                 (or end (if (use-region-p) (region-end) (point-max))))
-  (message "Formatted the %s." (or thing (if (use-region-p) 'region 'buffer))))
+  (save-excursion
+    (unless (use-region-p) (mark-whole-buffer))
+    (save-mark-and-excursion
+      (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg)))
+    (save-mark-and-excursion
+      (call-interactively #'crux-cleanup-buffer-or-region))
+    (indent-region (or beg (if (use-region-p) (region-beginning) (point-min)))
+                   (or end (if (use-region-p) (region-end) (point-max))))
+    (message "Formatted the %s." (or thing (if (use-region-p) 'region 'buffer)))))
 
 (defun format-defun-or-region ()
-  "Reformat the current defun or region."
+  "Format the current defun or region, if one is active."
   (interactive)
-  (if (use-region-p)
-      (format-buffer-or-region (region-beginning) (region-end) 'region)
-    (save-excursion
-      (mark-defun)
-      (format-buffer-or-region (region-beginning) (region-end) 'defun))))
+  (save-excursion
+    (unless (use-region-p) (mark-defun))
+    (format-buffer-or-region (region-beginning) (region-end) 'defun)))
 
-(defun indent-line ()
+(defun format-line ()
   "Reformat the current line."
   (interactive)
   (format-buffer-or-region (line-beginning-position) (line-end-position) 'line))
@@ -7001,18 +6723,6 @@ https://fuco1.github.io/2017-06-11-Font-locking-with-custom-matchers.html"
                                       (2 font-lock-variable-name-face t))))
 
   (defvar async-shell-command-current-file-history nil)
-  
-  ;; (use-package company-shell
-  ;;   :config
-  ;;   (defun company-shell-setup ()
-  ;;     "set up `company-shell'."
-  ;;     (add-to-list
-  ;;      'company-backends
-  ;;      `(company-shell company-shell-env
-  ;;                      ,(when (executable-find "fish") 'company-fish-shell))))
-  ;;   :hook
-  ;;   ((sh-mode-hook fish-mode-hook shell-mode-hook eshell-mode-hook) .
-  ;;    company-shell-setup))
 
   (defun async-shell-command-current-file (arg)
     "Run the current file, editing command line if ARG is non-nil.
@@ -7030,10 +6740,6 @@ This command defaults to running the previous command."
                        command
                        'async-shell-command-current-file-history)))
       (async-shell-command command)))
-
-  (with-eval-after-load 'org
-    (add-to-list 'org-babel-load-languages '(shell . t))
-    (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
 
   :hook
   (sh-mode-hook . lsp-deferred)
@@ -7100,7 +6806,7 @@ This command defaults to running the previous command."
   :custom
   (nginx-indent-level tab-width)
   :commands
-  (nginx-mode))
+  nginx-mode)
 
 (use-package caddyfile-mode
   :mode "\\`Caddyfile.*")
@@ -7121,8 +6827,6 @@ This command defaults to running the previous command."
     :hook
     (enh-ruby-mode-hook . inf-ruby-minor-mode)
     (compilation-filter . inf-ruby-auto-enter)
-    :commands
-    (inf-ruby inf-ruby-console-auto)
     :bind
     (:map inf-ruby-minor-mode-map
           ("s-<return>". ruby-send-last-sexp)
@@ -7179,8 +6883,7 @@ This command defaults to running the previous command."
 
 (use-package cc-mode
   :custom
-  (c-basic-offset tab-width)
-  (c-default-style "ellemtel")
+  (c-basic-offset 4)
   :hook
   ((c-mode-hook c++-mode-hook java-mode-hook) . lsp-deferred)
   :bind
@@ -7195,25 +6898,16 @@ This command defaults to running the previous command."
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
-  ;; :custom
-  ;; (lsp-csharp-server-path "/Users/mn/code/omnisharp-osx/omnisharp/OmniSharp.exe")
   :config
+  (add-to-list 'c-default-style '(csharp-mode . "c#"))
   (defun csharp-mode-setup ()
     "Set up C# mode."
-    ;; (exec-path-from-shell-setenv
-    ;;  "PATH"
-    ;;  (concat "/Users/mn/.emacs.d/.cache/lsp/omnisharp-roslyn/" "/bin" ":"
-    ;;          (exec-path-from-shell-getenv "PATH")))
     (exec-path-from-shell-setenv
      "PATH"
      (concat "/Library/Frameworks/Mono.framework/Versions/Current/Commands" ":"
              (exec-path-from-shell-getenv "PATH")))
     (setq c-syntactic-indentation t)
-    (c-set-style "ellemtel")
-    (setq c-basic-offset 4)
-    (setq truncate-lines t)
-    (setq tab-width 4))
-    ;; (lsp-deferred))
+    (setq truncate-lines t))
   :hook
   (csharp-mode-hook . csharp-mode-setup)
   :bind
@@ -7257,10 +6951,6 @@ This command defaults to running the previous command."
   (plantuml-indent-level tab-width)
   :config
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
-
-  (with-eval-after-load 'org
-    (add-to-list 'org-babel-load-languages '(plantuml . t))
-    (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
 
   (defvar org-plantuml-jar-path)
   (setq org-plantuml-jar-path plantuml-jar-path)
@@ -7351,6 +7041,372 @@ configuration when invoked to evaluate a line."
                ("C-c '" . nil)))
   :bind
   ("C-c '" . fence-edit-dwim))
+
+;;;; Org
+
+(use-package org
+  :mode ("\\.org\\'" . org-mode)
+  :init
+  (defvar org-directory "~/org")
+  
+  :custom
+  ;; Indent text according to the outline structure (`org-indent-mode')
+  ;; (org-startup-indented t)
+  ;; Quit adding 2 spaces to source block
+  (org-edit-src-content-indentation 0)
+  (org-special-ctrl-a/e t)
+  (org-special-ctrl-k t)
+  ;; Insert a row in tables
+  (org-special-ctrl-o t)
+  ;; Tab in source blocks should act like in major mode
+  (org-src-tab-acts-natively t)
+  ;; Code highlighting in code blocks
+  (org-src-fontify-natively t)
+  (org-export-with-section-numbers nil)
+  ;; (org-ellipsis "...")
+  ;; Customize todo keywords
+  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
+  (org-todo-keyword-faces '(("TODO" (:underline t))
+                            ("WIP" (:foreground "lime green" :underline t))
+                            ("DONE" (:inherit font-link-comment-fac))))
+  (org-catch-invisible-edits 'show-and-error)
+  (org-capture-templates
+   `(("t" "TODO" entry
+      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+      "* TODO %?\n  %i\n  %a")
+     ("n" "Note" entry
+      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+      "* %?\n  %i\n  %a")
+     ("m" "TODO respond to email" entry
+      (file ,(expand-file-name "TODO.org" org-directory))
+      "* TODO %^{Description}\n%A\n%?\n")
+     ("j" "Journal Entry" entry
+      (file ,(expand-file-name (format "journal/%s.org" (format-time-string "%F"))
+                               org-directory))
+      "* %<%I:%M %p>\n   %?")))
+  (format-time-string "%F")
+  ;; Don't prompt to confirm if I want to evaluate a source block
+  (org-confirm-babel-evaluate nil)
+  (org-startup-with-inline-images "inlineimages")
+  (org-image-actual-width 500)
+  ;; When exporting to odt, actually create a docx.
+  (org-odt-preferred-output-format "docx")
+
+  :commands
+  org-todo
+  org-entry-get
+  org-sort-entries
+  org-map-entries
+  org-capture
+  org-capture-refile
+  :config
+
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               '((awk . t)
+                                 (calc . t)
+                                 (clojure . t)
+                                 (emacs-lisp . t)
+                                 (js . t)
+                                 (lisp . t)
+                                 (mermaid . t)
+                                 (perl . t)
+                                 (plantuml . t)
+                                 (python . t)
+                                 (ruby . t)
+                                 (scheme . t)
+                                 (sed . t)
+                                 (shell . t)
+                                 (sql . t)
+                                 (sqlite . t)))
+
+  (setq org-babel-clojure-backend 'cider)
+
+  (defun window-config-org ()
+    "Set up Org window config."
+    (interactive)
+    (delete-other-windows)
+    (dired org-directory)
+    (switch-to-buffer-other-window (current-buffer))
+    (find-file (expand-file-name "TODO.org" org-directory))
+    (other-window 1))
+
+  (defun org-todo-file (arg)
+    "Open the appropriate Org TODO.org file, informed by ARG.
+
+When in a project directory, open it in the project root.
+
+When not in a project directory or a prefix ARG is specified,
+open it in `org-directory'."
+    (interactive "P")
+    (find-file (expand-file-name "TODO.org"
+                                 (if (and (not arg) (projectile-project-p))
+                                     (projectile-project-root)
+                                   org-directory))))
+
+  (defun org-directory ()
+    "Open the Org directory"
+    (interactive)
+    (find-file org-directory))
+
+  (defun org-search-org-directory ()
+    "Search ~/org using `counsel-rg'."
+    (interactive)
+    (let ((default-directory org-directory))
+      (counsel-rg)))
+
+  (defun org-new-note (arg)
+    "Create a new Org buffer with ARG controlling the location.
+
+Without prefix ARG, create it in the project root directory (if
+we are in a project) or the current directory.
+
+With a prefix ARG, create it in `org-directory'."
+    (interactive "P")
+    (find-file (expand-file-name "new-note.org"
+                                 (cond
+                                  (arg org-directory)
+                                  ((projectile-project-p)
+                                   (projectile-project-root))))))
+
+  (defun org-dired-org-directory ()
+    "Visit `org-directory' using Dired."
+    (interactive)
+    (dired org-directory))
+
+  (defun org-todo-todo ()
+    "Create or update Org todo entry to TODO status."
+    (interactive)
+    (org-todo "TODO"))
+
+  (defun org-todo-to-int (todo)
+    "Get the number of the TODO based on its status."
+    (car (cl-remove
+          nil
+          (mapcar (lambda (keywords)
+                    (let ((todo-seq
+                           (mapcar (lambda (x) (car (split-string  x "(")))
+                                   (cdr keywords))))
+                      (cl-position-if (lambda (x) (string= x todo)) todo-seq)))
+                  org-todo-keywords))))
+
+  (defvar org-default-priority)
+
+  (defun org-sort-entries--todo-status-key ()
+    "Sort Org TODO entries by their status."
+    (let* ((todo-max (apply #'max (mapcar #'length org-todo-keywords)))
+           (todo (org-entry-get (point) "TODO"))
+           (todo-int (if todo (org-todo-to-int todo) todo-max))
+           (priority (org-entry-get (point) "PRIORITY"))
+           (priority-int (if priority (string-to-char priority) org-default-priority)))
+      (format "%03d %03d" todo-int priority-int)))
+
+  (defun org-sort-entries-by-todo-status ()
+    "Sort Org TODO entries by their status."
+    (interactive)
+    (org-sort-entries nil ?f #'org-sort-entries--todo-status-key))
+
+  (defun org-archive-done-tasks-in-file ()
+    "Archive all tasks marked done."
+    (interactive)
+    (require 'org-archive)
+    (require 'outline)
+    (org-map-entries
+     (lambda ()
+       (org-archive-subtree)
+       (setq org-map-continue-from (outline-previous-heading)))
+     "/DONE" 'file))
+
+  (defface org-emphasis-marker '((t (:inherit shadow)))
+    "Face for Org emphasis markers"
+    :group 'org-faces)
+
+  (defvar org-element-paragraph-separate)
+  ;; This is a re-definition of a built in function.
+  ;; TODO Follow up with Org mailing list on this approach.
+  (defun org-do-emphasis-faces-improved (limit)
+    "Run through the buffer and emphasize strings."
+    (require 'org-macs)
+    (require 'org-compat)
+    (let ((quick-re (format "\\([%s]\\|^\\)\\([~=*/_+]\\)"
+                            (car org-emphasis-regexp-components))))
+      (catch :exit
+        (while (re-search-forward quick-re limit t)
+          (let* ((marker (match-string 2))
+                 (verbatim? (member marker '("~" "="))))
+            (when (save-excursion
+                    (goto-char (match-beginning 0))
+                    (and
+                     ;; Do not match table hlines.
+                     (not (and (equal marker "+")
+                               (org-match-line
+                                "[ \t]*\\(|[-+]+|?\\|\\+[-+]+\\+\\)[ \t]*$")))
+                     ;; Do not match headline stars.  Do not consider
+                     ;; stars of a headline as closing marker for bold
+                     ;; markup either.
+                     (not (and (equal marker "*")
+                               (save-excursion
+                                 (forward-char)
+                                 (skip-chars-backward "*")
+                                 (looking-at-p org-outline-regexp-bol))))
+                     ;; Match full emphasis markup regexp.
+                     (looking-at (if verbatim? org-verbatim-re org-emph-re))
+                     ;; Do not span over paragraph boundaries.
+                     (not (string-match-p org-element-paragraph-separate
+                                          (match-string 2)))
+                     ;; Do not span over cells in table rows.
+                     (not (and (save-match-data (org-match-line "[ \t]*|"))
+                               (string-match-p "|" (match-string 4))))))
+              (pcase-let ((`(,_ ,face ,_) (assoc marker org-emphasis-alist)))
+                (font-lock-prepend-text-property
+                 (match-beginning 2) (match-end 2) 'face face)
+                (when verbatim?
+                  (org-remove-flyspell-overlays-in
+                   (match-beginning 0) (match-end 0))
+                  (remove-text-properties (match-beginning 2) (match-end 2)
+                                          '(display t invisible t intangible t)))
+                (add-text-properties (match-beginning 2) (match-end 2)
+                                     '(font-lock-multiline t org-emphasis t)))
+
+              ;; Begin new code
+              (font-lock-prepend-text-property
+               (match-beginning 3) (match-end 3) 'face 'org-emphasis-marker)
+              (font-lock-prepend-text-property
+               (match-end 4) (match-beginning 5) 'face 'org-emphasis-marker)
+              ;; End new code
+
+              (when org-hide-emphasis-markers
+                (add-text-properties (match-end 4) (match-beginning 5)
+                                     '(invisible org-link))
+                (add-text-properties (match-beginning 3) (match-end 3)
+                                     '(invisible org-link))))
+            (throw :exit t))))))
+
+  (advice-add #'org-do-emphasis-faces :override #'org-do-emphasis-faces-improved)
+
+  (defun org-show-only-current-subtree (&rest _)
+    "Fold all other trees, then show entire current subtree."
+    (interactive)
+    (org-overview)
+    (org-reveal)
+    (org-show-subtree))
+
+  (use-package ob-async :demand t)
+
+  (use-package ob-session-async
+    :demand t
+    :straight (:host github :repo "jackkamm/ob-session-async"))
+
+  (use-package org-download
+    :hook
+    (dired-mode-hook . org-download-enable))
+
+  (use-package htmlize
+    :commands
+    htmlize-buffer
+    htmlize-file)
+
+  (use-package org-preview-html
+    :commands
+    org-preview-html-mode)
+
+  ;; (use-package inherit-org
+  ;;   :demand t
+  ;;   :straight (:host github :repo "chenyanming/inherit-org")
+  ;;   :config
+  ;;   (with-eval-after-load 'info
+  ;;     (add-hook 'Info-mode-hook 'inherit-org-mode))
+
+  ;;   (with-eval-after-load 'helpful
+  ;;     (add-hook 'helpful-mode-hook 'inherit-org-mode))
+
+  ;;   (with-eval-after-load 'w3m
+  ;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
+  ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
+
+  (defvar org-odt-convert-processes)
+
+  (defun setup-odt-org-convert-process ()
+    (interactive)
+    (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
+      (when (and (eq system-type 'darwin) (file-exists-p cmd))
+        (setq org-odt-convert-processes
+              '(("LibreOffice"
+                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
+
+  :hook
+  (org-mode-hook . setup-odt-org-convert-process)
+  (org-babel-after-execute-hook . org-redisplay-inline-images)
+
+  :bind
+  ("s-o" . org-directory)
+  ("C-c C-o" . org-open-at-point)
+  ("C-c l" . org-store-link)
+  ("C-c C-l" . org-insert-link)
+  ("C-c a" . org-agenda)
+  ("C-c c" . org-capture)
+  ("C-c b" . org-switchb)
+  ("C-c n" . org-new-note)
+  (:map org-mode-map
+        ("C-M-}" . org-forward-sentence)
+        ("C-M-{" . org-backward-sentence)
+        ("M-S-<up>" . org-move-subtree-up)
+        ("M-S-<down>" . org-move-subtree-down)
+        ("s->" . org-shiftright)
+        ("s-<" . org-shiftleft)
+        ("M-p" . org-backward-heading-same-level)
+        ("M-n" . org-forward-heading-same-level)
+        ("C-M-u" . org-up-element)
+        ("C-M-d" . org-down-element)
+        ("C-s-t" . org-show-only-current-subtree)
+        ("C-M-u" . org-up-element)
+        ("C-M-d" . org-down-element)
+        ([remap org-return] . org-return-indent))
+  (:map m-org-map
+        ("a" . org-agenda)
+        ("b" . org-switchb)
+        ("c" . org-capture)
+        ("d" . org-dired-org-directory)
+        ("i" . org-insert-link)
+        ("l" . org-store-link)
+        ("n" . org-new-note)
+        ("s" . org-search-org-directory)
+        ("t" . org-todo-file))
+  (:map m-search-map
+        ("o" . org-search-org-directory))
+  (:map m-file-map
+        ("o" . org-dired-org-directory))
+  (:map visual-line-mode-map
+        ;; Don't shadow mwim and org-mode bindings
+        ([remap move-beginning-of-line] . nil)))
+
+(use-package poporg
+  :bind
+  ("C-c C-'" . poporg-dwim))
+
+;; TODO Currently, this sometimes does bad things like putting multiple headings
+;; on the same line.
+;; (use-package org-spacer
+;;   :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
+;;   :commands
+;;   org-spacer-enforce
+;;   :config
+;;   (defun org-spacer-enable-before-save-hook ()
+;;     (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
+;; :hook
+;; (org-mode-hook . org-spacer-enable-before-save-hook))
+
+(use-package orglink
+  :defer 15
+  :hook
+  (prog-mode-hook . orglink-mode))
+
+(use-package ox-clip
+  :config
+  ;; `ov' is an implicit dependency.
+  (use-package ov :demand t)
+  :bind
+  ("M-m o w" . ox-clip-formatted-copy)
+  ("M-m o W" . ox-clip-image-to-clipboard))
 
 (provide 'init)
 

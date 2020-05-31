@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-. build-utils
-
 DO_BASE_DIR="$HOME/.emacs.d/src"
 
 DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
@@ -64,9 +62,11 @@ DO_CONFIGURE_OPTS=(
 BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 0)'"
 export BYTE_COMPILE_EXTRA_FLAGS
 
+. build-utils
+
 # Install Emacs from the build directory
 do_install() {
-	heading "Installing $1..."
+	heading "Installing ${1:-$DO_REPO_DIRECTORY}..."
 
 	# Ensure the directory to which we will install Emacs exists and has the correct
 	# permissions set.
