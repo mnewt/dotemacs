@@ -188,13 +188,14 @@ higher level up to the top level form."
   (exec-path-from-shell-check-startup-files nil)
   (exec-path-from-shell-variables
    '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH"
-     "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "BOOT_JVM_OPTIONS"))
+     "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE"))
   :functions
   exec-path-from-shell-setenv
   :config
   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
   ;; it only sources $BASH_ENV.
   (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
+  (setenv "PAGER" "cat")
   (exec-path-from-shell-initialize)
 
   (when (eq system-type 'windows-nt)
@@ -1585,7 +1586,27 @@ _q_ quit
    . rainbow-mode))
 
 (use-package crux
+  :config
+  (defvar crux-line-start-regex-alist
+    '((term-mode . "^[^#$%>\n]*[#$%>] ")
+      (eshell-mode . "^[^$\n]*$ ")
+      (org-mode . "^\\(\*\\|[[:space:]]*\\)* ")
+      (t . "^[[:space:]]*"))
+    "Alist of major modes and line starts.
+
+Used by crux functions like `crux-move-beginning-of-line' to skip
+over whitespace, prompts, and markup at the beginning of the line.")
+  
+  (defun move-to-mode-line-start ()
+    "Move to the beginning, skipping mode specific line start regex."
+    (interactive)
+    (move-beginning-of-line nil)
+    (let ((line-start-regex (or (assoc-default major-mode crux-line-start-regex-alist)
+                                (assoc-default t crux-line-start-regex-alist))))
+      (search-forward-regexp line-start-regex (line-end-position) t)))
+
   :bind
+  ([remap move-beginning-of-line] . crux-move-beginning-of-line)
   ("M-s-<backspace>" . crux-kill-line-backwards)
   ("C-s-c" . crux-duplicate-current-line-or-region)
   (:map m-window-map
@@ -1596,7 +1617,9 @@ _q_ quit
   (:map emacs-lisp-mode-map
         ("C-x C-j" . crux-eval-and-replace))
   (:map lisp-interaction-mode-map
-        ("C-x C-j" . crux-eval-and-replace)))
+        ("C-x C-j" . crux-eval-and-replace))
+  (:map org-mode-map
+        ("C-a" . crux-move-beginning-of-line)))
 
 (defmacro specialize-beginning-of-buffer (mode &rest forms)
   "Define a special version of `beginning-of-buffer' in MODE.
@@ -4017,11 +4040,6 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 ;;   (([remap kill-ring-save] . easy-kill)
 ;;    ([remap mark-sexp] . easy-mark)))
 
-(use-package mwim
-  :bind
-  ([remap move-beginning-of-line] . mwim-beginning-of-code-or-line)
-  ([remap move-end-of-line] . mwim-end-of-code-or-line))
-
 (use-package expand-region
   :after org
   :custom
@@ -6004,7 +6022,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
                (levels . "NPM"))))))
 
 (use-package journalctl-mode
-  :straight (journalctl-mode :host github :repo "SebastianMeisel/journalctl-mode")
   :commands
   journalctl
   journalctl-unit)
@@ -7010,7 +7027,11 @@ configuration when invoked to evaluate a line."
         ("s-<return>" . eir-eval-in-shell)
         ("M-s-<return>" . eir-eval-in-shell-and-advance)))
 
-;; ;;;; Multiple Major Modes
+(use-package nix-mode
+  :mode "\\.nix\\'")
+
+
+;;;; Multiple Major Modes
 
 ;; TODO: `polymode' with this config causes rjsx files to explode, it's
 ;; really bad.
@@ -7347,6 +7368,7 @@ With a prefix ARG, create it in `org-directory'."
   ("C-c b" . org-switchb)
   ("C-c n" . org-new-note)
   (:map org-mode-map
+        ("C-e" . org-end-of-line)
         ("C-M-}" . org-forward-sentence)
         ("C-M-{" . org-backward-sentence)
         ("M-S-<up>" . org-move-subtree-up)
