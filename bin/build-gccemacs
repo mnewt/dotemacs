@@ -2,13 +2,15 @@
 
 set -euo pipefail
 
-DO_BASE_DIR="$HOME/.emacs.d/src"
+export CC="clang"
+
+DO_BASE_DIR="$HOME/code"
 
 DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
 
 DO_REPO_DIRECTORY="emacs"
 
-DO_REPO_BRANCH="master"
+DO_REPO_BRANCH="feature/native-comp"
 
 DO_BREW_PACKAGES=(
 	autoconf
@@ -33,7 +35,6 @@ DO_BREW_CASKS=(
 DO_LIBS=(
 	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
 	/usr/local/gcc
-	# /usr/local/gcc/lib/gcc/x86_64-apple-darwin19.5.0/11.0.0/
 	giflib
 	gnutls
 	jansson
@@ -41,9 +42,9 @@ DO_LIBS=(
 	libtiff
 	libxml2
 	# Required by gnutls
-	# nettle
-	# libtasn1
-	# p11-kit
+	nettle
+	libtasn1
+	p11-kit
 )
 
 DO_CONFIGURE_OPTS=(
@@ -54,11 +55,16 @@ DO_CONFIGURE_OPTS=(
 	--with-cairo
 	# --with-imagemagick
 	--with-modules
+	--with-nativecomp
 	--with-xml2
 	--with-gnutls
 	--with-json
 	--program-transform-name='s/^ctags$/ctags.emacs/'
 )
+
+# native-comp optimization
+BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
+export BYTE_COMPILE_EXTRA_FLAGS
 
 . build-utils
 

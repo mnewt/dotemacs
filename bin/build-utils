@@ -14,38 +14,14 @@
 # DO_REPO_URL=""
 
 # Repository directory to use, if the repo does not exist already. Defaults to
-# $(basename $DO_REPO_URL).
-DO_REPO_DIRECTORY="$(basename $DO_REPO_URL)"
+# the repo name.
+DO_REPO_DIRECTORY="${DO_REPO_DIRECTORY:-$(basename ${DO_REPO_URL%.git})}"
 
 # Repository branch or ref to checkout.
 DO_REPO_BRANCH="${DO_REPO_BRANCH:-master}"
 
 # Options to pass to the configure script.
 # DO_CONFIGURE_OPTS=()
-
-do_vars() {
-	CFLAGS="-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check"
-	LDFLAGS="-Wl"
-	PKG_CONFIG_PATH=""
-
-	for lib in "${DO_LIBS[@]}"; do
-		dir="$(brew --prefix $lib)" || dir="$lib"
-		CFLAGS="${CFLAGS} -I${dir}/include"
-		LDFLAGS="${LDFLAGS} -L${dir}/lib"
-		PKG_CONFIG_PATH=":${PKG_CONFIG_PATH}${dir}/lib/pkgconfig"
-	done
-
-	for dir in "${DO_DIRS[@]}"; do
-		CFLAGS="${CFLAGS} -I${dir}/include"
-		LDFLAGS="${LDFLAGS} -L${dir}/lib"
-		PKG_CONFIG_PATH=":${PKG_CONFIG_PATH}${dir}/lib/pkgconfig"
-	done
-
-	export CFLAGS
-	export CPPFLAGS="${CFLAGS}"
-	export LDFLAGS
-	export PKG_CONFIG_PATH
-}
 
 # Print the given arguments out in a nice heading
 do_heading() {
@@ -58,6 +34,18 @@ contains() {
 	shift
 	for e in "$@"; do [ "$e" = "$match" ] && return 0; done
 	return 1
+}
+
+# Print the number of CPU cores on the local machine
+do_how_many_cores() {
+	case "$(uname)" in
+	Darwin)
+		sysctl -n hw.ncpu
+		;;
+	Linux)
+		awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
+		;;
+	esac
 }
 
 # Ensure the given homebrew packages are installed and up to date
@@ -91,18 +79,6 @@ do_brew_ensure() {
 	fi
 }
 
-# Print the number of CPU cores on the local machine
-do_how_many_cores() {
-	case "$(uname)" in
-	Darwin)
-		sysctl -n hw.ncpu
-		;;
-	Linux)
-		awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
-		;;
-	esac
-}
-
 # Fetch the source repository
 do_fetch() {
 	local url="${1:-$DO_REPO_URL}"
@@ -122,27 +98,39 @@ do_fetch() {
 	git fetch
 	git checkout "$ref"
 	git clean -dxf
-	git pull
+	git pull --ff-only origin "$DO_REPO_BRANCH"
 }
 
+# Prepare environment variables
 do_vars() {
-	CFLAGS="-Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check"
-	LDFLAGS="-Wl"
-	PKG_CONFIG_PATH=""
+	CFLAGS="${CFLAGS:--Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check}"
+	CPPFLAGS="${CPPFLAGS:-}"
+	LDFLAGS="${LDFLAGS:--Wl}"
+	PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
 
-	for lib in "${DO_LIBS[@]}"; do
-		dir="$(brew --prefix $lib)"
-		CFLAGS="${CFLAGS} -I${dir}/include"
+	for dir in "${DO_LIBS[@]}"; do
+		# If it's not a directory, it's a homebrew package--use its directory
+		# prefix.
+		[ -d "$dir" ] || dir="$(brew --prefix $dir)"
+
+		CPPFLAGS="${CPPFLAGS} -I${dir}/include"
 		LDFLAGS="${LDFLAGS} -L${dir}/lib"
-		PKG_CONFIG_PATH=":${PKG_CONFIG_PATH}${dir}/lib/pkgconfig"
+		PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${dir}/lib/pkgconfig"
 	done
 
+	printf "\nCOMPILATION VARIABLES:\n\n"
+
 	export CFLAGS
-	export CPPFLAGS="${CFLAGS}"
+	printf "CFLAGS:\n%s\n" "$CFLAGS"
+	export CPPFLAGS
+	printf "CPPFLAGS:\n%s\n" "$CPPFLAGS"
 	export LDFLAGS
+	printf "LDFLAGS:\n%s\n" "$LDFLAGS"
 	export PKG_CONFIG_PATH
+	printf "PKG_CONFIG_PATH:\n%s\n" "$PKG_CONFIG_PATH"
 }
 
+# Perform the build
 do_build() {
 	local target="${1:-$DO_REPO_DIRECTORY}"
 
@@ -158,6 +146,7 @@ do_build() {
 	popd
 }
 
+# Perform the installation
 do_install() {
 	local target="${1:-$DO_REPO_DIRECTORY}"
 
@@ -170,6 +159,7 @@ do_install() {
 	make -j $DO_CORES install
 }
 
+# Do it all
 do_all() {
 	# brew install "$HOME/.emacs.d/gcc.rb" --build-from-source
 	do_brew_ensure "${DO_BREW_PACKAGES[@]}"

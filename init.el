@@ -1586,25 +1586,8 @@ _q_ quit
    . rainbow-mode))
 
 (use-package crux
-  :config
-  (defvar crux-line-start-regex-alist
-    '((term-mode . "^[^#$%>\n]*[#$%>] ")
-      (eshell-mode . "^[^$\n]*$ ")
-      (org-mode . "^\\(\*\\|[[:space:]]*\\)* ")
-      (t . "^[[:space:]]*"))
-    "Alist of major modes and line starts.
-
-Used by crux functions like `crux-move-beginning-of-line' to skip
-over whitespace, prompts, and markup at the beginning of the line.")
-  
-  (defun move-to-mode-line-start ()
-    "Move to the beginning, skipping mode specific line start regex."
-    (interactive)
-    (move-beginning-of-line nil)
-    (let ((line-start-regex (or (assoc-default major-mode crux-line-start-regex-alist)
-                                (assoc-default t crux-line-start-regex-alist))))
-      (search-forward-regexp line-start-regex (line-end-position) t)))
-
+  ;; :straight
+  ;; (:fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
   :bind
   ([remap move-beginning-of-line] . crux-move-beginning-of-line)
   ("M-s-<backspace>" . crux-kill-line-backwards)
@@ -1839,7 +1822,7 @@ Each EXPR should create one window."
 
  :map m-toggle-map
  ("e" . toggle-debug-on-error)
- ("q" . toggle-debug-on-quit)
+ ("g" . toggle-debug-on-quit)
  ("f" . auto-fill-mode)
  ("l" . toggle-truncate-lines)
  ("m" . hidden-mode-line-mode)
@@ -2094,7 +2077,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-u" . minibuffer-restart-with-prefix)))
 
 (use-package counsel
-  :defer 2
+  :defer 3
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -2443,24 +2426,23 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
   :hook
   (company-mode-hook . company-prescient-mode))
 
-(use-package dumb-jump
-  :custom
-  (dumb-jump-selector 'ivy)
-  (dumb-jump-prefer-searcher 'rg)
-  :hook
-  (prog-mode-hook . dumb-jump-mode)
-  ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
-  (eshell-mode-hook . (lambda () (dumb-jump-mode -1)))
-  :bind
-  (:map dumb-jump-mode-map
-        ;; Don't shadow `ivy'.
-        ("C-M-p" . nil)
-        ("s-j" . dumb-jump-go-prompt)
-        ("s-." . dumb-jump-go)
-        ("s-J" . dumb-jump-quick-look)))
+;; (use-package dumb-jump
+;;   :custom
+;;   (dumb-jump-selector 'ivy)
+;;   (dumb-jump-prefer-searcher 'rg)
+;;   :hook
+;;   (prog-mode-hook . dumb-jump-mode)
+;;   ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
+;;   (eshell-mode-hook . (lambda () (dumb-jump-mode -1)))
+;;   :bind
+;;   (:map dumb-jump-mode-map
+;;         ;; Don't shadow `ivy'.
+;;         ("C-M-p" . nil)
+;;         ("s-j" . dumb-jump-go-prompt)
+;;         ("s-." . dumb-jump-go)
+;;         ("s-J" . dumb-jump-quick-look)))
 
 (use-package smart-jump
-  :defer 14
   :config
   (defun smart-jump-go-other-window (&optional smart-list continue)
     "Show the function/variable declartion for thing at point in other window.
@@ -2469,12 +2451,20 @@ SMART-LIST will be set (or nil) if this is a continuation of a previous jump.
 
 CONTINUE will be non nil if this is a continuation of a previous jump."
     (interactive)
-    (switch-to-buffer-other-window (current-buffer))
-    (smart-jump-go smart-list continue))
+    (smart-jump-when-let*
+        ((sj-list (or smart-list (and (not continue) smart-jump-list))))
+      (switch-to-buffer-other-window (current-buffer))
+      (smart-jump-run
+       #'smart-jump-go
+       sj-list
+       :jump-fn :heuristic :pop-fn)))
 
   (smart-jump-setup-default-registers)
 
   :bind
+  ("M-." . smart-jump-go)
+  ("M-?" . smart-jump-references)
+  ("M-P" . smart-jump-peek)
   ("C-x 4 ." . smart-jump-go-other-window))
 
 (use-package spotlight
@@ -4401,10 +4391,9 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
-  ((text-mode-hook
-    prog-mode-hook
-    minibuffer-setup-hook
-    cider-repl-mode-hook) . smartparens-mode)
+  ((text-mode-hook prog-mode-hook minibuffer-setup-hook cider-repl-mode-hook
+    toml-mode-hook)
+   . smartparens-mode)
 
   :bind
   (:map lisp-mode-shared-map
@@ -6036,8 +6025,9 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   ("C-c M-d" . docker))
 
 (use-package docker-tramp
-  :hook
-  (ivy-mode-hook . docker-tramp-add-method))
+  :defer 14
+  :config
+  (docker-tramp-add-method))
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("DWfile\\'" . sh-mode))
@@ -6826,7 +6816,16 @@ This command defaults to running the previous command."
   nginx-mode)
 
 (use-package caddyfile-mode
-  :mode "\\`Caddyfile.*")
+  :mode "\\`Caddyfile.*"
+  :config
+  (defun caddyfile-setup ()
+    "Set up `caddyfile-mode'.
+
+This package sets these explicitly so we have to do the same."
+    (setq tab-width 4
+          indent-tabs-mode nil))
+  :hook
+  (caddyfile-mode . caddyfile-setup))
 
 (use-package yaml-mode
   :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'")

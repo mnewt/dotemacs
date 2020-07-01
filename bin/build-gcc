@@ -2,12 +2,10 @@
 
 set -euo pipefail
 
-. build-utils
-
-DO_BASE_DIR="$HOME/code/"
+DO_BASE_DIR="$HOME/code"
 DO_REPO_URL="git://gcc.gnu.org/git/gcc.git"
 DO_REPO_DIRECTORY="gcc"
-DO_REPO_BRANCH="master"
+DO_REPO_BRANCH="releases/gcc-9.3.0"
 DO_CONFIGURE_OPTS=(
 	# Xcode 10 dropped 32-bit support
 	--disable-multilib
@@ -17,9 +15,11 @@ DO_CONFIGURE_OPTS=(
 	--with-native-system-header-dir=/usr/include
 	--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 )
-DO_DIRS=(
-	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
+DO_LIBS=(
+	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
 )
+
+. build-utils
 
 # WIP
 # export CFLAGS+=" -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
@@ -40,7 +40,11 @@ do_build() {
 	popd
 }
 
+pushd "$DO_BASE_DIR/$DO_REPO_DIRECTORY"
+
 do_fetch
 ./contrib/download_prerequisites
 do_vars
 do_build
+
+popd
