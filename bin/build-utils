@@ -159,7 +159,7 @@ do_install() {
 	make -j $DO_CORES install
 }
 
-# Do it all
+# Do: ensure, fetch, vars, build, install
 do_all() {
 	# brew install "$HOME/.emacs.d/gcc.rb" --build-from-source
 	do_brew_ensure "${DO_BREW_PACKAGES[@]}"

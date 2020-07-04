@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-export CC="clang"
-
 DO_BASE_DIR="$HOME/code"
 
 DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
@@ -34,7 +32,7 @@ DO_BREW_CASKS=(
 
 DO_LIBS=(
 	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
-	/usr/local/gcc
+	gcc
 	giflib
 	gnutls
 	jansson
@@ -65,6 +63,8 @@ DO_CONFIGURE_OPTS=(
 # native-comp optimization
 BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
 export BYTE_COMPILE_EXTRA_FLAGS
+LIBRARY_PATH="/usr/local/lib:${LIBRARY_PATH:-}"
+export LIBRARY_PATH
 
 . build-utils
 
@@ -88,6 +88,8 @@ do_install() {
 	make -j $DO_CORES install
 	rm -rf "$HOME/Applications/Emacs.app"
 	mv nextstep/Emacs.app "$HOME/Applications/"
+	# Is this necessary?
+	# cp -R lisp "$HOME/Applications/Emacs.app/Contents/"
 
 	popd
 }

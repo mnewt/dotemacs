@@ -108,7 +108,7 @@
     :config
     (setq profiler-max-stack-depth 50)
     (explain-pause-mode t)))
-  
+
 
 ;;;;; package management
 
@@ -201,7 +201,10 @@ higher level up to the top level form."
   (when (eq system-type 'windows-nt)
     (exec-path-from-shell-setenv
      "PATH"
-     (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin"))))
+     (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
+
+    ;; So that `comp' (Native Compilation) can find libgccjit and friends.
+  (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH") ":/usr/local/lib")))
 
 
 ;;;; Third Party Libraries
@@ -7064,11 +7067,11 @@ configuration when invoked to evaluate a line."
 
 ;;;; Org
 
+(defvar org-directory "~/org"
+  "Directory where Org files are stored.")
+
 (use-package org
   :mode ("\\.org\\'" . org-mode)
-  :init
-  (defvar org-directory "~/org")
-  
   :custom
   ;; Indent text according to the outline structure (`org-indent-mode')
   ;; (org-startup-indented t)
@@ -7162,11 +7165,6 @@ open it in `org-directory'."
                                  (if (and (not arg) (projectile-project-p))
                                      (projectile-project-root)
                                    org-directory))))
-
-  (defun org-directory ()
-    "Open the Org directory"
-    (interactive)
-    (find-file org-directory))
 
   (defun org-search-org-directory ()
     "Search ~/org using `counsel-rg'."
@@ -7358,7 +7356,7 @@ With a prefix ARG, create it in `org-directory'."
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
   :bind
-  ("s-o" . org-directory)
+  ("s-o" . org-dired-org-directory)
   ("C-c C-o" . org-open-at-point)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
