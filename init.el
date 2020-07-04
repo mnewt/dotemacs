@@ -195,13 +195,15 @@ higher level up to the top level form."
   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
   ;; it only sources $BASH_ENV.
   (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
-  (setenv "PAGER" "cat")
   (exec-path-from-shell-initialize)
 
   (when (eq system-type 'windows-nt)
     (exec-path-from-shell-setenv
      "PATH"
      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
+
+  ;; Emacs is a good pager.
+  (setenv "PAGER" "cat")
 
   ;; So that `comp' (Native Compilation) can find libgccjit and friends.
   (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
