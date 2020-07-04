@@ -1,16 +1,16 @@
 class Gcc < Formula
   desc "GNU compiler collection"
   homepage "https://gcc.gnu.org/"
-  url "https://ftp.gnu.org/gnu/gcc/gcc-9.2.0/gcc-9.2.0.tar.xz"
-  mirror "https://ftpmirror.gnu.org/gcc/gcc-9.2.0/gcc-9.2.0.tar.xz"
-  sha256 "ea6ef08f121239da5695f76c9b33637a118dcf63e24164422231917fa61fb206"
+  url "https://ftp.gnu.org/gnu/gcc/gcc-9.3.0/gcc-9.3.0.tar.xz"
+  mirror "https://ftpmirror.gnu.org/gcc/gcc-9.3.0/gcc-9.3.0.tar.xz"
+  sha256 "71e197867611f6054aa1119b13a0c0abac12834765fe2d81f35ac57f84f742d1"
   revision 1
   head "https://gcc.gnu.org/git/gcc.git"
 
   bottle do
-    sha256 "a053832700c5f4d5606929b8101f5bf0fcc6b7b42b4bca73effc3f0316cfb691" => :mojave
-    sha256 "acd6c0f958c1947b192127d0173f449e6a13f51f53001c8678700c326f6a9f51" => :high_sierra
-    sha256 "de17691cff05be8b62df4cd753c6b74fb9b8ab30d8677507dcecc711b0129f51" => :sierra
+    sha256 "57e53d66ad43fe05b5a2f93d6a7cfd472713ac03e9d9c9d0d0187cdc7a273153" => :catalina
+    sha256 "de8319322428721741a0dc41dfdf2eece80e0215a7a4a861e0e206a9bfbca583" => :mojave
+    sha256 "e50b9cfee063619515a8f164485b3f730077f21b49b7bb30cc5a600ddf577a83" => :high_sierra
   end
 
   # The bottles are built on systems with the CLT installed, and do not work
@@ -25,17 +25,10 @@ class Gcc < Formula
   depends_on "libmpc"
   depends_on "mpfr"
 
+  uses_from_macos "zlib"
+
   # GCC bootstraps itself, so it is OK to have an incompatible C++ stdlib
   cxxstdlib_check :skip
-
-  # Fix system headers for Catalina SDK
-  # (otherwise __OSX_AVAILABLE_STARTING ends up undefined)
-  if DevelopmentTools.clang_build_version >= 1100
-    patch do
-      url "https://raw.githubusercontent.com/Homebrew/formula-patches/b8b8e65e/gcc/9.2.0-catalina.patch"
-      sha256 "0b8d14a7f3c6a2f0d2498526e86e088926671b5da50a554ffa6b7f73ac4f132b"
-    end
-  end
 
   def version_suffix
     if build.head?
@@ -59,41 +52,41 @@ class Gcc < Formula
     pkgversion = "Homebrew GCC #{pkg_version} #{build.used_options*" "}".strip
 
     args = %W[
-              --build=x86_64-apple-darwin#{osmajor}
-              --prefix=#{prefix}
-              --libdir=#{lib}/gcc/#{version_suffix}
-              --disable-nls
-              --enable-checking=release
-              --enable-languages=#{languages.join(",")}
-              --program-suffix=-#{version_suffix}
-              --with-gmp=#{Formula["gmp"].opt_prefix}
-              --with-mpfr=#{Formula["mpfr"].opt_prefix}
-              --with-mpc=#{Formula["libmpc"].opt_prefix}
-              --with-isl=#{Formula["isl"].opt_prefix}
-              --with-system-zlib
-              --with-pkgversion=#{pkgversion}
-              --with-bugurl=https://github.com/Homebrew/homebrew-core/issues
-              --enable-host-shared
-             ]
+      --build=x86_64-apple-darwin#{osmajor}
+      --prefix=#{prefix}
+      --libdir=#{lib}/gcc/#{version_suffix}
+      --disable-nls
+      --enable-checking=release
+      --enable-languages=#{languages.join(",")}
+      --program-suffix=-#{version_suffix}
+      --with-gmp=#{Formula["gmp"].opt_prefix}
+      --with-mpfr=#{Formula["mpfr"].opt_prefix}
+      --with-mpc=#{Formula["libmpc"].opt_prefix}
+      --with-isl=#{Formula["isl"].opt_prefix}
+      --with-system-zlib
+      --with-pkgversion=#{pkgversion}
+      --with-bugurl=https://github.com/Homebrew/homebrew-core/issues
+      --enable-host-shared
+    ]
 
     # Xcode 10 dropped 32-bit support
     args << "--disable-multilib" if DevelopmentTools.clang_build_version >= 1000
+
+    # System headers may not be in /usr/include
+    sdk = MacOS.sdk_path_if_needed
+    if sdk
+      args << "--with-native-system-header-dir=/usr/include"
+      args << "--with-sysroot=#{sdk}"
+    end
+
+    # Avoid reference to sed shim
+    args << "SED=/usr/bin/sed"
 
     # Ensure correct install names when linking against libgcc_s;
     # see discussion in https://github.com/Homebrew/legacy-homebrew/pull/34303
     inreplace "libgcc/config/t-slibgcc-darwin", "@shlib_slibdir@", "#{HOMEBREW_PREFIX}/lib/gcc/#{version_suffix}"
 
     mkdir "build" do
-      if !MacOS::CLT.installed?
-        # For Xcode-only systems, we need to tell the sysroot path
-        args << "--with-native-system-header-dir=/usr/include"
-        args << "--with-sysroot=#{MacOS.sdk_path}"
-      elsif MacOS.version >= :mojave
-        # System headers are no longer located in /usr/include
-        args << "--with-native-system-header-dir=/usr/include"
-        args << "--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
-      end
-
       system "../configure", *args
 
       # Use -headerpad_max_install_names in the build,
@@ -147,6 +140,7 @@ class Gcc < Formula
       integer,parameter::m=10000
       real::a(m), b(m)
       real::fact=0.5
+
       do concurrent (i=1:m)
         a(i) = a(i) + fact*b(i)
       end do
