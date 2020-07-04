@@ -208,8 +208,8 @@ higher level up to the top level form."
   ;; So that `comp' (Native Compilation) can find libgccjit and friends.
   (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
                                  (when (getenv "LIBRARY_PATH") ":")
-                                 "/usr/local/opt/gcc/lib/gcc/9"
-                                 ":/usr/local/opt/gcc/lib/gcc/10")))
+                                 "/usr/local/opt/gcc/lib/gcc/10"
+                                 ":/usr/local/opt/gcc/lib/gcc/9")))
 
 
 ;;;; Third Party Libraries

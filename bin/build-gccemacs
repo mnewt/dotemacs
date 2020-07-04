@@ -88,8 +88,7 @@ do_install() {
 	make -j $DO_CORES install
 	rm -rf "$HOME/Applications/Emacs.app"
 	mv nextstep/Emacs.app "$HOME/Applications/"
-	# Is this necessary?
-	# cp -R lisp "$HOME/Applications/Emacs.app/Contents/"
+	cp -R lisp "$HOME/Applications/Emacs.app/Contents/"
 
 	popd
 }
