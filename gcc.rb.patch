@@ -1,0 +1,19 @@
+--- /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/gcc.rb	2020-04-17 11:13:08.000000000 -0700
++++ ./gcc.rb	2020-07-02 08:15:14.000000000 -0700
+@@ -46,7 +46,7 @@
+     #  - Ada, which requires a pre-existing GCC Ada compiler to bootstrap
+     #  - Go, currently not supported on macOS
+     #  - BRIG
+-    languages = %w[c c++ objc obj-c++ fortran]
++    languages = %w[c c++ objc obj-c++ fortran jit]
+ 
+     osmajor = `uname -r`.split(".").first
+     pkgversion = "Homebrew GCC #{pkg_version} #{build.used_options*" "}".strip
+@@ -66,6 +66,7 @@
+       --with-system-zlib
+       --with-pkgversion=#{pkgversion}
+       --with-bugurl=https://github.com/Homebrew/homebrew-core/issues
++      --enable-host-shared
+     ]
+ 
+     # Xcode 10 dropped 32-bit support

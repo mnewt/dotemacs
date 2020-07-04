@@ -203,8 +203,11 @@ higher level up to the top level form."
      "PATH"
      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
 
-    ;; So that `comp' (Native Compilation) can find libgccjit and friends.
-  (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH") ":/usr/local/lib")))
+  ;; So that `comp' (Native Compilation) can find libgccjit and friends.
+  (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
+                                 (when (getenv "LIBRARY_PATH") ":")
+                                 "/usr/local/opt/gcc/lib/gcc/9"
+                                 ":/usr/local/opt/gcc/lib/gcc/10")))
 
 
 ;;;; Third Party Libraries
