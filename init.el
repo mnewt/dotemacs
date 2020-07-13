@@ -2584,7 +2584,7 @@ See: https://github.com/mnewt/psync"
 ;;;; OS program interaction
 
 (use-package server
-  :demand t
+  :defer 6
   :functions
   server-running-p
   :config
@@ -6404,7 +6404,7 @@ Open the `eww' buffer in another window."
 
 (use-package apheleia
   :straight (apheleia :host github :repo "raxod502/apheleia")
-  :demand t
+  :defer 11
   :config
   (dolist (formatter '((lua-fmt "luafmt" "--stdin")
                        (rufo "rufo" "--simple-exit" "--filename" file)
