@@ -61,10 +61,8 @@ DO_CONFIGURE_OPTS=(
 )
 
 # native-comp optimization
-BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
-export BYTE_COMPILE_EXTRA_FLAGS
-LIBRARY_PATH="/usr/local/lib:${LIBRARY_PATH:-}"
-export LIBRARY_PATH
+export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 3)'"
+export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
 
 . build-utils
 
@@ -73,7 +71,7 @@ do_install() {
 	local target="${1:-$DO_REPO_DIRECTORY}"
 	heading "Installing $target..."
 
-	# Ensure the directory to which we will install Emacs exists and has the correct
+	# Ensure the directory to which we will dump Emacs exists and has the correct
 	# permissions set.
 	local libexec=/usr/local/libexec/emacs
 	if [ ! -d $libexec ]; then

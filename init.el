@@ -208,8 +208,8 @@ higher level up to the top level form."
   ;; So that `comp' (Native Compilation) can find libgccjit and friends.
   (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
                                  (when (getenv "LIBRARY_PATH") ":")
-                                 "/usr/local/opt/gcc/lib/gcc/10"
-                                 ":/usr/local/opt/gcc/lib/gcc/9")))
+                                 ;; This is where Homebrew puts gcc libraries.
+                                 (car (file-expand-wildcards "/usr/local/opt/gcc/lib/gcc/*")))))
 
 
 ;;;; Third Party Libraries
@@ -2136,18 +2136,11 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     (call-interactively (intern x)))
 
   (defun counsel-rg-default-directory (f &rest args)
-    "Call F (`counsel-rg') with ARGS from `default-directory'.
-
-NOTE: It seems like `counsel-rg' should call itself from
-`default-directory' without assistance but in my experience it
-looks for a project root directory instead. If we want to search
-from the project root, we can use `counsel-projectile-rg', and we
-force `counsel-rg' to search in `default-directory.'"
-    (let ((initial-input (car args))
-          (initial-directory (or (cadr args) default-directory))
-          (extra-rg-args (caddr args))
-          (rg-prompt (or (cadddr args) (format "(%s) rg: " default-directory))))
-      (funcall f initial-input initial-directory extra-rg-args rg-prompt)))
+    "Call F (`counsel-rg') with ARGS from `default-directory'."
+    (funcall f (car args)
+             (or (cadr args) default-directory)
+             (caddr args)
+             (or (cadddr args) (format "[%s] rg: " default-directory))))
 
   (advice-add #'counsel-rg :around #'counsel-rg-default-directory)
 
@@ -2277,20 +2270,6 @@ force `counsel-rg' to search in `default-directory.'"
   :functions
   projectile-project-p
   :config
-  (defun projectile-load-settings (&optional file)
-    "Load project elisp settings from FILE.
-Look in active project root directory, or if in the case of
-  undefined root directory, file is otherwise path resolvable.
-
-https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-settings.el"
-    (interactive)
-    (let ((p (expand-file-name (or file "config.el")
-                               (and (fboundp #'projectile-project-root)
-                                    (projectile-project-root)))))
-      (when (file-exists-p p)
-        (load p)
-        (message "%s" (concat "Loaded project settings from: " p)))))
-
   (defun projectile-git-ls-files (&optional dir)
     "List of the tracked files in the git repo, specified by DIR."
     (cd (or dir (projectile-project-root)))
@@ -2320,8 +2299,6 @@ https://github.com/jfeltz/projectile-load-settings/blob/master/projectile-load-s
                                     :compile "clj "
                                     :test-suffix "_test")
   (projectile-mode)
-  :hook
-  (projectile-after-switch-project-hook . projectile-load-settings)
   :commands
   projectile-register-project-type
   :bind-keymap
@@ -6430,6 +6407,7 @@ Open the `eww' buffer in another window."
   :demand t
   :config
   (dolist (formatter '((lua-fmt "luafmt" "--stdin")
+                       (rufo "rufo" "--simple-exit" "--filename" file)
                        (swift-format "xcrun" "swift-format")
                        (shfmt  "shfmt")
                        (xmllint "xmllint" "--format" "-")
@@ -6439,10 +6417,12 @@ Open the `eww' buffer in another window."
   (dolist (mode '((clojure-mode . zprint)
                   (clojurec-mode . zprint)
                   (clojurescript-mode . zprint)
+                  (enh-ruby-mode . rufo)
                   (graphql-mode . prettier)
                   (lua-mode . lua-fmt)
                   (markdown-mode . prettier)
                   (nxml-mode . xmllint)
+                  (ruby-mode . rufo)
                   (sh-mode . shfmt)
                   (swift-mode . swift-format)
                   (web-mode . prettier)))
@@ -6768,12 +6748,12 @@ This command defaults to running the previous command."
         ("C-c M-s" . sh-select)
         ("C-c 7" . async-shell-command-current-file)))
 
-;; git config files
-(add-to-list 'auto-mode-alist '("\\.git\\(?:config\\|ignore\\).*" . conf-mode))
-;; SSH server config files
-(add-to-list 'auto-mode-alist '("sshd\?_config" . conf-mode))
-;; mbsync
-(add-to-list 'auto-mode-alist '("\\.mbsyncrc" . conf-mode))
+(use-package conf-mode
+  :mode
+  ;; mbsync
+  "\\.mbsyncrc"
+  ;; pkg-config
+  "\\.pc")
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
