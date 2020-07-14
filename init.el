@@ -1426,32 +1426,32 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-H-A" . buf-move-left)
   ("C-H-D" . buf-move-right))
 
-;; (use-package winum
-;;   :custom
-;;   (winum-auto-setup-mode-line nil)
-;;   :config
-;;   (winum-mode)
-;;   :bind
-;;   ("s-1" . winum-select-window-1)
-;;   ("C-c 1" . winum-select-window-1)
-;;   ("s-2" . winum-select-window-2)
-;;   ("C-c 2" . winum-select-window-2)
-;;   ("s-3" . winum-select-window-3)
-;;   ("C-c 3" . winum-select-window-3)
-;;   ("s-4" . winum-select-window-4)
-;;   ("C-c 4" . winum-select-window-4)
-;;   ("s-5" . winum-select-window-5)
-;;   ("C-c 5" . winum-select-window-5)
-;;   ("s-6" . winum-select-window-6)
-;;   ("C-c 6" . winum-select-window-6)
-;;   ("s-7" . winum-select-window-7)
-;;   ("C-c 7" . winum-select-window-7)
-;;   ("s-8" . winum-select-window-8)
-;;   ("C-c 8" . winum-select-window-8)
-;;   ("s-9" . winum-select-window-9)
-;;   ("C-c 9" . winum-select-window-9)
-;;   ("s-0" . winum-select-window-0)
-;;   ("C-c 0" . winum-select-window-0))
+(use-package winum
+  :custom
+  (winum-auto-setup-mode-line nil)
+  :config
+  (winum-mode)
+  :bind
+  ("s-1" . winum-select-window-1)
+  ("C-c 1" . winum-select-window-1)
+  ("s-2" . winum-select-window-2)
+  ("C-c 2" . winum-select-window-2)
+  ("s-3" . winum-select-window-3)
+  ("C-c 3" . winum-select-window-3)
+  ("s-4" . winum-select-window-4)
+  ("C-c 4" . winum-select-window-4)
+  ("s-5" . winum-select-window-5)
+  ("C-c 5" . winum-select-window-5)
+  ("s-6" . winum-select-window-6)
+  ("C-c 6" . winum-select-window-6)
+  ("s-7" . winum-select-window-7)
+  ("C-c 7" . winum-select-window-7)
+  ("s-8" . winum-select-window-8)
+  ("C-c 8" . winum-select-window-8)
+  ("s-9" . winum-select-window-9)
+  ("C-c 9" . winum-select-window-9)
+  ("s-0" . winum-select-window-0)
+  ("C-c 0" . winum-select-window-0))
 
 ;; (use-package rotate
 ;;   :bind
