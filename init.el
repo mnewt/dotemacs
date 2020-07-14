@@ -1205,9 +1205,13 @@ one exists already."
   (interactive "P")
   (let* ((default-directory code-directory)
          (uniquify-buffer-name-style nil)
+         (persp-name (persp-name (persp-curr)))
+         (name (if (string= "main" persp-name)
+                   "*scratch*"
+                 (format "*scratch* (%s)" persp-name)))
          (buffer (if arg
-                     (generate-new-buffer "*scratch*")
-                   (get-buffer-create "*scratch*")))
+                     (generate-new-buffer name)
+                   (get-buffer-create name)))
          (win (get-buffer-window buffer)))
     (if win
         (select-window win)
@@ -1459,6 +1463,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :custom
   (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
   (persp-modestring-dividers '("" "" "|"))
+
+  :commands
+  persp-switch
 
   :config
   (make-directory (file-name-directory persp-state-default-file) t)
@@ -7050,6 +7057,7 @@ configuration when invoked to evaluate a line."
   :bind
   ("C-c '" . fence-edit-dwim))
 
+
 ;;;; Org
 
 (defvar org-directory "~/org"
@@ -7171,10 +7179,15 @@ With a prefix ARG, create it in `org-directory'."
                                   ((projectile-project-p)
                                    (projectile-project-root))))))
 
-  (defun org-dired-org-directory ()
+  (defun org-switch-to-org-perspective ()
     "Visit `org-directory' using Dired."
     (interactive)
-    (dired org-directory))
+    (let ((initialized (member "org" (persp-names))))
+      (persp-switch "org")
+      (unless initialized
+        (cd org-directory)
+        (org-mode)
+        (dired org-directory))))
 
   (defun org-todo-todo ()
     "Create or update Org todo entry to TODO status."
@@ -7341,7 +7354,7 @@ With a prefix ARG, create it in `org-directory'."
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
   :bind
-  ("s-o" . org-dired-org-directory)
+  ("s-o" . org-switch-to-org-perspective)
   ("C-c C-o" . org-open-at-point)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
@@ -7369,7 +7382,7 @@ With a prefix ARG, create it in `org-directory'."
         ("a" . org-agenda)
         ("b" . org-switchb)
         ("c" . org-capture)
-        ("d" . org-dired-org-directory)
+        ("d" . org-switch-to-org-perspective)
         ("i" . org-insert-link)
         ("l" . org-store-link)
         ("n" . org-new-note)
@@ -7378,7 +7391,7 @@ With a prefix ARG, create it in `org-directory'."
   (:map m-search-map
         ("o" . org-search-org-directory))
   (:map m-file-map
-        ("o" . org-dired-org-directory))
+        ("o" . org-switch-to-org-perspective))
   (:map visual-line-mode-map
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
