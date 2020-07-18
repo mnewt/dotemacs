@@ -2215,8 +2215,8 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   ("s-f" . counsel-grep-or-swiper)
   ("s-F" . counsel-rg)
   ("C-x C-f" . counsel-find-file)
-  ("C-x f" . counsel-recentf)
-  ("C-x j" . counsel-file-jump)
+  ("C-x F" . counsel-recentf)
+  ("C-x f" . counsel-file-jump)
   ("C-x C-j" . counsel-dired-jump)
   ("s-b" . counsel-switch-buffer)
   ("s-B" . counsel-switch-buffer-other-window)
@@ -2540,7 +2540,6 @@ Tries to find a file at point."
 
 (defun unison-sync (command)
   "Run a Unison sync of files using COMMAND."
-  (interactive)
   (let ((buffer (get-buffer-create "*unison-sync*")))
     (with-current-buffer buffer
       (setq-local comint-output-filter-functions
@@ -3754,11 +3753,13 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :custom
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
+  
   :config
   (use-package forge :demand t)
 
   :commands
   magit-call-git
+
   :bind
   ("C-x g" . magit-status)
   ("C-x M-g" . magit-dispatch))
@@ -3775,9 +3776,9 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :bind
   ("C-x t" . git-timemachine))
 
-;; (use-package gist
-;;   :commands
-;;   gist-list)
+(use-package gist
+  :commands
+  gist-list)
 
 (use-package diff-mode
   :bind
@@ -4760,7 +4761,7 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
   "Add sudo to file PATH string."
   (if (file-remote-p path)
       (with-parsed-tramp-file-name (expand-file-name path) nil
-        (concat "/" method ":"
+        (concat "/" hop method ":"
                 (when user (concat user "@"))
                 host "|sudo:root@" host ":" localname))
     (concat "/sudo:root@localhost:" (expand-file-name path))))
@@ -4804,9 +4805,7 @@ non-sudo shell is left intact."
                (shell (format "*shell/sudo:root@%s*"
                               (with-parsed-tramp-file-name newf nil host))))))
           ((derived-mode-p 'eshell-mode)
-           (eshell-return-to-prompt)
-           (insert (concat "cd '" newf "'"))
-           (eshell-send-input))
+           (cd newf))
           (t (message "Can't sudo this buffer")))))
 
 (defun filter-functions (regexp &optional predicate)
@@ -4865,6 +4864,31 @@ predicate returns true."
   (vterm-buffer-name-string "*vterm %s*")
 
   :config
+  ;; TODO Remove this once https://github.com/akermu/emacs-libvterm/pull/373 is
+  ;; merged.
+  (defun vterm-module-compile ()
+    "Compile vterm-module."
+    (interactive)
+    (when (vterm-module--cmake-is-available)
+      (let* ((vterm-directory
+              (shell-quote-argument
+               (file-name-directory (find-library-name "vterm"))))
+             (make-commands
+              (concat
+               "cd " vterm-directory "; \
+             mkdir -p build; \
+             cd build; \
+             cmake "
+               vterm-module-cmake-args
+               " ..; \
+             make; \
+             cd -"))
+             (buffer (get-buffer-create vterm-install-buffer-name)))
+        (pop-to-buffer buffer)
+        (if (zerop (call-process "sh" nil buffer t "-c" make-commands))
+            (message "Compilation of `emacs-libvterm' module succeeded")
+          (error "Compilation of `emacs-libvterm' module failed!")))))
+  
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
@@ -6823,7 +6847,11 @@ This package sets these explicitly so we have to do the same."
   (caddyfile-mode . caddyfile-setup))
 
 (use-package yaml-mode
-  :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'")
+  :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'"
+  :bind
+  ;; Don't change ident level when yanking.
+  ("s-v" . clipboard-yank)
+  ("RET" . newline-and-indent))
 
 (use-package toml-mode
   :mode "\\.toml\\'")
@@ -7081,10 +7109,11 @@ configuration when invoked to evaluate a line."
   (org-export-with-section-numbers nil)
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "DONE(d!)")))
-  (org-todo-keyword-faces '(("TODO" (:underline t))
-                            ("WIP" (:foreground "lime green" :underline t))
-                            ("DONE" (:inherit font-link-comment-fac))))
+  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "WAIT(a)" "DONE(d!)")))
+  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :bold t))
+                            ("WIP" (:background "lime green" :foreground "black" :bold t))
+                            ("WAIT" (:background "cyan" :foreground "black" :bold t))
+                            ("DONE" (:inherit font-link-comment-face :bold t))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
