@@ -5011,6 +5011,7 @@ See https://github.com/mnewt/fpw."
 ;;;; Eshell
 
 (use-package eshell
+  :defer 29
   :custom
   (eshell-banner-message "")
   (eshell-buffer-shorthand t)
@@ -5504,6 +5505,7 @@ Advise `eshell-ls-decorated-name'."
 
 (use-package elisp-mode
   :straight (:type built-in)
+  :defer 19
   :mode ("Cask\\'" . emacs-lisp-mode)
   :config
   (add-to-list 'safe-local-variable-values
@@ -7092,6 +7094,7 @@ configuration when invoked to evaluate a line."
   "Directory where Org files are stored.")
 
 (use-package org
+  :defer 17
   :mode ("\\.org\\'" . org-mode)
   :custom
   ;; Indent text according to the outline structure (`org-indent-mode')
