@@ -1,15 +1,10 @@
 * Tasks
-** TODO Separate =init.el= into "startup" and "deferred" sections
 ** TODO Submit patch to Org for =org-do-emphasis-faces=
-** TODO Extract =load-theme= stuff to =theme-utils= package
 ** TODO Make =dired-rainbow-listing= into a package
-** TODO Complete =counsel-web=
 ** TODO =counsel-term= stuff
 *** TODO Make =counsel-term-cd= into =counsel-dired-jump=
 *** TODO =counsel-term-cd=
-
     https://github.com/tautologyclub/counsel-term/pull/2
-
     [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
 
 ** TODO Send PR for =helpful-goto-face=
