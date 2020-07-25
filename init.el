@@ -4592,10 +4592,10 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
   ("/known_hosts\\'" . ssh-known-hosts-mode)
   ("/authorized_keys2?\\'" . ssh-authorized-keys-mode))
 
-;; WIP
 (defun tramp-cleanup-all ()
   "Clean up all tramp buffers and connections."
   (interactive)
+  (tramp-cleanup-all-buffers)
   (tramp-cleanup-all-connections)
   (setq ivy-history
         (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
