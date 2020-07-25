@@ -4671,6 +4671,14 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
                      (list-hosts-from-ssh-config)
                      (list-hosts-from-etc-hosts)))))
 
+(defun ssh-host ()
+  "Like `ssh' only choose from a list of known hosts.
+
+If prefix arg is non-nil, read ssh arguments from the minibuffer."
+  (interactive)
+  (ssh (concat (when prefix-arg (concat (read-from-minibuffer "ssh arguments: ") " "))
+               (ssh-choose-host))))
+
 (defun dired-tramp (host)
   "Choose an ssh HOST and then open it with dired."
   (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
