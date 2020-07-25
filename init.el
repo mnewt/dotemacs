@@ -6846,7 +6846,7 @@ This package sets these explicitly so we have to do the same."
     (setq tab-width 4
           indent-tabs-mode nil))
   :hook
-  (caddyfile-mode . caddyfile-setup))
+  (caddyfile-mode-hook . caddyfile-setup))
 
 (use-package yaml-mode
   :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'"
