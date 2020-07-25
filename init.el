@@ -7112,11 +7112,11 @@ configuration when invoked to evaluate a line."
   (org-export-with-section-numbers nil)
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WIP(w)" "WAIT(a)" "DONE(d!)")))
+  (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "DONE(d!)")))
   (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :bold t))
-                            ("WIP" (:background "lime green" :foreground "black" :bold t))
-                            ("WAIT" (:background "cyan" :foreground "black" :bold t))
-                            ("DONE" (:inherit font-link-comment-face :bold t))))
+                            ("WORK" (:background "green" :foreground "black" :bold t))
+                            ("WAIT" (:background "orange" :foreground "black" :bold t))
+                            ("DONE" (:background "gray" :foreground "black" :bold t))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
