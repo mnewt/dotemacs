@@ -3083,7 +3083,7 @@ Include PREFIX in prompt if given."
   (Man-notify-method 'aggressive)
   :config
   (set-face-attribute 'Man-overstrike nil
-                      :inherit font-lock-type-face :weight bold :height 1.1)
+                      :inherit font-lock-type-face :weight 'bold :height 1.1)
   (set-face-attribute 'Man-underline nil
                       :inherit font-lock-keyword-face :underline t)
   :bind
