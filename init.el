@@ -3083,7 +3083,7 @@ Include PREFIX in prompt if given."
   (Man-notify-method 'aggressive)
   :config
   (set-face-attribute 'Man-overstrike nil
-                      :inherit font-lock-type-face :bold t :height 1.1)
+                      :inherit font-lock-type-face :weight bold :height 1.1)
   (set-face-attribute 'Man-underline nil
                       :inherit font-lock-keyword-face :underline t)
   :bind
@@ -7113,10 +7113,10 @@ configuration when invoked to evaluate a line."
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
   (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "DONE(d!)")))
-  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :bold t))
-                            ("WORK" (:background "green" :foreground "black" :bold t))
-                            ("WAIT" (:background "orange" :foreground "black" :bold t))
-                            ("DONE" (:background "gray" :foreground "black" :bold t))))
+  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :weight bold))
+                            ("WORK" (:background "green" :foreground "black" :weight bold))
+                            ("WAIT" (:background "orange" :foreground "black" :weight bold))
+                            ("DONE" (:background "gray" :foreground "black" :weight bold))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
