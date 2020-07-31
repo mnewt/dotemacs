@@ -766,7 +766,7 @@ Return nil if the buffer is local."
 
   (defun mood-line-segment-buffer-name ()
     "Displays the name of the current buffer in the mode-line."
-    (propertize " %b " 'face 'mode-line-buffer-id))
+    (propertize (concat " " (shorten-file-name (format-mode-line "%b")) " ") 'face 'mode-line-buffer-id))
 
   (defun mood-line-segment-modified ()
     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
@@ -962,13 +962,16 @@ This sets things up for `window-highlight' and `mode-line'."
      ("FIXME" . "magenta")
      ("\\?\\?\\?+" . "magenta")
      ("WIP" . "lime green")
+     ("WORK" . "lime green")
      ("NEXT" . "lime green")
      ("NOTE" . "purple")
+     ("WAIT" . "orange")
      ("KLUDGE" . "orange")
      ("HACK" . "orange")
      ("TEMP" . "orange")
      ("XXX+" . "orange")
      ("DONE" . "gray")))
+  
   :hook
   (prog-mode-hook . hl-todo-mode)
   :bind
@@ -4365,15 +4368,19 @@ See https://github.com/Fuco1/smartparens/issues/80."
                    :actions '(insert navigate)
                    :pre-handlers '(sp-sh-pre-handler)
                    :post-handlers '(sp-sh-case-post-handler)))
+
   (sp-with-modes 'org-mode
     (sp-local-pair "=" "=" :wrap "C-M-=")
     (sp-local-pair "~" "~" :wrap "C-~"))
+
   (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
+
   (sp-with-modes sp-lisp-modes
     (sp-local-pair "(" nil
                    :wrap "C-M-("
                    :pre-handlers '(sp-add-space-before-sexp-insertion)
                    :post-handlers '(sp-add-space-after-sexp-insertion)))
+
   (setq sp-ignore-modes-list
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
 
@@ -4384,8 +4391,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
-  ((text-mode-hook prog-mode-hook minibuffer-setup-hook cider-repl-mode-hook
-    toml-mode-hook)
+  ((cider-repl-mode-hook conf-mode-hook minibuffer-setup-hook prog-mode-hook
+                         text-mode-hook toml-mode-hook)
    . smartparens-mode)
 
   :bind
@@ -4692,8 +4699,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (let* ((max-length (or max-length 40))
          (separator (if (eq system-type 'windows-nt) "\\" "/"))
          (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
-         (right (split-string (abbreviate-file-name (expand-file-name file-name))
-                              separator))
+         (right (split-string (abbreviate-file-name file-name) separator))
          left output)
     (while (and (< 1 (length right))
                 (< max-length (length (string-join (append left right) separator))))
@@ -4864,6 +4870,13 @@ predicate returns true."
         ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package vterm
+  ;; FIXME Use fork until https://github.com/akermu/emacs-libvterm/pull/373 is merged.
+  :straight (vterm :type git :flavor melpa
+                   :files ("*" (:exclude ".dir-locals.el" ".gitignore"
+                                         ".clang-format" ".travis.yml")
+                           "vterm-pkg.el")
+                   :host github :repo "akermu/emacs-libvterm"
+                   :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"))
   :init
   ;; (defvar vterm-install nil
   ;;   "Tell `vterm' to compile if necessary.")
@@ -4872,31 +4885,6 @@ predicate returns true."
   (vterm-buffer-name-string "*vterm %s*")
 
   :config
-  ;; TODO Remove this once https://github.com/akermu/emacs-libvterm/pull/373 is
-  ;; merged.
-  (defun vterm-module-compile ()
-    "Compile vterm-module."
-    (interactive)
-    (when (vterm-module--cmake-is-available)
-      (let* ((vterm-directory
-              (shell-quote-argument
-               (file-name-directory (find-library-name "vterm"))))
-             (make-commands
-              (concat
-               "cd " vterm-directory "; \
-             mkdir -p build; \
-             cd build; \
-             cmake "
-               vterm-module-cmake-args
-               " ..; \
-             make; \
-             cd -"))
-             (buffer (get-buffer-create vterm-install-buffer-name)))
-        (pop-to-buffer buffer)
-        (if (zerop (call-process "sh" nil buffer t "-c" make-commands))
-            (message "Compilation of `emacs-libvterm' module succeeded")
-          (error "Compilation of `emacs-libvterm' module failed!")))))
-  
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
@@ -6255,7 +6243,6 @@ Open the `eww' buffer in another window."
 
 ;;;; Python
 
-;; pip install python-language-server
 (use-package python
   :straight (:type built-in)
   :mode ("\\.py\\'" . python-mode)
@@ -6265,7 +6252,12 @@ Open the `eww' buffer in another window."
   :bind
   (:map python-mode-map
         ("s-v" . yank)
-        ("s-<return>" . python-shell-send-defun))
+        ("s-<return>" . python-shell-send-defun)))
+
+;; pip install python-language-server
+(use-package lsp-python-ms
+  :config
+  (require 'lsp-python-ms)
   :hook
   (python-mode-hook . lsp-deferred))
 
@@ -7157,6 +7149,11 @@ configuration when invoked to evaluate a line."
   org-capture-refile
   :config
 
+  (set-face-attribute 'outline-1 nil :height 1.6)
+  (set-face-attribute 'outline-2 nil :height 1.4)
+  (set-face-attribute 'outline-3 nil :height 1.2)
+  (set-face-attribute 'outline-4 nil :height 1.1)
+
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
                                  (calc . t)
@@ -7365,6 +7362,7 @@ With a prefix ARG, create it in `org-directory'."
     :commands
     org-preview-html-mode)
 
+  ;; TODO Get this to work.
   ;; (use-package inherit-org
   ;;   :demand t
   ;;   :straight (:host github :repo "chenyanming/inherit-org")
@@ -7381,8 +7379,18 @@ With a prefix ARG, create it in `org-directory'."
 
   (defvar org-odt-convert-processes)
 
-  (defun setup-odt-org-convert-process ()
-    (interactive)
+  (defun org-mode-setup ()
+    "Set up `org-mode'."
+    ;; Only in `org-mode', disable some smartparens bindings by making an
+    ;; overriding keymap.
+    (when (and (derived-mode-p 'org-mode) smartparens-mode)
+      (let ((map (make-sparse-keymap)))
+        (set-keymap-parent map smartparens-mode-map)
+        (define-key map (kbd "C-M-u") nil)
+        (define-key map (kbd "C-M-d") nil)
+        (push `(smartparens-mode . ,map) minor-mode-overriding-map-alist)))
+
+    ;; Configure LibreOffice ODT export to actually export to MS Office format.
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
         (setq org-odt-convert-processes
@@ -7390,7 +7398,7 @@ With a prefix ARG, create it in `org-directory'."
                  "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
 
   :hook
-  (org-mode-hook . setup-odt-org-convert-process)
+  (org-mode-hook . org-mode-setup)
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
   :bind
