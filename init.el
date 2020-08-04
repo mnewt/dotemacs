@@ -220,11 +220,11 @@ higher level up to the top level form."
   (setenv "PAGER" "cat")
 
   ;; So that `comp' (Native Compilation) can find libgccjit and friends.
-  (setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
-                                 (when (getenv "LIBRARY_PATH") ":")
-                                 ;; This is where Homebrew puts gcc libraries.
-                                 (car (file-expand-wildcards "/usr/local/opt/gcc/lib/gcc/*")))))
-
+  (setenv "LIBRARY_PATH"
+          (concat (getenv "LIBRARY_PATH")
+                  (when (getenv "LIBRARY_PATH") ":")
+                  ;; This is where Homebrew puts gcc libraries.
+                  (car (file-expand-wildcards "/usr/local/opt/gcc/lib/gcc/*")))))
 
 ;;;; Third Party Libraries
 
@@ -781,7 +781,7 @@ Return nil if the buffer is local."
 
   (defun mood-line-segment-buffer-name ()
     "Displays the name of the current buffer in the mode-line."
-    (propertize " %b " 'face 'mode-line-buffer-id))
+    (propertize (concat " " (shorten-file-name (format-mode-line "%b")) " ") 'face 'mode-line-buffer-id))
 
   (defun mood-line-segment-modified ()
     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
@@ -853,10 +853,23 @@ Return nil if the buffer is local."
     "Display an indicator when `parinfer-mode' is enabled."
     (setf (alist-get 'parinfer-mode mode-line-misc-info)
           (when (bound-and-true-p parinfer-mode)
-            (setf (alist-get 'parinfer-mode mode-line-misc-info)
-                  (list (if (eq 'paren parinfer--mode)
-                            (cdr parinfer-lighters)
-                          (car parinfer-lighters)))))))
+            (list (if (eq 'paren parinfer--mode)
+                      (cdr parinfer-lighters)
+                    (car parinfer-lighters))))))
+
+  ;; (defvar parinfer-rust-lighters
+  ;;   '(("smart" . "s")
+  ;;     ("paren" . ")")
+  ;;     ("indent" . "➠"))
+  ;;   "Mode line indication for `parinfer-rust-mode'.")
+
+  ;; (defvar parinfer-rust-enabled)
+
+  ;; (defun parinfer-rust-mode-info (&optional _mode)
+  ;;   "Display an indicator when `parinfer-rust-mode' is enabled."
+  ;;   (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
+  ;;         (when parinfer-rust-enabled
+  ;;           (list (assoc-default "smart" parinfer-rust-lighters)))))
 
   (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
   (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
@@ -864,6 +877,8 @@ Return nil if the buffer is local."
   ;; KLUDGE None of the above hooks get called when parinfer is initialized
   ;; so we have to catch up somehow. I'm sure there's a better way.
   (add-hook 'window-state-change-hook #'parinfer-mode-info)
+
+  ;; (add-hook 'window-state-change-hook #'parinfer-rust-mode-info)
 
   (defun hs-minor-mode-info ()
     "Display an indicator when `hs-minor-mode' is enabled."
@@ -977,13 +992,16 @@ This sets things up for `window-highlight' and `mode-line'."
      ("FIXME" . "magenta")
      ("\\?\\?\\?+" . "magenta")
      ("WIP" . "lime green")
+     ("WORK" . "lime green")
      ("NEXT" . "lime green")
      ("NOTE" . "purple")
+     ("WAIT" . "orange")
      ("KLUDGE" . "orange")
      ("HACK" . "orange")
      ("TEMP" . "orange")
      ("XXX+" . "orange")
      ("DONE" . "gray")))
+  
   :hook
   (prog-mode-hook . hl-todo-mode)
   :bind
@@ -1511,6 +1529,19 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
                (interactive)
                (persp-switch-nth ,n)))))
 
+  (defun persp-switch-to-org ()
+    "Switch to the Org perspective."
+    (interactive)
+    (let ((initialized (member "org" (persp-names))))
+      (persp-switch "org")
+      (unless initialized
+        (find-file (expand-file-name "TODO.org" org-directory)))))
+
+  (defun persp-switch-to-main ()
+    "Switch to the Main perspective."
+    (interactive)
+    (persp-switch "main"))
+
   :hook
   (emacs-startup-hook . persp-mode)
   (kill-emacs-hook . persp-state-save)
@@ -1521,7 +1552,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
         ("C-x x C-s" . persp-state-save)
         ("C-x x x" . persp-switch-nth)
         ("C-s-[" . persp-prev)
-        ("C-s-]" . persp-next)))
+        ("C-s-]" . persp-next)
+        ("s-o" . persp-switch-to-org)
+        ("s-m" . persp-switch-to-main)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -3018,7 +3051,7 @@ With a prefix ARG always prompt for command to use."
   ;;   :demand t
   ;;   :config
   ;;   (eldoc-box-hover-at-point-mode))
-  
+
   (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
 
@@ -3095,7 +3128,7 @@ Include PREFIX in prompt if given."
   (Man-notify-method 'aggressive)
   :config
   (set-face-attribute 'Man-overstrike nil
-                      :inherit font-lock-type-face :bold t :height 1.1)
+                      :inherit font-lock-type-face :weight 'bold :height 1.1)
   (set-face-attribute 'Man-underline nil
                       :inherit font-lock-keyword-face :underline t)
   :bind
@@ -3168,6 +3201,8 @@ If the current major mode is in this list, scope the search to
 the corresponding docset."
     :type 'list
     :group 'dash-docs)
+
+  (defvar dash-docs-docset-modes)
 
   (defun counsel-dash-with-docset (docset &optional initial)
     "Query dash DOCSET.
@@ -3768,7 +3803,7 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :custom
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
-  
+
   :config
   (use-package forge :demand t)
 
@@ -4380,15 +4415,19 @@ See https://github.com/Fuco1/smartparens/issues/80."
                    :actions '(insert navigate)
                    :pre-handlers '(sp-sh-pre-handler)
                    :post-handlers '(sp-sh-case-post-handler)))
+
   (sp-with-modes 'org-mode
     (sp-local-pair "=" "=" :wrap "C-M-=")
     (sp-local-pair "~" "~" :wrap "C-~"))
+
   (sp-local-pair 'minibuffer-inactive-mode "'" nil :actions nil)
+
   (sp-with-modes sp-lisp-modes
     (sp-local-pair "(" nil
                    :wrap "C-M-("
                    :pre-handlers '(sp-add-space-before-sexp-insertion)
                    :post-handlers '(sp-add-space-after-sexp-insertion)))
+
   (setq sp-ignore-modes-list
         (delete 'minibuffer-inactive-mode sp-ignore-modes-list))
 
@@ -4399,8 +4438,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
-  ((text-mode-hook prog-mode-hook minibuffer-setup-hook cider-repl-mode-hook
-    toml-mode-hook)
+  ((cider-repl-mode-hook conf-mode-hook minibuffer-setup-hook prog-mode-hook
+                         text-mode-hook toml-mode-hook)
    . smartparens-mode)
 
   :bind
@@ -4595,6 +4634,30 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
   :hook
   (comint-mode-hook . comint-setup))
 
+(use-package ssh-agency
+  :defer 5
+  :config
+  (defun ssh-agency-list-keys ()
+    "List the currently loaded ssh-agent keys."
+    (interactive)
+    (message
+     (string-trim-right
+      (let ((default-directory user-emacs-directory))
+        (shell-command-to-string (concat ssh-agency-add-executable " -l"))))))
+
+  (defun ssh-agency-ensure-without-keys ()
+    "Start ssh-agent but don't add keys.
+
+Intended to be used at Emacs startup so we run ssh-agent but
+don't immediately bother the user with adding keys.  Keys will be
+added as they are used."
+    (message "Starting ssh-agent...")
+    (or (ssh-agency-status)
+        (ssh-agency-find-agent)
+        (ssh-agency-start-agent)))
+
+  (ssh-agency-ensure-without-keys))
+
 (use-package ssh
   :custom
   (ssh-directory-tracking-mode 'ftp)
@@ -4707,8 +4770,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (let* ((max-length (or max-length 40))
          (separator (if (eq system-type 'windows-nt) "\\" "/"))
          (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
-         (right (split-string (abbreviate-file-name (expand-file-name file-name))
-                              separator))
+         (right (split-string (abbreviate-file-name file-name) separator))
          left output)
     (while (and (< 1 (length right))
                 (< max-length (length (string-join (append left right) separator))))
@@ -4879,6 +4941,13 @@ predicate returns true."
         ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package vterm
+  ;; FIXME Use fork until https://github.com/akermu/emacs-libvterm/pull/373 is merged.
+  :straight (vterm :type git :flavor melpa
+                   :files ("*" (:exclude ".dir-locals.el" ".gitignore"
+                                         ".clang-format" ".travis.yml")
+                           "vterm-pkg.el")
+                   :host github :repo "akermu/emacs-libvterm"
+                   :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"))
   :init
   ;; (defvar vterm-install nil
   ;;   "Tell `vterm' to compile if necessary.")
@@ -4887,31 +4956,6 @@ predicate returns true."
   (vterm-buffer-name-string "*vterm %s*")
 
   :config
-  ;; TODO Remove this once https://github.com/akermu/emacs-libvterm/pull/373 is
-  ;; merged.
-  (defun vterm-module-compile ()
-    "Compile vterm-module."
-    (interactive)
-    (when (vterm-module--cmake-is-available)
-      (let* ((vterm-directory
-              (shell-quote-argument
-               (file-name-directory (find-library-name "vterm"))))
-             (make-commands
-              (concat
-               "cd " vterm-directory "; \
-             mkdir -p build; \
-             cd build; \
-             cmake "
-               vterm-module-cmake-args
-               " ..; \
-             make; \
-             cd -"))
-             (buffer (get-buffer-create vterm-install-buffer-name)))
-        (pop-to-buffer buffer)
-        (if (zerop (call-process "sh" nil buffer t "-c" make-commands))
-            (message "Compilation of `emacs-libvterm' module succeeded")
-          (error "Compilation of `emacs-libvterm' module failed!")))))
-  
   (defun vterm--set-background-color ()
     (make-local-variable 'ansi-color-names-vector)
     (aset ansi-color-names-vector 0
@@ -5402,7 +5446,7 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
     ;; Set up `tramp-colon-prefix'.
     (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand nil t)
 
-    (defvar eshell-hist-mode-map)
+    (defvar eshell-mode-map)
     (bind-keys
      :map eshell-mode-map
      ("C-a" . eshell-maybe-bol)
@@ -5574,6 +5618,17 @@ Advise `eshell-ls-decorated-name'."
         ("C-i" . indent-for-tab-command)
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
+
+;; TODO Tried this 2020-08-03 but change tracking is buggy and slow.  Check back
+;; later.
+;; (use-package parinfer-rust-mode
+;;   :hook
+;;   ((clojure-mode-hook
+;;     emacs-lisp-mode-hook
+;;     hy-mode-hook
+;;     lisp-interaction-mode-hook
+;;     lisp-mode-hook
+;;     scheme-mode-hook) . parinfer-rust-mode))
 
 (use-package emr
   :bind
@@ -6088,30 +6143,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
     :config
     (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))))
 
-;; TODO Get `shrface' to work.
-;; (use-package shrface
-;;   :demand t
-;;   :custom
-;;   (shrface-href-versatile t)
-;;   :config
-;;   (shrface-basic)
-;;   ;; (shrface-trial)
-
-;;   ;; eww support
-;;   (with-eval-after-load 'eww
-;;     (add-hook 'eww-after-render-hook 'shrface-mode))
-
-;;   ;; nov support
-;;   (with-eval-after-load 'nov
-;;     (setq nov-shr-rendering-functions '((img . nov-render-img) (title . nov-render-title)))
-;;     (setq nov-shr-rendering-functions
-;;           (append nov-shr-rendering-functions shr-external-rendering-functions))
-;;     (add-hook 'nov-mode-hook 'shrface-mode))
-
-;;   ;; mu4e support
-;;   (with-eval-after-load 'mu4e
-;;     (add-hook 'mu4e-view-mode-hook 'shrface-mode))))
-
 (use-package eww
   :config
   (defun eww-other-window (url)
@@ -6270,7 +6301,6 @@ Open the `eww' buffer in another window."
 
 ;;;; Python
 
-;; pip install python-language-server
 (use-package python
   :straight (:type built-in)
   :mode ("\\.py\\'" . python-mode)
@@ -6280,7 +6310,12 @@ Open the `eww' buffer in another window."
   :bind
   (:map python-mode-map
         ("s-v" . yank)
-        ("s-<return>" . python-shell-send-defun))
+        ("s-<return>" . python-shell-send-defun)))
+
+;; pip install python-language-server
+(use-package lsp-python-ms
+  :config
+  (require 'lsp-python-ms)
   :hook
   (python-mode-hook . lsp-deferred))
 
@@ -6537,16 +6572,19 @@ END is the end of the region.
 THING is used to indicate to the user what was just formatted.
 
 Prefix ARG is passed to `fill-paragraph'."
-  (interactive "r")
+  (interactive)
   (save-excursion
-    (unless (use-region-p) (mark-whole-buffer))
+    (if (use-region-p)
+        (setq thing (or thing "region"))
+      (setq thing (or thing "buffer"))
+      (push-mark (or beg (point-min)))
+      (push-mark (or end (point-max)) nil t))
     (save-mark-and-excursion
       (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg)))
     (save-mark-and-excursion
       (call-interactively #'crux-cleanup-buffer-or-region))
-    (indent-region (or beg (if (use-region-p) (region-beginning) (point-min)))
-                   (or end (if (use-region-p) (region-end) (point-max))))
-    (message "Formatted the %s." (or thing (if (use-region-p) 'region 'buffer)))))
+    (indent-region (region-beginning) (region-end))
+    (message "Formatted the %s." thing)))
 
 (defun format-defun-or-region ()
   "Format the current defun or region, if one is active."
@@ -6875,8 +6913,9 @@ This package sets these explicitly so we have to do the same."
   :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'"
   :bind
   ;; Don't change ident level when yanking.
-  ("s-v" . clipboard-yank)
-  ("RET" . newline-and-indent))
+  (:map yaml-mode-map
+        ("s-v" . clipboard-yank)
+        ("RET" . newline-and-indent)))
 
 (use-package toml-mode
   :mode "\\.toml\\'")
@@ -6962,8 +7001,10 @@ This package sets these explicitly so we have to do the same."
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
+
   :config
   (add-to-list 'c-default-style '(csharp-mode . "c#"))
+  
   (defun csharp-mode-setup ()
     "Set up C# mode."
     (exec-path-from-shell-setenv
@@ -6972,8 +7013,12 @@ This package sets these explicitly so we have to do the same."
              (exec-path-from-shell-getenv "PATH")))
     (setq c-syntactic-indentation t)
     (setq truncate-lines t))
+
+  (defvar csharp-mode-map)
+
   :hook
   (csharp-mode-hook . csharp-mode-setup)
+
   :bind
   (:map csharp-mode-map
         ("<" . c-electric-lt-gt)
@@ -6985,6 +7030,8 @@ This package sets these explicitly so we have to do the same."
   ;; Use `omnisharp-install-server' to set things up after installing the
   ;; package.
   :config
+  (defvar omnisharp-mode-map)
+  
   (defun omnisharp-mode-setup ()
     "Set up C# mode."
     (omnisharp-install-server nil)
@@ -6992,6 +7039,7 @@ This package sets these explicitly so we have to do the same."
     (make-local-variable 'company-backends)
     (add-to-list 'company-backends #'company-omnisharp)
     (add-hook 'before-save-hook #'omnisharp-code-format-entire-file))
+  
   :hook
   (csharp-mode-hook . omnisharp-mode-setup)
 
@@ -7136,10 +7184,10 @@ configuration when invoked to evaluate a line."
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
   (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "DONE(d!)")))
-  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :bold t))
-                            ("WORK" (:background "green" :foreground "black" :bold t))
-                            ("WAIT" (:background "orange" :foreground "black" :bold t))
-                            ("DONE" (:background "gray" :foreground "black" :bold t))))
+  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :weight bold))
+                            ("WORK" (:background "green" :foreground "black" :weight bold))
+                            ("WAIT" (:background "orange" :foreground "black" :weight bold))
+                            ("DONE" (:background "gray" :foreground "black" :weight bold))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
@@ -7172,6 +7220,11 @@ configuration when invoked to evaluate a line."
   org-capture-refile
   :config
 
+  (set-face-attribute 'outline-1 nil :height 1.6)
+  (set-face-attribute 'outline-2 nil :height 1.4)
+  (set-face-attribute 'outline-3 nil :height 1.2)
+  (set-face-attribute 'outline-4 nil :height 1.1)
+
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
                                  (calc . t)
@@ -7190,6 +7243,7 @@ configuration when invoked to evaluate a line."
                                  (sql . t)
                                  (sqlite . t)))
 
+  (defvar org-babel-clojure-backend)
   (setq org-babel-clojure-backend 'cider)
 
   (defun window-config-org ()
@@ -7233,16 +7287,6 @@ With a prefix ARG, create it in `org-directory'."
                                   (arg org-directory)
                                   ((projectile-project-p)
                                    (projectile-project-root))))))
-
-  (defun org-switch-to-org-perspective ()
-    "Visit `org-directory' using Dired."
-    (interactive)
-    (let ((initialized (member "org" (persp-names))))
-      (persp-switch "org")
-      (unless initialized
-        (cd org-directory)
-        (org-mode)
-        (dired org-directory))))
 
   (defun org-todo-todo ()
     "Create or update Org todo entry to TODO status."
@@ -7380,6 +7424,7 @@ With a prefix ARG, create it in `org-directory'."
     :commands
     org-preview-html-mode)
 
+  ;; TODO Get this to work.
   ;; (use-package inherit-org
   ;;   :demand t
   ;;   :straight (:host github :repo "chenyanming/inherit-org")
@@ -7396,8 +7441,18 @@ With a prefix ARG, create it in `org-directory'."
 
   (defvar org-odt-convert-processes)
 
-  (defun setup-odt-org-convert-process ()
-    (interactive)
+  (defun org-mode-setup ()
+    "Set up `org-mode'."
+    ;; Only in `org-mode', disable some smartparens bindings by making an
+    ;; overriding keymap.
+    (when (and (derived-mode-p 'org-mode) smartparens-mode)
+      (let ((map (make-sparse-keymap)))
+        (set-keymap-parent map smartparens-mode-map)
+        (define-key map (kbd "C-M-u") nil)
+        (define-key map (kbd "C-M-d") nil)
+        (push `(smartparens-mode . ,map) minor-mode-overriding-map-alist)))
+
+    ;; Configure LibreOffice ODT export to actually export to MS Office format.
     (let ((cmd "/Applications/LibreOffice.app/Contents/MacOS/soffice"))
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
         (setq org-odt-convert-processes
@@ -7405,11 +7460,10 @@ With a prefix ARG, create it in `org-directory'."
                  "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
 
   :hook
-  (org-mode-hook . setup-odt-org-convert-process)
+  (org-mode-hook . org-mode-setup)
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
   :bind
-  ("s-o" . org-switch-to-org-perspective)
   ("C-c C-o" . org-open-at-point)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
@@ -7431,13 +7485,12 @@ With a prefix ARG, create it in `org-directory'."
         ("C-M-d" . org-down-element)
         ("C-s-t" . org-show-only-current-subtree)
         ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element)
-        ([remap org-return] . org-return-indent))
+        ("C-M-d" . org-down-element))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
         ("c" . org-capture)
-        ("d" . org-switch-to-org-perspective)
+        ("d" . persp-switch-to-org)
         ("i" . org-insert-link)
         ("l" . org-store-link)
         ("n" . org-new-note)
@@ -7446,7 +7499,7 @@ With a prefix ARG, create it in `org-directory'."
   (:map m-search-map
         ("o" . org-search-org-directory))
   (:map m-file-map
-        ("o" . org-switch-to-org-perspective))
+        ("o" . persp-switch-to-org))
   (:map visual-line-mode-map
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
