@@ -109,6 +109,20 @@
     (setq profiler-max-stack-depth 50)
     (explain-pause-mode t)))
 
+(defun profiler-dwim (and-mem)
+  "Toggle `profiler'.
+
+If `profiler' is stopped, start it in cpu mode.
+
+If `profiler' is started, stop it and run `profiler-report'.
+
+If AND-MEM is non-nil, profile memory as well."
+  (interactive "P")
+  (if (not (and (fboundp 'profiler-cpu-running-p) (profiler-cpu-running-p)))
+      (profiler-start (if and-mem 'cpu+mem 'cpu))
+    (profiler-stop)
+    (profiler-report)))
+
 
 ;;;;; package management
 
@@ -311,7 +325,8 @@ higher level up to the top level form."
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
  ("s-<return>" . eval-last-sexp)
- ("s-RET" . eval-last-sexp))
+ ("s-RET" . eval-last-sexp)
+ ("M-m M-p" . profiler-dwim))
 
 
 ;;;; Outline
