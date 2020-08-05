@@ -721,9 +721,13 @@ This is used to determine whether the current window is active."
     "Return the remote hostname for the current buffer.
 Return nil if the buffer is local."
     (when (file-remote-p default-directory)
-      (propertize (format " %s " (tramp-file-name-host
-                                  (tramp-dissect-file-name default-directory)))
-                  'face 'highlight)))
+      (let* ((dissected (tramp-dissect-file-name default-directory)))
+        (concat
+         (when-let* ((user (tramp-file-name-user dissected))
+                     (face (if (string= user "root") 'error 'warning)))
+           (propertize (concat " " user " ") 'face face))
+         (propertize (concat " " (tramp-file-name-host dissected) " ")
+                     'face 'highlight)))))
 
   (defun mood-line--make-xpm (face width height)
     "Create an XPM bitmap via FACE, WIDTH and HEIGHT. Inspired by `powerline''s `pl/make-xpm'."
@@ -764,9 +768,24 @@ Return nil if the buffer is local."
     "Display a bar."
     (or mood-line-bar (mood-line--refresh-bar)))
 
+  (defvar-local mood-line-buffer-name nil
+    "The buffer name as displayed in `mood-line'.")
+
+  (defun mood-line--refresh-buffer-name ()
+    "Refresh the buffer name."
+    (setq-local mood-line-buffer-name
+                (propertize
+                 (concat " " (shorten-file-name (format-mode-line "%b")) " ")
+                 'face 'mode-line-buffer-id)))
+
+  (add-hook 'window-state-change-hook #'mood-line--refresh-buffer-name)
+  (add-hook 'after-save-hook #'mood-line--refresh-buffer-name)
+  (add-hook 'after-set-visited-file-name-hook #'mood-line--refresh-buffer-name)
+
   (defun mood-line-segment-buffer-name ()
     "Displays the name of the current buffer in the mode-line."
-    (propertize (concat " " (shorten-file-name (format-mode-line "%b")) " ") 'face 'mode-line-buffer-id))
+    mood-line-buffer-name)
+
 
   (defun mood-line-segment-modified ()
     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
@@ -923,8 +942,8 @@ This sets things up for `window-highlight' and `mode-line'."
     (apply #'custom-set-faces
            `((default ((t :background ,inactive-bg)))
              (fringe ((t :background ,inactive-bg)))
-             (window-highlight-focused-window ((t :background ,active-bg)))
              (vertical-border ((t :foreground ,inactive-bg)))
+             (window-highlight-focused-window ((t :background ,active-bg)))
              (cursor ((t :background "magenta")))
              ;; (eldoc-box-body ((t :inherit default
              ;;                     :background
@@ -2869,8 +2888,11 @@ With a prefix ARG always prompt for command to use."
                           ("git" "gitignore" "gitattributes" "gitmodules"))
     (dired-rainbow-define config "#5040e2"
                           ("cfg" "conf"))
+    (dired-rainbow-define certificate "#6cb2eb"
+                          ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
+    (dired-rainbow-define junk "#7F7D7D"
+                          ("DS_Store" "projectile"))
     (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-    (dired-rainbow-define junk "#7F7D7D" ("DS_Store" "projectile"))
 
     (dolist (b (buffer-list))
       (with-current-buffer b
@@ -2878,6 +2900,7 @@ With a prefix ARG always prompt for command to use."
           (font-lock-refresh-defaults))))
 
     (remove-hook 'dired-mode-hook #'dired-rainbow-setup))
+  
   :hook
   (dired-mode-hook . dired-rainbow-setup))
 
@@ -4752,7 +4775,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
-  (let* ((max-length (or max-length 40))
+  (let* ((max-length (or max-length 60))
          (separator (if (eq system-type 'windows-nt) "\\" "/"))
          (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
          (right (split-string (abbreviate-file-name file-name) separator))
@@ -4954,7 +4977,10 @@ predicate returns true."
 
   :bind
   ("C-c t" . vterm)
-  ("C-c C-t" . vterm-other-window))
+  ("C-c C-t" . vterm-other-window)
+  (:map vterm-mode-map
+        ("M-p" . vterm-send-up)
+        ("M-n" . vterm-send-down)))
 
 (custom-set-variables
  ;; Shut up compile saves
@@ -5524,6 +5550,7 @@ Advise `eshell-ls-decorated-name'."
   ;; Fish-like autosuggestions.
   (use-package esh-autosuggest
     :config
+    (defvar esh-autosuggest-active-map)
     (defun esh-autosuggest-setup ()
       "Set up `esh-autosuggest-mode'."
       (esh-autosuggest-mode)
