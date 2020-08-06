@@ -2493,22 +2493,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   :hook
   (company-mode-hook . company-prescient-mode))
 
-;; (use-package dumb-jump
-;;   :custom
-;;   (dumb-jump-selector 'ivy)
-;;   (dumb-jump-prefer-searcher 'rg)
-;;   :hook
-;;   (prog-mode-hook . dumb-jump-mode)
-;;   ;; dumb-jump shadows some Eshell key bindings, and is not useful there anyway
-;;   (eshell-mode-hook . (lambda () (dumb-jump-mode -1)))
-;;   :bind
-;;   (:map dumb-jump-mode-map
-;;         ;; Don't shadow `ivy'.
-;;         ("C-M-p" . nil)
-;;         ("s-j" . dumb-jump-go-prompt)
-;;         ("s-." . dumb-jump-go)
-;;         ("s-J" . dumb-jump-quick-look)))
-
 (use-package smart-jump
   :config
   (defun smart-jump-go-other-window (&optional smart-list continue)
