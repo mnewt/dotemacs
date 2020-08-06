@@ -1460,8 +1460,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
            (window (seq-some (lambda (w) (not (memq w previous))) current))
            (buffer (window-buffer window)))
       (winner-undo)
-      (other-window 1)
-      (switch-to-buffer buffer)))
+      (switch-to-buffer-other-window buffer)))
 
   (winner-mode)
   :bind
@@ -2058,9 +2057,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :custom
   (rg-keymap-prefix (kbd "C-c M-s"))
   :config
-  (rg-enable-default-bindings (kbd "C-r"))
-  :hook
-  (rg-mode-hook . wgrep-ag-setup))
+  (rg-enable-default-bindings (kbd "C-r")))
 
 (use-package ivy
   :custom
@@ -2438,6 +2435,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
           company-dabbrev))
 
   (use-package company-box
+    :if window-system
     :custom
     (company-box-enable-icon nil)
     :hook
@@ -2504,26 +2502,31 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
 (use-package smart-jump
   :config
   (defun smart-jump-go-other-window (&optional smart-list continue)
-    "Show the function/variable declartion for thing at point in other window.
+    "Show the function/variable declartion for thing at point in another window.
 
-SMART-LIST will be set (or nil) if this is a continuation of a previous jump.
+SMART-LIST will be set (or nil) if this is a continuation of a
+previous jump.
 
 CONTINUE will be non nil if this is a continuation of a previous jump."
     (interactive)
-    (smart-jump-when-let*
-        ((sj-list (or smart-list (and (not continue) smart-jump-list))))
-      (switch-to-buffer-other-window (current-buffer))
-      (smart-jump-run
-       #'smart-jump-go
-       sj-list
-       :jump-fn :heuristic :pop-fn)))
+    (let ((old (current-buffer)))
+      (smart-jump-go smart-list continue)
+      (let ((new (current-buffer)))
+        ;; If old and new are the same then `xref' has popped up another window
+        ;; listing multiple definitions and we bail.
+        (unless (eq new old)
+          (switch-to-buffer old)
+          (switch-to-buffer-other-window new)))))
 
   (smart-jump-setup-default-registers)
+
+  ;; Use xref-goto-definitions in `helpful-mode'.
+  (smart-jump-register :modes 'helpful-mode)
 
   :bind
   ("M-." . smart-jump-go)
   ("M-?" . smart-jump-references)
-  ("M-P" . smart-jump-peek)
+  ("M-P" . smart-jump-go-other-window)
   ("C-x 4 ." . smart-jump-go-other-window))
 
 (use-package spotlight

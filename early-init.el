@@ -33,7 +33,7 @@
 ;; of white. These colors are from doom-one.
 (set-face-attribute 'default nil :background "#282c34" :foreground "#bbc2cf")
 ;; Default frame settings. This is actually maximized, not full screen.
-(push '(fullscreen . maximized) default-frame-alist)
+(push '(fullscreen . maximized) initial-frame-alist)
 (push '(ns-transparent-titlebar . t) default-frame-alist)
           
 ;; Resizing the Emacs frame can be a terribly expensive part of changing the
