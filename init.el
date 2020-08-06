@@ -732,7 +732,7 @@ This is used to determine whether the current window is active."
     "Return whether the current window is active."
     (eq mood-line-selected-window (selected-window)))
 
-  (defun mood-line-hostname ()
+  (defun mood-line-segment-hostname ()
     "Return the remote hostname for the current buffer.
 Return nil if the buffer is local."
     (when (file-remote-p default-directory)
@@ -745,7 +745,9 @@ Return nil if the buffer is local."
                      'face 'highlight)))))
 
   (defun mood-line--make-xpm (face width height)
-    "Create an XPM bitmap via FACE, WIDTH and HEIGHT. Inspired by `powerline''s `pl/make-xpm'."
+    "Create an XPM bitmap via FACE, WIDTH and HEIGHT.
+
+Inspired by `powerline''s `pl/make-xpm'."
     (when (and (display-graphic-p)
                (image-type-available-p 'xpm))
       (propertize
@@ -772,16 +774,23 @@ Return nil if the buffer is local."
                               (if (eq idx len) "\"};" "\",\n")))))
             'xpm t :ascent 'center))))))
 
+  (defcustom mood-line-height 22
+    "The height of the mode-line in pixels."
+    :group 'mood-line
+    :type 'number)
+
   (defun mood-line--refresh-bar ()
     "Refresh the bar."
-    (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 22)))
+    (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 mood-line-height)))
 
   (defvar mood-line-bar (mood-line--refresh-bar)
-    "A bar inspired by `doom-modeline'.")
+    "A bar to increase the height of the mode-line.
+
+Inspired by `doom-modeline'.")
 
   (defun mood-line-segment-bar ()
     "Display a bar."
-    (or mood-line-bar (mood-line--refresh-bar)))
+    mood-line-bar)
 
   (defvar-local mood-line-buffer-name nil
     "The buffer name as displayed in `mood-line'.")
@@ -844,6 +853,12 @@ Return nil if the buffer is local."
                              ""
                            (concat (string-trim s) " "))))
                      mode-line-misc-info))))
+
+  (defun mood-line-segment-projectile ()
+    "Display the projectile project name."
+    (when (and (mood-line-window-active-p) (fboundp #'projectile-project-name))
+      (propertize (concat " " (projectile-project-name) " ")
+                  'face 'font-lock-variable-name-face)))
 
   (defun outline-minor-mode-info ()
     "Display an indicator when `outline-minor-mode' is enabled."
@@ -908,27 +923,21 @@ Return nil if the buffer is local."
 
   (defun mood-line-segment-major-mode ()
     "Displays the current major mode in the mode-line."
-    (propertize " %m " 'face (if (mood-line-window-active-p)
-                                 'mode-line-emphasis
-                               'mode-line)))
-
-  (defun --format-mood-line (left right)
-    "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
-    (concat
-     left
-     " "
-     (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
-     right))
+    (when (mood-line-window-active-p)
+      (propertize (concat " " (format-mode-line mode-name) " ")
+                  'face (if (mood-line-window-active-p)
+                            'mode-line-emphasis
+                          'mode-line))))
 
   (mood-line-mode)
 
   (setq-default mode-line-format
                 '((:eval
-                   (--format-mood-line
+                   (mood-line--format
                     ;; Left
                     (format-mode-line
                      '((:eval (mood-line-segment-bar))
-                       (:eval (mood-line-hostname))
+                       (:eval (mood-line-segment-hostname))
                        (:eval (mood-line-segment-buffer-name))
                        (:eval (mood-line-segment-modified))
                        (:eval (mood-line-segment-major-mode))
@@ -937,6 +946,7 @@ Return nil if the buffer is local."
                     ;; Right
                     (format-mode-line
                      '((:eval (mood-line-segment-process))
+                       (:eval (mood-line-segment-projectile))
                        (:eval (mood-line-segment-flycheck))
                        (:eval (mood-line-segment-misc-info)))))))))
 
