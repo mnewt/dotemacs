@@ -2395,7 +2395,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   :custom
   (counsel-projectile-remove-current-buffer t)
   (counsel-projectile-remove-current-project t)
-  (compilation-scroll-output t)
   :config
   ;; When switching projects, go straight to dired in the project root.
   (setcar counsel-projectile-switch-project-action 4)
@@ -4849,6 +4848,16 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
 
+(use-package compile
+  :custom
+  (compilation-scroll-output t)
+  (compilation-ask-about-save nil)
+  (compile-command "")
+  ;; Don't prompt to save files before compiling.
+  (compilation-save-buffers-predicate (lambda () nil))
+  :bind
+  ("C-x c" . compile))
+
 ;; dtach (https://github.com/crigler/dtach)
 ;; https://emacs.stackexchange.com/questions/2283/attach-to-running-remote-shell-with-eshell-tramp-dtach
 (defvar explicit-dtach-args
@@ -4914,7 +4923,7 @@ non-sudo shell is left intact."
           (t (message "Can't sudo this buffer")))))
 
 (defun filter-functions (regexp &optional predicate)
-  "Return a list of functions matching REGEXP.
+  "Return a list of functions whose names match REGEXP.
 
 If PREDICATE is specified, only return functions for which
 predicate returns true."
@@ -4967,11 +4976,8 @@ predicate returns true."
                                          ".clang-format" ".travis.yml")
                            "vterm-pkg.el")
                    :host github :repo "akermu/emacs-libvterm"
-                   :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"))
-  :init
-  ;; (defvar vterm-install nil
-  ;;   "Tell `vterm' to compile if necessary.")
-
+                   :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"
+                                :branch "vterm-module-compile-with-native-compile"))
   :custom
   (vterm-buffer-name-string "*vterm %s*")
 
@@ -4981,9 +4987,6 @@ predicate returns true."
     (aset ansi-color-names-vector 0
           (plist-get (face-spec-choose (theme-face 'default)) :background)))
 
-  (with-eval-after-load 'vterm
-    (bind-key "s-v" #'yank vterm-mode-map))
-
   :hook
   (vterm-mode-hook . vterm--set-background-color)
 
@@ -4991,16 +4994,10 @@ predicate returns true."
   ("C-c t" . vterm)
   ("C-c C-t" . vterm-other-window)
   (:map vterm-mode-map
+        ;; Override the normal `clipboard-yank-and-indent'.
+        ("s-v" . clipboard-yank)
         ("M-p" . vterm-send-up)
         ("M-n" . vterm-send-down)))
-
-(custom-set-variables
- ;; Shut up compile saves
- '(compilation-ask-about-save nil)
- '(compile-command "")
- '(compilation-save-buffers-predicate (lambda () nil)))
-
-(bind-key "C-x c" #'compile)
 
 (use-package xterm-color
   :commands
