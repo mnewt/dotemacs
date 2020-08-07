@@ -1531,6 +1531,10 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :config
   (make-directory (file-name-directory persp-state-default-file) t)
 
+  (defun persp-set-frame-title ()
+    "Set the frame title with the current perspective name."
+    (setq frame-title-format (persp-current-name)))
+
   (defun choose-by-number (options &optional prompt)
     "Display a list and choose among OPTIONS by pressing its number."
     (interactive)
@@ -1572,6 +1576,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   :hook
   (emacs-startup-hook . persp-mode)
+  (persp-activated-hook . persp-set-frame-title)
   (kill-emacs-hook . persp-state-save)
 
   :bind
@@ -2984,13 +2989,6 @@ With a prefix ARG always prompt for command to use."
                                  (auto-revert-mode))))
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
-
-(use-package counsel-tramp
-  :hook
-  (counsel-tramp-pre-command-hook . (lambda () (projectile-mode 0)))
-  (counsel-tramp-quit-hook . projectile-mode)
-  :commands
-  counsel-tramp)
 
 (bind-keys
  ("C-x M-s" . psync-maybe)
@@ -4689,25 +4687,49 @@ added as they are used."
   ("/known_hosts\\'" . ssh-known-hosts-mode)
   ("/authorized_keys2?\\'" . ssh-authorized-keys-mode))
 
-(defun tramp-cleanup-all ()
-  "Clean up all tramp buffers and connections."
-  (interactive)
-  (tramp-cleanup-all-buffers)
-  (tramp-cleanup-all-connections)
-  (setq ivy-history
-        (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
-                    ivy-history)))
+;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
+(use-package tramp
+  :functions
+  tramp-cleanup-all
+  tramp-insert-remote-part
+  tramp-dired
+  :config
+  (defun tramp-cleanup-all ()
+    "Clean up all tramp buffers and connections."
+    (interactive)
+    (tramp-cleanup-all-buffers)
+    (tramp-cleanup-all-connections)
+    (setq ivy-history
+          (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
+                      ivy-history)))
 
-(defun tramp-insert-remote-part ()
-  "Insert current tramp prefix at point."
-  (interactive)
-  (if-let* ((remote (file-remote-p default-directory)))
-      (insert remote)))
+  (defun tramp-insert-remote-part ()
+    "Insert current tramp prefix at point."
+    (interactive)
+    (if-let* ((remote (file-remote-p default-directory)))
+        (insert remote)))
 
-;; Configure TRAMP to respect the PATH variable on the remote machine (for
-;; remote eshell sessions)
-(with-eval-after-load 'tramp
-  (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
+  (defun tramp-dired (host)
+    "Choose an ssh HOST and then open it with dired."
+    (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
+    (find-file
+     (if (tramp-file-name-p host)
+         host
+       (find-file (concat "/ssh:" host ":")))))
+
+  ;; Configure TRAMP to respect the PATH variable on the remote machine (for
+  ;; remote eshell sessions)
+  (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+
+  :bind
+  ("C-:" . tramp-insert-remote-part))
+
+(use-package counsel-tramp
+  :hook
+  (counsel-tramp-pre-command-hook . (lambda () (projectile-mode 0)))
+  (counsel-tramp-quit-hook . projectile-mode)
+  :commands
+  counsel-tramp)
 
 (defun insert-environment-variable ()
   "Insert contents of an envionment variable at point."
@@ -4775,14 +4797,6 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (interactive)
   (ssh (concat (when prefix-arg (concat (read-from-minibuffer "ssh arguments: ") " "))
                (ssh-choose-host))))
-
-(defun dired-tramp (host)
-  "Choose an ssh HOST and then open it with dired."
-  (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
-  (find-file
-   (if (tramp-file-name-p host)
-       host
-     (find-file (concat "/ssh:" host ":")))))
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
@@ -4979,6 +4993,7 @@ predicate returns true."
                    :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"
                                 :branch "vterm-module-compile-with-native-compile"))
   :custom
+  (vterm-always-compile-module t)
   (vterm-buffer-name-string "*vterm %s*")
 
   :config
@@ -4987,17 +5002,19 @@ predicate returns true."
     (aset ansi-color-names-vector 0
           (plist-get (face-spec-choose (theme-face 'default)) :background)))
 
+  (bind-keys
+   :map vterm-mode-map
+   ;; Override the normal `clipboard-yank-and-indent'.
+   ("s-v" . clipboard-yank)
+   ("M-p" . vterm-send-up)
+   ("M-n" . vterm-send-down))
+
   :hook
   (vterm-mode-hook . vterm--set-background-color)
 
   :bind
   ("C-c t" . vterm)
-  ("C-c C-t" . vterm-other-window)
-  (:map vterm-mode-map
-        ;; Override the normal `clipboard-yank-and-indent'.
-        ("s-v" . clipboard-yank)
-        ("M-p" . vterm-send-up)
-        ("M-n" . vterm-send-down)))
+  ("C-c C-t" . vterm-other-window))
 
 (use-package xterm-color
   :commands
@@ -5086,7 +5103,6 @@ See https://github.com/mnewt/fpw."
 
 (bind-keys
  ("C-c C-v" . insert-environment-variable)
- ("C-:" . tramp-insert-remote-part)
  :map m-map
  ("p" . fpw)
  :map m-file-map
@@ -6302,12 +6318,12 @@ Open the `eww' buffer in another window."
     sass-mode-hook
     web-mode-hook) . add-node-modules-path))
 
-;; (use-package js
-;;   :mode ("\\.jsx?\\'" . js-mode)
-;;   :custom
-;;   (js-indent-level tab-width)
-;;   :hook
-;;   (js-mode-hook . lsp-deferred))
+(use-package js
+  :mode ("\\.jsx?\\'" . js-mode)
+  :custom
+  (js-indent-level tab-width)
+  :hook
+  (js-mode-hook . lsp-deferred))
 
 (use-package json-mode
   :mode ("\\.json\\'" "prettierrc\\'"))
