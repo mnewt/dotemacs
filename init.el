@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; It's an Emacs init file.  It relies on heavily on use-package for
-;; organization and delayed loading.
+;; It's an Emacs init file.  It relies on heavily on `use-package' for
+;; organization and delayed loading and `straight' for packaage managment.
 
 ;;; Code:
 
@@ -14,6 +14,11 @@
 (eval-when-compile
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
+
+;; FIXME Seems to fix the issue where `comp' ends up creating an empty `.eln'
+;; file for `straight.el'.
+(custom-set-variables
+ '(comp-deferred-compilation-black-list '("straight.*")))
 
 ;;;;; Security
 
@@ -203,8 +208,7 @@ higher level up to the top level form."
   (exec-path-from-shell-variables
    '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH"
      "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE"))
-  :functions
-  exec-path-from-shell-setenv
+
   :config
   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
   ;; it only sources $BASH_ENV.
@@ -224,7 +228,7 @@ higher level up to the top level form."
           (concat (getenv "LIBRARY_PATH")
                   (when (getenv "LIBRARY_PATH") ":")
                   ;; This is where Homebrew puts gcc libraries.
-                  (car (file-expand-wildcards "/usr/local/opt/gcc/lib/gcc/*")))))
+                  "/usr/local/opt/gcc/lib/gcc/10")))
 
 ;;;; Third Party Libraries
 
@@ -237,7 +241,7 @@ higher level up to the top level form."
 (use-package f)
 
 (use-package async
-  :functions
+  :commands
   async-let)
 ;; FIXME Still has too many failures and timeouts.
 ;; :hook
@@ -287,6 +291,7 @@ higher level up to the top level form."
 (bind-prefix m-toggle-map "M-m t" "Toggle commands")
 (bind-prefix m-search-map "M-m s" "Search commands")
 (bind-prefix m-org-map "M-m o" "Org commands")
+(bind-prefix m-org-map "M-m M-o" "Org commands")
 
 ;; Key bindings to make moving between Emacs and other appliations a bit less
 ;; jarring. These are mostly based on macOS defaults but an effor has been made
@@ -435,11 +440,11 @@ higher level up to the top level form."
   (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
-  :custom
-  (auto-revert-verbose nil)
-  (revert-without-query '(".*"))
+  ;; :custom
+  ;; (auto-revert-verbose nil)
+  ;; (revert-without-query '(".*"))
   :hook
-  (after-change-major-mode-hook . auto-revert--global-adopt-current-buffer))
+  (after-change-major-mode-hook . auto-revert-mode))
 
 (use-package savehist
   :demand t
@@ -693,6 +698,7 @@ then choose the next key in the Alist `fiat-themes'."
   (window-highlight-mode))
 
 (use-package doom-themes
+  :demand t
   :config
   (doom-themes-visual-bell-config))
 
@@ -708,6 +714,26 @@ Stolen from solarized."
                       (+ (* alpha it) (* other (- 1 alpha))))
                     (color-name-to-rgb color1)
                     (color-name-to-rgb color2))))
+
+(defun shorten-file-name (file-name &optional max-length)
+  "Shorten FILE-NAME to no more than MAX-LENGTH characters."
+  (let* ((max-length (or max-length 60))
+         (separator (if (eq system-type 'windows-nt) "\\" "/"))
+         (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
+         (right (split-string (abbreviate-file-name file-name) separator))
+         left output)
+    (while (and (< 1 (length right))
+                (< max-length (length (string-join (append left right) separator))))
+      (push (let ((r (pop right)))
+              (if (< 0 (length r))
+                  (substring r 0 1)
+                ""))
+            left))
+    (setq output (string-join (append (reverse left) right) separator))
+    (if (< max-length (length output))
+        (concat ellipsis
+                (substring output (- (length output) (length ellipsis) max-length)))
+      output)))
 
 (use-package mood-line
   :demand t
@@ -856,7 +882,9 @@ Inspired by `doom-modeline'.")
 
   (defun mood-line-segment-projectile ()
     "Display the projectile project name."
-    (when (and (mood-line-window-active-p) (fboundp #'projectile-project-name))
+    (when (and (not (file-remote-p default-directory))
+               (mood-line-window-active-p)
+               (fboundp #'projectile-project-name))
       (propertize (concat " " (projectile-project-name) " ")
                   'face 'font-lock-variable-name-face)))
 
@@ -2353,7 +2381,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (projectile-mode-line nil)
   :commands
   projectile-project-root
-  :functions
   projectile-project-p
   :config
   (defun projectile-git-ls-files (&optional dir)
@@ -2441,7 +2468,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (setq company-backends
         '(company-semantic
           company-clang
-          company-xcode
           company-cmake
           company-capf
           company-files
@@ -2659,8 +2685,6 @@ See: https://github.com/mnewt/psync"
 
 (use-package server
   :defer 6
-  :functions
-  server-running-p
   :config
   (unless (server-running-p)
     (server-start)))
@@ -2820,15 +2844,30 @@ With a prefix ARG always prompt for command to use."
   (:map dired-mode-map
         ("C-." . dired-omit-mode)))
 
+;; TODO Pop open status buffer
+;; TODO Fix status buffer's display
+;; TODO Send PR, reference:
+;; https://github.com/stsquad/dired-rsync/issues/12
 (use-package dired-rsync
+  :config
+  (defun dired-rsync--set-mode-line-misc-info (&optional err ind)
+    "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
+
+ERR and IND are ignored."
+    (setf (alist-get 'dired-rsync mode-line-misc-info)
+          (list dired-rsync-modeline-status)))
+
+  (advice-add #'dired-rsync--update-modeline
+              :after #'dired-rsync--set-mode-line-misc-info)
+  
   :bind
   (:map dired-mode-map
         ("C-c C-r" . dired-rsync)))
 
 (use-package disk-usage
-  :defer t
-  :straight (disk-usage
-             :fork (:host nil :repo "git@gitlab.com:mnewt/emacs-disk-usage")))
+  :bind
+  (:map dired-mode-map
+        (")" . disk-usage-here)))
 
 (use-package wdired
   :custom
@@ -2990,6 +3029,10 @@ With a prefix ARG always prompt for command to use."
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
 
+(use-package dired-quick-sort
+  :bind
+  ("C-c C-s" . hydra-dired-quick-sort/body))
+
 (bind-keys
  ("C-x M-s" . psync-maybe)
  ("C-c o" . os-open-file)
@@ -3073,6 +3116,7 @@ With a prefix ARG always prompt for command to use."
   (global-eldoc-mode))
 
 (use-package which-key
+  :defer 19
   :custom
   (which-key-idle-delay 0.25)
   :config
@@ -3134,8 +3178,8 @@ Include PREFIX in prompt if given."
   ;; https://with-emacs.com/posts/prefix-command-completion/
   (setq prefix-help-command #'which-key-M-x-prefix+)
 
-  :hook
-  (ivy-mode-hook . which-key-mode)
+  (which-key-mode)
+
   :bind
   ("C-s-h" . which-key-show-top-level))
 
@@ -3152,7 +3196,7 @@ Include PREFIX in prompt if given."
   ("C-h C-m" . man))
 
 (use-package woman
-  :functions
+  :commands
   tramp-aware-woman
 
   :config
@@ -3820,6 +3864,8 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   :custom
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
+  ;; Set for performance reasons
+  (magit-git-executable (executable-find "git"))
 
   :config
   (use-package forge :demand t)
@@ -3831,13 +3877,16 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
   ("C-x g" . magit-status)
   ("C-x M-g" . magit-dispatch))
 
-(use-package magit-todos
-  :commands
-  magit-todos--scan-with-git-grep
-  :custom
-  (magit-todos-scanner #'magit-todos--scan-with-git-grep)
-  :hook
-  (magit-mode-hook . magit-todos-mode))
+;; Seems to have some performance problems in certain cases because it just
+;; keeps running and running on dotfiles repos. It's not super necessary so not
+;; worth the hassle.
+;; (use-package magit-todos
+;;   :commands
+;;   magit-todos--scan-with-git-grep
+;;   :custom
+;;   (magit-todos-scanner #'magit-todos--scan-with-git-grep)
+;;   :hook
+;;   (magit-mode-hook . magit-todos-mode))
 
 (use-package git-timemachine
   :bind
@@ -3855,20 +3904,6 @@ https://github.com/magit/magit/issues/460#issuecomment-36139308"
         ("M-." . diff-goto-source)))
 
 (use-package diff-hl
-  :config
-  (defvar mood-one-theme--diff-hl-bmp
-    (define-fringe-bitmap 'mood-one-theme--diff-hl-bmp
-      (vector #b11100000) 1 8 '(center t))
-    "Fringe bitmap for use with `diff-hl'.
-
-Stolen from https://gitlab.com/jessieh/mood-one-theme.")
-
-  (defun mood-one-theme-diff-hl-fringe-bmp-function (_type _pos)
-    "Fringe bitmap function for use as `diff-hl-fringe-bmp-function'."
-    mood-one-theme--diff-hl-bmp)
-
-  (setq diff-hl-fringe-bmp-function #'mood-one-theme-diff-hl-fringe-bmp-function)
-
   :commands
   diff-hl-magit-post-refresh
   diff-hl-mode
@@ -4798,26 +4833,6 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (ssh (concat (when prefix-arg (concat (read-from-minibuffer "ssh arguments: ") " "))
                (ssh-choose-host))))
 
-(defun shorten-file-name (file-name &optional max-length)
-  "Shorten FILE-NAME to no more than MAX-LENGTH characters."
-  (let* ((max-length (or max-length 60))
-         (separator (if (eq system-type 'windows-nt) "\\" "/"))
-         (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
-         (right (split-string (abbreviate-file-name file-name) separator))
-         left output)
-    (while (and (< 1 (length right))
-                (< max-length (length (string-join (append left right) separator))))
-      (push (let ((r (pop right)))
-              (if (< 0 (length r))
-                  (substring r 0 1)
-                ""))
-            left))
-    (setq output (string-join (append (reverse left) right) separator))
-    (if (< max-length (length output))
-        (concat ellipsis
-                (substring output (- (length output) (length ellipsis) max-length)))
-      output)))
-
 (use-package shell
   :config
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -4984,14 +4999,6 @@ predicate returns true."
         ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package vterm
-  ;; FIXME Use fork until https://github.com/akermu/emacs-libvterm/pull/373 is merged.
-  :straight (vterm :type git :flavor melpa
-                   :files ("*" (:exclude ".dir-locals.el" ".gitignore"
-                                         ".clang-format" ".travis.yml")
-                           "vterm-pkg.el")
-                   :host github :repo "akermu/emacs-libvterm"
-                   :fork (:host nil :repo "git@github.com:mnewt/emacs-libvterm"
-                                :branch "vterm-module-compile-with-native-compile"))
   :custom
   (vterm-always-compile-module t)
   (vterm-buffer-name-string "*vterm %s*")
@@ -5080,14 +5087,24 @@ predicate returns true."
   (kill-new buffer-file-name)
   (message buffer-file-name))
 
-(defvar fpw-args "-pLUDS"
-  "Arguments for the `fpw' command.")
+(defgroup fpw nil
+  "Generate random passwords securely?."
+  :group 'external
+  :link '(url-link :tag "GitHub" "https://github.com/mnewt/fpw"))
+
+(defcustom fpw-args "-LUDSn 10"
+  "Arguments for the `fpw' command."
+  :group 'fpw
+  :type 'string)
 
 (defun fpw (command)
   "Run `fpw' command as COMMAND.
 
 Copy the result to the `kill-ring'.  Call with a prefix argument
 to modify the args.
+
+Create a buffer named *Fun Password Generator* but only pop it
+open when a prefix arg is specified.
 
 See https://github.com/mnewt/fpw."
   (interactive
@@ -5097,9 +5114,15 @@ See https://github.com/mnewt/fpw."
                                    command
                                    'fpw-history)
              command))))
-  (let ((result (string-trim (shell-command-to-string command))))
-    (kill-new result)
-    (message result)))
+  (let ((buffer (get-buffer-create "*Fun Password Generator*")))
+    (shell-command command buffer)
+    (with-current-buffer buffer
+      (save-excursion
+        (forward-line -1)
+        (copy-region-as-kill (line-beginning-position) (line-end-position))))
+    (message "Copied to kill-ring: %s" (car kill-ring))
+    (when current-prefix-arg
+      (pop-to-buffer buffer))))
 
 (bind-keys
  ("C-c C-v" . insert-environment-variable)
@@ -5628,6 +5651,7 @@ Advise `eshell-ls-decorated-name'."
       pretty-parens  ; different paren styles for different modes.
       smart-tab      ; C-b & C-f jump positions and smart shift with tab & S-tab.
       smart-yank))   ; Yank behavior depends on mode.
+
   :config
   (parinfer-strategy-add 'default 'newline-and-indent)
   (parinfer-strategy-add 'instantly
@@ -5635,6 +5659,7 @@ Advise `eshell-ls-decorated-name'."
       parinfer-smart-tab:dwim-right-or-complete
       parinfer-smart-tab:dwim-left))
   (setq parinfer-lighters '("➠" ")"))
+
   :hook
   ((clojure-mode-hook
     emacs-lisp-mode-hook
@@ -6222,14 +6247,15 @@ Open the `eww' buffer in another window."
         ("C-c '" . fence-edit-dwim)))
 
 (use-package web-mode
-  :mode ("\\.jsx?\\'"
-         "\\.p?html?\\'"
-         "\\.tpl\\.php\\'"
-         "\\.[agj]sp\\'"
-         "\\.as[cp]x\\'"
-         "\\.erb\\'"
-         "\\.mustache\\'"
-         "\\.djhtml\\'")
+  :mode
+  "\\.jsx?\\'"
+  "\\.p?html?\\'"
+  "\\.tpl\\.php\\'"
+  "\\.[agj]sp\\'"
+  "\\.as[cp]x\\'"
+  "\\.erb\\'"
+  "\\.mustache\\'"
+  "\\.djhtml\\'"
 
   :init
   (defun web-mode-setup ()
@@ -6285,7 +6311,6 @@ Open the `eww' buffer in another window."
 
 (use-package restclient
   :mode ("\\.restclient\\'" . restclient-mode)
-
   :commands
   restclient-outline-mode
 
@@ -6296,7 +6321,6 @@ Open the `eww' buffer in another window."
       "Set up `company-restclient'."
       (make-local-variable 'company-backends)
       (add-to-list 'company-backends 'company-restclient))
-
     :hook
     (restclient-mode-hook . company-restclient-setup))
 
@@ -6363,6 +6387,7 @@ Open the `eww' buffer in another window."
   :config
   :hook (python-mode-hook . pipenv-mode))
 
+(use-package ein)
 
 ;;;; Swift
 
@@ -6497,20 +6522,33 @@ Open the `eww' buffer in another window."
   :custom
   (lsp-enable-snippet t)
   (lsp-auto-guess-root t)
-  (lsp-eldoc-render-all t)
-  (lsp-prefer-flymake nil)
   (lsp-before-save-edits t)
+  (lsp-progress-via-spinner nil)
+
   :config
   ;; Support reading large blobs of data from lsp servers.
-  (setq read-process-output-max (* 1024 1024)) ; 1mb
+  (setq read-process-output-max 1048576) ; 1mb
   (with-eval-after-load 'flycheck
     (add-to-list 'flycheck-checkers #'lsp))
+
+  (defun lsp-reset-mode-line-process ()
+    "Reset `mode-line-process' manually."
+    (interactive)
+    (setq mode-line-process nil))
+
   :hook
   (lsp-after-open-hook . lsp-enable-imenu)
-  (lsp-mode . lsp-enable-which-key-integration))
+  (lsp-mode . lsp-enable-which-key-integration)
+
+  :bind
+  (:map lsp-mode-map
+        ("s-l p" . lsp-reset-mode-line-process)))
 
 (use-package lsp-ui
-  :commands lsp-ui-mode
+  :custom
+  (lsp-ui-doc-position 'top)
+  :commands
+  lsp-ui-mode
   :hook
   (lsp-mode-hook . lsp-ui-mode)
   :bind
@@ -6520,7 +6558,9 @@ Open the `eww' buffer in another window."
         ("C-h ." . lsp-ui-doc-show))
   (:map lsp-ui-peek-mode-map
         ("<return>" . lsp-ui-peek--goto-xref)
-        ("M-/" . lsp-ui-peek--goto-xref)))
+        ("M-/" . lsp-ui-peek--goto-xref))
+  (:map lsp-command-map
+        ("i" . lsp-ui-imenu)))
 
 (use-package lsp-ivy
   :commands
@@ -6535,6 +6575,7 @@ Open the `eww' buffer in another window."
   :defer 11
   :config
   (dolist (formatter '((lua-fmt "luafmt" "--stdin")
+                       (rubocop "rubocop" "--format" "emacs" file)
                        (rufo "rufo" "--simple-exit" "--filename" file)
                        (swift-format "xcrun" "swift-format")
                        (shfmt  "shfmt")
@@ -6550,7 +6591,7 @@ Open the `eww' buffer in another window."
                   (lua-mode . lua-fmt)
                   (markdown-mode . prettier)
                   (nxml-mode . xmllint)
-                  (ruby-mode . rufo)
+                  (ruby-mode . rubocop)
                   (sh-mode . shfmt)
                   (swift-mode . swift-format)
                   (web-mode . prettier)))
@@ -6957,12 +6998,11 @@ This package sets these explicitly so we have to do the same."
 (use-package toml-mode
   :mode "\\.toml\\'")
 
-(use-package enh-ruby-mode
+(use-package ruby-mode
   ;; :ensure-system-package
   ;; (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :config
-  (defvar inf-ruby-minor-mode-map)
   (use-package inf-ruby
     :hook
     (enh-ruby-mode-hook . inf-ruby-minor-mode)
@@ -6972,7 +7012,7 @@ This package sets these explicitly so we have to do the same."
           ("s-<return>". ruby-send-last-sexp)
           ("C-M-x" . ruby-send-block)))
   :hook
-  (enh-ruby-mode-hook . lsp-deferred))
+  (ruby-mode-hook . lsp-deferred))
 
 (use-package lua-mode
   :mode "\\.lua\\'"
@@ -7162,6 +7202,10 @@ configuration when invoked to evaluate a line."
 (use-package nix-mode
   :mode "\\.nix\\'")
 
+(use-package nftables-mode
+  :straight (:host github :repo "mnewt/nftables-mode")
+  :mode ("\\.nft\\(?:ables\\)?\\'" "/etc/nftables.conf")
+  :interpreter "nft\\(?:ables\\)?")
 
 ;;;; Multiple Major Modes
 
@@ -7247,6 +7291,7 @@ configuration when invoked to evaluate a line."
   (org-image-actual-width 500)
   ;; When exporting to odt, actually create a docx.
   (org-odt-preferred-output-format "docx")
+  (org-return-follows-link t)
 
   :commands
   org-todo
@@ -7442,6 +7487,22 @@ With a prefix ARG, create it in `org-directory'."
     (org-reveal)
     (org-show-subtree))
 
+  (defun org-link-message ()
+    "When in `org-mode', display link destinations in the minibuffer."
+    (when (derived-mode-p 'org-mode)
+      (let ((object (org-element-context)))
+        (when (eq (car object) 'link)
+          (message "%s" (org-element-property :raw-link object))))))
+
+  ;; (use-package org-spacer
+  ;;   :straight (:host github :repo "dustinlacewell/org-spacer.el")
+  ;;   :config
+  ;;   (defun org-spacer-setup ()
+  ;;     "Set up `org-spacer'."
+  ;;     (add-hook 'before-save-hook 'org-spacer-enforce nil 'local))
+  ;;   :hook
+  ;;   (org-mode-hook . org-spacer-setup))
+
   (use-package ob-async :demand t)
 
   (use-package ob-session-async
@@ -7494,7 +7555,9 @@ With a prefix ARG, create it in `org-directory'."
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
         (setq org-odt-convert-processes
               '(("LibreOffice"
-                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
+                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i")))))
+
+    (add-hook 'post-command-hook 'org-link-message 90 'local))
 
   :hook
   (org-mode-hook . org-mode-setup)
@@ -7507,7 +7570,6 @@ With a prefix ARG, create it in `org-directory'."
   ("C-c a" . org-agenda)
   ("C-c c" . org-capture)
   ("C-c b" . org-switchb)
-  ("C-c n" . org-new-note)
   (:map org-mode-map
         ("C-e" . org-end-of-line)
         ("C-M-}" . org-forward-sentence)
@@ -7540,6 +7602,40 @@ With a prefix ARG, create it in `org-directory'."
   (:map visual-line-mode-map
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
+
+;; WIP
+(use-package org-roam
+  :defer 16
+  :custom
+  (org-roam-directory (expand-file-name org-directory))
+  (org-roam-tag-sources '(prop last-directory))
+  :commands
+  org-roam
+  :config
+  (org-roam-mode)
+  (use-package org-roam-server)
+  :bind
+  (:map org-roam-mode-map
+        ("C-c n f" . org-roam-find-file)
+        ("C-c n g" . org-roam-graph))
+  (:map org-mode-map
+        ("C-c n l" . org-roam)
+        ("C-c n i" . org-roam-insert)
+        ("C-c n I" . org-roam-insert-immediate)))
+
+;; WIP
+;; Install:
+;; brew install tclap
+;; cd [[~/.emacs.d/straight/repos/notdeft/xapian]]
+;; make
+(use-package notdeft
+  :straight (:host github :repo "hasu/notdeft")
+  :custom
+  (notdeft-directory org-directory)
+  (notdeft-directories `(,org-directory))
+  (notdeft-secondary-extensions nil)
+  :bind
+  ("C-c n s" . notdeft))
 
 (use-package poporg
   :bind
