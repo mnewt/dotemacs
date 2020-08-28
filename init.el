@@ -6309,6 +6309,12 @@ Open the `eww' buffer in another window."
   :hook
   (sass-mode-hook . lsp-deferred))
 
+(use-package emmet-mode
+  :custom
+  (emmet-expand-jsx-className? t)
+  :hook
+  ((web-mode-hook sgml-mode-hook css-mode-hook) . emmet-mode))
+
 (use-package restclient
   :mode ("\\.restclient\\'" . restclient-mode)
   :commands
