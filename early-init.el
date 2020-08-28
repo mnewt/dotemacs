@@ -61,6 +61,14 @@
                   gc-cons-percentage 0.1)
             (run-with-idle-timer 20 t #'garbage-collect)))
 
+;; So that `comp' (Native Compilation) can find libgccjit and friends.
+;; It's set in `early-init' to ensure it's available when `comp' starts.
+(setenv "LIBRARY_PATH"
+        (concat (getenv "LIBRARY_PATH")
+                (when (getenv "LIBRARY_PATH") ":")
+                ;; This is where Homebrew puts gcc libraries.
+                "/usr/local/opt/gcc/lib/gcc/10"))
+
 (provide 'early-init)
 
 ;;; early-init.el ends here

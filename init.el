@@ -17,8 +17,8 @@
 
 ;; FIXME Seems to fix the issue where `comp' ends up creating an empty `.eln'
 ;; file for `straight.el'.
-(custom-set-variables
- '(comp-deferred-compilation-black-list '("straight.*")))
+; (custom-set-variables
+;  '(comp-deferred-compilation-black-list '("straight.*")))
 
 ;;;;; Security
 
@@ -221,14 +221,7 @@ higher level up to the top level form."
      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
 
   ;; Emacs is a good pager.
-  (setenv "PAGER" "cat")
-
-  ;; So that `comp' (Native Compilation) can find libgccjit and friends.
-  (setenv "LIBRARY_PATH"
-          (concat (getenv "LIBRARY_PATH")
-                  (when (getenv "LIBRARY_PATH") ":")
-                  ;; This is where Homebrew puts gcc libraries.
-                  "/usr/local/opt/gcc/lib/gcc/10")))
+  (setenv "PAGER" "cat"))
 
 ;;;; Third Party Libraries
 
