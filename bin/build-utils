@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Print the given arguments out in a nice heading
+heading() {
+	printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
+}
+
 # Homebrew packages to install.
 # DO_BREW_PACKAGES=()
 
