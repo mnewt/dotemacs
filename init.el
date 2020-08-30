@@ -17,8 +17,8 @@
 
 ;; FIXME Seems to fix the issue where `comp' ends up creating an empty `.eln'
 ;; file for `straight.el'.
-(custom-set-variables
- '(comp-deferred-compilation-black-list '("straight.*")))
+; (custom-set-variables
+;  '(comp-deferred-compilation-black-list '("straight.*")))
 
 ;;;;; Security
 
@@ -78,10 +78,22 @@
   (interactive (list (completing-read
                       "Delete repo: "
                       (straight--directory-files (straight--repos-dir)))))
-  (when (y-or-n-p (format "Delete repository %S? " repo))
-    (delete-directory (straight--repos-dir repo) 'recursive 'trash)
-    (message "Deleted repo %s." repo)))
-
+  (let* ((eln-dirs (cl-loop for dir in comp-eln-load-path append
+                            (directory-files dir t "[^.].*")))
+         (modules (mapcar #'file-name-sans-extension
+                          (directory-files (straight--repos-dir "parinfer-mode") nil ".*\\.el")))
+         (files (cl-loop for dir in eln-dirs append
+                         (directory-files dir t (format "%s-[0-9a-f]\\{32\\}-[0-9a-f]\\{32\\}\\.eln"
+                                                        (regexp-opt modules)))))
+         (dirs (list (straight--repos-dir repo) (straight--build-dir repo))))
+    (when (yes-or-no-p (format "Delete these files and directories?\n%s\n "
+                               (mapconcat #'identity (append dirs files) "\n")))
+      (dolist (dir dirs)
+        (delete-directory dir 'recursive 'trash)
+        (message "Deleted directory %s" dir))
+      (dolist (file files)
+        (delete-file file 'trash)
+        (message "Deleted file %s." repo)))))
 
 ;;;;; use-package
 
@@ -221,14 +233,7 @@ higher level up to the top level form."
      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
 
   ;; Emacs is a good pager.
-  (setenv "PAGER" "cat")
-
-  ;; So that `comp' (Native Compilation) can find libgccjit and friends.
-  (setenv "LIBRARY_PATH"
-          (concat (getenv "LIBRARY_PATH")
-                  (when (getenv "LIBRARY_PATH") ":")
-                  ;; This is where Homebrew puts gcc libraries.
-                  "/usr/local/opt/gcc/lib/gcc/10")))
+  (setenv "PAGER" "cat"))
 
 ;;;; Third Party Libraries
 
@@ -828,8 +833,7 @@ Inspired by `doom-modeline'.")
                  (concat " " (shorten-file-name (format-mode-line "%b")) " ")
                  'face 'mode-line-buffer-id)))
 
-  (add-hook 'window-state-change-hook #'mood-line--refresh-buffer-name)
-  (add-hook 'after-save-hook #'mood-line--refresh-buffer-name)
+  (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
   (add-hook 'after-set-visited-file-name-hook #'mood-line--refresh-buffer-name)
 
   (defun mood-line-segment-buffer-name ()
