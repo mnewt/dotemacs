@@ -833,8 +833,7 @@ Inspired by `doom-modeline'.")
                  (concat " " (shorten-file-name (format-mode-line "%b")) " ")
                  'face 'mode-line-buffer-id)))
 
-  (add-hook 'window-state-change-hook #'mood-line--refresh-buffer-name)
-  (add-hook 'after-save-hook #'mood-line--refresh-buffer-name)
+  (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
   (add-hook 'after-set-visited-file-name-hook #'mood-line--refresh-buffer-name)
 
   (defun mood-line-segment-buffer-name ()
