@@ -78,10 +78,22 @@
   (interactive (list (completing-read
                       "Delete repo: "
                       (straight--directory-files (straight--repos-dir)))))
-  (when (y-or-n-p (format "Delete repository %S? " repo))
-    (delete-directory (straight--repos-dir repo) 'recursive 'trash)
-    (message "Deleted repo %s." repo)))
-
+  (let* ((eln-dirs (cl-loop for dir in comp-eln-load-path append
+                            (directory-files dir t "[^.].*")))
+         (modules (mapcar #'file-name-sans-extension
+                          (directory-files (straight--repos-dir "parinfer-mode") nil ".*\\.el")))
+         (files (cl-loop for dir in eln-dirs append
+                         (directory-files dir t (format "%s-[0-9a-f]\\{32\\}-[0-9a-f]\\{32\\}\\.eln"
+                                                        (regexp-opt modules)))))
+         (dirs (list (straight--repos-dir repo) (straight--build-dir repo))))
+    (when (yes-or-no-p (format "Delete these files and directories?\n%s\n "
+                               (mapconcat #'identity (append dirs files) "\n")))
+      (dolist (dir dirs)
+        (delete-directory dir 'recursive 'trash)
+        (message "Deleted directory %s" dir))
+      (dolist (file files)
+        (delete-file file 'trash)
+        (message "Deleted file %s." repo)))))
 
 ;;;;; use-package
 
