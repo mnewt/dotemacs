@@ -2896,7 +2896,7 @@ ERR and IND are ignored."
     (dired-rainbow-define xml "#f2d024"
                           ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
                            "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
-                           "meta" "unity"))
+                           "meta" "unity" "tres" "tscn" "import" "godot"))
     (dired-rainbow-define document "#9561e2"
                           ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
                            "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
@@ -6313,6 +6313,12 @@ Open the `eww' buffer in another window."
   :hook
   (sass-mode-hook . lsp-deferred))
 
+(use-package emmet-mode
+  :custom
+  (emmet-expand-jsx-className? t)
+  :hook
+  ((web-mode-hook sgml-mode-hook css-mode-hook) . emmet-mode))
+
 (use-package restclient
   :mode ("\\.restclient\\'" . restclient-mode)
   :commands
@@ -6929,7 +6935,9 @@ This command defaults to running the previous command."
   ;; mbsync
   "\\.mbsyncrc"
   ;; pkg-config
-  "\\.pc")
+  "\\.pc"
+  ;; godot
+  "\\.\\(tres\\|tscn\\|import\\|godot\\)\\'")
 
 ;; display nfo files in all their glory
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
@@ -6992,7 +7000,7 @@ This package sets these explicitly so we have to do the same."
   (caddyfile-mode-hook . caddyfile-setup))
 
 (use-package yaml-mode
-  :mode "\\.\\(ya\?ml\\|meta\\|unity\\)\\'"
+  :mode "\\.\\(ya\?ml\\|meta\\|unity\\|prefab\\)\\'"
   :bind
   ;; Don't change ident level when yanking.
   (:map yaml-mode-map
@@ -7210,6 +7218,17 @@ configuration when invoked to evaluate a line."
   :straight (:host github :repo "mnewt/nftables-mode")
   :mode ("\\.nft\\(?:ables\\)?\\'" "/etc/nftables.conf")
   :interpreter "nft\\(?:ables\\)?")
+
+(use-package gdscript-mode
+  :straight ( :type git :host github :repo "godotengine/emacs-gdscript-mode")
+  :config
+  (use-package yasnippet-godot-gdscript
+    :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
+    :config
+    (add-to-list 'yas-snippet-dirs
+                 (straight--repos-dir "yasnippet-godot-gdscript" "snippets")))
+  :hook
+  (gdscript-mode-hook . lsp-deferred))
 
 ;;;; Multiple Major Modes
 
