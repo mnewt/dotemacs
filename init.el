@@ -956,6 +956,14 @@ Inspired by `doom-modeline'.")
                   'face (if (mood-line-window-active-p)
                             'mode-line-emphasis
                           'mode-line))))
+  
+  ;; (defun mood-line--format (left right)
+  ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
+  ;;   (concat
+  ;;    left
+  ;;    " "
+  ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
+  ;;    right))
 
   (mood-line-mode)
 
@@ -7321,8 +7329,9 @@ configuration when invoked to evaluate a line."
   org-capture-refile
   :config
 
-  (set-face-attribute 'outline-1 nil :height 1.6)
-  (set-face-attribute 'outline-2 nil :height 1.4)
+  (set-face-attribute 'org-document-title nil :height 1.6)
+  (set-face-attribute 'outline-1 nil :height 1.4)
+  (set-face-attribute 'outline-2 nil :height 1.3)
   (set-face-attribute 'outline-3 nil :height 1.2)
   (set-face-attribute 'outline-4 nil :height 1.1)
 
