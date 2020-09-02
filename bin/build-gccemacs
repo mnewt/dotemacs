@@ -71,7 +71,7 @@ do_install() {
 	local target="${1:-$DO_REPO_DIRECTORY}"
 	heading "Installing $target..."
 
-	# Ensure the directory to which we will dump Emacs exists and has the correct
+	# Ensure the directory to which we will install Emacs exists and has the correct
 	# permissions set.
 	local libexec=/usr/local/libexec/emacs
 	if [ ! -d $libexec ]; then

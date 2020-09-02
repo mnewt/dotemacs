@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-DO_BASE_DIR="$HOME/.emacs.d/src"
+DO_BASE_DIR="$HOME/code"
 
 DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
 
 DO_REPO_DIRECTORY="emacs"
 
-DO_REPO_BRANCH="master"
+DO_REPO_BRANCH="emacs-27"
 
 DO_BREW_PACKAGES=(
 	autoconf
@@ -32,8 +32,7 @@ DO_BREW_CASKS=(
 
 DO_LIBS=(
 	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
-	/usr/local/gcc
-	# /usr/local/gcc/lib/gcc/x86_64-apple-darwin19.5.0/11.0.0/
+	gcc
 	giflib
 	gnutls
 	jansson
@@ -41,9 +40,9 @@ DO_LIBS=(
 	libtiff
 	libxml2
 	# Required by gnutls
-	# nettle
-	# libtasn1
-	# p11-kit
+	nettle
+	libtasn1
+	p11-kit
 )
 
 DO_CONFIGURE_OPTS=(
@@ -81,7 +80,7 @@ do_install() {
 	# the Emacs Lisp and C source files in the right place.
 	make -j $DO_CORES install
 	rm -rf "$HOME/Applications/Emacs.app"
-	mv nextstep/Emacs.app "$HOME/Applications/"
+	mv "nextstep/Emacs.app" "$HOME/Applications/"
 
 	popd
 }
