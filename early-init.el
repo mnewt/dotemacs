@@ -11,12 +11,14 @@
 
 ;; Uncomment this to debug.
 ;; (setq init-file-debug t)
+;; (setq messages-buffer-max-lines 100000)
 
+;; If an `.el' file is newer than its corresponding `.elc', load the `.el'.
 (setq load-prefer-newer t)
 
 ;; Set Garbage Collection threshold to 1GB, run GC on idle.
 (setq gc-cons-threshold 1073741824
-      gc-cons-percentage 1.0)
+      gc-cons-percentage 0.6)
 
 ;; Write any customizations to a temp file so they are discarded.
 (setq custom-file (make-temp-file "custom-" nil ".el"))
@@ -59,15 +61,7 @@
           (lambda ()
             (setq file-name-handler-alist file-name-handler-alist-old
                   gc-cons-percentage 0.1)
-            (run-with-idle-timer 20 t #'garbage-collect)))
-
-;; So that `comp' (Native Compilation) can find libgccjit and friends.
-;; It's set in `early-init' to ensure it's available when `comp' starts.
-(setenv "LIBRARY_PATH"
-        (concat (getenv "LIBRARY_PATH")
-                (when (getenv "LIBRARY_PATH") ":")
-                ;; This is where Homebrew puts gcc libraries.
-                "/usr/local/opt/gcc/lib/gcc/10"))
+            (run-with-idle-timer 10 t #'garbage-collect)))
 
 (provide 'early-init)
 

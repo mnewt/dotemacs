@@ -11,14 +11,37 @@
 
 ;; Things that run at the very beginning of Emacs startup
 
+;; Ensure `early-init.el' runs even on older Emacs versions.
 (eval-when-compile
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
-;; FIXME Seems to fix the issue where `comp' ends up creating an empty `.eln'
-;; file for `straight.el'.
-; (custom-set-variables
-;  '(comp-deferred-compilation-black-list '("straight.*")))
+;;;;; Native Compilation
+
+;; So that `comp' (Native Compilation) can find libgccjit and friends.
+;; It's set in `early-init' to ensure it's available when `comp' starts.
+(setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
+                               (when (getenv "LIBRARY_PATH") ":")
+                               ;; This is where Homebrew puts gcc libraries.
+                               "/usr/local/opt/gcc/lib/gcc/10"))
+
+;; FIXME Temporary fix for parinfer's alias, `parinfer-save-excursion', being
+;; undefined after native compilation.
+(custom-set-variables
+ '(comp-deferred-compilation-black-list '("parinfer")))
+
+;; FIXME Delete empty .eln files on exit. This is horrible! It's a workaround
+;; for the fact that it seems to try and compile the `straight.el' file twice
+;; and fail the second time. Really not sure what is going on there but this
+;; gets things operational.
+(defun comp-delete-empty-eln-files ()
+  "Delete empty .eln files in eln-cache."
+  (apply #'call-process "find" nil nil nil
+         (append (mapcar #'expand-file-name comp-eln-load-path)
+                 '("-type" "f" "-empty" "-delete"))))
+
+(add-hook 'comp-async-all-done-hook #'comp-delete-empty-eln-files)
+(add-hook 'kill-emacs-hook #'comp-delete-empty-eln-files)
 
 ;;;;; Security
 
@@ -28,7 +51,7 @@
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
 
-;;;; Variables
+;;;;; Variables
 
 ;; Top level user variables
 
@@ -73,15 +96,17 @@
 (autoload #'straight-x-clean-unused-repos "straight-x" nil t)
 (autoload #'straight-x-fetch-all "straight-x" nil t)
 
-(defun straight-x-delete-repo (repo)
-  "Prompt for REPO and delete it from the file system."
+(defun straight-x-delete-package (name)
+  "Prompt for package NAME and delete it from the file system."
   (interactive (list (completing-read
-                      "Delete repo: "
-                      (straight--directory-files (straight--repos-dir)))))
-  (let* ((eln-dirs (cl-loop for dir in comp-eln-load-path append
+                      "Delete package: "
+                      (mapcar (lambda (package) (plist-get package :package))
+                              (hash-table-values straight--repo-cache)))))
+  (let* ((repo (plist-get (gethash name straight--repo-cache) :local-repo))
+         (eln-dirs (cl-loop for dir in comp-eln-load-path append
                             (directory-files dir t "[^.].*")))
          (modules (mapcar #'file-name-sans-extension
-                          (directory-files (straight--repos-dir "parinfer-mode") nil ".*\\.el")))
+                          (directory-files (straight--repos-dir repo) nil ".*\\.el")))
          (files (cl-loop for dir in eln-dirs append
                          (directory-files dir t (format "%s-[0-9a-f]\\{32\\}-[0-9a-f]\\{32\\}\\.eln"
                                                         (regexp-opt modules)))))
@@ -93,7 +118,7 @@
         (message "Deleted directory %s" dir))
       (dolist (file files)
         (delete-file file 'trash)
-        (message "Deleted file %s." repo)))))
+        (message "Deleted file %s." file)))))
 
 ;;;;; use-package
 
@@ -116,15 +141,15 @@
     :demand t
     :config
     ;; To disable collection of benchmark data after init is done.
-    (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+    (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
 
-  (use-package explain-pause-mode
-    :demand t
-    :straight (explain-pause-mode :host github
-                                  :repo "lastquestion/explain-pause-mode")
-    :config
-    (setq profiler-max-stack-depth 50)
-    (explain-pause-mode t)))
+  ;; (use-package explain-pause-mode
+  ;;   :demand t
+  ;;   :straight (explain-pause-mode :host github
+  ;;                                 :repo "lastquestion/explain-pause-mode")
+  ;;   :config
+  ;;   (setq profiler-max-stack-depth 50)
+  ;;   (explain-pause-mode t)))
 
 (defun profiler-dwim (and-mem)
   "Toggle `profiler'.
@@ -141,7 +166,7 @@ If AND-MEM is non-nil, profile memory as well."
     (profiler-report)))
 
 
-;;;;; package management
+;;;;; Additional Package Management Configuration
 
 (defvar emacs-start-time)
 (defvar straight--repo-cache)
@@ -392,10 +417,12 @@ higher level up to the top level form."
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
   (recentf-auto-cleanup 'never)
+
   :commands
   recentf-save-list
   recentf-cleanup
   recentf-mode
+
   :config
   (defun recentf-add-dired-directory ()
     (if (and dired-directory
@@ -407,7 +434,7 @@ higher level up to the top level form."
                (substring dired-directory 0 last-idx)
              dired-directory)))))
 
-  (defun grep-recent-files (filepattern pattern)
+  (defun recentf-grep-recent-files (filepattern pattern)
     (interactive "sFiles regexp: \nsSearch regexp: ")
     (let ((files (if filepattern
                      (cl-remove-if-not (lambda (item) (string-match filepattern item))
@@ -442,11 +469,13 @@ higher level up to the top level form."
 
   :hook
   (ivy-mode-hook . recentf-mode)
-  (dired-mode-hook . recentf-add-dired-directory))
+  (dired-mode-hook . recentf-add-dired-directory)
+  :bind
+  ("C-x M-f" . recentf-grep-recent-files))
 
 (use-package autorevert
-  ;; :custom
-  ;; (auto-revert-verbose nil)
+  :custom
+  (auto-revert-verbose nil)
   ;; (revert-without-query '(".*"))
   :hook
   (after-change-major-mode-hook . auto-revert-mode))
@@ -673,15 +702,6 @@ then choose the next key in the Alist `fiat-themes'."
   (interactive)
   (fiat 'dark))
 
-(when (eq system-type 'darwin)
-  (with-eval-after-load 'server
-    (set-process-query-on-exit-flag
-     (make-process
-      :name "dark-mode-notifier"
-      :buffer " *dark-mode-notifier*"
-      :command (list (executable-find "dark-mode-notifier")))
-     nil)))
-
 (bind-keys
  ("C-M-s-t" . fiat)
  ("M-m t t" . fiat)
@@ -826,11 +846,13 @@ Inspired by `doom-modeline'.")
   (defvar-local mood-line-buffer-name nil
     "The buffer name as displayed in `mood-line'.")
 
+  ;; TODO Use `shorten-file-name' here. The problem is it causes a stack
+  ;; overflow when multi-stage TRAMP paths are visited.
   (defun mood-line--refresh-buffer-name ()
     "Refresh the buffer name."
     (setq-local mood-line-buffer-name
                 (propertize
-                 (concat " " (shorten-file-name (format-mode-line "%b")) " ")
+                 (concat " " (format-mode-line "%b") " ")
                  'face 'mode-line-buffer-id)))
 
   (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
@@ -839,7 +861,6 @@ Inspired by `doom-modeline'.")
   (defun mood-line-segment-buffer-name ()
     "Displays the name of the current buffer in the mode-line."
     mood-line-buffer-name)
-
 
   (defun mood-line-segment-modified ()
     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
@@ -899,6 +920,15 @@ Inspired by `doom-modeline'.")
 
   (add-hook 'outline-minor-mode-hook #'outline-minor-mode-info)
 
+  (defun edebug-mode-info (_symbol newval _operation _where)
+    "Display an indicator when `edebug' is active.
+
+Watches `edebug-active' and sets the mode-line when it changes."
+    (setf (alist-get 'edebug-mode mode-line-misc-info)
+          (list (when newval "ED"))))
+
+  (add-variable-watcher 'edebug-active #'edebug-mode-info)
+
   (defvar buffer-narrowed nil
     "Non-nil if the buffer is currently narrowed.")
 
@@ -910,7 +940,7 @@ Inspired by `doom-modeline'.")
 
   ;; npostavs suggests hooking `post-command-hook'.
   ;; https://emacs.stackexchange.com/questions/33288
-  ;; (advice-add #'post-command-hook :after #'narrowed-info)
+  (advice-add #'post-command-hook :after #'narrowed-info)
 
   (defvar parinfer--mode)
   (defvar parinfer-lighters)
@@ -922,6 +952,13 @@ Inspired by `doom-modeline'.")
             (list (if (eq 'paren parinfer--mode)
                       (cdr parinfer-lighters)
                     (car parinfer-lighters))))))
+
+  (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
+  (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
+  (add-hook 'parinfer-switch-mode-hook #'parinfer-mode-info)
+  ;; KLUDGE None of the above hooks get called when parinfer is initialized
+  ;; so we have to catch up somehow. I'm sure there's a better way.
+  (add-hook 'window-state-change-hook #'parinfer-mode-info)
 
   ;; (defvar parinfer-rust-lighters
   ;;   '(("smart" . "s")
@@ -936,13 +973,6 @@ Inspired by `doom-modeline'.")
   ;;   (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
   ;;         (when parinfer-rust-enabled
   ;;           (list (assoc-default "smart" parinfer-rust-lighters)))))
-
-  (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
-  (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
-  (add-hook 'parinfer-switch-mode-hook #'parinfer-mode-info)
-  ;; KLUDGE None of the above hooks get called when parinfer is initialized
-  ;; so we have to catch up somehow. I'm sure there's a better way.
-  (add-hook 'window-state-change-hook #'parinfer-mode-info)
 
   ;; (add-hook 'window-state-change-hook #'parinfer-rust-mode-info)
 
@@ -1030,7 +1060,6 @@ This sets things up for `window-highlight' and `mode-line'."
 
 (use-package hl-line
   :defer 2
-
   :custom
   (global-hl-line-sticky-flag t)
 
@@ -1043,7 +1072,8 @@ This sets things up for `window-highlight' and `mode-line'."
     (with-current-buffer buffer
       (maybe-enable-hl-line-mode)))
 
-  (add-hook 'after-change-major-mode-hook #'maybe-enable-hl-line-mode))
+  :hook
+  (after-change-major-mode-hook . maybe-enable-hl-line-mode))
 
 (use-package page-break-lines
   :hook
@@ -1083,7 +1113,6 @@ This sets things up for `window-highlight' and `mode-line'."
 ;; (use-package font-lock-studio
 ;;   :commands
 ;;   font-lock-studio)
-
 
 ;;;; Navigation
 
@@ -1694,7 +1723,7 @@ _q_ quit
   :config
   (set-face-attribute 'symbol-overlay-default-face nil :background "gray")
   :hook
-  (prog-mode-hook . symbol-overlay-mode)
+  ((prog-mode-hook helpful-mode) . symbol-overlay-mode)
   :bind
   ("C-s-n" . symbol-overlay-jump-next)
   ("C-s-p" . symbol-overlay-jump-prev)
@@ -2028,8 +2057,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :bind
   ("C-c i p" . imenu-goto-previous)
   ("C-c i n" . imenu-goto-next)
-  ("C-'" . imenu)
-  ("s-R" . imenu))
+  ("C-'" . imenu))
 
 (use-package imenu-anywhere
   ;; FIXME With this setting, often it returns no results at all.
@@ -2475,16 +2503,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   company-select-next
   company-select-previous
   :config
-  (eldoc-add-command #'company-select-next
-                     #'company-select-previous)
-  (setq company-backends
-        '(company-semantic
-          company-clang
-          company-cmake
-          company-capf
-          company-files
-          (company-dabbrev-code company-gtags company-etags company-keywords)
-          company-dabbrev))
+  (eldoc-add-command #'company-select-next #'company-select-previous)
 
   (use-package company-box
     :if window-system
@@ -2496,9 +2515,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (global-company-mode)
 
   :hook
-  ((prog-mode-hook
-    lisp-interaction-mode-hook
-    cider-repl-mode-hook) . company-mode)
+  ((prog-mode-hook lisp-interaction-mode-hook cider-repl-mode-hook) . company-mode)
   ;; TODO: Figure out how to make company-mode work in the minibuffer.
   ;; (minibuffer-setup-hook . company-mode)
   :bind
@@ -2510,7 +2527,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("<return>" . nil)
         ("<tab>" . company-complete-selection)
         ("C-s" . company-filter-candidates)
-        ("M-?" . company-complete-selection)
         ("M-." . company-show-location))
   (:map minibuffer-local-map
         ("M-/" . completion-at-point))
@@ -2696,10 +2712,17 @@ See: https://github.com/mnewt/psync"
 ;;;; OS program interaction
 
 (use-package server
-  :defer 6
+  :defer 3
   :config
   (unless (server-running-p)
-    (server-start)))
+    (server-start))
+  (when (eq system-type 'darwin)
+    (set-process-query-on-exit-flag
+     (make-process
+      :name "dark-mode-notifier"
+      :buffer " *dark-mode-notifier*"
+      :command (list (executable-find "dark-mode-notifier")))
+     nil)))
 
 (defun reveal-in-windows-explorer (&optional file)
   "Reveal FILE in Windows Explorer."
@@ -2711,11 +2734,11 @@ See: https://github.com/mnewt/psync"
                                         (dired-get-file-for-visit))))))
 
 (use-package reveal-in-osx-finder
-  :if (memq window-system '(mac ns))
+  :if (eq system-type 'darwin)
   :commands
   reveal-in-osx-finder)
 
-(defun os-reveal-file (&optional _file)
+(defun reveal-file (&optional _file)
   "Reveal FILE using the operating system's GUI file browser."
   (interactive)
   (cl-case system-type
@@ -2758,7 +2781,7 @@ With a prefix ARG always prompt for command to use."
   ;; `dired-omit-mode' is managed by `dired-filter'.
   ;; (dired-omit-mode t)
   (dired-omit-files "\\`\\(?:[#.]\\|flycheck_\\).*")
-  ;; ;; Don't prompt to kill buffers of deleted directories.
+  ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
 
   :commands
@@ -2838,7 +2861,6 @@ With a prefix ARG always prompt for command to use."
 
   :hook
   (dired-mode-hook . dired-hide-details-mode)
-  (dired-mode-hook . auto-revert-mode)
   :bind
   (:map dired-mode-map
         ("." . hydra-dired/body)
@@ -2928,7 +2950,7 @@ ERR and IND are ignored."
     (dired-rainbow-define interpreted "#38c172"
                           ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
                            "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                           "scala" "js" "jsx" "lua" "fnl"))
+                           "scala" "js" "jsx" "lua" "fnl" "gd"))
     (dired-rainbow-define compiled "#6cb2eb"
                           ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                            "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
@@ -5583,19 +5605,6 @@ Advise `eshell-ls-decorated-name'."
     (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
              '(((name 64 64 :left) " " (process 0 -1 :right)))))
 
-  ;; (use-package bash-completion
-  ;;   :custom
-  ;;   ;; So that it doesn't sometimes insert a space ('\ ') after completing the
-  ;;   ;; file name.
-  ;;   (bash-completion-nospace t))
-
-  ;; (use-package fish-completion
-  ;;   ;; :ensure-system-package fish
-  ;;   :custom
-  ;;   (fish-completion-fallback-on-bash-p t)
-  ;;   :hook
-  ;;   (eshell-mode-hook . fish-completion-mode))
-
   ;; ElDoc in Eshell.
   (use-package esh-help
     :config
@@ -5627,15 +5636,15 @@ Advise `eshell-ls-decorated-name'."
   (eshell-before-prompt-hook . eshell-prompt-housekeeping)
 
   :bind
-  (("s-e" . eshell-switch-to-buffer)
-   ("C-c e" . eshell-switch-to-buffer)
-   ("s-E" . eshell-switch-to-buffer-other-window)
-   ("C-c E" . eshell-switch-to-buffer-other-window)
-   ("C-s-e" . switch-to-eshell-buffer)
-   ("M-E" . ibuffer-show-eshell-buffers)
-   ("C-c M-e" . ibuffer-show-eshell-buffers)
-   :map prog-mode-map
-   ("M-P" . eshell-send-previous-input)))
+  ("s-e" . eshell-switch-to-buffer)
+  ("C-c e" . eshell-switch-to-buffer)
+  ("s-E" . eshell-switch-to-buffer-other-window)
+  ("C-c E" . eshell-switch-to-buffer-other-window)
+  ("C-s-e" . switch-to-eshell-buffer)
+  ("M-E" . ibuffer-show-eshell-buffers)
+  ("C-c M-e" . ibuffer-show-eshell-buffers)
+  (:map prog-mode-map
+        ("M-P" . eshell-send-previous-input)))
 
 
 ;;;; Lisp
@@ -6585,8 +6594,15 @@ Open the `eww' buffer in another window."
   lsp-ivy-workspace-symbol
   lsp-ivy-global-workspace-symbol)
 
-;; TODO Test out `dap-mode'.
-;; (use-package dap-mode)
+(use-package lsp-treemacs
+  :bind
+  ("S-l \\'" . lsp-treemacs-symbols))
+
+(use-package dap-mode
+  :hook
+  (lsp-mode-hook . dap-mode)
+  (dap-mode-hook . dap-ui-mode)
+  (dap-ui-mode-hook . dap-ui-controls-mode))
 
 (use-package apheleia
   :straight (apheleia :host github :repo "raxod502/apheleia")
@@ -6865,16 +6881,7 @@ Prefix ARG is passed to `fill-paragraph'."
 ;;   ("C-M-\\" . reformat-buffer-or-region)
 ;;   ("C-\\" . reformat-defun-or-region))
 
-(use-package sh-script
-  :mode ("\\.sh\\'" . sh-mode)
-  :interpreter ("\\(?:ba\\|[az]\\)?sh" . sh-mode)
-  :custom
-  (sh-basic-offset tab-width)
-  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
-  (executable-prefix-env t)
-
-  :config
-  (defun maybe-reset-major-mode ()
+(defun maybe-reset-major-mode ()
     "Reset the buffer's `major-mode' if a different mode seems like a better fit.
 
 Mostly useful as a `before-save-hook', to guess mode when saving
@@ -6884,6 +6891,15 @@ a new file for the first time."
                (not (file-exists-p (buffer-file-name))))
       (normal-mode)))
 
+(use-package sh-script
+  :mode ("\\.sh\\'" . sh-mode)
+  :interpreter ("\\(?:ba\\|[az]\\)?sh" . sh-mode)
+  :custom
+  (sh-basic-offset tab-width)
+  ;; Tell `executable-set-magic' to insert #!/usr/bin/env interpreter
+  (executable-prefix-env t)
+
+  :config
   (defun shell-match-variables-in-quotes (limit)
     "Match variables in double-quotes in `sh-mode' with LIMIT.
 
@@ -7201,7 +7217,7 @@ This package sets these explicitly so we have to do the same."
   (eir-jump-after-eval nil)
   :config
   (defun eir-eval-in-shell-and-advance ()
-    "eval-in-repl and advance for shell script
+    "Eval in REPL and advance for shell script.
 
 This version has the opposite behavior to the eir-jump-after-eval
 configuration when invoked to evaluate a line."
@@ -7229,14 +7245,33 @@ configuration when invoked to evaluate a line."
 
 (use-package gdscript-mode
   :straight ( :type git :host github :repo "godotengine/emacs-gdscript-mode")
+  :mode "\\.gd\\'"
+
   :config
   (use-package yasnippet-godot-gdscript
     :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
     :config
     (add-to-list 'yas-snippet-dirs
                  (straight--repos-dir "yasnippet-godot-gdscript" "snippets")))
+
+  ;; FIXME
+  ;; https://github.com/emacs-lsp/lsp-mode/issues/2127
+  (require 'lsp-gdscript)
+  (lsp-register-client
+   (make-lsp-client :new-connection (lsp-gdscript-tcp-connect-to-port)
+                    :major-modes '(gdscript-mode)
+                    :server-id 'gdscript
+                    ;; Ignore unsupported messages.
+                    :notification-handlers (lsp-ht ("executeCommand" 'ignore))))
+
+  (defun gdscript-setup ()
+    "Set up `gdscript-mode'."
+    (lsp-deferred)
+    (company-box-mode -1))
+
   :hook
-  (gdscript-mode-hook . lsp-deferred))
+  (gdscript-mode-hook . gdscript-setup))
+
 
 ;;;; Multiple Major Modes
 
@@ -7697,6 +7732,7 @@ With a prefix ARG, create it in `org-directory'."
   :bind
   ("M-m o w" . ox-clip-formatted-copy)
   ("M-m o W" . ox-clip-image-to-clipboard))
+
 
 (provide 'init)
 
