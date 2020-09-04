@@ -4586,8 +4586,9 @@ See https://github.com/Fuco1/smartparens/issues/80."
   "Yank and then indent the newly formed region according to mode."
   (interactive)
   (if (and delete-selection-mode (use-region-p)) (delete-active-region))
-  (clipboard-yank)
-  (call-interactively 'indent-region))
+  (let ((start (point)))
+    (clipboard-yank)
+    (indent-region start (point))))
 
 (defun kill-line-or-region ()
   "Kill the current line or active region.
