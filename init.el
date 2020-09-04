@@ -4643,24 +4643,6 @@ Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
             (end-of-line)
             (forward-char)))))))
 
-;; (defun comment-toggle ()
-;;   "Toggle comments for the region.
-;; If no region is selected, toggles comments for the line."
-;;   (interactive)
-;;   (let ((start (line-beginning-position))
-;;         (end (line-end-position)))
-;;     (when (or (not transient-mark-mode) (region-active-p))
-;;       (setq start (save-excursion
-;;                     (goto-char (region-beginning))
-;;                     (beginning-of-line)
-;;                     (point))
-;;             end (save-excursion
-;;                   (goto-char (region-end))
-;;                   (end-of-line)
-;;                   (point))))
-;;     (comment-or-uncomment-region start end))
-;;   (if (bound-and-true-p parinfer-mode) (parinfer--invoke-parinfer)))
-
 (use-package evil-nerd-commenter
   :bind
   ("M-;" . evilnc-comment-or-uncomment-lines)
