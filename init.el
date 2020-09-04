@@ -4840,7 +4840,7 @@ added as they are used."
 (defun ssh-choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
   (completing-read (or prompt "SSH to Host: ")
-                   (-distinct
+                   (cl-remove-duplicates
                     (append
                      (list-hosts-from-recentf)
                      (list-hosts-from-known-hosts)
