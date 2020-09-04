@@ -372,6 +372,11 @@ higher level up to the top level form."
 (use-package outline
   :custom
   (outline-minor-mode-prefix (kbd "M-#"))
+  :config
+  (set-face-attribute 'outline-1 nil :height 1.4)
+  (set-face-attribute 'outline-2 nil :height 1.3)
+  (set-face-attribute 'outline-3 nil :height 1.2)
+  (set-face-attribute 'outline-4 nil :height 1.1)
   :hook
   (prog-mode-hook . outline-minor-mode)
   :bind
@@ -7369,11 +7374,6 @@ configuration when invoked to evaluate a line."
   :config
 
   (set-face-attribute 'org-document-title nil :height 1.6)
-  (set-face-attribute 'outline-1 nil :height 1.4)
-  (set-face-attribute 'outline-2 nil :height 1.3)
-  (set-face-attribute 'outline-3 nil :height 1.2)
-  (set-face-attribute 'outline-4 nil :height 1.1)
-
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
                                  (calc . t)
