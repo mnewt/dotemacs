@@ -88,7 +88,7 @@ do_install() {
 	make -j $DO_CORES install
 	rm -rf "$HOME/Applications/Emacs.app"
 	mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
-	cp -R "eln-cache" "$DO_APP_LOCATION/Contents/"
+	cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
 
 	popd
 }

@@ -18,13 +18,6 @@
 
 ;;;;; Native Compilation
 
-;; So that `comp' (Native Compilation) can find libgccjit and friends.
-;; It's set in `early-init' to ensure it's available when `comp' starts.
-(setenv "LIBRARY_PATH" (concat (getenv "LIBRARY_PATH")
-                               (when (getenv "LIBRARY_PATH") ":")
-                               ;; This is where Homebrew puts gcc libraries.
-                               "/usr/local/opt/gcc/lib/gcc/10"))
-
 ;; FIXME Temporary fix for parinfer's alias, `parinfer-save-excursion', being
 ;; undefined after native compilation.
 (custom-set-variables
@@ -34,14 +27,14 @@
 ;; for the fact that it seems to try and compile the `straight.el' file twice
 ;; and fail the second time. Really not sure what is going on there but this
 ;; gets things operational.
-(defun comp-delete-empty-eln-files ()
-  "Delete empty .eln files in eln-cache."
-  (apply #'call-process "find" nil nil nil
-         (append (mapcar #'expand-file-name comp-eln-load-path)
-                 '("-type" "f" "-empty" "-delete"))))
+;; (defun comp-delete-empty-eln-files ()
+;;   "Delete empty .eln files in eln-cache."
+;;   (apply #'call-process "find" nil nil nil
+;;          (append (mapcar #'expand-file-name comp-eln-load-path)
+;;                  '("-type" "f" "-empty" "-delete"))))
 
-(add-hook 'comp-async-all-done-hook #'comp-delete-empty-eln-files)
-(add-hook 'kill-emacs-hook #'comp-delete-empty-eln-files)
+;; (add-hook 'comp-async-all-done-hook #'comp-delete-empty-eln-files)
+;; (add-hook 'kill-emacs-hook #'comp-delete-empty-eln-files)
 
 ;;;;; Security
 
@@ -98,10 +91,7 @@
 
 (defun straight-x-delete-package (name)
   "Prompt for package NAME and delete it from the file system."
-  (interactive (list (completing-read
-                      "Delete package: "
-                      (mapcar (lambda (package) (plist-get package :package))
-                              (hash-table-values straight--repo-cache)))))
+  (interactive (list (completing-read "Delete package: " (hash-table-keys straight--repo-cache))))
   (let* ((repo (plist-get (gethash name straight--repo-cache) :local-repo))
          (eln-dirs (cl-loop for dir in comp-eln-load-path append
                             (directory-files dir t "[^.].*")))
