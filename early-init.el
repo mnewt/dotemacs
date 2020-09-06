@@ -16,7 +16,8 @@
 ;; If an `.el' file is newer than its corresponding `.elc', load the `.el'.
 (setq load-prefer-newer t)
 
-;; Set Garbage Collection threshold to 1GB, run GC on idle.
+;; Set Garbage Collection threshold to 1GB during startup. `gcmh' will clean
+;; things up later.
 (setq gc-cons-threshold 1073741824
       gc-cons-percentage 0.6)
 
@@ -24,9 +25,7 @@
 (setq custom-file (make-temp-file "custom-" nil ".el"))
 
 ;; Faster to disable these here (before they've been initialized)
-;; 
-(unless (and (display-graphic-p) (eq system-type 'darwin))
-  (push '(menu-bar-lines . 0) default-frame-alist))
+(push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
 
@@ -59,20 +58,7 @@
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq file-name-handler-alist file-name-handler-alist-old
-                  gc-cons-percentage 0.1)
-            (run-with-idle-timer 10 t #'garbage-collect)))
-
-;;; Environment Variables
-
-;; So that `comp' (Native Compilation) can find libgccjit and friends.
-;; This is where Homebrew puts gcc libraries for GCC 10.
-(setenv "LIBRARY_PATH" "/usr/local/opt/gcc/lib/gcc/10")
-;; Also /usr/local/bin/ needs to be on the PATH.  Both these things need to be
-;; defined before the first package loads.
-(setq exec-path '("/Applications/Wireshark.app/Contents/MacOS" "/Library/Frameworks/Mono.framework/Versions/Current/Commands" "/usr/local/share/dotnet" "/Users/mn/Applications/Emacs.app/Contents/MacOS" "/Users/mn/.private/bin" "/Users/mn/.emacs.d/bin" "/Users/mn/.bin" "/Users/mn/.local/bin" "/usr/local/opt/ruby/bin" "/usr/local/opt/llvm/bin" "/Users/mn/.gem/ruby/2.7.0/bin" "/Users/mn/Library/Python/3.8/bin" "/usr/local/opt/libxml2/bin" "/usr/local/opt/sqlite/bin" "/usr/local/opt/gnutls/bin" "/Library/TeX/texbin" "/usr/local/opt/texinfo/bin" "/usr/local/opt/coreutils/libexec/gnubin" "/usr/local/bin" "/usr/local/sbin" "/opt/X11/bin" "/Library/Apple/usr/bin" "/usr/bin" "/bin" "/usr/sbin" "/sbin"))
-(setenv "PATH" (mapconcat #'identity exec-path ":"))
-(setenv "PAGER" "cat")
+            (setq file-name-handler-alist file-name-handler-alist-old)))
 
 (provide 'early-init)
 

@@ -16,6 +16,24 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+;;;;; Environment Variables
+
+;; PATH and LIBRARY_PATH need to be defined before any packages get loaded,
+;; since as soon as that happens `straight' and `comp' start compiling them.
+;; So that `comp' (Native Compilation) can find libgccjit and friends.  Hard
+;; coding these paths is a temporary measure.
+
+;; TODO Generate this using a caching wrapper for `exec-path-from-shell'.
+
+;; This is where Homebrew stores gcc 10 libraries.
+(setenv "LIBRARY_PATH" "/usr/local/opt/gcc/lib/gcc/10")
+;; Also /usr/local/bin/ needs to be on the PATH.  This PATH value is what is
+;; produced by the current .env file, manually reproduced here.
+(setq exec-path '("/Applications/Wireshark.app/Contents/MacOS" "/Library/Frameworks/Mono.framework/Versions/Current/Commands" "/usr/local/share/dotnet" "/Users/mn/Applications/Emacs.app/Contents/MacOS" "/Users/mn/.private/bin" "/Users/mn/.emacs.d/bin" "/Users/mn/.bin" "/Users/mn/.local/bin" "/usr/local/opt/ruby/bin" "/usr/local/opt/llvm/bin" "/Users/mn/.gem/ruby/2.7.0/bin" "/Users/mn/Library/Python/3.8/bin" "/usr/local/opt/libxml2/bin" "/usr/local/opt/sqlite/bin" "/usr/local/opt/gnutls/bin" "/Library/TeX/texbin" "/usr/local/opt/texinfo/bin" "/usr/local/opt/coreutils/libexec/gnubin" "/usr/local/bin" "/usr/local/sbin" "/opt/X11/bin" "/Library/Apple/usr/bin" "/usr/bin" "/bin" "/usr/sbin" "/sbin"))
+(setenv "PATH" (mapconcat #'identity exec-path ":"))
+
+(setenv "PAGER" "cat")
+
 ;;;;; Native Compilation
 
 ;; FIXME Temporary fix for parinfer's alias, `parinfer-save-excursion', being
@@ -224,32 +242,6 @@ higher level up to the top level form."
   (update-emacs-packages)
   (update-system-packages))
 
-
-;;;; Environment Variables
-
-;; (use-package exec-path-from-shell
-;;   :if (memq window-system '(mac ns windows-nt x))
-;;   :demand t
-;;   :custom
-;;   (exec-path-from-shell-arguments nil)
-;;   (exec-path-from-shell-check-startup-files nil)
-;;   (exec-path-from-shell-variables
-;;    '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH"
-;;      "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE"))
-
-;;   :config
-;;   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
-;;   ;; it only sources $BASH_ENV.
-;;   (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
-;;   (exec-path-from-shell-initialize)
-
-;;   (when (eq system-type 'windows-nt)
-;;     (exec-path-from-shell-setenv
-;;      "PATH"
-;;      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
-
-;;   ;; Emacs is a good pager.
-;;   (setenv "PAGER" "cat"))
 
 ;;;; Third Party Libraries
 
@@ -7707,6 +7699,14 @@ With a prefix ARG, create it in `org-directory'."
   :bind
   ("M-m o w" . ox-clip-formatted-copy)
   ("M-m o W" . ox-clip-image-to-clipboard))
+
+
+;;;; Garbage Collection
+
+(use-package gcmh
+  :defer 19
+  :config
+  (gcmh-mode 1))
 
 
 (provide 'init)
