@@ -20,8 +20,9 @@
 
 ;; FIXME Temporary fix for parinfer's alias, `parinfer-save-excursion', being
 ;; undefined after native compilation.
+;; FIXME `gh-common' appears to have a byte compilation error.
 (custom-set-variables
- '(comp-deferred-compilation-black-list '("parinfer")))
+ '(comp-deferred-compilation-black-list '("parinfer" "gh-common")))
 
 ;; FIXME Delete empty .eln files on exit. This is horrible! It's a workaround
 ;; for the fact that it seems to try and compile the `straight.el' file twice
@@ -226,29 +227,29 @@ higher level up to the top level form."
 
 ;;;; Environment Variables
 
-(use-package exec-path-from-shell
-  :if (memq window-system '(mac ns windows-nt x))
-  :demand t
-  :custom
-  (exec-path-from-shell-arguments nil)
-  (exec-path-from-shell-check-startup-files nil)
-  (exec-path-from-shell-variables
-   '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH"
-     "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE"))
+;; (use-package exec-path-from-shell
+;;   :if (memq window-system '(mac ns windows-nt x))
+;;   :demand t
+;;   :custom
+;;   (exec-path-from-shell-arguments nil)
+;;   (exec-path-from-shell-check-startup-files nil)
+;;   (exec-path-from-shell-variables
+;;    '("USER" "TEMPDIR" "SSH_AUTH_SOCK" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH"
+;;      "LC_MESSAGES" "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE"))
 
-  :config
-  ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
-  ;; it only sources $BASH_ENV.
-  (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
-  (exec-path-from-shell-initialize)
+;;   :config
+;;   ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
+;;   ;; it only sources $BASH_ENV.
+;;   (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
+;;   (exec-path-from-shell-initialize)
 
-  (when (eq system-type 'windows-nt)
-    (exec-path-from-shell-setenv
-     "PATH"
-     (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
+;;   (when (eq system-type 'windows-nt)
+;;     (exec-path-from-shell-setenv
+;;      "PATH"
+;;      (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
 
-  ;; Emacs is a good pager.
-  (setenv "PAGER" "cat"))
+;;   ;; Emacs is a good pager.
+;;   (setenv "PAGER" "cat"))
 
 ;;;; Third Party Libraries
 
@@ -7228,7 +7229,8 @@ configuration when invoked to evaluate a line."
   :config
   (use-package yasnippet-godot-gdscript
     :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
-    :config
+    :init
+    ;; FIXME the directory name doesn't match the major mode.
     (add-to-list 'yas-snippet-dirs
                  (straight--repos-dir "yasnippet-godot-gdscript" "snippets")))
 
@@ -7244,8 +7246,8 @@ configuration when invoked to evaluate a line."
 
   (defun gdscript-setup ()
     "Set up `gdscript-mode'."
-    (lsp-deferred)
-    (company-box-mode -1))
+    (company-box-mode -1)
+    (lsp-deferred))
 
   :hook
   (gdscript-mode-hook . gdscript-setup))

@@ -63,13 +63,16 @@
                   gc-cons-percentage 0.1)
             (run-with-idle-timer 10 t #'garbage-collect)))
 
+;;; Environment Variables
+
 ;; So that `comp' (Native Compilation) can find libgccjit and friends.
 ;; This is where Homebrew puts gcc libraries for GCC 10.
 (setenv "LIBRARY_PATH" "/usr/local/opt/gcc/lib/gcc/10")
-;; And /usr/local/bin/ needs to be on the PATH. We can't wait for
-;; `exec-path-from-shell' to set it because compilation happens immediately
-;; after the first package is loaded.
-(setenv "PATH" "/Applications/Wireshark.app/Contents/MacOS:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/usr/local/share/dotnet:/Users/mn/Applications/Emacs.app/Contents/MacOS:/Users/mn/.private/bin:/Users/mn/.emacs.d/bin:/Users/mn/.bin:/Users/mn/.local/bin:/usr/local/opt/ruby/bin:/usr/local/opt/llvm/bin:/Users/mn/.gem/ruby/2.7.0/bin:/Users/mn/Library/Python/3.8/bin:/usr/local/opt/libxml2/bin:/usr/local/opt/sqlite/bin:/usr/local/opt/gnutls/bin:/Library/TeX/texbin:/usr/local/opt/texinfo/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:/usr/local/sbin:/opt/X11/bin:/Library/Apple/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+;; Also /usr/local/bin/ needs to be on the PATH.  Both these things need to be
+;; defined before the first package loads.
+(setq exec-path '("/Applications/Wireshark.app/Contents/MacOS" "/Library/Frameworks/Mono.framework/Versions/Current/Commands" "/usr/local/share/dotnet" "/Users/mn/Applications/Emacs.app/Contents/MacOS" "/Users/mn/.private/bin" "/Users/mn/.emacs.d/bin" "/Users/mn/.bin" "/Users/mn/.local/bin" "/usr/local/opt/ruby/bin" "/usr/local/opt/llvm/bin" "/Users/mn/.gem/ruby/2.7.0/bin" "/Users/mn/Library/Python/3.8/bin" "/usr/local/opt/libxml2/bin" "/usr/local/opt/sqlite/bin" "/usr/local/opt/gnutls/bin" "/Library/TeX/texbin" "/usr/local/opt/texinfo/bin" "/usr/local/opt/coreutils/libexec/gnubin" "/usr/local/bin" "/usr/local/sbin" "/opt/X11/bin" "/Library/Apple/usr/bin" "/usr/bin" "/bin" "/usr/sbin" "/sbin"))
+(setenv "PATH" (mapconcat #'identity exec-path ":"))
+(setenv "PAGER" "cat")
 
 (provide 'early-init)
 
