@@ -922,13 +922,13 @@ Watches `edebug-active' and sets the mode-line when it changes."
 
   (defun narrowed-info (&optional _start _end)
     "Display an indicator when the buffer is narrowed."
-    (setq buffer-narrowed (buffer-narrowed-p))
     (setf (alist-get 'buffer-narrowed mode-line-misc-info)
-          (when buffer-narrowed (list "n"))))
+          (when (setq buffer-narrowed (buffer-narrowed-p))
+            (list "n"))))
 
   ;; npostavs suggests hooking `post-command-hook'.
   ;; https://emacs.stackexchange.com/questions/33288
-  (advice-add #'post-command-hook :after #'narrowed-info)
+  (add-hook 'post-command-hook #'narrowed-info)
 
   (defvar parinfer--mode)
   (defvar parinfer-lighters)
