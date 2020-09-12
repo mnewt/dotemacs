@@ -40,7 +40,7 @@
 ;; undefined after native compilation.
 ;; FIXME `gh-common' appears to have a byte compilation error.
 (custom-set-variables
- '(comp-deferred-compilation-black-list '("parinfer" "gh-common")))
+ '(comp-deferred-compilation-black-list '("gh-common")))
 
 ;; FIXME Delete empty .eln files on exit. This is horrible! It's a workaround
 ;; for the fact that it seems to try and compile the `straight.el' file twice
@@ -108,6 +108,7 @@
 (autoload #'straight-x-clean-unused-repos "straight-x" nil t)
 (autoload #'straight-x-fetch-all "straight-x" nil t)
 
+(defvar straight--repo-cache)
 (defun straight-x-delete-package (name)
   "Prompt for package NAME and delete it from the file system."
   (interactive (list (completing-read "Delete package: " (hash-table-keys straight--repo-cache))))
@@ -329,8 +330,6 @@ higher level up to the top level form."
  ("s-g" . isearch-repeat-forward)
  ("s-G" . isearch-repeat-backward)
  ("C-s-s" . isearch-forward-symbol-at-point)
- ("s-l" . select-current-line)
- ("C-S-L" . select-current-line)
  ("M-o" . other-window)
  ("s-b" . switch-to-buffer)
  ("s-S-b" . switch-to-buffer-other-window)
@@ -552,12 +551,13 @@ returned."
 
   ;; Set default fonts.
   (defvar m-fixed-pitch-font
-    (some-font '("Input-14" "Monaco-13" "Lucida Console-12"
+    (some-font '("Input Mono-14" "Monaco-13" "Lucida Console-12"
                  "DejaVu Sans Mono-12" "Inconsolata-14"))
     "The default font to use for fixed pitch applications.")
 
   (defvar m-variable-pitch-font
-    (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica" "Georgia-15"))
+    (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica"
+                 "Georgia-15"))
     "The default font to use for variable pitch applications.")
 
   (defvar m-fallback-font
@@ -813,10 +813,8 @@ Inspired by `powerline''s `pl/make-xpm'."
                               (if (eq idx len) "\"};" "\",\n")))))
             'xpm t :ascent 'center))))))
 
-  (defcustom mood-line-height 22
-    "The height of the mode-line in pixels."
-    :group 'mood-line
-    :type 'number)
+  (defvar mood-line-height 22
+    "The height of the mode-line in pixels.")
 
   (defun mood-line--refresh-bar ()
     "Refresh the bar."
@@ -1053,7 +1051,7 @@ This sets things up for `window-highlight' and `mode-line'."
 
   :config
   (defun maybe-enable-hl-line-mode ()
-    (unless (eq major-mode 'vterm-mode)
+    (unless (seq-contains-p '(vterm-mode) major-mode)
       (hl-line-mode +1)))
 
   (dolist (buffer (buffer-list))
@@ -1105,6 +1103,37 @@ This sets things up for `window-highlight' and `mode-line'."
 ;;;; Navigation
 
 ;; Navigation tools
+
+(use-package replace
+  :straight (:type built-in)
+
+  :config
+  (defun occur-dwim ()
+    "Call `occur' with the thing under point or selected region."
+    (interactive)
+    (push (if (region-active-p)
+              (buffer-substring-no-properties
+               (region-beginning)
+               (region-end))
+            (let ((sym (thing-at-point 'symbol)))
+              (when (stringp sym)
+                (regexp-quote sym))))
+          regexp-history)
+    (call-interactively 'occur))
+
+  (defun reattach-occur ()
+    "Switch to Occur buffer and launch the hydra."
+    (if (get-buffer "*Occur*")
+        (switch-to-buffer-other-window "*Occur*")
+      (hydra-occur-dwim/body)))
+
+  (defun other-window-1 ()
+    "Call `other-window' with a count of 1."
+    (other-window 1))
+
+  :hook
+  ;; Focus on *Occur* window right away.
+  (occur-hook . other-window-1))
 
 (use-package outshine
   :config
@@ -1579,8 +1608,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
 (use-package perspective
   :custom
+  (persp-sort 'created)
   (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
-  (persp-modestring-dividers '("" "" "|"))
+  (persp-modestring-dividers '("" "" (propertize "|" 'face 'shadow)))
 
   :commands
   persp-switch
@@ -1916,9 +1946,6 @@ Each EXPR should create one window."
   (other-window 1))
 
 (bind-keys
- ("s-x" . kill-line-or-region)
- ("s-c" . copy-line-or-region)
- ("s-v" . clipboard-yank-and-indent)
  ("s-n" . scratch-buffer)
  ("s-N" . scratch-buffer-other-window)
  ("C-c C-n" . scratch-buffer)
@@ -2872,7 +2899,7 @@ With a prefix ARG always prompt for command to use."
 ;; https://github.com/stsquad/dired-rsync/issues/12
 (use-package dired-rsync
   :config
-  (defun dired-rsync--set-mode-line-misc-info (&optional err ind)
+  (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
     "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
 
 ERR and IND are ignored."
@@ -3340,7 +3367,6 @@ INITIAL will be used as the initial input, if given."
   :bind
   ("C-h M-l" . devdocs-lookup))
 
-
 (use-package hydra
   :defer 10
   :functions
@@ -3351,9 +3377,9 @@ INITIAL will be used as the initial input, if given."
   hydra-set-transient-map
 
   :config
-  (autoload #'windmove-find-other-window "windmove")
   (radian-protect-macros
 
+    (autoload #'windmove-find-other-window "windmove")
     (defun hydra-move-splitter-left (arg)
       "Move window splitter left by ARG characters."
       (interactive "p")
@@ -3450,9 +3476,19 @@ INITIAL will be used as the initial input, if given."
       ("p" flycheck-previous-error "Previous")
       ("<" flycheck-first-error "First")
       (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-      ("q" nil)))
+      ("q" nil))
 
-  (radian-protect-macros
+    ;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
+    ;; focus on the *Occur* window and hides upon request in case needed later.
+    (defhydra hydra-occur-dwim ()
+      "Occur mode"
+      ("o" occur-dwim "Start occur-dwim" :color red)
+      ("j" occur-next "Next" :color red)
+      ("k" occur-prev "Prev":color red)
+      ("h" delete-window "Hide" :color blue)
+      ("r" (reattach-occur) "Re-attach" :color red)
+      ("q" nil))
+
     (defhydra hydra-ibuffer-main (:color pink :hint nil)
       "
     ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
@@ -3550,7 +3586,9 @@ INITIAL will be used as the initial input, if given."
 
   :bind
   ("C-s-v" . hydra-move/body)
-  ("C-c w" . hydra-window/body))
+  ("C-c w" . hydra-window/body)
+  (:map occur-mode-map
+        ("C-o" . hydra-occur-dwim/body)))
 
 (use-package counsel-ffdata
   :custom
@@ -3716,10 +3754,14 @@ INITIAL will be used as the initial input, if given."
 (defun dis (hostname)
   "Resolve a HOSTNAME to its IP address."
   (interactive "MHostname: ")
-  (message (shell-command-to-string
-            (concat "drill "
-                    hostname
-                    " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'"))))
+  (message
+   (kill-new
+    (shell-command-to-string
+     (concat (or (executable-find "drill")
+                 (executable-find "dig"))
+             " "
+             hostname
+             " | awk '/;; ANSWER SECTION:/{flag=1;next}/;;/{flag=0}flag'")))))
 
 (defun ips ()
   "Show the machine's IP addresses."
@@ -3742,9 +3784,7 @@ INITIAL will be used as the initial input, if given."
                   (re-search-forward "^$")
                   (delete-char 1)
                   (delete-region (point) (point-min))
-                  (let ((ip (buffer-string)))
-                    (kill-new ip)
-                    (message ip)))))
+                  (message (kill-new (buffer-string))))))
 
 (use-package wttrin
   :custom
@@ -4198,47 +4238,6 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   (:map mc/keymap
         ("C-'" . mc-hide-unmatched-lines-mode)))
 
-(defun occur-dwim ()
-  "Call `occur' with a sane default, chosen as the thing under point or selected region."
-  (interactive)
-  (push (if (region-active-p)
-            (buffer-substring-no-properties
-             (region-beginning)
-             (region-end))
-          (let ((sym (thing-at-point 'symbol)))
-            (when (stringp sym)
-              (regexp-quote sym))))
-        regexp-history)
-  (call-interactively 'occur))
-
-(declare-function other-window-hydra-occur 'hydra)
-
-(advice-add 'occur-mode-goto-occurrence :after #'other-window-hydra-occur)
-
-;; Focus on *Occur* window right away.
-(add-hook 'occur-hook (lambda () (other-window 1)))
-
-(defun reattach-occur ()
-  "Switch to Occur buffer and launch the hydra."
-  (if (get-buffer "*Occur*")
-      (switch-to-buffer-other-window "*Occur*")
-    (hydra-occur-dwim/body)))
-
-;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
-;; focus on the *Occur* window and hides upon request in case needed later.
-(radian-protect-macros
-  (defhydra hydra-occur-dwim ()
-    "Occur mode"
-    ("o" occur-dwim "Start occur-dwim" :color red)
-    ("j" occur-next "Next" :color red)
-    ("k" occur-prev "Prev":color red)
-    ("h" delete-window "Hide" :color blue)
-    ("r" (reattach-occur) "Re-attach" :color red)
-    ("q" nil)))
-
-(bind-keys :map occur-mode-map
-           ("C-o" . hydra-occur-dwim/body))
-
 (use-package move-text
   :bind
   (:map prog-mode-map
@@ -4249,7 +4248,7 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   :config
   (defalias #'string-inflection-snakecase #'string-inflection-underscore)
   :bind
-  ("C-c C-u" . string-inflection-all-cycle))
+  ("C-c C-i" . string-inflection-all-cycle))
 
 (use-package yasnippet
   :custom
@@ -4565,6 +4564,23 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("C-c s r" . sp-change-inner)
         ("C-c s s" . sp-change-enclosing)))
 
+(use-package whole-line-or-region
+  :bind
+  ([remap kill-region] . whole-line-or-region-kill-region)
+  ([remap kill-ring-save] . whole-line-or-region-kill-ring-save)
+  ([remap copy-region-as-kill] . whole-line-or-region-copy-region-as-kill)
+  ([remap delete-region] . whole-line-or-region-delete-region)
+  ([remap comment-dwim] . whole-line-or-region-comment-dwim-2)
+  ([remap comment-region] . whole-line-or-region-comment-region)
+  ([remap uncomment-region] . whole-line-or-region-uncomment-region))
+
+(use-package evil-nerd-commenter
+  :bind
+  ("M-;" . evilnc-comment-or-uncomment-lines)
+  ("s-/" . evilnc-comment-or-uncomment-lines)
+  ("C-M-;" . evilnc-comment-or-uncomment-paragraphs)
+  ("C-s-;" . evilnc-quick-comment-or-uncomment-to-the-line))
+
 (defun clipboard-yank-and-indent ()
   "Yank and then indent the newly formed region according to mode."
   (interactive)
@@ -4573,97 +4589,21 @@ See https://github.com/Fuco1/smartparens/issues/80."
     (clipboard-yank)
     (indent-region start (point))))
 
-(defun kill-line-or-region ()
-  "Kill the current line or active region.
-
-When `universal-argument' is called first, kill the whole
-buffer (respects `narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn ; not using kill-region because we don't want to include previous kill
-        (kill-new (buffer-string))
-        (delete-region (point-min) (point-max)))
-    (progn (if (use-region-p)
-               (kill-region (region-beginning) (region-end) t)
-             (kill-region (line-beginning-position) (line-beginning-position 2))))))
-
-(defun copy-line-or-region ()
-  "Copy the current line or active region.
-
-When called repeatedly, append copy subsequent lines.  When
-`universal-argument' is called first, copy whole
-buffer (respects`narrow-to-region').
-
-Stolen from `http://ergoemacs.org/emacs/emacs_copy_cut_current_line.html'"
-  (interactive)
-  (if current-prefix-arg
-      (progn
-        (kill-ring-save (point-min) (point-max)))
-    (if (use-region-p)
-        (progn
-          (kill-ring-save (region-beginning) (region-end)))
-      (if (eq last-command this-command)
-          (if (eobp)
-              (progn)
-            (progn
-              (kill-append "\n" nil)
-              (kill-append
-               (buffer-substring-no-properties (line-beginning-position) (line-end-position))
-               nil)
-              (progn
-                (end-of-line)
-                (forward-char))))
-        (if (eobp)
-            (if (eq (char-before) 10)
-                (progn)
-              (progn
-                (kill-ring-save (line-beginning-position) (line-end-position))
-                (end-of-line)))
-          (progn
-            (kill-ring-save (line-beginning-position) (line-end-position))
-            (end-of-line)
-            (forward-char)))))))
-
-(use-package evil-nerd-commenter
-  :bind
-  ("M-;" . evilnc-comment-or-uncomment-lines)
-  ("s-/" . evilnc-comment-or-uncomment-lines)
-  ("C-M-;" . evilnc-quick-comment-or-uncomment-to-the-line)
-  ("C-s-;" . evilnc-comment-or-uncomment-paragraphs))
-
 (defun select-current-line ()
   "Select the current line."
   (interactive)
   (beginning-of-line)
   (set-mark (line-end-position)))
 
-(defun move-line-or-region-to-other-window ()
-  "Kill region or line then yank at point in the other window."
-  (interactive)
-  (kill-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
-(defun copy-line-or-region-to-other-window ()
-  "Copy region line to point in the other window."
-  (interactive)
-  (copy-line-or-region)
-  (other-window 1)
-  (yank)
-  (newline)
-  (other-window -1))
-
 (bind-keys
+ ("s-v" . clipboard-yank-and-indent)
  ("C-M-}" . forward-sentence)
  ("C-M-{" . backward-sentence)
  ("C-o" . open-line-above)
  ("C-^" . delete-indentation-forward)
  ("s-C" . copy-line-or-region-to-other-window)
  ("s-X" . move-line-or-region-to-other-window)
+ ("s-l" . select-current-line)
  ;; Replace `delete-horizontal-space' with the more useful `cycle-spacing'.
  ("M-\\" . cycle-spacing)
  ;; Continue comment on next line (default binding is "C-M-j")
@@ -7051,6 +6991,8 @@ This package sets these explicitly so we have to do the same."
     (go-mode-hook . company-go-setup)
     (go-mode-hook . lsp-deferred)))
 
+;; Install on macOS:
+;; # brew install powershell
 (use-package powershell
   :mode "\\.ps1\\'"
   :custom
@@ -7234,7 +7176,10 @@ configuration when invoked to evaluate a line."
                     :major-modes '(gdscript-mode)
                     :server-id 'gdscript
                     ;; Ignore unsupported messages.
-                    :notification-handlers (lsp-ht ("executeCommand" 'ignore))))
+                    :notification-handlers (lsp-ht
+                                            ("gdscript/capabilities" 'ignore)
+                                            ("textDocument/publishDiagnostics" 'ignore)
+                                            ("executeCommand" 'ignore))))
 
   (defun gdscript-setup ()
     "Set up `gdscript-mode'."
