@@ -16,44 +16,87 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+(defvar elisp-directory "~/.emacs.d/lisp"
+  "Drop package files here to put them on the `load-path'.")
+
+(add-to-list 'load-path elisp-directory)
+
 ;;;;; Environment Variables
 
-;; PATH and LIBRARY_PATH need to be defined before any packages get loaded,
-;; since as soon as that happens `straight' and `comp' start compiling them.
-;; So that `comp' (Native Compilation) can find libgccjit and friends.  Hard
-;; coding these paths is a temporary measure.
+;; PATH and LIBRARY_PATH need to be defined before any packages get loaded. This
+;; is so that `comp' (Native Compilation) can find libgccjit and friends.  As
+;; soon as `straight' loads a package (including itself), it tells `comp' to
+;; start compiling it.  So, we add a caching wrapper to `exec-path-from-shell'
+;; (`env-cache') so under most startups we don't even have to load it.  When we
+;; do have to load it, it's actually sitting in the lisp directory, not loaded
+;; by `straight'.
 
-;; TODO Generate this using a caching wrapper for `exec-path-from-shell'.
+(defvar env-cache-vars
+  '("USER" "TEMPDIR" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH" "LC_MESSAGES"
+    "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE")
+  "Variables to copy from the shell environment.")
 
-;; This is where Homebrew stores gcc 10 libraries.
-(setenv "LIBRARY_PATH" "/usr/local/opt/gcc/lib/gcc/10")
-;; Also /usr/local/bin/ needs to be on the PATH.  This PATH value is what is
-;; produced by the current .env file, manually reproduced here.
-(setq exec-path '("/Applications/Wireshark.app/Contents/MacOS" "/Library/Frameworks/Mono.framework/Versions/Current/Commands" "/usr/local/share/dotnet" "/Users/mn/Applications/Emacs.app/Contents/MacOS" "/Users/mn/.private/bin" "/Users/mn/.emacs.d/bin" "/Users/mn/.bin" "/Users/mn/.local/bin" "/usr/local/opt/ruby/bin" "/usr/local/opt/llvm/bin" "/Users/mn/.gem/ruby/2.7.0/bin" "/Users/mn/Library/Python/3.8/bin" "/usr/local/opt/libxml2/bin" "/usr/local/opt/sqlite/bin" "/usr/local/opt/gnutls/bin" "/Library/TeX/texbin" "/usr/local/opt/texinfo/bin" "/usr/local/opt/coreutils/libexec/gnubin" "/usr/local/bin" "/usr/local/sbin" "/opt/X11/bin" "/Library/Apple/usr/bin" "/usr/bin" "/bin" "/usr/sbin" "/sbin"))
-(setenv "PATH" (mapconcat #'identity exec-path ":"))
+(defvar env-cache-file
+  (expand-file-name "var/env" user-emacs-directory)
+  "File in which to save the environment variable cache.")
 
+(defun env-cache-save-to-file (&optional vars)
+  "Save VARS to `env-cache-file'.
+
+If VARS is not specified, use `env-cache-vars'."
+  (with-temp-file env-cache-file
+    (prin1 (mapcar (lambda (var) (cons var (getenv var)))
+                   (or vars env-cache-vars))
+           (current-buffer))))
+
+(defun env-cache-refresh ()
+  "Load shell, copy and cache environment variables."
+  (interactive)
+  (require 'exec-path-from-shell)
+  (message "Loading %s to copy environment variables into Emacs..."
+           (getenv "SHELL"))
+  (setq exec-path-from-shell-arguments nil
+        exec-path-from-shell-check-startup-files nil)
+  ;; When bash is invoked with no arguments (i.e. non-login, non-interactive),
+  ;; it only sources $BASH_ENV.
+  (setenv "BASH_ENV" (expand-file-name ".bashrc" (getenv "HOME")))
+  (exec-path-from-shell-copy-envs env-cache-vars)
+  (when (eq system-type 'windows-nt)
+    (exec-path-from-shell-setenv
+     "PATH"
+     (concat (getenv "PATH") ";C:/bin;C:/Program Files/Emacs/bin")))
+  (env-cache-save-to-file)
+  (message "Wrote environment variables to %s." env-cache-file))
+
+(defun env-cache-read-from-file ()
+  "Read environment variables from file."
+  (with-temp-buffer
+    (insert-file-contents-literally env-cache-file)
+    (read (current-buffer))))
+
+(defun env-cache-maybe-read-from-cache ()
+  "Read from `env-cache-file' if it exists."
+  (when (file-exists-p env-cache-file)
+    (dolist (pair (env-cache-read-from-file))
+      (setenv (car pair) (cdr pair))
+      (when (string= "PATH" (car pair))
+        (setq exec-path (split-string (cdr pair) ":"))))
+    ;; Return t to indicate success reading the cache file.
+    t))
+
+(unless (env-cache-maybe-read-from-cache)
+  (env-cache-refresh))
+  
+
+;; Tell terminal oriented programs not to try to page output.
 (setenv "PAGER" "cat")
+
 
 ;;;;; Native Compilation
 
-;; FIXME Temporary fix for parinfer's alias, `parinfer-save-excursion', being
-;; undefined after native compilation.
 ;; FIXME `gh-common' appears to have a byte compilation error.
 (custom-set-variables
  '(comp-deferred-compilation-black-list '("gh-common")))
-
-;; FIXME Delete empty .eln files on exit. This is horrible! It's a workaround
-;; for the fact that it seems to try and compile the `straight.el' file twice
-;; and fail the second time. Really not sure what is going on there but this
-;; gets things operational.
-;; (defun comp-delete-empty-eln-files ()
-;;   "Delete empty .eln files in eln-cache."
-;;   (apply #'call-process "find" nil nil nil
-;;          (append (mapcar #'expand-file-name comp-eln-load-path)
-;;                  '("-type" "f" "-empty" "-delete"))))
-
-;; (add-hook 'comp-async-all-done-hook #'comp-delete-empty-eln-files)
-;; (add-hook 'kill-emacs-hook #'comp-delete-empty-eln-files)
 
 ;;;;; Security
 
@@ -74,14 +117,6 @@
 
 (defvar journal-directory "~/org/journal"
   "Location of journal entries.")
-
-
-;;;; Package Management
-
-(defvar elisp-directory "~/.emacs.d/lisp"
-  "Drop package files here to put them on the `load-path'.")
-
-(add-to-list 'load-path elisp-directory)
 
 
 ;;;;; straight
@@ -214,7 +249,12 @@ higher level up to the top level form."
   "Synchronously update Emacs packages using `straight'."
   (interactive)
   (straight-pull-all)
-  (straight-check-all))
+  (straight-check-all)
+  (url-copy-file
+   "https://raw.githubusercontent.com/purcell/exec-path-from-shell/master/exec-path-from-shell.el"
+   (expand-file-name "lisp/exec-path-from-shell.el" user-emacs-directory)
+   t)
+  (message "Finished updating Emacs packages."))
 
 ;; WIP This doesn't ever prompt for decisions, like what to do if the repo is
 ;; dirty.
@@ -2524,6 +2564,9 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     :if window-system
     :custom
     (company-box-enable-icon nil)
+    :config
+    ;; So as not to grab the `company-box' buffer name.
+    (advice-add #'company-box-doc--hide :after #'mood-line--refresh-buffer-name)
     :hook
     (company-mode-hook . company-box-mode))
 
