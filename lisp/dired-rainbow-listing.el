@@ -3,9 +3,9 @@
 ;; Author: Matthew Sojourner Newton
 ;; Maintainer: Matthew Sojourner Newton
 ;; Version: 0.1
-;; Package-Requires: ((dired-rainbow ""))
-;; Homepage: /
-;; Keywords: dired
+;; Package-Requires: ((emacs "24.1") (dired-rainbow "0.0.3"))
+;; Homepage: https://github.com/mnewt/dired-rainbow-listing
+;; Keywords: convenience faces files
 
 
 ;; This file is not part of GNU Emacs
@@ -26,8 +26,8 @@
 
 ;;; Commentary:
 
-;; My own personal extensions to `dired-rainbow'. It's possible I'll try and add
-;; some of them upstream at some point.
+;; My own personal extensions to `dired-rainbow'.  It's possible I'll try and
+;; add some of them upstream at some point.
 
 ;;; Code:
 
@@ -95,32 +95,32 @@
   "Face for file decoration."
   :group 'dired-rainbow)
 
-(defvar dired-rainbow-permissions-regexp "[-dl][-rwxlsStT]\\{9\\}[.+-@]?"
+(defvar dired-rainbow-listing-permissions-regexp "[-dl][-rwxlsStT]\\{9\\}[.+-@]?"
   "A regexp matching the permissions in the dired listing.")
 
-(defvar dired-rainbow-inodes-regexp "[0-9]+"
+(defvar dired-rainbow-listing-inodes-regexp "[0-9]+"
   "A regexp matching the number of links in the dired listing.")
 
-(defvar dired-rainbow-user-or-group-regexp "[a-z_][a-z0-9_-]*"
+(defvar dired-rainbow-listing-user-or-group-regexp "[a-z_][a-z0-9_-]*"
   "A regexp matching the user and group in the dired listing.")
 
-(defvar dired-rainbow-size-regexp "[0-9.]+[kKmMgGtTpPi]\\{0,3\\}"
+(defvar dired-rainbow-listing-size-regexp "[0-9.]+[kKmMgGtTpPi]\\{0,3\\}"
   "A regexp matching the file size in the dired listing.")
 
-(defvar dired-rainbow-details-regexp
+(defvar dired-rainbow-listing-details-regexp
   (let ((sep "\\) +\\("))
     (concat "^ +\\("
-            dired-rainbow-permissions-regexp sep
-            dired-rainbow-inodes-regexp sep
-            dired-rainbow-user-or-group-regexp sep
-            dired-rainbow-user-or-group-regexp sep
-            dired-rainbow-size-regexp sep
+            dired-rainbow-listing-permissions-regexp sep
+            dired-rainbow-listing-inodes-regexp sep
+            dired-rainbow-listing-user-or-group-regexp sep
+            dired-rainbow-listing-user-or-group-regexp sep
+            dired-rainbow-listing-size-regexp sep
             dired-hacks-datetime-regexp
             "\\)")))
 
 (defvar dired-rainbow-listing-keywords
   `((,(concat "\\(total used in directory\\|available\\) +\\("
-       dired-rainbow-size-regexp "\\)")
+       dired-rainbow-listing-size-regexp "\\)")
      (1 'font-lock-comment-face)
      (2 'default))
     ("^ +\\(-\\)" 1 'dired-rainbow-dash)
@@ -144,7 +144,7 @@
     ("^ +...\\(x\\)" 1 'dired-rainbow-permissions-x)
     ("^ +......\\(x\\)" 1 'dired-rainbow-permissions-x)
     ("^ +.........\\(x\\)" 1 'dired-rainbow-permissions-x)
-    (,dired-rainbow-details-regexp
+    (,dired-rainbow-listing-details-regexp
      (2 'dired-rainbow-inodes)
      (3 'dired-rainbow-user)
      (4 'dired-rainbow-group)

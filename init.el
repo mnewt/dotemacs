@@ -1920,17 +1920,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer rg (compilation-next-error 1))
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
-;; (use-package matcha
-;;   :defer 22
-;;   :straight (matcha :host github :repo "jojojames/matcha")
-;;   :custom
-;;   (matcha-mode-list
-;;    '(cider dired js json-mode lua-mode org
-;;            (:file projectile :autoloads matcha-projectile)
-;;            python restclient smerge-mode term vc-dir vc-git web-mode))
-;;   :config
-;;   (matcha-setup))
-
 (use-package ibuffer
   :commands
   ibuffer-forward-line
@@ -2971,10 +2960,6 @@ ERR and IND are ignored."
   :bind
   (:map dired-mode-map
         ("C-c C-p" . wdired-change-to-wdired-mode)))
-
-(use-package dired-hacks-utils
-  :hook
-  (dired-after-readin-hook . dired-utils-format-information-line))
 
 (use-package dired-rainbow
   :config
