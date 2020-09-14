@@ -884,6 +884,7 @@ Inspired by `doom-modeline'.")
                  'face 'mode-line-buffer-id)))
 
   (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
+  (add-hook 'window-configuration-change-hook #'mood-line--refresh-buffer-name)
   (add-hook 'after-set-visited-file-name-hook #'mood-line--refresh-buffer-name)
 
   (defun mood-line-segment-buffer-name ()
@@ -1811,8 +1812,10 @@ _q_ quit
    . rainbow-mode))
 
 (use-package crux
-  ;; :straight
-  ;; (:fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
+  :config
+  (with-eval-after-load 'org
+    (bind-key "C-a" #'crux-move-beginning-of-line org-mode-map))
+
   :bind
   ([remap move-beginning-of-line] . crux-move-beginning-of-line)
   ("M-s-<backspace>" . crux-kill-line-backwards)
@@ -1825,9 +1828,7 @@ _q_ quit
   (:map emacs-lisp-mode-map
         ("C-x C-j" . crux-eval-and-replace))
   (:map lisp-interaction-mode-map
-        ("C-x C-j" . crux-eval-and-replace))
-  (:map org-mode-map
-        ("C-a" . crux-move-beginning-of-line)))
+        ("C-x C-j" . crux-eval-and-replace)))
 
 (defmacro specialize-beginning-of-buffer (mode &rest forms)
   "Define a special version of `beginning-of-buffer' in MODE.
@@ -2566,9 +2567,9 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     :if window-system
     :custom
     (company-box-enable-icon nil)
-    :config
-    ;; So as not to grab the `company-box' buffer name.
-    (advice-add #'company-box-doc--hide :after #'mood-line--refresh-buffer-name)
+    ;; :config
+    ;; ;; So as not to grab the `company-box' buffer name.
+    ;; (advice-add #'company-box-doc--hide :after #'mood-line--refresh-buffer-name)
     :hook
     (company-mode-hook . company-box-mode))
 
