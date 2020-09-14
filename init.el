@@ -78,16 +78,18 @@ If VARS is not specified, use `env-cache-vars'."
   "Read from `env-cache-file' if it exists."
   (when (file-exists-p env-cache-file)
     (dolist (pair (env-cache-read-from-file))
-      (setenv (car pair) (cdr pair))
-      (when (string= "PATH" (car pair))
-        (setq exec-path (split-string (cdr pair) ":"))))
+      (let ((name (car pair))
+            (value (cdr pair)))
+        (setenv name value)
+        (when (string-equal "PATH" name)
+          (setq eshell-path-env value
+                exec-path (append (parse-colon-path value) (list exec-directory))))))
     ;; Return t to indicate success reading the cache file.
     t))
 
 (unless (env-cache-maybe-read-from-cache)
   (env-cache-refresh))
   
-
 ;; Tell terminal oriented programs not to try to page output.
 (setenv "PAGER" "cat")
 
@@ -874,7 +876,7 @@ Inspired by `doom-modeline'.")
 
   ;; TODO Use `shorten-file-name' here. The problem is it causes a stack
   ;; overflow when multi-stage TRAMP paths are visited.
-  (defun mood-line--refresh-buffer-name ()
+  (defun mood-line--refresh-buffer-name (&rest _)
     "Refresh the buffer name."
     (setq-local mood-line-buffer-name
                 (propertize
