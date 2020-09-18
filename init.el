@@ -77,19 +77,20 @@ If VARS is not specified, use `env-cache-vars'."
 (defun env-cache-maybe-read-from-cache ()
   "Read from `env-cache-file' if it exists."
   (when (file-exists-p env-cache-file)
-    (dolist (pair (env-cache-read-from-file))
-      (let ((name (car pair))
-            (value (cdr pair)))
-        (setenv name value)
-        (when (string-equal "PATH" name)
-          (setq eshell-path-env value
-                exec-path (append (parse-colon-path value) (list exec-directory))))))
+    (mapc (lambda (pair)
+            (let ((name (car pair))
+                  (value (cdr pair)))
+              (setenv name value)
+              (when (string-equal "PATH" name)
+                (setq eshell-path-env value
+                      exec-path (append (parse-colon-path value) (list exec-directory))))))
+          (env-cache-read-from-file))
     ;; Return t to indicate success reading the cache file.
     t))
 
 (unless (env-cache-maybe-read-from-cache)
   (env-cache-refresh))
-  
+
 ;; Tell terminal oriented programs not to try to page output.
 (setenv "PAGER" "cat")
 

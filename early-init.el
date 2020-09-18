@@ -60,6 +60,9 @@
           (lambda ()
             (setq file-name-handler-alist file-name-handler-alist-old)))
 
+;; Disable `package' in favor of `straight'.
+(setq package-enable-at-startup nil)
+
 (provide 'early-init)
 
 ;;; early-init.el ends here
