@@ -773,23 +773,35 @@ Stolen from solarized."
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
-  (let* ((max-length (or max-length 60))
-         (separator (if (eq system-type 'windows-nt) "\\" "/"))
-         (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
-         (right (split-string (abbreviate-file-name file-name) separator))
-         left output)
-    (while (and (< 1 (length right))
-                (< max-length (length (string-join (append left right) separator))))
-      (push (let ((r (pop right)))
-              (if (< 0 (length r))
-                  (substring r 0 1)
-                ""))
-            left))
-    (setq output (string-join (append (reverse left) right) separator))
-    (if (< max-length (length output))
-        (concat ellipsis
-                (substring output (- (length output) (length ellipsis) max-length)))
-      output)))
+  (let* ((max-length (or max-length 40))
+         (ellipsis (if (char-displayable-p ?…) "…" "..."))
+         (length (length file-name)))
+    (if (<= length max-length)
+        file-name
+      (concat ellipsis
+              (substring file-name (- length max-length (length ellipsis)) length)))))
+
+;; TODO This version of `shorten-file-name' causes a stack overflow when
+;; multi-stage TRAMP paths are visited.  Fix that and use it instead.
+;; (defun shorten-file-name (file-name &optional max-length)
+;;   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
+;;   (let* ((max-length (or max-length 40))
+;;          (separator (if (eq system-type 'windows-nt) "\\" "/"))
+;;          (ellipsis (concat (if (char-displayable-p ?…) "…" "...") separator))
+;;          (right (split-string (abbreviate-file-name file-name) separator))
+;;          left output)
+;;     (while (and (< 1 (length right))
+;;                 (< max-length (length (string-join (append left right) separator))))
+;;       (push (let ((r (pop right)))
+;;               (if (< 0 (length r))
+;;                   (substring r 0 1)
+;;                 ""))
+;;             left))
+;;     (setq output (string-join (append (reverse left) right) separator))
+;;     (if (< max-length (length output))
+;;         (concat ellipsis
+;;                 (substring output (- (length output) (length ellipsis) max-length)))
+;;       output)))
 
 (use-package mood-line
   :demand t
@@ -875,13 +887,11 @@ Inspired by `doom-modeline'.")
   (defvar-local mood-line-buffer-name nil
     "The buffer name as displayed in `mood-line'.")
 
-  ;; TODO Use `shorten-file-name' here. The problem is it causes a stack
-  ;; overflow when multi-stage TRAMP paths are visited.
   (defun mood-line--refresh-buffer-name (&rest _)
     "Refresh the buffer name."
     (setq-local mood-line-buffer-name
                 (propertize
-                 (concat " " (format-mode-line "%b") " ")
+                 (concat " " (shorten-file-name (format-mode-line "%b")) " ")
                  'face 'mode-line-buffer-id)))
 
   (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
@@ -1654,13 +1664,20 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :custom
   (persp-sort 'created)
   (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
-  (persp-modestring-dividers '("" "" (propertize "|" 'face 'shadow)))
-
-  :commands
-  persp-switch
+  (persp-modestring-dividers `("" "" ,(propertize "|" 'face 'shadow)))
 
   :config
   (make-directory (file-name-directory persp-state-default-file) t)
+
+  (defun persp-names-reverse ()
+    "Like `persp-names' with 'created but latest is last."
+    (mapcar #'persp-name
+            (sort (hash-table-values (perspectives-hash))
+                  (lambda (a b)
+                    (time-less-p (persp-created-time a)
+                                 (persp-created-time b))))))
+
+  (advice-add #'persp-names :override #'persp-names-reverse)
 
   (defun persp-set-frame-title ()
     "Set the frame title with the current perspective name."
@@ -2191,6 +2208,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (rg-enable-default-bindings (kbd "C-r")))
 
 (use-package ivy
+  :defer 2
   :custom
   (enable-recursive-minibuffers t)
   (ivy-display-style 'fancy)
@@ -2205,6 +2223,20 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ivy--reset-state
 
   :config
+  ;; (use-package ivy-posframe
+  ;;   :demand t
+  ;;   :custom
+  ;;   (ivy-posframe-display-functions-alist
+  ;;    '((swiper . nil)
+  ;;      (counsel-grep-or-swiper . nil)
+  ;;      (counsel-rg . nil)
+  ;;      (counsel-projectile-rg . nil)
+  ;;      (t . ivy-posframe-display-at-frame-top-center)))
+  ;;   :config
+  ;;   (ivy-posframe-mode 1)
+  ;;   (custom-set-faces
+  ;;    `(ivy-posframe ((t (:background nil :inherit window-highlight-focused-window))))))
+
   (defun ivy-yank-complete-symbol-at-point (&optional arg)
     "Insert whole symbol from buffer to ivy prompt.
 
@@ -2224,18 +2256,6 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     "If `eolp' then done, else move to eol."
     (interactive)
     (if (eolp) (ivy-partial) (end-of-line)))
-
-  ;; (use-package ivy-posframe
-  ;;   :demand t
-  ;;   :custom
-  ;;   (ivy-posframe-display-functions-alist
-  ;;    '((swiper . nil)
-  ;;      (counsel-grep-or-swiper . nil)
-  ;;      (counsel-rg . nil)
-  ;;      (counsel-projectile-rg . nil)
-  ;;      (t . ivy-posframe-display-at-frame-center)))
-  ;;   :config
-  ;;   (ivy-posframe-mode))
 
   (use-package ivy-hydra
     :demand t
@@ -2437,6 +2457,14 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (:map minibuffer-local-map
         ("M-r" . counsel-minibuffer-history)))
 
+(use-package ivy-rich
+  :hook
+  (counsel-mode-hook . ivy-rich-mode))
+
+;; (use-package all-the-icons-ivy-rich
+;;   :hook
+;;   (ivy-rich-mode-hook . all-the-icons-ivy-rich-mode))
+
 (use-package counsel-term
   :straight (counsel-term
              :host github :repo "tautologyclub/counsel-term"
@@ -2555,8 +2583,8 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
 
   (use-package company-box
     :if window-system
-    :custom
-    (company-box-enable-icon nil)
+    ;; :custom
+    ;; (company-box-enable-icon nil)
     ;; :config
     ;; ;; So as not to grab the `company-box' buffer name.
     ;; (advice-add #'company-box-doc--hide :after #'mood-line--refresh-buffer-name)
@@ -3060,12 +3088,6 @@ ERR and IND are ignored."
   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
                         :files ("dired-list.el"))
   :commands
-  dired-list
-  dired-list-git-ls-files
-  dired-list-locate
-  dired-list-find-file
-  dired-list-find-name
-  dired-list-grep
   dired-list-init-files
   dired-list-dotfiles
 
@@ -4601,6 +4623,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ([remap kill-region] . whole-line-or-region-kill-region)
   ([remap kill-ring-save] . whole-line-or-region-kill-ring-save)
   ([remap copy-region-as-kill] . whole-line-or-region-copy-region-as-kill)
+  ([remap ns-copy-including-secondary] . whole-line-or-region-copy-region-as-kill)
   ([remap delete-region] . whole-line-or-region-delete-region)
   ([remap comment-dwim] . whole-line-or-region-comment-dwim-2)
   ([remap comment-region] . whole-line-or-region-comment-region)
@@ -4925,7 +4948,8 @@ non-sudo shell is left intact."
                (shell (format "*shell/sudo:root@%s*"
                               (with-parsed-tramp-file-name newf nil host))))))
           ((derived-mode-p 'eshell-mode)
-           (cd newf))
+           (cd newf)
+           (eshell-emit-prompt))
           (t (message "Can't sudo this buffer")))))
 
 (defun filter-functions (regexp &optional predicate)
@@ -7279,11 +7303,14 @@ configuration when invoked to evaluate a line."
   (org-export-with-section-numbers nil)
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "DONE(d!)")))
-  (org-todo-keyword-faces '(("TODO" (:background "magenta" :foreground "white" :weight bold))
-                            ("WORK" (:background "green" :foreground "black" :weight bold))
-                            ("WAIT" (:background "orange" :foreground "black" :weight bold))
-                            ("DONE" (:background "gray" :foreground "black" :weight bold))))
+  (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "|" "DONE(d)")
+                       (sequence "|" "CANCELED(c)")))
+  (org-todo-keyword-faces
+   '(("TODO" . (:background "magenta" :foreground "white" :weight bold))
+     ("WORK" . (:background "green" :foreground "black" :weight bold))
+     ("WAIT" . (:background "orange" :foreground "black" :weight bold))
+     ("DONE" . (:background "gray" :foreground "black" :weight bold))
+     ("CANCELED" . (:background "gray" :foreground "black" :weight bold :strike-through t))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
    `(("t" "TODO" entry
