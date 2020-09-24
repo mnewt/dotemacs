@@ -953,6 +953,15 @@ Inspired by `doom-modeline'.")
       (propertize (concat " " (projectile-project-name) " ")
                   'face 'font-lock-variable-name-face)))
 
+  (defun mood-line-pyvenv-info ()
+    "When inside a Python venv project, display its name."
+    (when (boundp 'pyvenv-virtual-env)
+      (setf (alist-get 'pyvenv mode-line-misc-info)
+            (list (when pyvenv-virtual-env
+                    (concat "pyvenv:" pyvenv-virtual-env-name))))))
+
+  (add-hook 'post-command-hook #'mood-line-pyvenv-info)
+
   (defun outline-minor-mode-info ()
     "Display an indicator when `outline-minor-mode' is enabled."
     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
@@ -1030,7 +1039,7 @@ Watches `edebug-active' and sets the mode-line when it changes."
                   'face (if (mood-line-window-active-p)
                             'mode-line-emphasis
                           'mode-line))))
-  
+
   ;; (defun mood-line--format (left right)
   ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
   ;;   (concat
@@ -1942,9 +1951,112 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   :commands
   ibuffer-forward-line
   ibuffer-backward-line
+
+  :config
+  (radian-protect-macros
+    (defhydra hydra-ibuffer-main (:color pink :hint nil)
+      "
+    ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
+    _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
+    _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
+    _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
+    _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
+    "
+      ("m" ibuffer-mark-forward)
+      ("u" ibuffer-unmark-forward)
+      ("*" hydra-ibuffer-mark/body :color blue)
+      ("t" ibuffer-toggle-marks)
+
+      ("D" ibuffer-do-delete)
+      ("s" ibuffer-do-save)
+      ("a" hydra-ibuffer-action/body :color blue)
+
+      ("g" ibuffer-update)
+      ("S" hydra-ibuffer-sort/body :color blue)
+      ("/" hydra-ibuffer-filter/body :color blue)
+      ("H" describe-mode :color blue)
+
+      ("h" ibuffer-backward-filter-group)
+      ("k" ibuffer-backward-line)
+      ("l" ibuffer-forward-filter-group)
+      ("j" ibuffer-forward-line)
+      ("RET" ibuffer-visit-buffer :color blue)
+
+      ("TAB" ibuffer-toggle-filter-group)
+
+      ("o" ibuffer-visit-buffer-other-window :color blue)
+      ("q" quit-window :color blue)
+      ("." nil :color blue))
+
+    (defhydra hydra-ibuffer-mark (:color teal :columns 5
+                                         :after-exit (hydra-ibuffer-main/body))
+      "Mark"
+      ("*" ibuffer-unmark-all "unmark all")
+      ("M" ibuffer-mark-by-mode "mode")
+      ("m" ibuffer-mark-modified-buffers "modified")
+      ("u" ibuffer-mark-unsaved-buffers "unsaved")
+      ("s" ibuffer-mark-special-buffers "special")
+      ("r" ibuffer-mark-read-only-buffers "read-only")
+      ("/" ibuffer-mark-dired-buffers "dired")
+      ("e" ibuffer-mark-dissociated-buffers "dissociated")
+      ("h" ibuffer-mark-help-buffers "help")
+      ("z" ibuffer-mark-compressed-file-buffers "compressed")
+      ("b" hydra-ibuffer-main/body "back" :color blue))
+
+    (defhydra hydra-ibuffer-action (:color teal :columns 4
+                                           :after-exit
+                                           (if (eq major-mode 'ibuffer-mode)
+                                               (hydra-ibuffer-main/body)))
+      "Action"
+      ("A" ibuffer-do-view "view")
+      ("E" ibuffer-do-eval "eval")
+      ("F" ibuffer-do-shell-command-file "shell-command-file")
+      ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
+      ("H" ibuffer-do-view-other-frame "view-other-frame")
+      ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
+      ("M" ibuffer-do-toggle-modified "toggle-modified")
+      ("O" ibuffer-do-occur "occur")
+      ("P" ibuffer-do-print "print")
+      ("Q" ibuffer-do-query-replace "query-replace")
+      ("R" ibuffer-do-rename-uniquely "rename-uniquely")
+      ("T" ibuffer-do-toggle-read-only "toggle-read-only")
+      ("U" ibuffer-do-replace-regexp "replace-regexp")
+      ("V" ibuffer-do-revert "revert")
+      ("W" ibuffer-do-view-and-eval "view-and-eval")
+      ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
+      ("b" nil "back"))
+
+    (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
+      "Sort"
+      ("i" ibuffer-invert-sorting "invert")
+      ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
+      ("v" ibuffer-do-sort-by-recency "recently used")
+      ("s" ibuffer-do-sort-by-size "size")
+      ("f" ibuffer-do-sort-by-filename/process "filename")
+      ("m" ibuffer-do-sort-by-major-mode "mode")
+      ("b" hydra-ibuffer-main/body "back" :color blue))
+
+    (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
+      "Filter"
+      ("m" ibuffer-filter-by-used-mode "mode")
+      ("M" ibuffer-filter-by-derived-mode "derived mode")
+      ("n" ibuffer-filter-by-name "name")
+      ("c" ibuffer-filter-by-content "content")
+      ("e" ibuffer-filter-by-predicate "predicate")
+      ("f" ibuffer-filter-by-filename "filename")
+      (">" ibuffer-filter-by-size-gt "size")
+      ("<" ibuffer-filter-by-size-lt "size")
+      ("/" ibuffer-filter-disable "disable")
+      ("b" hydra-ibuffer-main/body "back" :color blue)))
+
   :bind
+  ("C-x M-b" . ibuffer)
   (:map ibuffer-mode-map
         ("." . hydra-ibuffer-main/body)))
+
+(use-package bufler
+  :bind
+  ("C-x C-b" . bufler-list))
 
 (defvar hide-mode-line nil
   "Save old `mode-line-format'.")
@@ -2009,7 +2121,6 @@ Each EXPR should create one window."
  ("C-s-f" . fullscreen)
 
  ;; Quick switch buffers
- ("C-x C-b" . ibuffer)
  ("s-}" . next-buffer)
  ("C-c }" . next-buffer)
  ("s-{" . previous-buffer)
@@ -2139,10 +2250,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 ;;   ("C-c q" . vr/query-replace)
 ;;   ("C-c m" . vr/mc-mark))
 
-(use-package phi-search
-  :bind
-  ([remap isearch-forward] . phi-search)
-  ([remap isearch-backward] . phi-search-backward))
+;; (use-package phi-search
+;;   :bind
+;;   ([remap isearch-forward] . phi-search)
+;;   ([remap isearch-backward] . phi-search-backward))
 
 (use-package anzu
   :config
@@ -2495,9 +2606,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
   (projectile-mode-line nil)
-  :commands
-  projectile-project-root
-  projectile-project-p
   :config
   (defun projectile-git-ls-files (&optional dir)
     "List of the tracked files in the git repo, specified by DIR."
@@ -2512,11 +2620,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
       (dired (cons dir (projectile-git-ls-files dir)))
       (rename-buffer (format "*git ls-files %s*" dir))))
 
-  ;; Why doesn't projectile have this as a default?
-  ;; (projectile-register-project-type 'generic nil
-  ;;                                   :compile ""
-  ;;                                   :test ""
-  ;;                                   :test-suffix "_test")
   (projectile-register-project-type 'npm '("package.json")
                                     :compile "npm start"
                                     :test "npm test"
@@ -2527,9 +2630,10 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (projectile-register-project-type 'shadow-cljs '("shadow-cljs.edn")
                                     :compile "clj "
                                     :test-suffix "_test")
+  (projectile-register-project-type 'python '("shadow-cljs.edn")
+                                    :compile "clj "
+                                    :test-suffix "_test")
   (projectile-mode)
-  :commands
-  projectile-register-project-type
   :bind-keymap
   ("C-c p" . projectile-command-map)
   :bind
@@ -3541,102 +3645,7 @@ INITIAL will be used as the initial input, if given."
       ("k" occur-prev "Prev":color red)
       ("h" delete-window "Hide" :color blue)
       ("r" (reattach-occur) "Re-attach" :color red)
-      ("q" nil))
-
-    (defhydra hydra-ibuffer-main (:color pink :hint nil)
-      "
-    ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
-    _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
-    _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
-    _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
-    _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
-    "
-      ("m" ibuffer-mark-forward)
-      ("u" ibuffer-unmark-forward)
-      ("*" hydra-ibuffer-mark/body :color blue)
-      ("t" ibuffer-toggle-marks)
-
-      ("D" ibuffer-do-delete)
-      ("s" ibuffer-do-save)
-      ("a" hydra-ibuffer-action/body :color blue)
-
-      ("g" ibuffer-update)
-      ("S" hydra-ibuffer-sort/body :color blue)
-      ("/" hydra-ibuffer-filter/body :color blue)
-      ("H" describe-mode :color blue)
-
-      ("h" ibuffer-backward-filter-group)
-      ("k" ibuffer-backward-line)
-      ("l" ibuffer-forward-filter-group)
-      ("j" ibuffer-forward-line)
-      ("RET" ibuffer-visit-buffer :color blue)
-
-      ("TAB" ibuffer-toggle-filter-group)
-
-      ("o" ibuffer-visit-buffer-other-window :color blue)
-      ("q" quit-window :color blue)
-      ("." nil :color blue))
-
-    (defhydra hydra-ibuffer-mark (:color teal :columns 5
-                                         :after-exit (hydra-ibuffer-main/body))
-      "Mark"
-      ("*" ibuffer-unmark-all "unmark all")
-      ("M" ibuffer-mark-by-mode "mode")
-      ("m" ibuffer-mark-modified-buffers "modified")
-      ("u" ibuffer-mark-unsaved-buffers "unsaved")
-      ("s" ibuffer-mark-special-buffers "special")
-      ("r" ibuffer-mark-read-only-buffers "read-only")
-      ("/" ibuffer-mark-dired-buffers "dired")
-      ("e" ibuffer-mark-dissociated-buffers "dissociated")
-      ("h" ibuffer-mark-help-buffers "help")
-      ("z" ibuffer-mark-compressed-file-buffers "compressed")
-      ("b" hydra-ibuffer-main/body "back" :color blue))
-
-    (defhydra hydra-ibuffer-action (:color teal :columns 4
-                                           :after-exit
-                                           (if (eq major-mode 'ibuffer-mode)
-                                               (hydra-ibuffer-main/body)))
-      "Action"
-      ("A" ibuffer-do-view "view")
-      ("E" ibuffer-do-eval "eval")
-      ("F" ibuffer-do-shell-command-file "shell-command-file")
-      ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
-      ("H" ibuffer-do-view-other-frame "view-other-frame")
-      ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
-      ("M" ibuffer-do-toggle-modified "toggle-modified")
-      ("O" ibuffer-do-occur "occur")
-      ("P" ibuffer-do-print "print")
-      ("Q" ibuffer-do-query-replace "query-replace")
-      ("R" ibuffer-do-rename-uniquely "rename-uniquely")
-      ("T" ibuffer-do-toggle-read-only "toggle-read-only")
-      ("U" ibuffer-do-replace-regexp "replace-regexp")
-      ("V" ibuffer-do-revert "revert")
-      ("W" ibuffer-do-view-and-eval "view-and-eval")
-      ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
-      ("b" nil "back"))
-
-    (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
-      "Sort"
-      ("i" ibuffer-invert-sorting "invert")
-      ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
-      ("v" ibuffer-do-sort-by-recency "recently used")
-      ("s" ibuffer-do-sort-by-size "size")
-      ("f" ibuffer-do-sort-by-filename/process "filename")
-      ("m" ibuffer-do-sort-by-major-mode "mode")
-      ("b" hydra-ibuffer-main/body "back" :color blue))
-
-    (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
-      "Filter"
-      ("m" ibuffer-filter-by-used-mode "mode")
-      ("M" ibuffer-filter-by-derived-mode "derived mode")
-      ("n" ibuffer-filter-by-name "name")
-      ("c" ibuffer-filter-by-content "content")
-      ("e" ibuffer-filter-by-predicate "predicate")
-      ("f" ibuffer-filter-by-filename "filename")
-      (">" ibuffer-filter-by-size-gt "size")
-      ("<" ibuffer-filter-by-size-lt "size")
-      ("/" ibuffer-filter-disable "disable")
-      ("b" hydra-ibuffer-main/body "back" :color blue)))
+      ("q" nil)))
 
   :bind
   ("C-s-v" . hydra-move/body)
@@ -6358,7 +6367,8 @@ Open the `eww' buffer in another window."
 
 (use-package python
   :straight (:type built-in)
-  :mode ("\\.py\\'" . python-mode)
+  :mode
+  ("\\.py\\'" . python-mode)
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
@@ -6374,14 +6384,15 @@ Open the `eww' buffer in another window."
   :hook
   (python-mode-hook . lsp-deferred))
 
-(use-package pipenv
-  :mode ("Pipfile\\'" . conf-mode)
-  :custom
-  (pipenv-projectile-after-switch-function #'pipenv-projectile-after-switch-extended)
-  :config
-  :hook (python-mode-hook . pipenv-mode))
+(use-package pyvenv
+  :commands
+  pyvenv-activate
+  pyvenv-workon)
 
-(use-package ein)
+(use-package ein
+  :commands
+  ein:run
+  ein:login)
 
 ;;;; Swift
 
@@ -6999,7 +7010,9 @@ This package sets these explicitly so we have to do the same."
         ("RET" . newline-and-indent)))
 
 (use-package toml-mode
-  :mode "\\.toml\\'")
+  :mode
+  "\\.toml\\'"
+  "Pipfile\\'")
 
 (use-package ruby-mode
   ;; :ensure-system-package
