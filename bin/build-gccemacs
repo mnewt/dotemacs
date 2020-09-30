@@ -10,7 +10,7 @@ DO_REPO_DIRECTORY="emacs"
 
 DO_REPO_BRANCH="feature/native-comp"
 
-DO_APP_LOCATION="$HOME/Applications/GCCEmacs.app"
+DO_APP_LOCATION="$HOME/Applications/Emacs.app"
 
 DO_BREW_PACKAGES=(
 	autoconf
@@ -86,7 +86,7 @@ do_install() {
 	# Even though we move the binary ourselves, we still need to install to get
 	# the Emacs Lisp and C source files in the right place.
 	make -j $DO_CORES install
-	rm -rf "$HOME/Applications/Emacs.app"
+	rm -rf "$DO_APP_LOCATION"
 	mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
 	cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
 
