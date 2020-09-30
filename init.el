@@ -4116,7 +4116,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
  mark-even-if-inactive nil
  ;; Newline at end of file.
  require-final-newline t
- ;; Double-spaces after periods is morally wrong.
+ ;; Double-spaces after periods feels wrong because it is wrong.
  sentence-end-double-space nil)
 
 (setq-default
@@ -4125,7 +4125,11 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
  ;; Tabs
  indent-tabs-mode nil
  tab-width 2
- tab-stop-list (number-sequence tab-width 120 tab-width))
+ tab-stop-list (number-sequence tab-width 120 tab-width)
+ ;; I only use left-to-right languages, so I can get away with disabling certain
+ ;; bidirectional features to increase performance.
+ bidi-paragraph-direction 'left-to-right
+ bidi-inhibit-bpa t)
 
 ;; Delete selection on insert or yank
 (delete-selection-mode)
