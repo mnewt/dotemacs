@@ -397,11 +397,6 @@ higher level up to the top level form."
 (use-package outline
   :custom
   (outline-minor-mode-prefix (kbd "M-#"))
-  :config
-  (set-face-attribute 'outline-1 nil :height 1.4)
-  (set-face-attribute 'outline-2 nil :height 1.3)
-  (set-face-attribute 'outline-3 nil :height 1.2)
-  (set-face-attribute 'outline-4 nil :height 1.1)
   :hook
   (prog-mode-hook . outline-minor-mode)
   :bind
@@ -530,10 +525,10 @@ higher level up to the top level form."
   (put 'kill-ring 'history-length 200)
   (savehist-mode))
 
-(use-package persistent-scratch
-  :demand t
-  :config
-  (persistent-scratch-setup-default))
+;; (use-package persistent-scratch
+;;   :demand t
+;;   :config
+;;   (persistent-scratch-setup-default))
 
 
 ;;;; Private
@@ -1098,7 +1093,14 @@ This sets things up for `window-highlight' and `mode-line'."
              (sp-show-pair-match-face ((t :inherit highlight
                                           :underline nil
                                           :foreground nil
-                                          :background nil))))))
+                                          :background nil)))))
+    (with-eval-after-load 'org
+      (set-face-attribute 'org-document-title nil :height 1.4))
+    (with-eval-after-load 'outline
+      (set-face-attribute 'outline-1 nil :height 1.2)
+      (set-face-attribute 'outline-2 nil :height 1.1)))
+    ;; (set-face-attribute 'outline-3 nil :height 1.0)
+    ;; (set-face-attribute 'outline-4 nil :height 1.0)
   (mood-line--refresh-bar))
 
 (advice-add #'load-theme :before #'custom-enabled-themes-reset)
@@ -4131,17 +4133,14 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 ;; Automatically indent after RET
 (electric-indent-mode)
 
-(use-package simple
-  :straight (:type built-in)
-  :config
-  (defun auto-fill-mode-setup ()
-    "Automatically fill comments.
+(defun auto-fill-mode-setup ()
+  "Automatically fill comments.
 
 Wraps on `fill-column' columns."
-    (set (make-local-variable 'comment-auto-fill-only-comments) t)
-    (auto-fill-mode t))
-  :hook
-  (prog-mode-hook . auto-fill-mode-setup))
+  (set (make-local-variable 'comment-auto-fill-only-comments) t)
+  (auto-fill-mode t))
+
+(add-hook 'prog-mode-hook #'auto-fill-mode-setup)
 
 (use-package so-long
   :if (>= emacs-major-version 27)
@@ -5641,6 +5640,10 @@ Advise `eshell-ls-decorated-name'."
   :hook
   (emacs-lisp-mode-hook . emacs-lisp-mode-setup))
 
+(use-package lisp-extra-font-lock
+  :hook
+  (lisp-data-mode-hook . lisp-extra-font-lock-mode))
+
 (use-package parinfer
   :custom
   (parinfer-extensions
@@ -6129,6 +6132,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
 
+(use-package pdf-continuous-scroll-mode
+  :straight (:host github :repo "dalanicolai/pdf-continuous-scroll-mode.el")
+  :hook
+  (pdf-view-mode-hook . pdf-continuous-scroll-mode))
+
 (use-package nov
   :mode ("\\.epub\\'" . nov-mode))
 
@@ -6417,6 +6425,7 @@ Open the `eww' buffer in another window."
 
 (use-package apples-mode
   :mode "\\.\\(applescri\\|sc\\)pt\\'"
+  :interpreter "osascript"
   :commands
   apples-open-scratch)
 
@@ -7030,6 +7039,8 @@ This package sets these explicitly so we have to do the same."
   :hook
   (ruby-mode-hook . lsp-deferred))
 
+;; brew install lua luarocks
+;; luarocks install --server=https://luarocks.org/dev lua-lsp --local
 (use-package lua-mode
   :mode "\\.lua\\'"
   :custom
@@ -7258,6 +7269,9 @@ configuration when invoked to evaluate a line."
   :hook
   (gdscript-mode-hook . gdscript-setup))
 
+(use-package vimrc-mode
+  :mode "\\.vim\\(rc\\)?\\'")
+
 
 ;;;; Multiple Major Modes
 
@@ -7357,7 +7371,6 @@ configuration when invoked to evaluate a line."
   org-capture-refile
   :config
 
-  (set-face-attribute 'org-document-title nil :height 1.6)
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
                                  (calc . t)
