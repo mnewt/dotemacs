@@ -535,7 +535,7 @@ higher level up to the top level form."
 ;;;; Private
 
 ;; If it exists, load the private configuration file.
-(load "~/.emacs.d/private.el" t t nil t)
+(load "~/private/private.el" t t nil t)
 
 ;;;; Appearance
 
