@@ -97,7 +97,8 @@ If VARS is not specified, use `env-cache-vars'."
 
 ;;;;; Native Compilation
 
-;; FIXME `gh-common' appears to have a byte compilation error.
+;; FIXME `gh-common' appears to have a byte compilation error, so `comp' tries
+;; and fails to compile it at every startup.
 (custom-set-variables
  '(comp-deferred-compilation-black-list '("gh-common")))
 
@@ -3202,13 +3203,6 @@ ERR and IND are ignored."
     "List Emacs init files."
     (interactive)
     (dired-list-git-ls-files user-emacs-directory)
-    (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1)))
-
-  (defun dired-list-dotfiles ()
-    "List Emacs init files."
-    (interactive)
-    (git-home-link "dotfiles")
-    (dired-list-git-ls-files "~")
     (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1))))
 
 (use-package dired-subtree
@@ -3928,52 +3922,6 @@ The config is specified in the config file in `~/.mnt/'."
     (message "> git add %s" files)
     (dired-do-shell-command "git add" nil files)
     (dired-revert)))
-
-(defvar git-home-repo-dir
-  (expand-file-name "repos" (or (getenv "XDG_CONFIG_HOME") "~/.config")))
-
-(defun git-worktree-link (gitdir worktree)
-  "Link git WORKTREE at GITDIR.
-https://github.com/magit/magit/issues/460#issuecomment-36139308"
-  (interactive (list (read-directory-name "Gitdir: ")
-                     (read-directory-name "Worktree: ")))
-  (with-temp-file (expand-file-name ".git" worktree)
-    (insert "gitdir: " (file-relative-name gitdir worktree) "\n"))
-  (magit-call-git "config" "-f" (expand-file-name "config" gitdir)
-                  "core.worktree" (file-relative-name worktree gitdir))
-  ;; Configure projectile to only look at tracked files
-  (if (boundp 'projectile-git-command)
-      (setq projectile-git-command "git ls-files -zc --exclude-standard")))
-
-(defun git-worktree-unlink (worktree)
-  "Unlink git WORKTREE at GITDIR."
-  (interactive (list (read-directory-name "Worktree: ")))
-  ;; Configure projectile back to default, which looks for all non-ignored files
-  (if (boundp 'projectile-git-command)
-      (setq projectile-git-command "git ls-files -zco --exclude-standard"))
-  ;; This does `git config --unset core.worktree'.  We don't actually
-  ;; have to do this and not doing it would have some advantages, but
-  ;; might be confusing.
-  ;; (magit-set nil "core.worktree")
-  ;; This causes an error if this actually is a directory, which is
-  ;; a good thing, it saves us from having to do this explicitly :-)
-  (delete-file (expand-file-name ".git" worktree)))
-
-(defun git-home-link (repo)
-  "Interactively link a git REPO's worktree to $HOME."
-  (interactive (list (completing-read "Link git home repository: "
-                                      (directory-files git-home-repo-dir nil "^[^.]")
-                                      nil t)))
-  (setq repo (expand-file-name repo git-home-repo-dir))
-  (git-worktree-link repo (getenv "HOME"))
-  (message "Linked repo at %s" repo))
-
-(defun git-home-unlink ()
-  "Unlink the current git repo's worktree from $HOME."
-  (interactive)
-  (let ((f (expand-file-name ".git" (getenv "HOME"))))
-    (git-worktree-unlink (getenv "HOME"))
-    (message "Unlinked repo at %s" f)))
 
 (use-package vc
   :custom
