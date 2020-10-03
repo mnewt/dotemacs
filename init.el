@@ -32,8 +32,8 @@
 ;; by `straight'.
 
 (defvar env-cache-vars
-  '("USER" "TEMPDIR" "SHELL" "PKG_CONFIG_PATH" "PATH" "MANPATH" "LC_MESSAGES"
-    "LC_CTYPE" "LC_COLLATE" "LANG" "GOPATH" "NIX_SSL_CERT_FILE")
+  '("GOPATH" "LANG" "LC_COLLATE" "LC_CTYPE" "LC_MESSAGES" "LIBRARY_PATH"
+    "MANPATH" "PATH" "PKG_CONFIG_PATH" "SHELL" "TEMPDIR" "USER")
   "Variables to copy from the shell environment.")
 
 (defvar env-cache-file
@@ -5874,9 +5874,9 @@ Interactively, reads the register using `register-read-with-preview'."
   debbugs-gnu-search
   debbugs-gnu-bugs)
 
-(defvar cider-mode-map)
-
 (use-package clojure-mode
+  :init
+  (defvar cider-mode-map)
   :mode
   ("\\.clj\\'" . clojure-mode)
   ("\\.cljs\\'" . clojurescript-mode)
@@ -6002,6 +6002,8 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   (clojure-mode-hook . subword-mode))
 
 ;; (use-package sly
+;;   :mode
+;;   ("\\.lisp\\'" . sly-mode)
 ;;   :custom
 ;;   (inferior-lisp-program (executable-find "sbcl"))
 ;;   :bind
@@ -7747,6 +7749,7 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Local Variables:
 ;; flycheck-checkers: (emacs-lisp emacs-lisp-checkdoc)
+;; eval: (flycheck-mode -1)
 ;; End:
 
 ;;; init.el ends here

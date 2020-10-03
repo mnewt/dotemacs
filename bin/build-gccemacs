@@ -16,11 +16,13 @@ DO_BREW_PACKAGES=(
 	autoconf
 	cairo
 	cmake
+	gcc
 	gnupg
 	gnutls
 	# The macOS build uses the Cocoa image library
 	# imagemagick
 	jansson
+	libgccjit
 	librsvg
 	libvterm
 	libxml2
