@@ -16,10 +16,24 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+
+;;;;; Variables
+
+;; Top level user variables
+
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Drop package files here to put them on the `load-path'.")
 
 (add-to-list 'load-path elisp-directory)
+
+(defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
+  "Default code project container directory.")
+
+(cd code-directory)
+
+(defvar journal-directory "~/org/journal"
+  "Location of journal entries.")
+
 
 ;;;;; Environment Variables
 
@@ -109,19 +123,6 @@ If VARS is not specified, use `env-cache-vars'."
 
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
-
-;;;;; Variables
-
-;; Top level user variables
-
-(defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
-  "Default code project container directory.")
-
-(cd code-directory)
-
-(defvar journal-directory "~/org/journal"
-  "Location of journal entries.")
-
 
 ;;;;; straight
 
@@ -1297,51 +1298,6 @@ _d_ subtree
   (interactive)
   (set-frame-parameter
    nil 'fullscreen (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
-
-(defun scroll-handle-hscroll ()
-  "Ensure point stays on the proper column when scrolling.
-
-Ripped out of function `line-move-visual'."
-  (let ((hscroll (window-hscroll)))
-    (if (and (consp temporary-goal-column)
-             (memq last-command `(next-line previous-line scroll-window-up
-                                            scroll-window-down ,this-command)))
-
-        (progn
-          (line-move-to-column (truncate (car temporary-goal-column)))
-          (message "moved col to %s" (car temporary-goal-column))
-          ;; If so, there's no need to reset `temporary-goal-column',
-          ;; but we may need to hscroll.
-          (when (or (/= (cdr temporary-goal-column) hscroll)
-                    (>  (cdr temporary-goal-column) 0))
-            (set-window-hscroll (selected-window) (cdr temporary-goal-column))))
-
-      ;; Otherwise, we should reset `temporary-goal-column'.
-      (let ((posn (posn-at-point))
-            x-pos)
-        (cond
-         ;; Handle the `overflow-newline-into-fringe' case
-         ;; (left-fringe is for the R2L case):
-         ((memq (nth 1 posn) '(right-fringe left-fringe))
-          (setq temporary-goal-column (cons (window-width) hscroll)))
-         ((car (posn-x-y posn))
-          (setq x-pos (- (car (posn-x-y posn)) (line-number-display-width t)))
-          ;; In R2L lines, the X pixel coordinate is measured from the
-          ;; left edge of the window, but columns are still counted
-          ;; from the logical-order beginning of the line, i.e. from
-          ;; the right edge in this case.  We need to adjust for that.
-          (if (eq (current-bidi-paragraph-direction) 'right-to-left)
-              (setq x-pos (- (window-body-width nil t) 1 x-pos)))
-          (setq temporary-goal-column
-                (cons (/ (float x-pos)
-                         (frame-char-width))
-                      hscroll)))
-         (executing-kbd-macro
-          ;; When we move beyond the first/last character visible in
-          ;; the window, posn-at-point will return nil, so we need to
-          ;; approximate the goal column as below.
-          (setq temporary-goal-column
-                (mod (current-column) (window-text-width)))))))))
 
 (defun scroll-window-up ()
   "Scroll the buffer up, keeping point in place relative to the window."
@@ -2984,6 +2940,14 @@ With a prefix ARG always prompt for command to use."
   dired-ediff-files
 
   :config
+  (use-package dired-x
+    :defer t
+    :straight (:type built-in)
+    :custom
+    (dired-clean-confirm-killing-deleted-buffers nil)
+    (dired-bind-man nil)
+    (dired-bind-info nil))
+
   ;; Set it here because inside :custom it overrides defer
   (setq dired-listing-switches "-aFhl"
         ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
@@ -3045,62 +3009,37 @@ With a prefix ARG always prompt for command to use."
         ("q" nil)
         ("." nil :color blue))))
 
-  :hook
-  (dired-mode-hook . dired-hide-details-mode)
-  :bind
-  (:map dired-mode-map
-        ("." . hydra-dired/body)
-        ("C-c C-o" . dired-open-file)
-        ("T" . touch)
-        ("F" . tail-file)
-        (";" . dired-git-add)
-        (")" . disk-usage-here)))
-
-(use-package dired-x
-  :straight (:type built-in)
-  :custom
-  (dired-clean-confirm-killing-deleted-buffers nil)
-  :bind
-  (:map dired-mode-map
-        ("C-." . dired-omit-mode)))
-
-;; TODO Pop open status buffer
-;; TODO Fix status buffer's display
-;; TODO Send PR, reference:
-;; https://github.com/stsquad/dired-rsync/issues/12
-(use-package dired-rsync
-  :config
-  (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
-    "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
+  ;; TODO Pop open status buffer
+  ;; TODO Fix status buffer's display
+  ;; TODO Send PR, reference:
+  ;; https://github.com/stsquad/dired-rsync/issues/12
+  (use-package dired-rsync
+    :demand t
+    :config
+    (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
+      "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
 
 ERR and IND are ignored."
-    (setf (alist-get 'dired-rsync mode-line-misc-info)
-          (list dired-rsync-modeline-status)))
+      (setf (alist-get 'dired-rsync mode-line-misc-info)
+            (list dired-rsync-modeline-status)))
 
-  (advice-add #'dired-rsync--update-modeline
-              :after #'dired-rsync--set-mode-line-misc-info)
-  
-  :bind
-  (:map dired-mode-map
-        ("C-c C-r" . dired-rsync)))
+    (advice-add #'dired-rsync--update-modeline
+                :after #'dired-rsync--set-mode-line-misc-info))
 
-(use-package disk-usage
-  :bind
-  (:map dired-mode-map
-        (")" . disk-usage-here)))
+  (use-package disk-usage
+    :commands
+    disk-usage-here)
 
-(use-package wdired
-  :custom
-  (wdired-allow-to-change-permissions t)
-  (wdired-create-parent-directories t)
-  :bind
-  (:map dired-mode-map
-        ("C-c C-p" . wdired-change-to-wdired-mode)))
+  (use-package wdired
+    :custom
+    (wdired-allow-to-change-permissions t)
+    (wdired-create-parent-directories t)
+    :commands
+    wdired-change-to-wdired-mode)
 
-(use-package dired-rainbow
-  :config
-  (defun dired-rainbow-setup ()
-    "Set up `dired-rainbow'."
+  (use-package dired-rainbow
+    :demand t
+    :config
     (dired-rainbow-define-chmod directory "#0074d9" "d.*")
     (dired-rainbow-define html "#eb5286"
                           ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
@@ -3168,46 +3107,45 @@ ERR and IND are ignored."
     (dolist (b (buffer-list))
       (with-current-buffer b
         (when (equal major-mode 'dired-mode)
-          (font-lock-refresh-defaults))))
+          (font-lock-refresh-defaults)))))
 
-    (remove-hook 'dired-mode-hook #'dired-rainbow-setup))
-  
+  (use-package dired-narrow
+    :commands
+    dired-narrow)
+
+  (use-package dired-rainbow-listing
+    :straight (:type git :host github :repo "mnewt/dired-rainbow-listing")
+    :hook
+    (dired-mode-hook . dired-rainbow-listing-mode))
+
+  (use-package dired-filter
+    :custom
+    (dired-filter-verbose nil)
+    (dired-filter-prefix "/")
+    :hook
+    (dired-mode-hook . dired-filter-mode))
+
+  (use-package dired-subtree)
+
+  (use-package dired-collapse
+    :hook
+    (dired-mode-hook . dired-collapse-mode))
+
+  (use-package dired-quick-sort)
+
   :hook
-  (dired-mode-hook . dired-rainbow-setup))
-
-(use-package dired-rainbow-listing
-  :straight (:type built-in)
-  :hook
-  (dired-mode-hook . dired-rainbow-listing-mode))
-
-(use-package dired-filter
-  :custom
-  (dired-filter-verbose nil)
-  :hook
-  (dired-mode-hook . dired-filter-mode))
-
-(use-package dired-narrow
+  (dired-mode-hook . dired-hide-details-mode)
   :bind
   (:map dired-mode-map
-        ("/" . dired-narrow)))
-
-(use-package dired-list
-  :straight (dired-list :host github :repo "Fuco1/dired-hacks"
-                        :files ("dired-list.el"))
-  :commands
-  dired-list-init-files
-  dired-list-dotfiles
-
-  :config
-  (defun dired-list-init-files ()
-    "List Emacs init files."
-    (interactive)
-    (dired-list-git-ls-files user-emacs-directory)
-    (when (bound-and-true-p dired-omit-mode) (dired-omit-mode -1))))
-
-(use-package dired-subtree
-  :bind
-  (:map dired-mode-map
+        ("." . hydra-dired/body)
+        ("C-c C-o" . dired-open-file)
+        ("T" . touch)
+        ("F" . tail-file)
+        (";" . dired-git-add)
+        ("C-c C-p" . wdired-change-to-wdired-mode)
+        ("C-c C-r" . dired-rsync)
+        (")" . disk-usage-here)
+        ("N" . dired-narrow)
         ("I" . dired-subtree-cycle)
         ("TAB" . dired-subtree-cycle)
         ("C-, i" . dired-subtree-insert)
@@ -3215,11 +3153,14 @@ ERR and IND are ignored."
         ("C-, R" . dired-subtree-revert)
         ("C-, n" . dired-subtree-narrow)
         ("C-, ^" . dired-subtree-up)
-        ("C-, v" . dired-subtree-down)))
+        ("C-, v" . dired-subtree-down)
+        ("C-c C-s" . hydra-dired-quick-sort/body)))
 
-(use-package dired-collapse
-  :hook
-  (dired-mode-hook . dired-collapse-mode))
+(use-package dired-list
+  :straight (dired-list :host github :repo "Fuco1/dired-hacks"
+                        :files ("dired-list.el"))
+  :commands
+  dired-list-git-ls-files)
 
 (use-package dired-sidebar
   :config
@@ -3231,10 +3172,6 @@ ERR and IND are ignored."
                                  (auto-revert-mode))))
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
-
-(use-package dired-quick-sort
-  :bind
-  ("C-c C-s" . hydra-dired-quick-sort/body))
 
 (bind-keys
  ("C-x M-s" . psync-maybe)
@@ -4565,7 +4502,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
         ("C-s-<backspace>" . sp-splice-sexp-killing-backward)
         ("M-(" . sp-wrap-round)
         ("M-[" . sp-wrap-square)
-        ("M-{" . sp-wrap-qurly)
+        ("M-{" . sp-wrap-curly)
         ("M-<delete>" . sp-unwrap-sexp)
         ("M-<backspace>" . sp-backward-delete-word)
         ("C-)" . sp-forward-slurp-sexp)
@@ -6514,7 +6451,8 @@ Open the `eww' buffer in another window."
 
   :bind
   (:map lsp-mode-map
-        ("s-l p" . lsp-reset-mode-line-process)))
+        ("s-l p" . lsp-reset-mode-line-process)
+        ("C-h ." . lsp-describe-thing-at-point)))
 
 (use-package lsp-ui
   :custom
@@ -6526,8 +6464,7 @@ Open the `eww' buffer in another window."
   :bind
   (:map lsp-ui-mode-map
         ("M-." . lsp-ui-peek-find-definitions)
-        ("M-?" . lsp-ui-peek-find-references)
-        ("C-h ." . lsp-ui-doc-show))
+        ("M-?" . lsp-ui-peek-find-references))
   (:map lsp-ui-peek-mode-map
         ("<return>" . lsp-ui-peek--goto-xref)
         ("M-/" . lsp-ui-peek--goto-xref))
@@ -6557,7 +6494,7 @@ Open the `eww' buffer in another window."
                        (rubocop "rubocop" "--format" "emacs" file)
                        (rufo "rufo" "--simple-exit" "--filename" file)
                        (swift-format "xcrun" "swift-format")
-                       (shfmt  "shfmt")
+                       (shfmt  "shfmt" "-i" "2" "-ci")
                        (xmllint "xmllint" "--format" "-")
                        (zprint "zprint" "{:style :community :map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
@@ -7195,7 +7132,7 @@ configuration when invoked to evaluate a line."
   :interpreter "nft\\(?:ables\\)?")
 
 (use-package gdscript-mode
-  :straight ( :type git :host github :repo "godotengine/emacs-gdscript-mode")
+  :straight (:type git :host github :repo "godotengine/emacs-gdscript-mode")
   :mode "\\.gd\\'"
 
   :config

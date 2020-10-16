@@ -2,7 +2,7 @@
 
 # Print the given arguments out in a nice heading
 heading() {
-	printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
+  printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
 }
 
 # Homebrew packages to install.
@@ -30,150 +30,150 @@ DO_REPO_BRANCH="${DO_REPO_BRANCH:-master}"
 
 # Print the given arguments out in a nice heading
 do_heading() {
-	printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
+  printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
 }
 
 # Return exit code 0 if $1 is the same as any of the rest of the arguments
 contains() {
-	local e match="$1"
-	shift
-	for e in "$@"; do [ "$e" = "$match" ] && return 0; done
-	return 1
+  local e match="$1"
+  shift
+  for e in "$@"; do [ "$e" = "$match" ] && return 0; done
+  return 1
 }
 
 # Print the number of CPU cores on the local machine
 do_how_many_cores() {
-	case "$(uname)" in
-	Darwin)
-		sysctl -n hw.ncpu
-		;;
-	Linux)
-		awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
-		;;
-	esac
+  case "$(uname)" in
+    Darwin)
+      sysctl -n hw.ncpu
+      ;;
+    Linux)
+      awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
+      ;;
+  esac
 }
 
 # Ensure the given homebrew packages are installed and up to date
 # brew_ensure [ cask ] dep1 [ dep2 ] [ ... ]
 do_brew_ensure() {
-	local prefix required missing outdated upgrade
-	# Decide if we are operating on 'brew' or 'brew cask'
-	prefix="brew "
-	[ "$1" = "cask" ] && prefix="${prefix}cask " && shift
+  local maybe_cask required missing outdated upgrade
+  # Decide if we are operating on 'brew' or 'brew cask'
+  maybe_cask=""
+  [ "$1" = "cask" ] && maybe_cask="--cask" && shift
 
-	# Get list of missing packages, install them
-	installed=($(eval $prefix list -1))
-	required=("$@")
-	for p in "${required[@]}"; do
-		contains "$p" "${installed[@]}" || missing+=("$p")
-	done
-	if [ -n "${missing[*]:-}" ]; then
-		echo "Installing packages: ${missing[*]}"
-		eval $prefix install "${missing[@]}"
-	fi
+  # Get list of missing packages, install them
+  installed=($(brew list $maybe_cask -1))
+  required=("$@")
+  for p in "${required[@]}"; do
+    contains "$p" "${installed[@]}" || missing+=("$p")
+  done
+  if [ -n "${missing[*]:-}" ]; then
+    echo "Installing packages: ${missing[*]}"
+    brew install $maybe_cask "${missing[@]}"
+  fi
 
-	# Get list of outdated packages, upgrade them
-	outdated="$(eval $prefix outdated | awk '{print $1}')"
-	upgrade=()
-	for p in "${required[@]}"; do
-		contains "$p" "${outdated[@]}" && upgrade+=("$p")
-	done
-	if [ -n "${upgrade[*]:-}" ]; then
-		echo "Upgrading packages: ${upgrade[*]}"
-		eval $prefix upgrade "${upgrade[@]}"
-	fi
+  # Get list of outdated packages, upgrade them
+  outdated="$(brew outdated $maybe_cask | awk '{print $1}')"
+  upgrade=()
+  for p in "${required[@]}"; do
+    contains "$p" "${outdated[@]}" && upgrade+=("$p")
+  done
+  if [ -n "${upgrade[*]:-}" ]; then
+    echo "Upgrading packages: ${upgrade[*]}"
+    brew upgrade $maybe_cask "${upgrade[@]}"
+  fi
 }
 
 # Fetch the source repository
 do_fetch() {
-	local url="${1:-$DO_REPO_URL}"
-	local target="${2:-$DO_REPO_DIRECTORY}"
-	local base="$DO_BASE_DIR"
-	local ref="${3:-$DO_REPO_BRANCH}"
+  local url="${1:-$DO_REPO_URL}"
+  local target="${2:-$DO_REPO_DIRECTORY}"
+  local base="$DO_BASE_DIR"
+  local ref="${3:-$DO_REPO_BRANCH}"
 
-	heading "Fetching source for $target..."
-	echo "Source directory will be $base/$target"
+  heading "Fetching source for $target..."
+  echo "Source directory will be $base/$target"
 
-	mkdir -p "$base"
-	pushd "$base"
+  mkdir -p "$base"
+  pushd "$base"
 
-	[ -d "$base/$target" ] || git clone "$url" "$target"
-	pushd "$base/$target"
+  [ -d "$base/$target" ] || git clone "$url" "$target"
+  pushd "$base/$target"
 
-	git fetch
-	git checkout "$ref"
-	git clean -dxf
-	git pull --ff-only origin "$DO_REPO_BRANCH"
+  git fetch
+  git checkout "$ref"
+  git clean -dxf
+  git pull --ff-only origin "$DO_REPO_BRANCH"
 }
 
 # Prepare environment variables
 do_vars() {
-	CFLAGS="${CFLAGS:--Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check}"
-	CPPFLAGS="${CPPFLAGS:-}"
-	LDFLAGS="${LDFLAGS:--Wl}"
-	PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
+  CFLAGS="${CFLAGS:--Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check}"
+  CPPFLAGS="${CPPFLAGS:-}"
+  LDFLAGS="${LDFLAGS:--Wl}"
+  PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
 
-	for dir in "${DO_LIBS[@]}"; do
-		# If it's not a directory, it's a homebrew package--use its directory
-		# prefix.
-		[ -d "$dir" ] || dir="$(brew --prefix $dir)"
+  for dir in "${DO_LIBS[@]}"; do
+    # If it's not a directory, it's a homebrew package--use its directory
+    # prefix.
+    [ -d "$dir" ] || dir="$(brew --prefix $dir)"
 
-		CPPFLAGS="${CPPFLAGS} -I${dir}/include"
-		LDFLAGS="${LDFLAGS} -L${dir}/lib"
-		PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${dir}/lib/pkgconfig"
-	done
+    CPPFLAGS="${CPPFLAGS} -I${dir}/include"
+    LDFLAGS="${LDFLAGS} -L${dir}/lib"
+    PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${dir}/lib/pkgconfig"
+  done
 
-	printf "\nCOMPILATION VARIABLES:\n\n"
+  printf "\nCOMPILATION VARIABLES:\n\n"
 
-	export CFLAGS
-	printf "CFLAGS:\n%s\n" "$CFLAGS"
-	export CPPFLAGS
-	printf "CPPFLAGS:\n%s\n" "$CPPFLAGS"
-	export LDFLAGS
-	printf "LDFLAGS:\n%s\n" "$LDFLAGS"
-	export PKG_CONFIG_PATH
-	printf "PKG_CONFIG_PATH:\n%s\n" "$PKG_CONFIG_PATH"
+  export CFLAGS
+  printf "CFLAGS:\n%s\n" "$CFLAGS"
+  export CPPFLAGS
+  printf "CPPFLAGS:\n%s\n" "$CPPFLAGS"
+  export LDFLAGS
+  printf "LDFLAGS:\n%s\n" "$LDFLAGS"
+  export PKG_CONFIG_PATH
+  printf "PKG_CONFIG_PATH:\n%s\n" "$PKG_CONFIG_PATH"
 }
 
 # Perform the build
 do_build() {
-	local target="${1:-$DO_REPO_DIRECTORY}"
+  local target="${1:-$DO_REPO_DIRECTORY}"
 
-	heading "Building $target..."
+  heading "Building $target..."
 
-	pushd "$DO_BASE_DIR/$target"
+  pushd "$DO_BASE_DIR/$target"
 
-	make distclean
-	./autogen.sh
-	./configure "${DO_CONFIGURE_OPTS[@]}"
-	make -j $DO_CORES
+  make distclean
+  ./autogen.sh
+  ./configure "${DO_CONFIGURE_OPTS[@]}"
+  make -j $DO_CORES
 
-	popd
+  popd
 }
 
 # Perform the installation
 do_install() {
-	local target="${1:-$DO_REPO_DIRECTORY}"
+  local target="${1:-$DO_REPO_DIRECTORY}"
 
-	heading "Installing $target..."
+  heading "Installing $target..."
 
-	pushd "$DO_BASE_DIR/$target"
+  pushd "$DO_BASE_DIR/$target"
 
-	# Even though we move the binary ourselves, we still need to install to get
-	# the Emacs Lisp and C source files in the right place.
-	make -j $DO_CORES install
+  # Even though we move the binary ourselves, we still need to install to get
+  # the Emacs Lisp and C source files in the right place.
+  make -j $DO_CORES install
 }
 
 # Do: ensure, fetch, vars, build, install
 do_all() {
-	# brew install "$HOME/.emacs.d/gcc.rb" --build-from-source
-	do_brew_ensure "${DO_BREW_PACKAGES[@]}"
-	do_brew_ensure cask "${DO_BREW_CASKS[@]}"
+  # brew install "$HOME/.emacs.d/gcc.rb" --build-from-source
+  do_brew_ensure "${DO_BREW_PACKAGES[@]}"
+  do_brew_ensure cask "${DO_BREW_CASKS[@]}"
 
-	do_fetch
-	do_vars
-	do_build
-	do_install
+  do_fetch
+  do_vars
+  do_build
+  do_install
 }
 
 DO_CORES=${DO_CORES:-$((2 * $(do_how_many_cores)))}
