@@ -6887,6 +6887,9 @@ This command defaults to running the previous command."
 (use-package csv-mode
   :mode "\\.csv\\'")
 
+(use-package apache-mode
+  :mode "/apache2/")
+
 (use-package nginx-mode
   :custom
   (nginx-indent-level tab-width)
