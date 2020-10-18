@@ -2528,6 +2528,8 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("M-r" . counsel-minibuffer-history)))
 
 (use-package ivy-rich
+  :custom
+  (ivy-rich-parse-remote-buffer nil)
   :hook
   (counsel-mode-hook . ivy-rich-mode))
 
