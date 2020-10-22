@@ -13,86 +13,89 @@ DO_REPO_BRANCH="feature/native-comp"
 DO_APP_LOCATION="$HOME/Applications/Emacs.app"
 
 DO_BREW_PACKAGES=(
-	autoconf
-	cairo
-	cmake
-	gcc
-	gnupg
-	gnutls
-	# The macOS build uses the Cocoa image library
-	# imagemagick
-	jansson
-	libgccjit
-	librsvg
-	libvterm
-	libxml2
-	pkg-config
-	texinfo
+  autoconf
+  cairo
+  cmake
+  gcc
+  gnupg
+  gnutls
+  # The macOS build uses the Cocoa image library
+  # imagemagick
+  jansson
+  libgccjit
+  librsvg
+  libvterm
+  libxml2
+  pkg-config
+  texinfo
 )
 
 DO_BREW_CASKS=(
-	mactex
+  mactex
 )
 
 DO_LIBS=(
-	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
-	gcc
-	giflib
-	gnutls
-	jansson
-	jpeg
-	libtiff
-	libxml2
-	# Required by gnutls
-	nettle
-	libtasn1
-	p11-kit
+  $(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
+  gcc
+  libgccjit
+  giflib
+  gnutls
+  jansson
+  jpeg
+  libtiff
+  libxml2
+  # Required by gnutls
+  nettle
+  libtasn1
+  p11-kit
 )
 
 DO_CONFIGURE_OPTS=(
-	--config-cache
-	--without-pop
-	--with-ns
-	--disable-ns-self-contained
-	--with-cairo
-	# --with-imagemagick
-	--with-modules
-	--with-nativecomp
-	--with-xml2
-	--with-gnutls
-	--with-json
-	--program-transform-name='s/^ctags$/ctags.emacs/'
+  --config-cache
+  --without-pop
+  --with-ns
+  --disable-ns-self-contained
+  --with-cairo
+  # --with-imagemagick
+  --with-modules
+  --with-nativecomp
+  --with-xml2
+  --with-gnutls
+  --with-json
+  --program-transform-name='s/^ctags$/ctags.emacs/'
 )
 
 # native-comp optimization
-export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 3)'"
-export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
+export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
+# Don't think this is necessary anymore, now that libgccjit is its own Homebrew
+# package.
+# export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
 
 . build-utils
 
 # Install Emacs from the build directory
 do_install() {
-	local target="${1:-$DO_REPO_DIRECTORY}"
-	heading "Installing $target..."
+  local target="${1:-$DO_REPO_DIRECTORY}"
+  do_heading "Installing $target..."
 
-	# Ensure the directory to which we will install Emacs exists and has the correct
-	# permissions set.
-	local libexec=/usr/local/libexec/emacs
-	if [ ! -d $libexec ]; then
-		sudo mkdir -p $libexec
-		chown $USER $libexec
-	fi
+  # Ensure the directory to which we will install Emacs exists and has the correct
+  # permissions set.
+  local libexec=/usr/local/libexec/emacs
+  if [ ! -d $libexec ]; then
+    sudo mkdir -p $libexec
+    chown $USER $libexec
+  fi
 
-	pushd "$DO_BASE_DIR/$target"
+  pushd "$DO_BASE_DIR/$target"
 
-	# Even though we move the binary ourselves, we still need to install to get
-	# the Emacs Lisp and C source files in the right place.
-	make -j $DO_CORES install
-	rm -rf "$DO_APP_LOCATION"
-	mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
-	cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
+  # Even though we move the binary ourselves, we still need to install to get
+  # the Emacs Lisp and C source files in the right place.
+  make -j $DO_CORES install
+  rm -rf "$DO_APP_LOCATION"
+  mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
+  cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
 
-	popd
+  popd
 }
 
 do_all

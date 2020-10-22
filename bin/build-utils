@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-# Print the given arguments out in a nice heading
-heading() {
-  printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
-}
-
 # Homebrew packages to install.
 # DO_BREW_PACKAGES=()
 
@@ -56,31 +51,32 @@ do_how_many_cores() {
 # Ensure the given homebrew packages are installed and up to date
 # brew_ensure [ cask ] dep1 [ dep2 ] [ ... ]
 do_brew_ensure() {
-  local maybe_cask required missing outdated upgrade
-  # Decide if we are operating on 'brew' or 'brew cask'
-  maybe_cask=""
-  [ "$1" = "cask" ] && maybe_cask="--cask" && shift
+  do_heading "Ensuring Homebrew packages..."
+  echo "$@"
+  local brew_type required missing outdated upgrade
+  brew_type="$1"
+  shift
 
   # Get list of missing packages, install them
-  installed=($(brew list $maybe_cask -1))
+  installed=($(brew list $brew_type -1))
   required=("$@")
   for p in "${required[@]}"; do
     contains "$p" "${installed[@]}" || missing+=("$p")
   done
   if [ -n "${missing[*]:-}" ]; then
     echo "Installing packages: ${missing[*]}"
-    brew install $maybe_cask "${missing[@]}"
+    brew install $brew_type "${missing[@]}"
   fi
 
   # Get list of outdated packages, upgrade them
-  outdated="$(brew outdated $maybe_cask | awk '{print $1}')"
+  outdated="$(brew outdated $brew_type | awk '{print $1}')"
   upgrade=()
   for p in "${required[@]}"; do
     contains "$p" "${outdated[@]}" && upgrade+=("$p")
   done
   if [ -n "${upgrade[*]:-}" ]; then
     echo "Upgrading packages: ${upgrade[*]}"
-    brew upgrade $maybe_cask "${upgrade[@]}"
+    brew upgrade $brew_type "${upgrade[@]}"
   fi
 }
 
@@ -91,7 +87,7 @@ do_fetch() {
   local base="$DO_BASE_DIR"
   local ref="${3:-$DO_REPO_BRANCH}"
 
-  heading "Fetching source for $target..."
+  do_heading "Fetching source for $target..."
   echo "Source directory will be $base/$target"
 
   mkdir -p "$base"
@@ -139,7 +135,7 @@ do_vars() {
 do_build() {
   local target="${1:-$DO_REPO_DIRECTORY}"
 
-  heading "Building $target..."
+  do_heading "Building $target..."
 
   pushd "$DO_BASE_DIR/$target"
 
@@ -155,7 +151,7 @@ do_build() {
 do_install() {
   local target="${1:-$DO_REPO_DIRECTORY}"
 
-  heading "Installing $target..."
+  do_heading "Installing $target..."
 
   pushd "$DO_BASE_DIR/$target"
 
@@ -167,8 +163,8 @@ do_install() {
 # Do: ensure, fetch, vars, build, install
 do_all() {
   # brew install "$HOME/.emacs.d/gcc.rb" --build-from-source
-  do_brew_ensure "${DO_BREW_PACKAGES[@]}"
-  do_brew_ensure cask "${DO_BREW_CASKS[@]}"
+  do_brew_ensure --formula "${DO_BREW_PACKAGES[@]}"
+  do_brew_ensure --cask "${DO_BREW_CASKS[@]}"
 
   do_fetch
   do_vars
