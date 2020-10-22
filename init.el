@@ -5587,16 +5587,16 @@ Advise `eshell-ls-decorated-name'."
 ;;     lisp-mode-hook
 ;;     scheme-mode-hook) . parinfer-rust-mode))
 
-(use-package emr
-  :bind
-  (:map prog-mode-map
-        ("C-c r" . emr-show-refactor-menu))
-  (:map popup-menu-keymap
-        ("M-n" . popup-next)
-        ("M-p" . popup-previous)
-        ("M-/" . popup-select)
-        ("<return>" . popup-select)
-        ("<tab>" . popup-select)))
+;; (use-package emr
+;;   :bind
+;;   (:map prog-mode-map
+;;         ("C-c r" . emr-show-refactor-menu))
+;;   (:map popup-menu-keymap
+;;         ("M-n" . popup-next)
+;;         ("M-p" . popup-previous)
+;;         ("M-/" . popup-select)
+;;         ("<return>" . popup-select)
+;;         ("<tab>" . popup-select)))
 
 (defun advice-functions-on-symbol (symbol)
   "Return a list of functions advising SYMBOL."
@@ -6034,8 +6034,8 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :hook
   (pdf-view-mode-hook . pdf-continuous-scroll-mode))
 
-(use-package nov
-  :mode ("\\.epub\\'" . nov-mode))
+;; (use-package nov
+;;   :mode ("\\.epub\\'" . nov-mode))
 
 
 ;;;; Log Files
@@ -6893,13 +6893,16 @@ This command defaults to running the previous command."
   :mode "/apache2/")
 
 (use-package nginx-mode
+  :mode
+  "nginx\\.conf\\'"
+  "/nginx/.+\\.conf\\'"
   :custom
   (nginx-indent-level tab-width)
   :commands
   nginx-mode)
 
 (use-package caddyfile-mode
-  :mode "\\`Caddyfile.*"
+  :mode "Caddyfile.*"
   :config
   (defun caddyfile-setup ()
     "Set up `caddyfile-mode'.
@@ -7105,28 +7108,28 @@ This package sets these explicitly so we have to do the same."
   :functions
   org-babel-execute:mermaid)
 
-(use-package eval-in-repl
-  :custom
-  (eir-jump-after-eval nil)
-  :config
-  (defun eir-eval-in-shell-and-advance ()
-    "Eval in REPL and advance for shell script.
+;; (use-package eval-in-repl
+;;   :custom
+;;   (eir-jump-after-eval nil)
+;;   :config
+;;   (defun eir-eval-in-shell-and-advance ()
+;;     "Eval in REPL and advance for shell script.
 
-This version has the opposite behavior to the eir-jump-after-eval
-configuration when invoked to evaluate a line."
-    (interactive)
-    (let ((eir-jump-after-eval t))
-      (eir-eval-in-shell)))
+;; This version has the opposite behavior to the eir-jump-after-eval
+;; configuration when invoked to evaluate a line."
+;;     (interactive)
+;;     (let ((eir-jump-after-eval t))
+;;       (eir-eval-in-shell)))
 
-  (defun eval-in-repl-sh-mode-setup ()
-    (require 'eval-in-repl-shell))
+;;   (defun eval-in-repl-sh-mode-setup ()
+;;     (require 'eval-in-repl-shell))
 
-  :hook
-  (sh-mode-hook . eval-in-repl-sh-mode-setup)
-  :bind
-  (:map sh-mode-map
-        ("s-<return>" . eir-eval-in-shell)
-        ("M-s-<return>" . eir-eval-in-shell-and-advance)))
+;;   :hook
+;;   (sh-mode-hook . eval-in-repl-sh-mode-setup)
+;;   :bind
+;;   (:map sh-mode-map
+;;         ("s-<return>" . eir-eval-in-shell)
+;;         ("M-s-<return>" . eir-eval-in-shell-and-advance)))
 
 (use-package nix-mode
   :mode "\\.nix\\'")
@@ -7145,25 +7148,26 @@ configuration when invoked to evaluate a line."
     :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
     :init
     ;; FIXME the directory name doesn't match the major mode.
-    (add-to-list 'yas-snippet-dirs
-                 (straight--repos-dir "yasnippet-godot-gdscript" "snippets")))
+    (with-eval-after-load 'yasnippet
+      (add-to-list 'yas-snippet-dirs
+                   (straight--repos-dir "yasnippet-godot-gdscript" "snippets"))))
 
   ;; FIXME
   ;; https://github.com/emacs-lsp/lsp-mode/issues/2127
-  (require 'lsp-gdscript)
-  (lsp-register-client
-   (make-lsp-client :new-connection (lsp-gdscript-tcp-connect-to-port)
-                    :major-modes '(gdscript-mode)
-                    :server-id 'gdscript
-                    ;; Ignore unsupported messages.
-                    :notification-handlers (lsp-ht
-                                            ("gdscript/capabilities" 'ignore)
-                                            ("textDocument/publishDiagnostics" 'ignore)
-                                            ("executeCommand" 'ignore))))
+  ;; (require 'lsp-gdscript)
+  ;; (lsp-register-client
+  ;;  (make-lsp-client :new-connection (lsp-gdscript-tcp-connect-to-port)
+  ;;                   :major-modes '(gdscript-mode)
+  ;;                   :server-id 'gdscript
+  ;;                   ;; Ignore unsupported messages.
+  ;;                   :notification-handlers (lsp-ht
+  ;;                                           ("gdscript/capabilities" 'ignore)
+  ;;                                           ("textDocument/publishDiagnostics" 'ignore)
+  ;;                                           ("executeCommand" 'ignore))))
 
   (defun gdscript-setup ()
     "Set up `gdscript-mode'."
-    (company-box-mode -1)
+    (remove-hook 'company-mode-hook #'company-box-mode 'local)
     (lsp-deferred))
 
   :hook
