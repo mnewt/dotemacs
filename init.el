@@ -5766,8 +5766,6 @@ Interactively, reads the register using `register-read-with-preview'."
   debbugs-gnu-bugs)
 
 (use-package clojure-mode
-  :init
-  (defvar cider-mode-map)
   :mode
   ("\\.clj\\'" . clojure-mode)
   ("\\.cljs\\'" . clojurescript-mode)
@@ -5884,10 +5882,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
     (:map cider-mode-map
           ("s-<return>" . cider-eval-last-sexp)
           ("C-x 4 ." . cider-find-var-other-window)))
-
-  ;; (use-package cider-hydra
-  ;;   :hook
-  ;;   (clojure-mode-hook . cider-hydra-mode))
 
   :hook
   (clojure-mode-hook . subword-mode))
@@ -7614,8 +7608,6 @@ Stolen from https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el
   :custom
   (org-roam-directory (expand-file-name org-directory))
   (org-roam-tag-sources '(prop last-directory))
-  :commands
-  org-roam
   :config
   (org-roam-mode)
   (use-package org-roam-server)
