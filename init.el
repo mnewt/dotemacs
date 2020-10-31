@@ -4913,19 +4913,17 @@ predicate returns true."
     (aset ansi-color-names-vector 0
           (plist-get (face-spec-choose (theme-face 'default)) :background)))
 
-  (bind-keys
-   :map vterm-mode-map
-   ;; Override the normal `clipboard-yank-and-indent'.
-   ("s-v" . clipboard-yank)
-   ("M-p" . vterm-send-up)
-   ("M-n" . vterm-send-down))
-
   :hook
   (vterm-mode-hook . vterm--set-background-color)
 
   :bind
   ("C-c t" . vterm)
-  ("C-c C-t" . vterm-other-window))
+  ("C-c C-t" . vterm-other-window)
+  (:map vterm-mode-map
+        ;; Override the normal `clipboard-yank-and-indent'.
+        ("s-v" . vterm-yank)
+        ("M-p" . vterm-send-up)
+        ("M-n" . vterm-send-down)))
 
 (use-package xterm-color
   :commands
