@@ -1095,14 +1095,13 @@ This sets things up for `window-highlight' and `mode-line'."
              (sp-show-pair-match-face ((t :inherit highlight
                                           :underline nil
                                           :foreground nil
-                                          :background nil)))))
+                                          :background nil)))
+             (vterm-color-default ((t :background ,active-bg)))))
     (with-eval-after-load 'org
       (set-face-attribute 'org-document-title nil :height 1.4))
     (with-eval-after-load 'outline
       (set-face-attribute 'outline-1 nil :height 1.2)
       (set-face-attribute 'outline-2 nil :height 1.1)))
-    ;; (set-face-attribute 'outline-3 nil :height 1.0)
-    ;; (set-face-attribute 'outline-4 nil :height 1.0)
   (mood-line--refresh-bar))
 
 (advice-add #'load-theme :before #'custom-enabled-themes-reset)
@@ -3784,9 +3783,13 @@ INITIAL will be used as the initial input, if given."
                   (delete-region (point) (point-min))
                   (message (kill-new (buffer-string))))))
 
-(use-package ipcalc
-  :commands
-  ipcalc)
+(defvar ipcalc-history nil
+  "History for `ipcalc' command.")
+
+(defun ipcalc (args)
+  "Run ipcalc."
+  (interactive (list (read-shell-command "ipcalc " nil 'ipcalc-history)))
+  (async-shell-command (format "ipcalc %s" args)))
 
 (use-package wttrin
   :custom
@@ -4905,20 +4908,42 @@ predicate returns true."
 (use-package vterm
   :custom
   (vterm-always-compile-module t)
-  (vterm-buffer-name-string "*vterm %s*")
+  (vterm-buffer-name-string "*VTerm %s*")
+  (vterm-kill-buffer-on-exit nil)
 
   :config
-  (defun vterm--set-background-color ()
-    (make-local-variable 'ansi-color-names-vector)
-    (aset ansi-color-names-vector 0
-          (plist-get (face-spec-choose (theme-face 'default)) :background)))
+  ;; TODO Make these functions using macro?  And eshell analogs.
+  (defun vterm-create-in-background ()
+    "Create a new VTerm buffer but don't display it."
+    (save-window-excursion (vterm "*VTerm*")))
 
-  :hook
-  (vterm-mode-hook . vterm--set-background-color)
+  (defun vterm-get-or-create ()
+    "Get or create an Eshell buffer."
+    (interactive)
+    (or (when current-prefix-arg (vterm-create-in-background))
+        (car (filter-buffers-by-mode 'vterm-mode))
+        (vterm-create-in-background)))
+
+  (defun vterm-switch-to-buffer ()
+    "Switch to the most recent VTerm buffer or create a new one."
+    (interactive)
+    (switch-to-buffer (vterm-get-or-create)))
+
+  (defun vterm-switch-to-buffer-other-window ()
+    "Get or create a VTerm buffer, then switch to it."
+    (interactive)
+    (switch-to-buffer-other-window (vterm-get-or-create)))
+
+  (defun vterm-choose-buffer ()
+    "Interactively choose a VTerm buffer."
+    (interactive)
+    (counsel-switch-buffer-by-mode 'vterm-mode))
 
   :bind
-  ("C-c t" . vterm)
-  ("C-c C-t" . vterm-other-window)
+  ("s-t" . vterm-switch-to-buffer)
+  ("C-c t" . vterm-switch-to-buffer)
+  ("s-T" . vterm-switch-to-buffer-other-window)
+  ("C-c C-t" . vterm-switch-to-buffer-other-window)
   (:map vterm-mode-map
         ;; Override the normal `clipboard-yank-and-indent'.
         ("s-v" . vterm-yank)
@@ -5130,7 +5155,7 @@ because I dynamically rename the buffer according to
     (interactive)
     (switch-to-buffer-other-window (eshell-get-or-create)))
 
-  (defun switch-to-eshell-buffer ()
+  (defun eshell-choose-buffer ()
     "Interactively choose an Eshell buffer."
     (interactive)
     (counsel-switch-buffer-by-mode 'eshell-mode))
@@ -5508,7 +5533,7 @@ Advise `eshell-ls-decorated-name'."
   ("C-c e" . eshell-switch-to-buffer)
   ("s-E" . eshell-switch-to-buffer-other-window)
   ("C-c E" . eshell-switch-to-buffer-other-window)
-  ("C-s-e" . switch-to-eshell-buffer)
+  ("C-s-e" . eshell-choose-buffer)
   ("M-E" . ibuffer-show-eshell-buffers)
   ("C-c M-e" . ibuffer-show-eshell-buffers)
   (:map prog-mode-map
