@@ -117,7 +117,10 @@ If VARS is not specified, use `env-cache-vars'."
 ;; FIXME `gh-common' appears to have a byte compilation error, so `comp' tries
 ;; and fails to compile it at every startup.
 (custom-set-variables
- '(comp-deferred-compilation-black-list '("gh-common")))
+ '(comp-deferred-compilation-black-list '("gh-common"))
+ ;; Suppress warning popups when the byte compiler issues warnings during async
+ ;; native compilation.
+ '(comp-async-report-warnings-errors nil))
 
 ;;;;; Security
 
@@ -256,6 +259,8 @@ higher level up to the top level form."
 (defun update-emacs-packages ()
   "Synchronously update Emacs packages using `straight'."
   (interactive)
+  (straight-pull-package "straight")
+  (straight-check-package "straight")
   (straight-pull-all)
   (straight-check-all)
   (url-copy-file
