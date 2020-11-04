@@ -723,7 +723,9 @@ then choose the next key in the Alist `fiat-themes'."
   (unless key
     (setq key
           (car (elt fiat-themes
-                    (mod (1+ (cl-position (fiat-current) (mapcar #'car fiat-themes)))
+                    (mod (1+ (cl-position (or (fiat-current)
+                                              (caar fiat-themes))
+                                          (mapcar #'car fiat-themes)))
                          (length fiat-themes))))))
   (unless (member (alist-get key fiat-themes) custom-enabled-themes)
     (load-theme (alist-get key fiat-themes) t)))
@@ -762,6 +764,11 @@ then choose the next key in the Alist `fiat-themes'."
   :demand t
   :config
   (doom-themes-visual-bell-config))
+
+(use-package modus-themes
+  :straight (:host gitlab :repo "protesilaos/modus-themes")
+  :custom
+  (modus-vivendi-theme-mode-line 'moody))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1088,23 +1095,28 @@ This sets things up for `window-highlight' and `mode-line'."
          (inactive-bg (color-blend active-bg
                                    (theme-face-attribute 'default :foreground)
                                    0.95)))
-    (apply #'custom-set-faces
-           `((default ((t :background ,inactive-bg)))
-             (fringe ((t :background ,inactive-bg)))
-             (vertical-border ((t :foreground ,inactive-bg)))
-             (window-highlight-focused-window ((t :background ,active-bg)))
-             (cursor ((t :background "magenta")))
-             ;; (eldoc-box-body ((t :inherit default
-             ;;                     :background
-             ;;                     ,(color-blend
-             ;;                       active-bg
-             ;;                       (theme-face-attribute 'default :foreground)
-             ;;                       1.2))))
-             (sp-show-pair-match-face ((t :inherit highlight
-                                          :underline nil
-                                          :foreground nil
-                                          :background nil)))
-             (vterm-color-default ((t :background ,active-bg)))))
+    ;; cursor
+    (set-face-background 'cursor "magenta")
+    ;; mode-line
+    (set-face-attribute 'mode-line nil :box nil)
+    (set-face-attribute 'mode-line-inactive nil :box nil)
+    (with-eval-after-load 'vterm
+      (set-face-background 'vterm-color-default active-bg))
+    (with-eval-after-load 'smartparens
+      (set-face-attribute 'sp-show-pair-match-face nil
+                          :foreground (face-foreground 'highlight)
+                          :background (face-background 'highlight)))
+    (with-eval-after-load 'eldoc-box
+      (set-face-background 'eldoc-box-body
+                           (color-blend
+                            active-bg
+                            (theme-face-attribute 'default :foreground)
+                            1.2)))
+    (with-eval-after-load 'window-highlight
+      (set-face-background 'default inactive-bg)
+      (set-face-background 'fringe  inactive-bg)
+      (set-face-foreground 'vertical-border inactive-bg)
+      (set-face-background 'window-highlight-focused-window active-bg))
     (with-eval-after-load 'org
       (set-face-attribute 'org-document-title nil :height 1.4))
     (with-eval-after-load 'outline
