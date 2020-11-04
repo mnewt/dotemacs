@@ -31,6 +31,9 @@
 
 (cd code-directory)
 
+(defvar org-directory "~/org"
+  "Directory where Org files are stored.")
+
 (defvar journal-directory "~/org/journal"
   "Location of journal entries.")
 
@@ -7229,9 +7232,6 @@ This package sets these explicitly so we have to do the same."
 
 ;;;; Org
 
-(defvar org-directory "~/org"
-  "Directory where Org files are stored.")
-
 (use-package org
   :defer 17
   :mode ("\\.org\\'" . org-mode)
@@ -7522,40 +7522,21 @@ With a prefix ARG, create it in `org-directory'."
   ;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
   ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
 
-  (defun org-fix-blank-lines (prefix)
-    "Ensure that blank lines exist between headings and between headings and their contents.
-With prefix, operate on whole buffer. Ensures that blank lines
-exist after each headings's drawers.
+  (defun org-fix-blank-lines ()
+    "Ensure blank lines exist between top level headings.
 
-Stolen from https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el"
-    (interactive "P")
+Adapted from
+https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
+    (interactive)
     (org-map-entries (lambda ()
-                       (org-with-wide-buffer
-                        ;; `org-map-entries' narrows the buffer, which prevents us from seeing
-                        ;; newlines before the current heading, so we do this part widened.
-                        (while (not (looking-back "\n\n" nil))
-                          ;; Insert blank lines before heading.
-                          (insert "\n")))
-                       (let ((end (org-entry-end-position)))
-                         ;; Insert blank lines before entry content
-                         (forward-line)
-                         (while (and (org-at-planning-p)
-                                     (< (point) (point-max)))
-                           ;; Skip planning lines
-                           (forward-line))
-                         (while (re-search-forward org-drawer-regexp end t)
-                           ;; Skip drawers. You might think that `org-at-drawer-p' would suffice, but
-                           ;; for some reason it doesn't work correctly when operating on hidden text.
-                           ;; This works, taken from `org-agenda-get-some-entry-text'.
-                           (re-search-forward "^[ \t]*:END:.*\n?" end t)
-                           (goto-char (match-end 0)))
-                         (unless (or (= (point) (point-max))
-                                     (org-at-heading-p)
-                                     (looking-at-p "\n"))
-                           (insert "\n"))))
-                     t (if prefix
-                           nil
-                         'tree)))
+                       (when (= 1 (org-current-level))
+                         (org-with-wide-buffer
+                          ;; `org-map-entries' narrows the buffer, which prevents us from seeing
+                          ;; newlines before the current heading, so we do this part widened.
+                          (while (not (looking-back "\n\n" nil))
+                            ;; Insert blank lines before heading.
+                            (insert "\n")))))
+                     t nil))
 
   (defvar org-odt-convert-processes)
 
@@ -7625,7 +7606,6 @@ Stolen from https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
 
-;; WIP
 (use-package org-roam
   :defer 16
   :custom
@@ -7643,7 +7623,6 @@ Stolen from https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el
         ("C-c n i" . org-roam-insert)
         ("C-c n I" . org-roam-insert-immediate)))
 
-;; WIP
 ;; Install:
 ;; brew install tclap
 ;; cd [[~/.emacs.d/straight/repos/notdeft/xapian]]
@@ -7660,18 +7639,6 @@ Stolen from https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el
 (use-package poporg
   :bind
   ("C-c C-'" . poporg-dwim))
-
-;; TODO Currently, this sometimes does bad things like putting multiple headings
-;; on the same line.
-;; (use-package org-spacer
-;;   :straight (org-spacer :host github :repo "dustinlacewell/org-spacer.el")
-;;   :commands
-;;   org-spacer-enforce
-;;   :config
-;;   (defun org-spacer-enable-before-save-hook ()
-;;     (add-hook 'before-save-hook 'org-spacer-enforce nil 'local)))
-;; :hook
-;; (org-mode-hook . org-spacer-enable-before-save-hook))
 
 (use-package orglink
   :defer 15
