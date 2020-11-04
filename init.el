@@ -5443,7 +5443,6 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
     (add-to-list 'eshell-visual-commands "n")
     (add-to-list 'eshell-visual-commands "htop")
     (add-to-list 'eshell-visual-commands "glances")
-    (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
 
     ;; Load the Eshell versions of `su' and `sudo'
     (require 'em-tramp)
@@ -5483,33 +5482,35 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
       map)
     "Keys in effect when point is over a file from `eshell/ls'.")
 
-  (defun m-eshell-ls-decorated-name (f &rest args)
-    "Call F with ARGS.
+  (defun m-eshell-ls-decorated-name (f file)
+    "Advise around `eshell-ls-decorated-name'.
 
-Add more decoration to files in `eshell/ls' output.
+Add properties to listings in `eshell/ls' output.
 
-* Mark directories with a `/'
-* Mark execurables with a `*'
-* Open files and directories with `RET' or `mouse-1'
+Add decoration like 'ls -F':
+ * Mark directories with a `/'
+ * Mark execurables with a `*'
 
-Advise `eshell-ls-decorated-name'."
-    (let* ((file (car args))
-           (name (apply f args))
+Add clickable links to open files and directories with `RET' or
+`mouse-1'."
+    (let* ((name (funcall f file))
            (suffix
             (cond
              ;; Directory
              ((eq (cadr file) t)
               "/")
              ;; Executable
-             ((and (/= (user-uid) 0)            ; root can execute anything
+             ((and (/= (user-uid) 0) ; root can execute anything
                    (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
               "*"))))
       (propertize
        (if (and suffix (not (string-suffix-p suffix name)))
-           (concat name suffix)
+           (concat name (propertize suffix 'face 'shadow))
          name)
        'keymap m-eshell-ls-file-keymap
        'mouse-face 'highlight)))
+
+  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
 
   (defun ibuffer-show-eshell-buffers ()
     "Open an `ibuffer' window and display all Eshell buffers."

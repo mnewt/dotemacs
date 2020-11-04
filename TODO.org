@@ -1,6 +1,6 @@
 * Tasks
 ** TODO Submit patch to Org for =org-do-emphasis-faces=
-** TODO Fix =dired-listing-human-readable= or whatever it's called
+** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow= and submit upstream
 ** TODO Make =dired-rainbow-listing= into a package
 ** TODO =counsel-term= stuff
 *** TODO Make =counsel-term-cd= into =counsel-dired-jump=
@@ -11,3 +11,4 @@
 ** TODO Font-lock source code blocks in Info pages
 ** TODO =flash-thing=
 ** TODO Implement =bat= in Elisp =highlight-things.el=
+** DONE Fix =dired-listing-human-readable= or whatever it's called
