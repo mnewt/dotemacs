@@ -6480,13 +6480,13 @@ Open the `eww' buffer in another window."
     (add-to-list 'flycheck-checkers #'lsp))
 
   (defun lsp-reset-mode-line-process ()
-    "Reset `mode-line-process' manually."
+    "Reset `mode-line-process' manually after lsp screws it up."
     (interactive)
     (setq mode-line-process nil))
 
   :hook
   (lsp-after-open-hook . lsp-enable-imenu)
-  (lsp-mode . lsp-enable-which-key-integration)
+  (lsp-mode-hook . lsp-enable-which-key-integration)
 
   :bind
   (:map lsp-mode-map
@@ -6496,8 +6496,6 @@ Open the `eww' buffer in another window."
 (use-package lsp-ui
   :custom
   (lsp-ui-doc-position 'top)
-  :commands
-  lsp-ui-mode
   :hook
   (lsp-mode-hook . lsp-ui-mode)
   :bind
