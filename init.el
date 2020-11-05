@@ -488,7 +488,7 @@ higher level up to the top level form."
                        (delete-file tempfile)
                        (setq compilation-finish-functions orig)))
 
-        (write-region  (mapconcat 'identity files (char-to-string 0))
+        (write-region  (mapconcat #'identity files (char-to-string 0))
                        nil tempfile)
 
         (grep (format "%s %s | xargs -0 grep -n -i \"%s\" "
@@ -3806,10 +3806,50 @@ INITIAL will be used as the initial input, if given."
 (defvar ipcalc-history nil
   "History for `ipcalc' command.")
 
-(defun ipcalc (args)
-  "Run ipcalc."
-  (interactive (list (read-shell-command "ipcalc " nil 'ipcalc-history)))
-  (async-shell-command (format "ipcalc %s" args)))
+(defvar ipcalc-command '("sipcalc" "--all")
+  "How to run ipcalc via command line.")
+
+(defconst ipcalc-ipv4-regexp
+  "\\(?:[0-9]\\{1,3\\}\\.\\)\\{3\\}[0-9]\\{1\\}"
+  "Regexp matching an IPv4 address.")
+
+(defconst ipcalc-ipv6-regexp
+  "\\(?:[0-9a-fA-F]\\{0,4\\}:\\)\\{1,7\\}\\(?:[0-9a-fA-F]\\{0,4\\}\\)?"
+  "Regexp matching an IPv6 address.")
+
+(defconst ipcalc-network-mask-regexp
+  "/[0-9]\\{1,2\\}"
+  "Regexp matching the network mask part of CIDR notation.")
+
+(defconst ipcalc-cidr-regexp
+  (concat "\\(?:"
+          ipcalc-ipv4-regexp
+          "\\|"
+          ipcalc-ipv6-regexp
+          "\\)"
+          "\\(?:"
+          ipcalc-network-mask-regexp
+          "\\)?")
+  "Regexp matching an IP network in CIDR notation.")
+
+(defun ipcalc-ip-address-at-point ()
+  "Return the IP address at point, or nil if there is none."
+  (save-excursion
+    (if (re-search-backward "[[:space:]]" (line-beginning-position) t)
+        (forward-char 1)
+      (beginning-of-line))
+    (when (looking-at ipcalc-cidr-regexp)
+      (buffer-substring-no-properties (match-beginning 0) (match-end 0)))))
+
+(defun ipcalc (cidr)
+  "Run ipcalc on an address in CIDR format."
+  (interactive (list (if (region-active-p)
+                         (substring-no-properties (region-beginning) (region-end))
+                       (read-shell-command "ipcalc "
+                                           (ipcalc-ip-address-at-point)
+                                           'ipcalc-history))))
+  (async-shell-command (mapconcat #'identity (append ipcalc-command (list cidr)) " ")
+                       "*ipcalc*"))
 
 (use-package wttrin
   :custom
