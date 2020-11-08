@@ -26,17 +26,6 @@
 
 (add-to-list 'load-path elisp-directory)
 
-(defvar code-directory (if (file-exists-p "~/code") "~/code" "~")
-  "Default code project container directory.")
-
-(cd code-directory)
-
-(defvar org-directory "~/org"
-  "Directory where Org files are stored.")
-
-(defvar journal-directory "~/org/journal"
-  "Location of journal entries.")
-
 
 ;;;;; Environment Variables
 
@@ -122,6 +111,7 @@ If VARS is not specified, use `env-cache-vars'."
  ;; native compilation.
  '(comp-async-report-warnings-errors nil))
 
+
 ;;;;; Security
 
 (with-eval-after-load 'gnutls
@@ -129,6 +119,7 @@ If VARS is not specified, use `env-cache-vars'."
 
 (with-eval-after-load 'nsm
   (defvar network-security-level 'high))
+
 
 ;;;;; straight
 
@@ -175,6 +166,7 @@ If VARS is not specified, use `env-cache-vars'."
       (dolist (file files)
         (delete-file file 'trash)
         (message "Deleted file %s." file)))))
+
 
 ;;;;; use-package
 
@@ -337,6 +329,7 @@ higher level up to the top level form."
          w32-lwindow-modifier 'super
          w32-pass-rwindow-to-system nil
          w32-rwindow-modifier 'super)))
+
 
 ;;;; Bindings
 
@@ -545,6 +538,7 @@ higher level up to the top level form."
 
 ;; If it exists, load the private configuration file.
 (load "~/private/private.el" t t nil t)
+
 
 ;;;; Appearance
 
@@ -1186,6 +1180,7 @@ This sets things up for `window-highlight' and `mode-line'."
 ;;   :commands
 ;;   font-lock-studio)
 
+
 ;;;; Navigation
 
 ;; Navigation tools
@@ -1542,12 +1537,14 @@ return them in the Emacs format."
 
 (use-package goto-addr
   :hook
-  ((prog-mode-hook text-mode-hook) . goto-address-mode))
+  (prog-mode-hook . goto-address-prog-mode)
+  (text-mode-hook . goto-address-mode))
 
 (use-package bug-reference
   :custom
   (bug-reference-bug-regexp
    "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
+
   :config
   (defvar bug-reference-dispatch-alist nil
     "Alist where CAR is a regexp to match the type and CADR is a
@@ -1582,6 +1579,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
           (bug-reference-dispatch-url-github-or-gitlab type ref))))
 
   (setq bug-reference-url-format #'bug-reference-dispatch-url)
+
   :hook
   (prog-mode-hook . bug-reference-prog-mode)
   ((org-mode-hook text-mode-hook) . bug-reference-mode))
@@ -2147,6 +2145,7 @@ Each EXPR should create one window."
  ("m" . hidden-mode-line-mode)
  ("w" . whitespace-mode))
 
+
 ;;;; Search
 
 ;; Search and Project Management
@@ -2351,6 +2350,27 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     :custom
     (ivy-read-action-function #'ivy-hydra-read-action))
 
+  (define-minor-mode ivy-minibuffer-override-mode
+    "Ensure `ivy-minibuffer-mode' bindings have a high priority.
+
+This is useful because other minor modes, notably
+`smartparens-mode', are enabled in the minibuffer after
+`ivy-minibuffer-mode'. We want `ivy-minibuffer-map' to always
+take precedence."
+    :keymap ivy-minibuffer-map
+    :group 'ivy
+    (if ivy-minibuffer-override-mode
+        (add-to-list 'minor-mode-overriding-map-alist
+                     (cons 'ivy-minibuffer-override-mode
+                           ivy-minibuffer-override-mode-map))
+      (setq minor-mode-overriding-map-alist
+            (delete (cons 'ivy-minibuffer-override-mode
+                          ivy-minibuffer-override-mode-map)
+                    minor-mode-overriding-map-alist))))
+
+  :hook
+  (minibuffer-setup-hook . ivy-minibuffer-override-mode)
+
   :bind
   (:map ivy-mode-map
         ("C-c C-r" . ivy-resume)
@@ -2360,6 +2380,7 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
         ("M-J" . ivy-yank-complete-symbol-at-point)))
 
 (use-package swiper
+  :defer 2
   :config
   (defvar minibuffer-this-command nil
     "Command minibuffer started with.")
@@ -2752,6 +2773,7 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
 
 (bind-key "s-5" #'replace-regexp-entire-buffer-immediately)
 
+
 ;;;; File Management
 
 (use-package files
@@ -2841,6 +2863,7 @@ Tries to find a file at point."
          ("^Synchronization .*" . 'font-lock-keyword-face)
          ("^\\(?:Unison\\|UNISON\\|Connected\\|Looking\\|Reconciling\\|Propagating\\|Saving\\|Nothing\\|  Waiting\\) .*" . 'font-lock-comment-face))))))
 
+
 ;;;;; psync (https://github.com/mnewt/psync)
 
 (add-to-list 'auto-mode-alist '("psync_config\\'" . sh-mode))
@@ -2871,6 +2894,7 @@ See: https://github.com/mnewt/psync"
   (async-shell-command (format "psync -v clone '%s' '%s'" local remote)))
 
 (add-hook 'after-save-hook #'psync-maybe)
+
 
 ;;;; OS program interaction
 
@@ -3727,6 +3751,7 @@ INITIAL will be used as the initial input, if given."
   (:map m-map
         ("C-j" . journal-new-entry)))
 
+
 ;;;; Mail
 
 ;; (require 'm-mail)
@@ -3868,6 +3893,7 @@ INITIAL will be used as the initial input, if given."
   (advice-add 'wttrin :before #'advice-delete-other-windows)
   :bind
   ("C-c M-w" . wttrin))
+
 
 ;;;;; mnt
 
@@ -4534,6 +4560,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ((cider-repl-mode-hook conf-mode-hook minibuffer-setup-hook prog-mode-hook
                          text-mode-hook toml-mode-hook)
    . smartparens-mode)
+  (minibuffer-setup-hook . smartparens-setup-minibuffer-bindings)
 
   :bind
   (:map lisp-mode-shared-map
@@ -6153,6 +6180,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   journalctl
   journalctl-unit)
 
+
 ;;;; Docker
 
 (use-package dockerfile-mode
@@ -6317,6 +6345,7 @@ Open the `eww' buffer in another window."
     http-relation
     http-status-code))
 
+
 ;;;; Javascript
 
 (use-package add-node-modules-path
@@ -6376,6 +6405,7 @@ Open the `eww' buffer in another window."
   :commands
   ein:run
   ein:login)
+
 
 ;;;; Swift
 
