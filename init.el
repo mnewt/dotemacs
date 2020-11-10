@@ -1166,7 +1166,7 @@ This sets things up for `window-highlight' and `mode-line'."
      ("TEMP" . "orange")
      ("XXX+" . "orange")
      ("DONE" . "gray")))
-  
+
   :hook
   (prog-mode-hook . hl-todo-mode)
   :bind
@@ -2362,10 +2362,10 @@ take precedence."
     (if ivy-minibuffer-override-mode
         (add-to-list 'minor-mode-overriding-map-alist
                      (cons 'ivy-minibuffer-override-mode
-                           ivy-minibuffer-override-mode-map))
+                           ivy-minibuffer-map))
       (setq minor-mode-overriding-map-alist
             (delete (cons 'ivy-minibuffer-override-mode
-                          ivy-minibuffer-override-mode-map)
+                          ivy-minibuffer-map)
                     minor-mode-overriding-map-alist))))
 
   :hook
@@ -4560,7 +4560,6 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ((cider-repl-mode-hook conf-mode-hook minibuffer-setup-hook prog-mode-hook
                          text-mode-hook toml-mode-hook)
    . smartparens-mode)
-  (minibuffer-setup-hook . smartparens-setup-minibuffer-bindings)
 
   :bind
   (:map lisp-mode-shared-map
@@ -4628,6 +4627,10 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ("s-/" . evilnc-comment-or-uncomment-lines)
   ("C-M-;" . evilnc-comment-or-uncomment-paragraphs)
   ("C-s-;" . evilnc-quick-comment-or-uncomment-to-the-line))
+
+(use-package ws-butler
+  :hook
+  (prog-mode-hook . ws-butler-mode))
 
 (defun clipboard-yank-and-indent ()
   "Yank and then indent the newly formed region according to mode."
@@ -4739,7 +4742,7 @@ added as they are used."
 
   (defun tramp-dired (host)
     "Choose an ssh HOST and then open it with dired."
-    (interactive (list (ssh-choose-host "Hostname or tramp string: ")))
+    (interactive (list (ssh-choose-host "Hostname or tramp path: ")))
     (find-file
      (if (tramp-file-name-p host)
          host
@@ -4750,6 +4753,7 @@ added as they are used."
   (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
 
   :bind
+  ("C-c d" . tramp-dired)
   ("C-:" . tramp-insert-remote-part))
 
 (use-package counsel-tramp
@@ -4763,6 +4767,12 @@ added as they are used."
   "Insert contents of an envionment variable at point."
   (interactive)
   (insert (getenv (read-envvar-name "Insert Environment Variable: "))))
+
+(defun insert-variable-value ()
+  "Insert the value of Emacs Lisp variable at point."
+  (interactive)
+  (insert (prin1-to-string
+           (symbol-value (read-variable "Insert Emacs Lisp Variable Value: ")))))
 
 (defun list-hosts-from-known-hosts ()
   "Return a list of hosts from `~/.ssh/known_hosts'."
@@ -4808,15 +4818,18 @@ added as they are used."
             (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
             recentf-list))))
 
-(defun ssh-choose-host (&optional prompt)
+(defun list-hosts ()
+  "Return a list of remote hosts from various sources."
+  (cl-remove-duplicates
+   (append
+    (list-hosts-from-recentf)
+    (list-hosts-from-known-hosts)
+    (list-hosts-from-ssh-config)
+    (list-hosts-from-etc-hosts))))
+
+(defun choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
-  (completing-read (or prompt "SSH to Host: ")
-                   (cl-remove-duplicates
-                    (append
-                     (list-hosts-from-recentf)
-                     (list-hosts-from-known-hosts)
-                     (list-hosts-from-ssh-config)
-                     (list-hosts-from-etc-hosts)))))
+  (completing-read (or prompt "SSH to Host: ") (list-hosts)))
 
 (defun ssh-host ()
   "Like `ssh' only choose from a list of known hosts.
@@ -4824,7 +4837,7 @@ added as they are used."
 If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (interactive)
   (ssh (concat (when prefix-arg (concat (read-from-minibuffer "ssh arguments: ") " "))
-               (ssh-choose-host))))
+               (choose-host))))
 
 (use-package shell
   :config
@@ -5139,6 +5152,7 @@ See https://github.com/mnewt/fpw."
       (pop-to-buffer buffer))))
 
 (bind-keys
+ ("C-c v" . insert-variable-value)
  ("C-c C-v" . insert-environment-variable)
  :map m-map
  ("p" . fpw)
@@ -7119,7 +7133,7 @@ This package sets these explicitly so we have to do the same."
 
   :config
   (add-to-list 'c-default-style '(csharp-mode . "c#"))
-  
+
   (defun csharp-mode-setup ()
     "Set up C# mode."
     (exec-path-from-shell-setenv
@@ -7146,7 +7160,7 @@ This package sets these explicitly so we have to do the same."
   ;; package.
   :config
   (defvar omnisharp-mode-map)
-  
+
   (defun omnisharp-mode-setup ()
     "Set up C# mode."
     (omnisharp-install-server nil)
@@ -7154,7 +7168,7 @@ This package sets these explicitly so we have to do the same."
     (make-local-variable 'company-backends)
     (add-to-list 'company-backends #'company-omnisharp)
     (add-hook 'before-save-hook #'omnisharp-code-format-entire-file))
-  
+
   :hook
   (csharp-mode-hook . omnisharp-mode-setup)
 
