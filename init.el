@@ -4880,7 +4880,8 @@ Stolen from https://emacs.stackexchange.com/questions/10077/how-to-edit-crontab-
 (use-package crontab-mode
   :mode "/crontab\\(\\.X*[[:alnum:]]+\\)?\\'"
   :init
-  (add-to-list 'mixed-pitch-exclude-modes 'crontab-mode))
+  (with-eval-after-load 'mixed-pitch-mode
+    (add-to-list 'mixed-pitch-exclude-modes 'crontab-mode)))
 
 (use-package compile
   :custom
