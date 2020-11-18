@@ -1,3 +1,5 @@
+
+
 * An Emacs configuration
   This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but will have more bugs) with running from a terminal, Linux, and Windows.
 
@@ -103,6 +105,11 @@
    ~/.emacs.d/bin/build-emacs
    #+end_src
    3. Start Emacs. The first run will install lots of stuff so it will take a few minutes.
+
+** macOS Menus Need Two Clicks
+   1. Navigate to =System Preferences= > =Security and Privacy= > =Privacy= > =Accessibility=
+   2. Click Emacs, if it's in the list, and click =-= to delete it.
+   3. Add it again using =+=. It should be installed at =~/Applications/Emacs.app=.
 
 ** TODO
    See [[file:TODO.org][TODO.org]].

@@ -67,9 +67,8 @@ DO_CONFIGURE_OPTS=(
 
 # native-comp optimization
 export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
-# Don't think this is necessary anymore, now that libgccjit is its own Homebrew
-# package.
-# export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
+# Ensure we can find the Homebrew installed version of libgccjit
+export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
 
 . build-utils
 
@@ -92,8 +91,25 @@ do_install() {
   # the Emacs Lisp and C source files in the right place.
   make -j $DO_CORES install
   rm -rf "$DO_APP_LOCATION"
+
+  # Move Emacs.app to its final location.
   mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
+
+  # Copy native compiled ELisp into Emacs.app, which is where it is expected by
+  # the configure and compilation process.
   cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
+
+  # Add annotations to Emacs.app to request access to special directories.
+  plist="$DO_APP_LOCATION/Contents/Info.plist"
+  defaults write "$plist" NSDesktopFolderUsageDescription -string "Emacs requires permission to access the Desktop folder."
+  defaults write "$plist" NSDocumentsFolderUsageDescription -string "Emacs requires permission to access the Documents folder."
+  defaults write "$plist" NSDownloadsFolderUsageDescription -string "Emacs requires permission to access the Downloads folder."
+  defaults write "$plist" NSRemovableVolumesUsageDescription -string "Emacs requires permission to access files on Removable Volumes."
+  # This will convert the Info.plist from xml representation to the binary form.
+  # Now we convert it back.
+  plutil -convert xml1 "$plist"
+
+  echo "Emacs is installed. See README.org for notes on fixing the menu."
 
   popd
 }

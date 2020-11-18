@@ -58,6 +58,9 @@ If VARS is not specified, use `env-cache-vars'."
 (defun env-cache-refresh ()
   "Load shell, copy and cache environment variables."
   (interactive)
+  ;; NOTE `exec-path-from-shell' is kept in the `lisp/' directory.  It's not
+  ;; managed by `straight'.  This is because we may need it before we load
+  ;; `straight'.  So we download it the old-fashioned way.
   (require 'exec-path-from-shell)
   (message "Loading %s to copy environment variables into Emacs..."
            (getenv "SHELL"))
@@ -634,13 +637,12 @@ returned."
     (defvar mixed-pitch-exclude-modes
       '(dns-mode yaml-mode xml-mode)
       "Modes excluded from `mixed-pitch-mode'.")
+
     (defun maybe-enable-mixed-pitch-mode ()
       "Maybe enable `mixed-pitch-mode'."
-      (let ((enable t))
-        (dolist (mode mixed-pitch-exclude-modes)
-          (when (derived-mode-p mode)
-            (setq enable nil)))
-        (when enable (mixed-pitch-mode))))
+      (unless (seq-some (lambda (mode) (derived-mode-p mode))
+                        mixed-pitch-exclude-modes)
+        (mixed-pitch-mode)))
 
     :hook
     (text-mode-hook . maybe-enable-mixed-pitch-mode)
@@ -1095,7 +1097,7 @@ This sets things up for `window-highlight' and `mode-line'."
     (set-face-attribute 'mode-line nil :box nil)
     (set-face-attribute 'mode-line-inactive nil :box nil)
     (with-eval-after-load 'vterm
-      (set-face-background 'vterm-color-default active-bg))
+      (set-face-background 'vterm-color-white active-bg))
     (with-eval-after-load 'smartparens
       (set-face-attribute 'sp-show-pair-match-face nil
                           :foreground (face-foreground 'highlight)
@@ -2304,12 +2306,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; Don't exit the minibuffer when pressing backspace on an empty line.
   (ivy-on-del-error-function (lambda (&rest _) nil))
 
-  :commands
-  ivy-set-index
-  ivy-set-actions
-  ivy-add-actions
-  ivy--reset-state
-
   :config
   ;; (use-package ivy-posframe
   ;;   :demand t
@@ -2338,8 +2334,6 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
       (when text
         (insert (replace-regexp-in-string " +" " " text t t)))))
 
-  (ivy-mode)
-
   (defun ivy-end-of-line-or-partial ()
     "If `eolp' then done, else move to eol."
     (interactive)
@@ -2350,26 +2344,7 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     :custom
     (ivy-read-action-function #'ivy-hydra-read-action))
 
-  (define-minor-mode ivy-minibuffer-override-mode
-    "Ensure `ivy-minibuffer-mode' bindings have a high priority.
-
-This is useful because other minor modes, notably
-`smartparens-mode', are enabled in the minibuffer after
-`ivy-minibuffer-mode'. We want `ivy-minibuffer-map' to always
-take precedence."
-    :keymap ivy-minibuffer-map
-    :group 'ivy
-    (if ivy-minibuffer-override-mode
-        (add-to-list 'minor-mode-overriding-map-alist
-                     (cons 'ivy-minibuffer-override-mode
-                           ivy-minibuffer-map))
-      (setq minor-mode-overriding-map-alist
-            (delete (cons 'ivy-minibuffer-override-mode
-                          ivy-minibuffer-map)
-                    minor-mode-overriding-map-alist))))
-
-  :hook
-  (minibuffer-setup-hook . ivy-minibuffer-override-mode)
+  (ivy-mode)
 
   :bind
   (:map ivy-mode-map
@@ -3996,8 +3971,8 @@ The config is specified in the config file in `~/.mnt/'."
 ;;   (magit-mode-hook . magit-todos-mode))
 
 (use-package git-timemachine
-  :bind
-  ("C-x t" . git-timemachine))
+  :commands
+  git-timemachine)
 
 (use-package gist
   :commands
@@ -4557,8 +4532,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
-  ((cider-repl-mode-hook conf-mode-hook minibuffer-setup-hook prog-mode-hook
-                         text-mode-hook toml-mode-hook)
+  ((cider-repl-mode-hook conf-mode-hook prog-mode-hook text-mode-hook
+                         toml-mode-hook minibuffer-setup-hook)
    . smartparens-mode)
 
   :bind
@@ -4709,8 +4684,24 @@ added as they are used."
 (use-package ssh
   :custom
   (ssh-directory-tracking-mode 'ftp)
-  :commands
-  ssh)
+
+  :config
+  (defun ssh-host ()
+    "Like `ssh' only choose from a list of known hosts.
+
+If prefix arg is non-nil, read ssh arguments from the minibuffer."
+    (interactive)
+    (ssh (concat (when prefix-arg
+                   (concat (read-from-minibuffer "ssh arguments: ") " "))
+                 (choose-host))))
+
+  (defun ssh-mode-setup ()
+    "Set up `ssh-mode'."
+    (shell-dirtrack-mode t)
+    (setq dirtrackp nil))
+
+  :hook
+  (ssh-mode-hook . ssh-mode-setup))
 
 (use-package ssh-config-mode
   :mode
@@ -4831,14 +4822,6 @@ added as they are used."
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
   (completing-read (or prompt "SSH to Host: ") (list-hosts)))
 
-(defun ssh-host ()
-  "Like `ssh' only choose from a list of known hosts.
-
-If prefix arg is non-nil, read ssh arguments from the minibuffer."
-  (interactive)
-  (ssh (concat (when prefix-arg (concat (read-from-minibuffer "ssh arguments: ") " "))
-               (choose-host))))
-
 (use-package shell
   :config
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
@@ -4882,6 +4865,22 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
+
+(use-package with-editor
+  :commands
+  crontab
+  :config
+  (defun crontab ()
+    "Run `crontab -e' in an Emacs buffer.
+
+Stolen from https://emacs.stackexchange.com/questions/10077/how-to-edit-crontab-directly-within-emacs-when-i-already-have-emacs-open."
+    (interactive)
+    (with-editor-async-shell-command "crontab -e")))
+
+(use-package crontab-mode
+  :mode "/crontab\\(\\.X*[[:alnum:]]+\\)?\\'"
+  :init
+  (add-to-list 'mixed-pitch-exclude-modes 'crontab-mode))
 
 (use-package compile
   :custom
@@ -5087,8 +5086,7 @@ predicate returns true."
 
   (with-eval-after-load 'compile
     (defvar compilation-environment)
-    ;; TODO Is this necessary given `comint-terminfo-terminal'?
-    ;; (add-to-list 'compilation-environment "TERM=xterm-256color")
+    (add-to-list 'compilation-environment "TERM=xterm-256color")
     (defun xterm-color-compilation-filter (f proc string)
       (funcall f proc (xterm-color-filter string)))
 
@@ -5115,7 +5113,7 @@ predicate returns true."
   (message buffer-file-name))
 
 (defgroup fpw nil
-  "Generate random passwords securely?."
+  "Generate random passwords securely?"
   :group 'external
   :link '(url-link :tag "GitHub" "https://github.com/mnewt/fpw"))
 
@@ -6886,14 +6884,14 @@ Prefix ARG is passed to `fill-paragraph'."
 ;;   ("C-\\" . reformat-defun-or-region))
 
 (defun maybe-reset-major-mode ()
-    "Reset the buffer's `major-mode' if a different mode seems like a better fit.
+  "Reset the buffer's `major-mode' if a different mode seems like a better fit.
 
 Mostly useful as a `before-save-hook', to guess mode when saving
 a new file for the first time."
-    (when (and (eq major-mode 'fundamental-mode)
-               (buffer-file-name)
-               (not (file-exists-p (buffer-file-name))))
-      (normal-mode)))
+  (when (and (eq major-mode 'fundamental-mode)
+             (buffer-file-name)
+             (not (file-exists-p (buffer-file-name))))
+    (normal-mode)))
 
 (use-package sh-script
   :mode ("\\.sh\\'" . sh-mode)
@@ -7351,7 +7349,7 @@ This package sets these explicitly so we have to do the same."
   (org-export-with-section-numbers nil)
   ;; (org-ellipsis "...")
   ;; Customize todo keywords
-  (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "|" "DONE(d)")
+  (org-todo-keywords '((sequence "TODO(t)" "WORK(w)" "WAIT(a)" "|" "DONE(d!)")
                        (sequence "|" "CANCELED(c)")))
   (org-todo-keyword-faces
    '(("TODO" . (:background "magenta" :foreground "white" :weight bold))
@@ -7361,20 +7359,32 @@ This package sets these explicitly so we have to do the same."
      ("CANCELED" . (:background "gray" :foreground "black" :weight bold :strike-through t))))
   (org-catch-invisible-edits 'show-and-error)
   (org-capture-templates
-   `(("t" "TODO" entry
-      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+   `(("t"
+      "TODO"
+      entry
+      (file ,(expand-file-name "TODO.org" org-directory))
       "* TODO %?\n  %i\n  %a")
-     ("n" "Note" entry
-      (file+headline ,(expand-file-name "TODO.org" org-directory) "Tasks")
+     ("n"
+      "Note"
+      entry
+      (function org-find-file-for-capture)
       "* %?\n  %i\n  %a")
-     ("m" "TODO respond to email" entry
+     ("m"
+      "Meeting Notes"
+      entry
+      (function org-find-file-for-meeting-notes)
+      "%(format \"#+TITLE: %s\n\n* Attendees\n\n*Agenda\n\n* Notes\n\" org-capture-meeting-subject)")
+     ("e"
+      "TODO respond to email"
+      entry
       (file ,(expand-file-name "TODO.org" org-directory))
       "* TODO %^{Description}\n%A\n%?\n")
-     ("j" "Journal Entry" entry
+     ("j"
+      "Journal Entry"
+      entry
       (file ,(expand-file-name (format "journal/%s.org" (format-time-string "%F"))
                                org-directory))
       "* %<%I:%M %p>\n   %?")))
-  (format-time-string "%F")
   ;; Don't prompt to confirm if I want to evaluate a source block
   (org-confirm-babel-evaluate nil)
   (org-startup-with-inline-images "inlineimages")
@@ -7391,6 +7401,25 @@ This package sets these explicitly so we have to do the same."
   org-capture
   org-capture-refile
   :config
+
+  (defun org-find-file-for-capture (&optional file)
+    "Open a file and ready it for capture."
+    (let ((default-directory org-directory))
+      (if file
+          (find-file file)
+        (call-interactively #'find-file)))
+    (org-with-wide-buffer
+     (goto-char (point-max))
+     (while (not (looking-back "\n\n" nil))
+       (insert "\n"))))
+
+  (defun org-find-file-for-meeting-notes ()
+    "Open a file and ready it for meeting notes."
+    (org-find-file-for-capture
+     (setq org-capture-meeting-subject
+           (format "justis/%s-meeting-%s"
+                   (format-time-string "%F")
+                   (read-string "Meeting Subject: ")))))
 
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
