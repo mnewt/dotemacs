@@ -1649,6 +1649,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
 (use-package perspective
   :custom
+  ;; Don't show modestring on the modeline; it's displayed on the frame title
+  ;; instead.
+  (persp-show-modestring nil)
   (persp-sort 'created)
   (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
   (persp-modestring-dividers `("" "" ,(propertize "|" 'face 'shadow)))
@@ -1668,7 +1671,12 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   (defun persp-set-frame-title ()
     "Set the frame title with the current perspective name."
-    (setq frame-title-format (persp-current-name)))
+    (setq frame-title-format (mapconcat (lambda (name)
+                                          (if (string= name (persp-current-name))
+                                              (concat "[ " name " ]")
+                                            (concat "  " name "  ")))
+                                        (persp-names)
+                                        "     ")))
 
   (defun choose-by-number (options &optional prompt)
     "Display a list and choose among OPTIONS by pressing its number."
@@ -7735,6 +7743,11 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   (:map visual-line-mode-map
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
+
+;; KLUDGE Workaround for `straight' not setting org-version during the build
+;; process.
+(defun org-release ()
+  "9.5")
 
 (use-package org-roam
   :defer 16
