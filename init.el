@@ -24,6 +24,12 @@
 (defvar elisp-directory "~/.emacs.d/lisp"
   "Drop package files here to put them on the `load-path'.")
 
+(defvar code-directory "~/code"
+  "Default directory to store programming projects.")
+
+(defvar org-directory "~/org"
+  "Directory in which to find Org files.")
+
 (add-to-list 'load-path elisp-directory)
 
 
@@ -50,6 +56,7 @@
   "Save VARS to `env-cache-file'.
 
 If VARS is not specified, use `env-cache-vars'."
+  (make-directory (file-name-directory env-cache-file))
   (with-temp-file env-cache-file
     (prin1 (mapcar (lambda (var) (cons var (getenv var)))
                    (or vars env-cache-vars))
@@ -2560,27 +2567,27 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
 ;;   :hook
 ;;   (ivy-rich-mode-hook . all-the-icons-ivy-rich-mode))
 
-(use-package counsel-term
-  :straight (counsel-term
-             :host github :repo "tautologyclub/counsel-term"
-             :fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
-  :commands
-  counsel-term-cd
-  counsel-eshell-cd
-  :config
-  (with-eval-after-load 'vterm
-    (bind-keys :map vterm-mode-map
-               ("M-r" . counsel-term-history)
-               ("M-^" . term-downdir)
-               ("C-x d" . counsel-term-cd)))
+;; (use-package counsel-term
+;;   :straight (counsel-term
+;;              :host github :repo "tautologyclub/counsel-term"
+;;              :fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
+;;   :commands
+;;   counsel-term-cd
+;;   counsel-eshell-cd
+;;   :config
+;;   (with-eval-after-load 'vterm
+;;     (bind-keys :map vterm-mode-map
+;;                ("M-r" . counsel-term-history)
+;;                ("M-^" . term-downdir)
+;;                ("C-x d" . counsel-term-cd)))
 
-  (with-eval-after-load 'em-hist
-    (bind-keys :map eshell-hist-mode-map
-               ("C-x d" . counsel-eshell-cd)))
-  :bind
-  (:map term-mode-map
-        ("M-r" . counsel-term-history)
-        ("M-^" . term-downdir)))
+;;   (with-eval-after-load 'em-hist
+;;     (bind-keys :map eshell-hist-mode-map
+;;                ("C-x d" . counsel-eshell-cd)))
+;;   :bind
+;;   (:map term-mode-map
+;;         ("M-r" . counsel-term-history)
+;;         ("M-^" . term-downdir)))
 
 (use-package projectile
   :custom
@@ -4291,6 +4298,8 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-c C-y" . yas-insert-snippet))
 
 (use-package smartparens
+  ;; FIXME Temporary fix for compilation bug.
+  :straight (:type git :host github :repo "mnewt/smartparens")
   :defer 3
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
@@ -7748,23 +7757,6 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
 ;; process.
 (defun org-release ()
   "9.5")
-
-(use-package org-roam
-  :defer 16
-  :custom
-  (org-roam-directory (expand-file-name org-directory))
-  (org-roam-tag-sources '(prop last-directory))
-  :config
-  (org-roam-mode)
-  (use-package org-roam-server)
-  :bind
-  (:map org-roam-mode-map
-        ("C-c n f" . org-roam-find-file)
-        ("C-c n g" . org-roam-graph))
-  (:map org-mode-map
-        ("C-c n l" . org-roam)
-        ("C-c n i" . org-roam-insert)
-        ("C-c n I" . org-roam-insert-immediate)))
 
 ;; Install:
 ;; brew install tclap
