@@ -68,7 +68,7 @@ DO_CONFIGURE_OPTS=(
 # native-comp optimization
 export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
 # Ensure we can find the Homebrew installed version of libgccjit
-export LIBRARY_PATH="/usr/local/opt/gcc/lib/gcc/10:${LIBRARY_PATH:-}"
+export LIBRARY_PATH="$(brew --prefix libgccjit)/lib/gcc/10/"
 
 . build-utils
 
