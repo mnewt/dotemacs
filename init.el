@@ -1788,9 +1788,9 @@ _q_ quit
       ("p" (forward-line -1))
       ("q" nil)))
   :bind
-  ("C-c <tab>" . hs-minor-mode)
+  ("C-c C-h" . hs-minor-mode)
   (:map hs-minor-mode-map
-        ("C-c @" . hydra-hs/body)
+        ("C-c h" . hydra-hs/body)
         ("C-<tab>" . hs-toggle-hiding)))
 
 (use-package symbol-overlay
@@ -4701,7 +4701,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (interactive)
     (ssh (concat (when prefix-arg
                    (concat (read-from-minibuffer "ssh arguments: ") " "))
-                 (choose-host))))
+                 (ssh-choose-host))))
 
   (defun ssh-mode-setup ()
     "Set up `ssh-mode'."
@@ -4826,7 +4826,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (list-hosts-from-ssh-config)
     (list-hosts-from-etc-hosts))))
 
-(defun choose-host (&optional prompt)
+(defun ssh-choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
   (completing-read (or prompt "SSH to Host: ") (list-hosts)))
 

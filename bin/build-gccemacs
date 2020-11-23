@@ -8,11 +8,12 @@ DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
 
 DO_REPO_DIRECTORY="emacs"
 
-DO_REPO_BRANCH="feature/native-comp"
+DO_REPO_BRANCH="master"
 
 DO_APP_LOCATION="$HOME/Applications/Emacs.app"
 
 DO_BREW_PACKAGES=(
+  # Build dependencies
   autoconf
   cairo
   cmake
@@ -27,7 +28,11 @@ DO_BREW_PACKAGES=(
   libvterm
   libxml2
   pkg-config
+
+  # Runtime dependencies
   texinfo
+  ripgrep
+  fd
 )
 
 DO_BREW_CASKS=(
@@ -36,6 +41,7 @@ DO_BREW_CASKS=(
 
 DO_LIBS=(
   $(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
+  coreutils
   gcc
   libgccjit
   giflib
@@ -44,10 +50,6 @@ DO_LIBS=(
   jpeg
   libtiff
   libxml2
-  # Required by gnutls
-  nettle
-  libtasn1
-  p11-kit
 )
 
 DO_CONFIGURE_OPTS=(
@@ -62,6 +64,7 @@ DO_CONFIGURE_OPTS=(
   --with-xml2
   --with-gnutls
   --with-json
+  --without-compress-install
   --program-transform-name='s/^ctags$/ctags.emacs/'
 )
 
@@ -88,8 +91,9 @@ do_install() {
   pushd "$DO_BASE_DIR/$target"
 
   # Even though we move the binary ourselves, we still need to install to get
-  # the Emacs Lisp and C source files in the right place.
-  make -j $DO_CORES install
+  # the Emacs Lisp and C source files in the right place. We need `ginstall`
+  # because the `-D` option is not available in the macOS BSD version.
+  make INSTALL_PROGRAM="$(which ginstall) -c" -j $DO_CORES install
   rm -rf "$DO_APP_LOCATION"
 
   # Move Emacs.app to its final location.

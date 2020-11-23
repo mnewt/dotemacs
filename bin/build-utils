@@ -53,23 +53,28 @@ do_how_many_cores() {
 do_brew_ensure() {
   do_heading "Ensuring Homebrew packages..."
   echo "$@"
-  local brew_type required missing outdated upgrade
+  local brew_type installed required missing outdated upgrade
   brew_type="$1"
   shift
 
   # Get list of missing packages, install them
-  installed=($(brew list $brew_type -1))
+  installed=($(brew list $brew_type -q))
   required=("$@")
-  for p in "${required[@]}"; do
-    contains "$p" "${installed[@]}" || missing+=("$p")
-  done
+  # Handle the case where there are no installed packages
+  if [ -n "${installed[*]:-}" ]; then
+    for p in "${required[@]}"; do
+      contains "$p" "${installed[@]}" || missing+=("$p")
+    done
+  else
+    missing=("${required[@]}")
+  fi
   if [ -n "${missing[*]:-}" ]; then
     echo "Installing packages: ${missing[*]}"
     brew install $brew_type "${missing[@]}"
   fi
 
   # Get list of outdated packages, upgrade them
-  outdated="$(brew outdated $brew_type | awk '{print $1}')"
+  outdated="$(brew outdated $brew_type -q)"
   upgrade=()
   for p in "${required[@]}"; do
     contains "$p" "${outdated[@]}" && upgrade+=("$p")
