@@ -21,7 +21,7 @@
 
 ;; Top level user variables
 
-(defvar elisp-directory "~/.emacs.d/lisp"
+(defvar elisp-directory (expand-file-name "lisp" user-emacs-directory)
   "Drop package files here to put them on the `load-path'.")
 
 (defvar code-directory "~/code"
