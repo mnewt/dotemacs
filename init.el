@@ -56,7 +56,7 @@
   "Save VARS to `env-cache-file'.
 
 If VARS is not specified, use `env-cache-vars'."
-  (make-directory (file-name-directory env-cache-file))
+  (make-directory (file-name-directory env-cache-file) t)
   (with-temp-file env-cache-file
     (prin1 (mapcar (lambda (var) (cons var (getenv var)))
                    (or vars env-cache-vars))
@@ -1804,7 +1804,7 @@ _q_ quit
   :config
   (set-face-attribute 'symbol-overlay-default-face nil :background "gray")
   :hook
-  ((prog-mode-hook helpful-mode) . symbol-overlay-mode)
+  ((prog-mode-hook helpful-mode-hook help-mode-hook) . symbol-overlay-mode)
   :bind
   ("C-s-n" . symbol-overlay-jump-next)
   ("C-s-p" . symbol-overlay-jump-prev)
@@ -3050,6 +3050,8 @@ With a prefix ARG always prompt for command to use."
   ;; https://github.com/stsquad/dired-rsync/issues/12
   (use-package dired-rsync
     :demand t
+    :commands
+    dired-rsync-backup
     :config
     (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
       "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
@@ -3059,7 +3061,33 @@ ERR and IND are ignored."
             (list dired-rsync-modeline-status)))
 
     (advice-add #'dired-rsync--update-modeline
-                :after #'dired-rsync--set-mode-line-misc-info))
+                :after #'dired-rsync--set-mode-line-misc-info)
+
+    (defun dired-rsync-backup--add-version (file)
+      "Return FILE modified with a version string."
+      (let ((extension (file-name-extension file)))
+        (concat (file-name-directory file) (file-name-base file)
+                "-" (format-time-string "%Y-%m-%d")
+                (when extension (concat "." extension)))))
+
+    (defun dired-rsync-backup (dest)
+      "Like `dired-rsync' but appends a timestamp to DEST."
+      (interactive (list (read-file-name "Backup to: " (dired-dwim-target-directory)
+                                         nil nil nil #'file-directory-p)))
+      (let* ((sfiles (funcall dired-rsync-source-files))
+             (backup-name (if (cdr sfiles)
+                              ;; If backing up multiple files, create a directory
+                              ;; at the destination with the same name as the
+                              ;; parent of the first source file.
+                              (expand-file-name (file-name-nondirectory
+                                                 (directory-file-name
+                                                  (file-name-directory (car sfiles))))
+                                                dest)
+                            ;; If backing up a single file, create a file at the
+                            ;; destination.
+                            (car sfiles)))
+             extension file)
+        (dired-rsync (dired-rsync-backup--add-version backup-name)))))
 
   (use-package disk-usage
     :commands
@@ -6575,6 +6603,8 @@ Open the `eww' buffer in another window."
   (lsp-progress-via-spinner nil)
 
   :config
+  ;; FIXME `lsp-mode' seems to assume this directory is created already
+  (make-directory (expand-file-name ".cache/lsp/npm/bash-language-server/lib" user-emacs-directory))
   ;; Support reading large blobs of data from lsp servers.
   (setq read-process-output-max 1048576) ; 1mb
   (with-eval-after-load 'flycheck
@@ -7420,6 +7450,11 @@ This package sets these explicitly so we have to do the same."
   org-capture-refile
   :config
 
+  ;; KLUDGE Redefining this internal function as a workaround for `straight' not
+  ;; setting org-version during the build process.
+  (defun org-release ()
+    "9.5")
+
   (defun org-find-file-for-capture (&optional file)
     "Open a file and ready it for capture."
     (let ((default-directory org-directory))
@@ -7752,11 +7787,6 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   (:map visual-line-mode-map
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
-
-;; KLUDGE Workaround for `straight' not setting org-version during the build
-;; process.
-(defun org-release ()
-  "9.5")
 
 ;; Install:
 ;; brew install tclap
