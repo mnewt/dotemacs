@@ -1,6 +1,16 @@
+#+TITLE: TODO
+
 * Tasks
+
+** TODO =exec-path-from-shell-setenv= should set =eshell-path-env= in each Eshell buffer
+   Because it's a buffer local variable
+** TODO Create =dired-do-backup=
+   Like =dired-do-copy= but renames the file on the other end with a timestamp.
 ** TODO Submit patch to Org for =org-do-emphasis-faces=
-** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow= and submit upstream
+** TODO eshell-ls-decorated-name [0/2]
+*** TODO Fix it so =ls= to a different directory embeds correct links (it currently assumes files are relative to =default-directory=)
+*** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow=
+*** TODO Submit upstream
 ** TODO Make =dired-rainbow-listing= into a package
 ** TODO =counsel-term= stuff
 *** TODO Make =counsel-term-cd= into =counsel-dired-jump=

@@ -57,28 +57,34 @@ do_brew_ensure() {
   brew_type="$1"
   shift
 
-  # Get list of missing packages, install them
+  # List installed packages
   installed=($(brew list $brew_type -q))
+  # strip off the "@version" part, e.g. "python@3.9" becomes "python"
+  for i in "${!installed[@]}"; do
+    installed[$i]="${installed[$i]%%@*}"
+  done
+
+  # List missing packages (required but not installed)
   required=("$@")
-  # Handle the case where there are no installed packages
-  if [ -n "${installed[*]:-}" ]; then
-    for p in "${required[@]}"; do
-      contains "$p" "${installed[@]}" || missing+=("$p")
-    done
-  else
-    missing=("${required[@]}")
-  fi
+  missing=()
+  for p in "${required[@]}"; do
+    contains "$p" "${installed[@]}" || missing+=("$p")
+  done
+
+  # Install missing packages
   if [ -n "${missing[*]:-}" ]; then
     echo "Installing packages: ${missing[*]}"
     brew install $brew_type "${missing[@]}"
   fi
 
-  # Get list of outdated packages, upgrade them
+  # List of outdated packages
   outdated="$(brew outdated $brew_type -q)"
   upgrade=()
   for p in "${required[@]}"; do
     contains "$p" "${outdated[@]}" && upgrade+=("$p")
   done
+
+  # Upgrade out outdated packages
   if [ -n "${upgrade[*]:-}" ]; then
     echo "Upgrading packages: ${upgrade[*]}"
     brew upgrade $brew_type "${upgrade[@]}"
@@ -145,7 +151,8 @@ do_build() {
   pushd "$DO_BASE_DIR/$target"
 
   make distclean
-  ./autogen.sh
+  [ -f ./autogen.sh ] && ./autogen.sh
+  echo ./configure "${DO_CONFIGURE_OPTS[*]}"
   ./configure "${DO_CONFIGURE_OPTS[@]}"
   make -j $DO_CORES
 

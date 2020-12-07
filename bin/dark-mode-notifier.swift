@@ -1,4 +1,6 @@
 #!/usr/bin/env swift
+// Compile with:
+// swiftc dark-mode-notifier.swift -o dark-mode-notifier
 
 import Cocoa
 

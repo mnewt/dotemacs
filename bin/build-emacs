@@ -8,81 +8,259 @@ DO_REPO_URL="https://git.savannah.gnu.org/git/emacs.git"
 
 DO_REPO_DIRECTORY="emacs"
 
-DO_REPO_BRANCH="emacs-27"
+DO_REPO_BRANCH="feature/native-comp"
+
+DO_APP_LOCATION="/Applications/Emacs.app"
 
 DO_BREW_PACKAGES=(
-	autoconf
-	cairo
-	cmake
-	gnupg
-	gnutls
-	# The macOS build uses the Cocoa image library
-	# imagemagick
-	jansson
-	librsvg
-	libvterm
-	libxml2
-	pkg-config
-	texinfo
+  # Build dependencies
+  autoconf
+  cairo
+  cmake
+  gcc
+  libgccjit
+  gnupg
+  gnutls
+  # The macOS build uses the Cocoa image library
+  # imagemagick
+  jansson
+  librsvg
+  libvterm
+  libxml2
+  pkg-config
+
+  # Runtime dependencies
+  texinfo
+  ripgrep
+  fd
+  node
+  python
+  shfmt
 )
 
 DO_BREW_CASKS=(
-	mactex
+  mactex
 )
 
 DO_LIBS=(
-	$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
-	gcc
-	giflib
-	gnutls
-	jansson
-	jpeg
-	libtiff
-	libxml2
-	# Required by gnutls
-	nettle
-	libtasn1
-	p11-kit
+  $(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
+  coreutils
+  gcc
+  libgccjit
+  giflib
+  gnutls
+  jansson
+  jpeg
+  libtiff
+  libxml2
 )
 
 DO_CONFIGURE_OPTS=(
-	--config-cache
-	--without-pop
-	--with-ns
-	--disable-ns-self-contained
-	--with-cairo
-	# --with-imagemagick
-	--with-modules
-	--with-xml2
-	--with-gnutls
-	--with-json
-	--program-transform-name='s/^ctags$/ctags.emacs/'
+  --config-cache
+  --without-pop
+  --with-ns
+  --disable-ns-self-contained
+  --with-cairo
+  # --with-imagemagick
+  --with-modules
+  --with-nativecomp
+  --with-xml2
+  --with-gnutls
+  --with-json
+  --without-compress-install
+  --program-transform-name='s/^ctags$/ctags.emacs/'
 )
 
-. build-utils
+# native-comp optimization
+export BYTE_COMPILE_EXTRA_FLAGS="--eval '(setq comp-speed 2)'"
+# Ensure we can find the Homebrew installed version of libgccjit
+export LIBRARY_PATH="$(brew --prefix libgccjit)/lib/gcc/10/"
+
+# Print the given arguments out in a nice heading
+do_heading() {
+  printf "\n\033[38;5;013m * %s  \033[0m  \n\n" "$*"
+}
+
+# Return exit code 0 if $1 is the same as any of the rest of the arguments
+contains() {
+  local e match="$1"
+  shift
+  for e in "$@"; do [ "$e" = "$match" ] && return 0; done
+  return 1
+}
+
+# Print the number of CPU cores on the local machine
+do_how_many_cores() {
+  case "$(uname)" in
+    Darwin)
+      sysctl -n hw.ncpu
+      ;;
+    Linux)
+      awk '/^processor/ {++n} END {print n}' /proc/cpuinfo
+      ;;
+  esac
+}
+
+# Ensure the given homebrew packages are installed and up to date
+# brew_ensure [ cask ] dep1 [ dep2 ] [ ... ]
+do_brew_ensure() {
+  do_heading "Ensuring Homebrew packages..."
+  echo "$@"
+  local brew_type installed required missing outdated upgrade
+  brew_type="$1"
+  shift
+
+  # List installed packages
+  installed=($(brew list $brew_type -q))
+  # strip off the "@version" part, e.g. "python@3.9" becomes "python"
+  for i in "${!installed[@]}"; do
+    installed[$i]="${installed[$i]%%@*}"
+  done
+
+  # List missing packages (required but not installed)
+  required=("$@")
+  missing=()
+  for p in "${required[@]}"; do
+    contains "$p" "${installed[@]}" || missing+=("$p")
+  done
+
+  # Install missing packages
+  if [ -n "${missing[*]:-}" ]; then
+    echo "Installing packages: ${missing[*]}"
+    brew install $brew_type "${missing[@]}"
+  fi
+
+  # List of outdated packages
+  outdated="$(brew outdated $brew_type -q)"
+  upgrade=()
+  for p in "${required[@]}"; do
+    contains "$p" "${outdated[@]}" && upgrade+=("$p")
+  done
+
+  # Upgrade out outdated packages
+  if [ -n "${upgrade[*]:-}" ]; then
+    echo "Upgrading packages: ${upgrade[*]}"
+    brew upgrade $brew_type "${upgrade[@]}"
+  fi
+}
+
+# Fetch the source repository
+do_fetch() {
+  local url="${1:-$DO_REPO_URL}"
+  local target="${2:-$DO_REPO_DIRECTORY}"
+  local base="$DO_BASE_DIR"
+  local ref="${3:-$DO_REPO_BRANCH}"
+
+  do_heading "Fetching source for $target..."
+  echo "Source directory will be $base/$target"
+
+  mkdir -p "$base"
+  pushd "$base"
+
+  [ -d "$base/$target" ] || git clone "$url" "$target"
+  pushd "$base/$target"
+
+  git fetch
+  git checkout "$ref"
+  git clean -dxf
+  git pull --ff-only origin "$DO_REPO_BRANCH"
+}
+
+# Prepare environment variables
+do_vars() {
+  CFLAGS="${CFLAGS:--Ofast -march=native -pipe -falign-functions=64 -fomit-frame-pointer -funit-at-a-time -fforce-addr -mfpmath=sse -fno-finite-math-only -fstack-check}"
+  CPPFLAGS="${CPPFLAGS:-}"
+  LDFLAGS="${LDFLAGS:--Wl}"
+  PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}"
+
+  for dir in "${DO_LIBS[@]}"; do
+    # If it's not a directory, it's a homebrew package--use its directory
+    # prefix.
+    [ -d "$dir" ] || dir="$(brew --prefix $dir)"
+
+    CPPFLAGS="${CPPFLAGS} -I${dir}/include"
+    LDFLAGS="${LDFLAGS} -L${dir}/lib"
+    PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${dir}/lib/pkgconfig"
+  done
+
+  printf "\nCOMPILATION VARIABLES:\n\n"
+
+  export CFLAGS
+  printf "CFLAGS:\n%s\n" "$CFLAGS"
+  export CPPFLAGS
+  printf "CPPFLAGS:\n%s\n" "$CPPFLAGS"
+  export LDFLAGS
+  printf "LDFLAGS:\n%s\n" "$LDFLAGS"
+  export PKG_CONFIG_PATH
+  printf "PKG_CONFIG_PATH:\n%s\n" "$PKG_CONFIG_PATH"
+}
+
+# Perform the build
+do_build() {
+  local target="${1:-$DO_REPO_DIRECTORY}"
+
+  do_heading "Building $target..."
+
+  pushd "$DO_BASE_DIR/$target"
+
+  make distclean
+  [ -f ./autogen.sh ] && ./autogen.sh
+  echo ./configure "${DO_CONFIGURE_OPTS[*]}"
+  ./configure "${DO_CONFIGURE_OPTS[@]}"
+  make -j $DO_CORES
+
+  popd
+}
 
 # Install Emacs from the build directory
 do_install() {
-	local target="${1:-$DO_REPO_DIRECTORY}"
-	heading "Installing $target..."
+  local target="${1:-$DO_REPO_DIRECTORY}"
+  do_heading "Installing $target..."
 
-	# Ensure the directory to which we will install Emacs exists and has the correct
-	# permissions set.
-	local libexec=/usr/local/libexec/emacs
-	if [ ! -d $libexec ]; then
-		sudo mkdir -p $libexec
-		chown $USER $libexec
-	fi
+  # Ensure the directory to which we will install Emacs exists and has the correct
+  # permissions set.
+  local libexec=/usr/local/libexec/emacs
+  if [ ! -d $libexec ]; then
+    sudo mkdir -p $libexec
+    chown $USER $libexec
+  fi
 
-	pushd "$DO_BASE_DIR/$target"
+  pushd "$DO_BASE_DIR/$target"
 
-	# Even though we move the binary ourselves, we still need to install to get
-	# the Emacs Lisp and C source files in the right place.
-	make -j $DO_CORES install
-	rm -rf "$HOME/Applications/Emacs.app"
-	mv "nextstep/Emacs.app" "$HOME/Applications/"
+  # Even though we move the binary ourselves, we still need to install to get
+  # the Emacs Lisp and C source files in the right place. We need `ginstall`
+  # because the `-D` option is not available in the macOS BSD version.
+  sudo make INSTALL_PROGRAM="$(which ginstall) -c" -j $DO_CORES install
+  sudo rm -rf "$DO_APP_LOCATION"
 
-	popd
+  # Move Emacs.app to its final location.
+  sudo mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
+
+  # Copy native compiled ELisp into Emacs.app, which is where it is expected by
+  # the configure and compilation process.
+  sudo cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
+
+  # Add annotations to Emacs.app to request access to special directories.
+  plist="$DO_APP_LOCATION/Contents/Info.plist"
+  sudo defaults write "$plist" NSDesktopFolderUsageDescription -string "Emacs requires permission to access the Desktop folder."
+  sudo defaults write "$plist" NSDocumentsFolderUsageDescription -string "Emacs requires permission to access the Documents folder."
+  sudo defaults write "$plist" NSDownloadsFolderUsageDescription -string "Emacs requires permission to access the Downloads folder."
+  sudo defaults write "$plist" NSRemovableVolumesUsageDescription -string "Emacs requires permission to access files on Removable Volumes."
+  # This will convert the Info.plist from xml representation to the binary form.
+  # Now we convert it back.
+  sudo plutil -convert xml1 "$plist"
+
+  echo "Emacs is installed. See README.org for notes on fixing the menu."
+
+  popd
 }
 
-do_all
+DO_CORES=$((2 * $(do_how_many_cores)))
+
+do_brew_ensure --formula "${DO_BREW_PACKAGES[@]}"
+do_brew_ensure --cask "${DO_BREW_CASKS[@]}"
+
+do_fetch
+do_vars
+do_build
+do_install
