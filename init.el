@@ -113,10 +113,10 @@ If VARS is not specified, use `env-cache-vars'."
 
 ;;;;; Native Compilation
 
-;; FIXME `gh-common' appears to have a byte compilation error, so `comp' tries
-;; and fails to compile it at every startup.
 (custom-set-variables
- '(comp-deferred-compilation-black-list '("gh-common"))
+ ;; FIXME `gh-common' appears to have a byte compilation error, so `comp' tries
+ ;; and fails to compile it at every startup.
+ ;; '(comp-deferred-compilation-black-list '("gh-common"))
  ;; Suppress warning popups when the byte compiler issues warnings during async
  ;; native compilation.
  '(comp-async-report-warnings-errors nil))
@@ -311,10 +311,10 @@ higher level up to the top level form."
 
 (use-package async
   :commands
-  async-let)
-;; FIXME Still has too many failures and timeouts.
-;; :hook
-;; (dired-mode-hook . dired-async-mode))
+  async-let
+  ;; FIXME Still has too many failures and timeouts.
+  :hook
+  (dired-mode-hook . dired-async-mode))
 
 
 ;;;; Operating System
@@ -4326,8 +4326,6 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
   ("C-c C-y" . yas-insert-snippet))
 
 (use-package smartparens
-  ;; FIXME Temporary fix for compilation bug.
-  :straight (:type git :host github :repo "mnewt/smartparens")
   :defer 3
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
@@ -6603,8 +6601,6 @@ Open the `eww' buffer in another window."
   (lsp-progress-via-spinner nil)
 
   :config
-  ;; FIXME `lsp-mode' seems to assume this directory is created already
-  (make-directory (expand-file-name ".cache/lsp/npm/bash-language-server/lib" user-emacs-directory))
   ;; Support reading large blobs of data from lsp servers.
   (setq read-process-output-max 1048576) ; 1mb
   (with-eval-after-load 'flycheck
