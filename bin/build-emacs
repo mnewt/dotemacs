@@ -10,7 +10,7 @@ DO_REPO_DIRECTORY="emacs"
 
 DO_REPO_BRANCH="feature/native-comp"
 
-DO_APP_LOCATION="/Applications/Emacs.app"
+DO_APP_LOCATION="$HOME/Emacs.app"
 
 DO_BREW_PACKAGES=(
   # Build dependencies
@@ -231,7 +231,9 @@ do_install() {
   # the Emacs Lisp and C source files in the right place. We need `ginstall`
   # because the `-D` option is not available in the macOS BSD version.
   sudo make INSTALL_PROGRAM="$(which ginstall) -c" -j $DO_CORES install
-  sudo rm -rf "$DO_APP_LOCATION"
+
+  # Back up the old version of the app bundle, if it exists.
+  [ -d "$DO_APP_LOCATION" ] && mv "$DO_APP_LOCATION" "$DO_APP_LOCATION.bak"
 
   # Move Emacs.app to its final location.
   sudo mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
@@ -242,10 +244,14 @@ do_install() {
 
   # Add annotations to Emacs.app to request access to special directories.
   plist="$DO_APP_LOCATION/Contents/Info.plist"
-  sudo defaults write "$plist" NSDesktopFolderUsageDescription -string "Emacs requires permission to access the Desktop folder."
-  sudo defaults write "$plist" NSDocumentsFolderUsageDescription -string "Emacs requires permission to access the Documents folder."
-  sudo defaults write "$plist" NSDownloadsFolderUsageDescription -string "Emacs requires permission to access the Downloads folder."
-  sudo defaults write "$plist" NSRemovableVolumesUsageDescription -string "Emacs requires permission to access files on Removable Volumes."
+  sudo defaults write "$plist" NSDesktopFolderUsageDescription \
+    -string "Emacs requires permission to access the Desktop folder."
+  sudo defaults write "$plist" NSDocumentsFolderUsageDescription \
+    -string "Emacs requires permission to access the Documents folder."
+  sudo defaults write "$plist" NSDownloadsFolderUsageDescription \
+    -string "Emacs requires permission to access the Downloads folder."
+  sudo defaults write "$plist" NSRemovableVolumesUsageDescription \
+    -string "Emacs requires permission to access files on Removable Volumes."
   # This will convert the Info.plist from xml representation to the binary form.
   # Now we convert it back.
   sudo plutil -convert xml1 "$plist"
