@@ -603,7 +603,8 @@ returned."
 
   ;; Set default fonts.
   (defvar m-fixed-pitch-font
-    (some-font '("Input Mono-14" "Monaco-13" "Lucida Console-12"
+    ;; FIXME "Input Mono-14" seems to have some spacing issues.
+    (some-font '("Monaco-13" "Lucida Console-12"
                  "DejaVu Sans Mono-12" "Inconsolata-14"))
     "The default font to use for fixed pitch applications.")
 
@@ -2649,24 +2650,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   ("M-s-f" . counsel-projectile-rg)
   ("C-s-b" . counsel-projectile-switch-to-buffer))
 
-(use-package counsel-etags
-  :custom
-  ;; TODO: Get this working with Clojure (ctags parses namespaces but
-  ;; `counsel-etags-find-tag-at-point' doesn't. Wouldn't this be `clojure-mode's
-  ;; responsibility? I'm pretty sure it keys off of sexp
-  (tags-revert-without-query t)
-  ;; Don't warn when TAGS files are large.
-  (large-file-warning-threshold nil)
-
-  :config
-  (defun counsel-etags-maybe-update ()
-    (add-hook 'after-save-hook 'counsel-etags-virtual-update-tags 'append 'local))
-
-  :hook
-  ;; Incrementally update TAGS file when the file is saved.
-  (prog-mode-hook . counsel-etags-maybe-update)
-  (js-mode-hook . counsel-etags-setup-smart-rules))
-
 (use-package company
   :defer 5
   :custom
@@ -3806,6 +3789,14 @@ INITIAL will be used as the initial input, if given."
 ;;;; Network
 
 ;; Network utilities.
+
+(use-package pcap-mode
+  :mode "\\.pcap\\'")
+
+;; `erc' has `erc-viper', which requires `viper'.  When viper loads it asks the
+;; user whether to "viperize" their Emacs.  This is horrible.  This line makes
+;; the horribleness stop.
+(custom-set-variables '(viper-mode nil))
 
 ;; Automate communication with services, such as nicserv.
 (use-package erc
@@ -5230,7 +5221,6 @@ See https://github.com/mnewt/fpw."
 
   :commands
   eshell
-  eshell-previous-input
   eshell-previous-prompt
   eshell-next-prompt
   eshell-ls-applicable
@@ -5596,30 +5586,46 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
      ("M-<down>" . eshell-next-prompt)
      ("C-h C-e" . esh-help-run-help)))
 
-  (defun eshell-ls-find-file-at-point ()
-    "RET on Eshell's `ls' output to open files."
-    (interactive)
-    (find-file (substring-no-properties (thing-at-point 'filename))))
+  (defun eshell-ls-file-at-point ()
+    "Get the full path of the Eshell listing at point."
+    (expand-file-name (substring-no-properties (thing-at-point 'filename))
+                      (get-text-property (point) 'eshell-ls-path)))
 
-  (defvar m-eshell-ls-file-keymap
+  (defun eshell-ls-find-file ()
+    "Open the Eshell listing at point."
+    (interactive)
+    (find-file (eshell-ls-file-at-point)))
+
+  (defun eshell-ls-delete-file ()
+    "Delete the Eshell listing at point."
+    (interactive)
+    (let ((file (eshell-ls-file-at-point)))
+      (when (yes-or-no-p (format "Delete file %s?" file))
+        (delete-file file))))
+
+  (defvar eshell-ls-file-keymap
     (let ((map (make-sparse-keymap)))
-      (define-key map (kbd "RET") 'eshell-ls-find-file-at-point)
-      (define-key map (kbd "<return>") 'eshell-ls-find-file-at-point)
-      (define-key map [mouse-1] 'eshell-ls-find-file-at-point)
+      (define-key map (kbd "RET") #'eshell-ls-find-file)
+      (define-key map (kbd "<return>") #'eshell-ls-find-file)
+      (define-key map [mouse-1] #'eshell-ls-find-file)
+      (define-key map (kbd "D") #'eshell-ls-delete-file)
       map)
     "Keys in effect when point is over a file from `eshell/ls'.")
 
-  (defun m-eshell-ls-decorated-name (f file)
-    "Advise around `eshell-ls-decorated-name'.
+  (defun eshell-ls-decorated-name-improved (f file)
+    "Add features to listings in `eshell/ls' output.
 
-Add properties to listings in `eshell/ls' output.
-
-Add decoration like 'ls -F':
+The features are:
+1. Add decoration like 'ls -F':
  * Mark directories with a `/'
  * Mark execurables with a `*'
 
-Add clickable links to open files and directories with `RET' or
-`mouse-1'."
+2. Make each listing into a clickable link to open the
+corresponding file or directory.
+
+This function is meant to be used as advice around
+`eshell-ls-decorated-name', where F is `eshell-ls-decorated-name'
+and FILE is the cons describing the file."
     (let* ((name (funcall f file))
            (suffix
             (cond
@@ -5628,16 +5634,17 @@ Add clickable links to open files and directories with `RET' or
               "/")
              ;; Executable
              ((and (/= (user-uid) 0) ; root can execute anything
-                   (eshell-ls-applicable (cdr file) 3 'file-executable-p (car file)))
+                   (eshell-ls-applicable (cdr file) 3 #'file-executable-p (car file)))
               "*"))))
       (propertize
        (if (and suffix (not (string-suffix-p suffix name)))
            (concat name (propertize suffix 'face 'shadow))
          name)
-       'keymap m-eshell-ls-file-keymap
-       'mouse-face 'highlight)))
+       'keymap eshell-ls-file-keymap
+       'mouse-face 'highlight
+       'eshell-ls-path default-directory)))
 
-  (advice-add 'eshell-ls-decorated-name :around #'m-eshell-ls-decorated-name)
+  (advice-add 'eshell-ls-decorated-name :around #'eshell-ls-decorated-name-improved)
 
   (defun ibuffer-show-eshell-buffers ()
     "Open an `ibuffer' window and display all Eshell buffers."
@@ -5651,9 +5658,7 @@ Add clickable links to open files and directories with `RET' or
     :config
     (defun esh-help-setup ()
       "Setup eldoc function for Eshell."
-      (make-local-variable 'eldoc-documentation-function)
-      (setq eldoc-documentation-function
-            'esh-help-eldoc-command))
+      (setq-local eldoc-documentation-function #'esh-help-eldoc-command))
     :hook
     (eshell-mode-hook . esh-help-setup))
 
@@ -5672,6 +5677,10 @@ Add clickable links to open files and directories with `RET' or
     :hook
     (eshell-mode-hook . eshell-bookmark-setup))
 
+  (use-package eshell-syntax-highlighting
+    :config
+    (eshell-syntax-highlighting-global-mode +1))
+
   :hook
   (eshell-mode-hook . eshell/init)
   (eshell-before-prompt-hook . eshell-prompt-housekeeping)
@@ -5683,9 +5692,7 @@ Add clickable links to open files and directories with `RET' or
   ("C-c E" . eshell-switch-to-buffer-other-window)
   ("C-s-e" . eshell-choose-buffer)
   ("M-E" . ibuffer-show-eshell-buffers)
-  ("C-c M-e" . ibuffer-show-eshell-buffers)
-  (:map prog-mode-map
-        ("M-P" . eshell-send-previous-input)))
+  ("C-c M-e" . ibuffer-show-eshell-buffers))
 
 
 ;;;; Lisp
@@ -5785,8 +5792,6 @@ Add clickable links to open files and directories with `RET' or
          (push (cons symbol advices) symbols))))
     symbols))
 
-;; TODO Look at point for an `advice-add' expression to pre-populate
-;; `completing-read'.
 (defun advice-remove-interactively (symbol function)
   "Interactively remove FUNCTION advice on SYMBOL."
   (interactive
@@ -7453,7 +7458,7 @@ This package sets these explicitly so we have to do the same."
   ;; KLUDGE Redefining this internal function as a workaround for `straight' not
   ;; setting org-version during the build process.
   (defun org-release ()
-    "9.5")
+    "9.5-dev")
 
   (defun org-find-file-for-capture (&optional file)
     "Open a file and ready it for capture."
