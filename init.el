@@ -553,7 +553,7 @@ returned."
   ;; Set default fonts.
   (defvar m-fixed-pitch-font
     ;; FIXME "Input Mono-14" seems to have some spacing issues.
-    (some-font '("Monaco-13" "Lucida Console-12"
+    (some-font '("Input Mono-14" "Monaco-13" "Lucida Console-12"
                  "DejaVu Sans Mono-12" "Inconsolata-14"))
     "The default font to use for fixed pitch applications.")
 
@@ -574,9 +574,6 @@ returned."
     (set-face-font face m-fixed-pitch-font))
 
   (set-face-font 'variable-pitch m-variable-pitch-font)
-
-  ;; Wrap text at the end of a line like a word processor.
-  (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
 
   (with-eval-after-load 'mwheel
     (setq mouse-wheel-follow-mouse t
@@ -604,6 +601,9 @@ returned."
   (use-package fontify-face
     :hook
     (emacs-lisp-mode-hook . fontify-face-mode)))
+
+;; Wrap text at the end of a line like a word processor.
+(add-hook 'text-mode-hook #'turn-on-visual-line-mode)
 
 (defun get-attribute (object propname attribute name)
   "Get the value of NAME from OBJECT.
