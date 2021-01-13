@@ -114,9 +114,6 @@ If VARS is not specified, use `env-cache-vars'."
 ;;;;; Native Compilation
 
 (custom-set-variables
- ;; FIXME `gh-common' appears to have a byte compilation error, so `comp' tries
- ;; and fails to compile it at every startup.
- ;; '(comp-deferred-compilation-black-list '("gh-common"))
  ;; Suppress warning popups when the byte compiler issues warnings during async
  ;; native compilation.
  '(comp-async-report-warnings-errors nil))
@@ -193,21 +190,14 @@ If VARS is not specified, use `env-cache-vars'."
   (setq use-package-verbose t
         use-package-expand-minimally nil
         use-package-compute-statistics t
-        debug-on-error t)
+        debug-on-error t))
 
-  (use-package benchmark-init
-    :demand t
-    :config
-    ;; To disable collection of benchmark data after init is done.
-    (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
-
-  ;; (use-package explain-pause-mode
-  ;;   :demand t
-  ;;   :straight (explain-pause-mode :host github
-  ;;                                 :repo "lastquestion/explain-pause-mode")
-  ;;   :config
-  ;;   (setq profiler-max-stack-depth 50)
-  ;;   (explain-pause-mode t)))
+;; FIXME Eager macro-expansion failure: (wrong-number-of-arguments (3 . 4) 2)
+;; (use-package benchmark-init
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
 
 (defun profiler-dwim (and-mem)
   "Toggle `profiler'.
@@ -312,7 +302,6 @@ higher level up to the top level form."
 (use-package async
   :commands
   async-let
-  ;; FIXME Still has too many failures and timeouts.
   :hook
   (dired-mode-hook . dired-async-mode))
 
@@ -357,7 +346,7 @@ higher level up to the top level form."
 (bind-prefix m-insert-map "M-m i" "Insert commands")
 (bind-prefix m-window-map "M-m w" "Window commands")
 (bind-prefix m-file-map "M-m f" "File commands")
-(bind-prefix m-help-map "M-m h" "Help and Hydra commands")
+(bind-prefix m-help-map "M-m h" "Help commands")
 (bind-prefix m-toggle-map "M-m t" "Toggle commands")
 (bind-prefix m-search-map "M-m s" "Search commands")
 (bind-prefix m-org-map "M-m o" "Org commands")
@@ -399,21 +388,20 @@ higher level up to the top level form."
  ("C-c U" . revert-buffer)
  ("s-<return>" . eval-last-sexp)
  ("s-RET" . eval-last-sexp)
- ("M-m M-p" . profiler-dwim))
+ ("M-m M-p" . profiler-dwim)
+ ("s-." . repeat))
 
 
 ;;;; Outline
 
-;; `outline' must be loaded before `persistent-scratch' to ensure that the
-;; prefix is set before `outline-mode' is autoloaded.
+;; `outline' must be loaded before `persistent-scratch' to ensure that
+;; `outline-minor-mode-prefix' is set before `outline-mode' is autoloaded.
 
 (use-package outline
   :custom
   (outline-minor-mode-prefix (kbd "M-#"))
   :hook
-  (prog-mode-hook . outline-minor-mode)
-  :bind
-  (:map outline-minor-mode-map))
+  (prog-mode-hook . outline-minor-mode))
 
 
 ;;;; Persistence
@@ -472,39 +460,6 @@ higher level up to the top level form."
                (substring dired-directory 0 last-idx)
              dired-directory)))))
 
-  (defun recentf-grep-recent-files (filepattern pattern)
-    (interactive "sFiles regexp: \nsSearch regexp: ")
-    (let ((files (if filepattern
-                     (cl-remove-if-not (lambda (item) (string-match filepattern item))
-                                       recentf-list)
-                   recentf-list))
-          (limit 50))
-      (if (> (length files) limit)
-          (seq-subseq files 0 limit))
-
-      (let* ((tempfile (make-temp-file "emacs"))
-             (orig compilation-finish-functions))
-        (add-to-list 'compilation-finish-functions
-                     (lambda (_buf _result)
-                       (setq font-lock-keywords-case-fold-search t)
-                       (highlight-regexp pattern 'hi-yellow)
-                       (delete-file tempfile)
-                       (setq compilation-finish-functions orig)))
-
-        (write-region  (mapconcat #'identity files (char-to-string 0))
-                       nil tempfile)
-
-        (grep (format "%s %s | xargs -0 grep -n -i \"%s\" "
-                      (if (eq system-type 'windows-nt)
-                          "type"
-                        "cat")
-
-                      (if (eq system-type 'windows-nt)
-                          (replace-regexp-in-string "/" "\\\\" tempfile)
-                        tempfile)
-
-                      pattern)))))
-
   :hook
   (ivy-mode-hook . recentf-mode)
   (dired-mode-hook . recentf-add-dired-directory)
@@ -514,7 +469,6 @@ higher level up to the top level form."
 (use-package autorevert
   :custom
   (auto-revert-verbose nil)
-  ;; (revert-without-query '(".*"))
   :hook
   (after-change-major-mode-hook . auto-revert-mode))
 
@@ -537,11 +491,6 @@ higher level up to the top level form."
   :config
   (put 'kill-ring 'history-length 200)
   (savehist-mode))
-
-;; (use-package persistent-scratch
-;;   :demand t
-;;   :config
-;;   (persistent-scratch-setup-default))
 
 
 ;;;; Private
@@ -630,12 +579,8 @@ returned."
   (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
 
   (with-eval-after-load 'mwheel
-    (setq mouse-wheel-follow-mouse 't
+    (setq mouse-wheel-follow-mouse t
           mouse-wheel-scroll-amount '(1 ((shift) . 1))))
-
-  ;; (use-package pixel-scroll
-  ;;   :config
-  ;;   (pixel-scroll-mode))
 
   (use-package mixed-pitch
     :custom
@@ -744,6 +689,10 @@ then choose the next key in the Alist `fiat-themes'."
   (interactive)
   (fiat 'dark))
 
+;; The patch from d12frosted/emacs-plus causes this function to be called when
+;; the macOS theme is changed.
+(add-hook 'ns-system-appearance-change-functions #'fiat)
+
 (bind-keys
  ("C-M-s-t" . fiat)
  ("M-m t t" . fiat)
@@ -769,10 +718,9 @@ then choose the next key in the Alist `fiat-themes'."
   :config
   (doom-themes-visual-bell-config))
 
-(use-package modus-themes
-  :straight (:host gitlab :repo "protesilaos/modus-themes")
-  :custom
-  (modus-vivendi-theme-mode-line 'moody))
+;; (use-package modus-themes
+;;   :custom
+;;   (modus-vivendi-theme-mode-line 'moody))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1122,10 +1070,11 @@ This sets things up for `window-highlight' and `mode-line'."
       (set-face-foreground 'vertical-border inactive-bg)
       (set-face-background 'window-highlight-focused-window active-bg))
     (with-eval-after-load 'org
-      (set-face-attribute 'org-document-title nil :height 1.4))
+      (set-face-attribute 'org-document-title nil :height 1.5))
     (with-eval-after-load 'outline
-      (set-face-attribute 'outline-1 nil :height 1.2)
-      (set-face-attribute 'outline-2 nil :height 1.1)))
+      (set-face-attribute 'outline-1 nil :height 1.4)
+      (set-face-attribute 'outline-2 nil :height 1.2)
+      (set-face-attribute 'outline-3 nil :height 1.1)))
   (mood-line--refresh-bar))
 
 (advice-add #'load-theme :before #'custom-enabled-themes-reset)
@@ -1136,12 +1085,16 @@ This sets things up for `window-highlight' and `mode-line'."
 
 (use-package hl-line
   :defer 2
+  :init
+  (defvar hl-line-disabled-mode-list nil
+    "Major modes in which to not enable `hl-line-mode'.")
+
   :custom
   (global-hl-line-sticky-flag t)
 
   :config
   (defun maybe-enable-hl-line-mode ()
-    (unless (seq-contains-p '(vterm-mode) major-mode)
+    (unless (cl-some #'derived-mode-p hl-line-disabled-mode-list)
       (hl-line-mode +1)))
 
   (dolist (buffer (buffer-list))
@@ -1153,7 +1106,7 @@ This sets things up for `window-highlight' and `mode-line'."
 
 (use-package page-break-lines
   :hook
-  (prog-mode-hook . page-break-lines-mode))
+  (emacs-lisp-mode-hook . page-break-lines-mode))
 
 (use-package darkroom
   :bind
@@ -1195,37 +1148,6 @@ This sets things up for `window-highlight' and `mode-line'."
 
 ;; Navigation tools
 
-(use-package replace
-  :straight (:type built-in)
-
-  :config
-  (defun occur-dwim ()
-    "Call `occur' with the thing under point or selected region."
-    (interactive)
-    (push (if (region-active-p)
-              (buffer-substring-no-properties
-               (region-beginning)
-               (region-end))
-            (let ((sym (thing-at-point 'symbol)))
-              (when (stringp sym)
-                (regexp-quote sym))))
-          regexp-history)
-    (call-interactively 'occur))
-
-  (defun reattach-occur ()
-    "Switch to Occur buffer and launch the hydra."
-    (if (get-buffer "*Occur*")
-        (switch-to-buffer-other-window "*Occur*")
-      (hydra-occur-dwim/body)))
-
-  (defun other-window-1 ()
-    "Call `other-window' with a count of 1."
-    (other-window 1))
-
-  :hook
-  ;; Focus on *Occur* window right away.
-  (occur-hook . other-window-1))
-
 (use-package outshine
   :config
   (defun outline-show-current-sublevel ()
@@ -1261,44 +1183,6 @@ This sets things up for `window-highlight' and `mode-line'."
 
   (eldoc-add-command #'outshine-self-insert-command)
 
-  (defun outline-show-current-sublevel ())
-  (radian-protect-macros
-    (with-eval-after-load 'hydra
-      (defhydra hydra-outline (:color pink :hint nil)
-        "
-Outline
-
-^Hide^             ^Show^           ^Move
-^^^^^^------------------------------------------------------
-_s_ sublevels     _a_ all         _u_ up
-_t_ body          _e_ entry       _n_ next visible
-_o_ other         _i_ children    _p_ previous visible
-_c_ entry         _k_ branches    _f_ forward same level
-_l_ leaves        _s_ subtree     _b_ backward same level
-_d_ subtree
-
-"
-        ;; Hide
-        ("q" outline-hide-sublevels)
-        ("t" outline-hide-body)
-        ("o" outline-hide-other)
-        ("c" outline-hide-entry)
-        ("l" outline-hide-leaves)
-        ("d" outline-hide-subtree)
-        ;; Show
-        ("a" outline-show-all)
-        ("e" outline-show-entry)
-        ("i" outline-show-children)
-        ("k" outline-show-branches)
-        ("s" outline-show-subtree)
-        ;; Move
-        ("u" outline-up-heading)
-        ("n" outline-next-visible-heading)
-        ("p" outline-previous-visible-heading)
-        ("f" outline-forward-same-level)
-        ("b" outline-backward-same-level)
-        ("q" nil "leave"))))
-
   (use-package outorg
     :bind
     (:map outline-minor-mode-map
@@ -1308,7 +1192,6 @@ _d_ subtree
   (outline-minor-mode-hook . outshine-mode)
   :bind
   (:map outline-minor-mode-map
-        ("C-c #" . hydra-outline/body)
         ;; Don't shadow smarparens or org bindings
         ("M-<up>" . nil)
         ("M-<down>" . nil)
@@ -1649,12 +1532,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("s-0" . winum-select-window-0)
   ("C-c 0" . winum-select-window-0))
 
-;; (use-package rotate
-;;   :bind
-;;   (:map m-window-map
-;;         ("r" . rotate-layout)
-;;         ("w" . rotate-window)))
-
 (use-package perspective
   :custom
   ;; Don't show modestring on the modeline; it's displayed on the frame title
@@ -1766,39 +1643,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 (use-package hideshow
   :custom
   (hs-hide-comments-when-hiding-all nil)
-  :commands
-  hs-show-all
-  hs-hide-all
-  hs-show-block
-  hs-hide-block
-  hs-hide-level
-  :config
-  (radian-protect-macros
-    (defhydra hydra-hs (:color pink :hint nil)
-      "
-Hideshow
-
-Hide^^            ^Show^            ^Toggle^    ^Navigation^
-----------------------------------------------------------------
-_h_ hide all      _s_ show all      _t_ toggle    _n_ next line
-_d_ hide block    _a_ show block                _p_ previous line
-_l_ hide level
-
-_q_ quit
-"
-      ("s" hs-show-all)
-      ("h" hs-hide-all)
-      ("a" hs-show-block)
-      ("d" hs-hide-block)
-      ("t" hs-toggle-hiding)
-      ("l" hs-hide-level)
-      ("n" forward-line)
-      ("p" (forward-line -1))
-      ("q" nil)))
   :bind
   ("C-c C-h" . hs-minor-mode)
   (:map hs-minor-mode-map
-        ("C-c h" . hydra-hs/body)
         ("C-<tab>" . hs-toggle-hiding)))
 
 (use-package symbol-overlay
@@ -1946,108 +1793,8 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   ibuffer-forward-line
   ibuffer-backward-line
 
-  :config
-  (radian-protect-macros
-    (with-eval-after-load 'hydra
-      (defhydra hydra-ibuffer-main (:color pink :hint nil)
-        "
-    ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
-    _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
-    _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
-    _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
-    _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
-    "
-        ("m" ibuffer-mark-forward)
-        ("u" ibuffer-unmark-forward)
-        ("*" hydra-ibuffer-mark/body :color blue)
-        ("t" ibuffer-toggle-marks)
-
-        ("D" ibuffer-do-delete)
-        ("s" ibuffer-do-save)
-        ("a" hydra-ibuffer-action/body :color blue)
-
-        ("g" ibuffer-update)
-        ("S" hydra-ibuffer-sort/body :color blue)
-        ("/" hydra-ibuffer-filter/body :color blue)
-        ("H" describe-mode :color blue)
-
-        ("h" ibuffer-backward-filter-group)
-        ("k" ibuffer-backward-line)
-        ("l" ibuffer-forward-filter-group)
-        ("j" ibuffer-forward-line)
-        ("RET" ibuffer-visit-buffer :color blue)
-
-        ("TAB" ibuffer-toggle-filter-group)
-
-        ("o" ibuffer-visit-buffer-other-window :color blue)
-        ("q" quit-window :color blue)
-        ("." nil :color blue))
-
-      (defhydra hydra-ibuffer-mark (:color teal :columns 5
-                                           :after-exit (hydra-ibuffer-main/body))
-        "Mark"
-        ("*" ibuffer-unmark-all "unmark all")
-        ("M" ibuffer-mark-by-mode "mode")
-        ("m" ibuffer-mark-modified-buffers "modified")
-        ("u" ibuffer-mark-unsaved-buffers "unsaved")
-        ("s" ibuffer-mark-special-buffers "special")
-        ("r" ibuffer-mark-read-only-buffers "read-only")
-        ("/" ibuffer-mark-dired-buffers "dired")
-        ("e" ibuffer-mark-dissociated-buffers "dissociated")
-        ("h" ibuffer-mark-help-buffers "help")
-        ("z" ibuffer-mark-compressed-file-buffers "compressed")
-        ("b" hydra-ibuffer-main/body "back" :color blue))
-
-      (defhydra hydra-ibuffer-action (:color teal :columns 4
-                                             :after-exit
-                                             (if (eq major-mode 'ibuffer-mode)
-                                                 (hydra-ibuffer-main/body)))
-        "Action"
-        ("A" ibuffer-do-view "view")
-        ("E" ibuffer-do-eval "eval")
-        ("F" ibuffer-do-shell-command-file "shell-command-file")
-        ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
-        ("H" ibuffer-do-view-other-frame "view-other-frame")
-        ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
-        ("M" ibuffer-do-toggle-modified "toggle-modified")
-        ("O" ibuffer-do-occur "occur")
-        ("P" ibuffer-do-print "print")
-        ("Q" ibuffer-do-query-replace "query-replace")
-        ("R" ibuffer-do-rename-uniquely "rename-uniquely")
-        ("T" ibuffer-do-toggle-read-only "toggle-read-only")
-        ("U" ibuffer-do-replace-regexp "replace-regexp")
-        ("V" ibuffer-do-revert "revert")
-        ("W" ibuffer-do-view-and-eval "view-and-eval")
-        ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
-        ("b" nil "back"))
-
-      (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
-        "Sort"
-        ("i" ibuffer-invert-sorting "invert")
-        ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
-        ("v" ibuffer-do-sort-by-recency "recently used")
-        ("s" ibuffer-do-sort-by-size "size")
-        ("f" ibuffer-do-sort-by-filename/process "filename")
-        ("m" ibuffer-do-sort-by-major-mode "mode")
-        ("b" hydra-ibuffer-main/body "back" :color blue))
-
-      (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
-        "Filter"
-        ("m" ibuffer-filter-by-used-mode "mode")
-        ("M" ibuffer-filter-by-derived-mode "derived mode")
-        ("n" ibuffer-filter-by-name "name")
-        ("c" ibuffer-filter-by-content "content")
-        ("e" ibuffer-filter-by-predicate "predicate")
-        ("f" ibuffer-filter-by-filename "filename")
-        (">" ibuffer-filter-by-size-gt "size")
-        ("<" ibuffer-filter-by-size-lt "size")
-        ("/" ibuffer-filter-disable "disable")
-        ("b" hydra-ibuffer-main/body "back" :color blue))))
-
   :bind
-  ("C-x M-b" . ibuffer)
-  (:map ibuffer-mode-map
-        ("." . hydra-ibuffer-main/body)))
+  ("C-x M-b" . ibuffer))
 
 (use-package bufler
   :bind
@@ -2318,10 +2065,9 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :defer 2
   :custom
   (enable-recursive-minibuffers t)
-  (ivy-display-style 'fancy)
   (ivy-count-format "[%d/%d] ")
   ;; Don't exit the minibuffer when pressing backspace on an empty line.
-  (ivy-on-del-error-function (lambda (&rest _) nil))
+  (ivy-on-del-error-function 'ignore)
 
   :config
   ;; (use-package ivy-posframe
@@ -2356,10 +2102,17 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
     (interactive)
     (if (eolp) (ivy-partial) (end-of-line)))
 
-  (use-package ivy-hydra
-    :demand t
-    :custom
-    (ivy-read-action-function #'ivy-hydra-read-action))
+  (use-package prescient
+    :hook
+    (ivy-mode-hook . prescient-persist-mode))
+
+  (use-package ivy-prescient
+    :config
+    (setq ivy-prescient-sort-commands
+          (append ivy-prescient-sort-commands
+                  '(counsel-grep counsel-grep-or-swiper counsel-switch-buffer)))
+    :hook
+    (ivy-mode-hook . ivy-prescient-mode))
 
   (ivy-mode)
 
@@ -2410,6 +2163,7 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
 
 (use-package counsel
   :defer 3
+  :after ivy
   :custom
   (counsel-find-file-at-point t)
   (counsel-grep-base-command
@@ -2525,7 +2279,12 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     (bind-keys :map eshell-hist-mode-map
                ("M-r" . counsel-esh-history)))
 
+  (use-package company-prescient
+    :hook
+    (company-mode-hook . company-prescient-mode))
+
   (counsel-mode)
+
   :bind
   ("M-x" . counsel-M-x)
   ("C-h C-l" . counsel-find-library)
@@ -2690,24 +2449,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("M-/" . completion-at-point))
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
-
-(use-package prescient
-  :hook
-  (ivy-mode-hook . prescient-persist-mode))
-
-(use-package ivy-prescient
-  :custom
-  (ivy-prescient-sort-commands '(:not
-                                 swiper
-                                 counsel-grep
-                                 counsel-grep-or-swiper
-                                 ivy-switch-buffer))
-  :hook
-  (ivy-mode-hook . ivy-prescient-mode))
-
-(use-package company-prescient
-  :hook
-  (company-mode-hook . company-prescient-mode))
 
 (use-package smart-jump
   :config
@@ -2876,14 +2617,7 @@ See: https://github.com/mnewt/psync"
   :defer 3
   :config
   (unless (server-running-p)
-    (server-start))
-  (when (eq system-type 'darwin)
-    (set-process-query-on-exit-flag
-     (make-process
-      :name "dark-mode-notifier"
-      :buffer " *dark-mode-notifier*"
-      :command (list (executable-find "dark-mode-notifier")))
-     nil)))
+    (server-start)))
 
 (defun reveal-in-windows-explorer (&optional file)
   "Reveal FILE in Windows Explorer."
@@ -2979,54 +2713,6 @@ With a prefix ARG always prompt for command to use."
     (let* ((file (dired-get-filename nil t)))
       (message "Opening %s..." file)
       (os-open-file file)))
-
-  (radian-protect-macros
-    (with-eval-after-load 'hydra
-      (defhydra hydra-dired (:hint nil :color pink)
-        "
-  _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
-  _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
-  _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
-  _R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
-  _Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
-  _S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
-  _A_ find regexp    _Q_ repl regexp                                      _q_ quit
-
-  C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
-  "
-        ("(" dired-hide-details-mode)
-        (")" dired-omit-mode)
-        ("+" dired-create-directory)
-        ("?" dired-summary)
-        ("A" dired-do-find-regexp)
-        ("C" dired-do-copy)
-        ("D" dired-do-delete)
-        ("E" dired-mark-extension)
-        ("e" dired-ediff-files)
-        ("F" dired-do-find-marked-files)
-        ("G" dired-do-chgrp)
-        ("g" revert-buffer)
-        ("i" dired-maybe-insert-subdir)
-        ("l" dired-do-redisplay) ;; relist the marked or single directory
-        ("M" dired-do-chmod)
-        ("m" dired-mark)
-        ("O" dired-display-file)
-        ("o" dired-find-file-other-window)
-        ("Q" dired-do-find-regexp-and-replace)
-        ("R" dired-do-rename)
-        ("r" dired-rsync)
-        ("S" dired-do-symlink)
-        ("s" dired-sort-toggle-or-edit)
-        ("t" dired-toggle-marks)
-        ("U" dired-unmark-all-marks)
-        ("u" dired-unmark)
-        ("v" dired-view-file) ;; q to exit, s to search, = gets line #
-        ("w" dired-kill-subdir)
-        ("W" wdired-change-to-wdired-mode)
-        ("Y" dired-do-relsymlink)
-        ("z" dired-do-compress)
-        ("q" nil)
-        ("." nil :color blue))))
 
   ;; TODO Pop open status buffer
   ;; TODO Fix status buffer's display
@@ -3184,7 +2870,6 @@ ERR and IND are ignored."
   (dired-mode-hook . dired-hide-details-mode)
   :bind
   (:map dired-mode-map
-        ("." . hydra-dired/body)
         ("C-c C-o" . dired-open-file)
         ("T" . touch)
         ("F" . tail-file)
@@ -3200,8 +2885,7 @@ ERR and IND are ignored."
         ("C-, R" . dired-subtree-revert)
         ("C-, n" . dired-subtree-narrow)
         ("C-, ^" . dired-subtree-up)
-        ("C-, v" . dired-subtree-down)
-        ("C-c C-s" . hydra-dired-quick-sort/body)))
+        ("C-, v" . dired-subtree-down)))
 
 (use-package dired-list
   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
@@ -3504,134 +3188,6 @@ INITIAL will be used as the initial input, if given."
   (devdocs-setup)
   :bind
   ("C-h M-l" . devdocs-lookup))
-
-(use-package hydra
-  :defer 10
-  :functions
-  hydra-default-pre
-  hydra-keyboard-quit
-  hydra--call-interactively-remap-maybe
-  hydra-show-hint
-  hydra-set-transient-map
-
-  :config
-  (radian-protect-macros
-
-    (autoload #'windmove-find-other-window "windmove")
-    (defun hydra-move-splitter-left (arg)
-      "Move window splitter left by ARG characters."
-      (interactive "p")
-      (if (windmove-find-other-window 'right)
-          (shrink-window-horizontally arg)
-        (enlarge-window-horizontally arg)))
-
-    (defun hydra-move-splitter-right (arg)
-      "Move window splitter right by ARG characters."
-      (interactive "p")
-      (if (windmove-find-other-window 'right)
-          (enlarge-window-horizontally arg)
-        (shrink-window-horizontally arg)))
-
-    (defun hydra-move-splitter-up (arg)
-      "Move window splitter up by ARG characters."
-      (interactive "p")
-      (if (windmove-find-other-window 'up)
-          (enlarge-window arg)
-        (shrink-window arg)))
-
-    (defun hydra-move-splitter-down (arg)
-      "Move window splitter down by ARG characters."
-      (interactive "p")
-      (if (windmove-find-other-window 'up)
-          (shrink-window arg)
-        (enlarge-window arg)))
-
-    (defhydra hydra-window (:hint nil)
-      "
-  MOVE WINDOW^   _h_ left          _j_ down                    _k_ up             _l_ right
-  MOVE BUFFER^   _←_ left          _↓_ down                    _↑_ up             _→_ right
-  SPLIT^         _V_ vertical      _H_ horizontal              _u_ undo           _r_ redo
-  SIZE^          _b_ thinner       _n_ taller                  _p_ shorter        _f_ wider                 _B_ balance
-  DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  _W_ delete other windows
-                _q_ quit
-  "
-      ("h" windmove-left)
-      ("j" windmove-down)
-      ("k" windmove-up)
-      ("l" windmove-right)
-      ("<left>" buf-move-left)
-      ("<down>" buf-move-down)
-      ("<up>" buf-move-up)
-      ("<right>" buf-move-right)
-      ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
-      ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
-      ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
-      ("r" winner-redo)
-      ("b" hydra-move-splitter-left)
-      ("n" hydra-move-splitter-down)
-      ("p" hydra-move-splitter-up)
-      ("f" hydra-move-splitter-right)
-      ("B" balance-windows)
-      ("d" kill-current-buffer)
-      ("D" kill-buffer-and-window)
-      ("w" delete-window)
-      ("W" delete-other-windows)
-      ("q" nil))
-
-    (defhydra hydra-move (:hint nil)
-      "
-  hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] [_,_ _._ _l_ _c_] _q_"
-      ("n" next-line)
-      ("N" scroll-down-margin)
-      ("p" previous-line)
-      ("P" scroll-up-margin)
-      ("v" scroll-up-command)
-      ("V" scroll-down-command)
-      ("u" scroll-window-up)
-      ("d" scroll-window-down)
-      ("f" forward-char)
-      ("F" forward-word)
-      ("b" backward-char)
-      ("B" backward-word)
-      ("a" mwim-beginning-of-code-or-line)
-      ("A" beginning-of-defun)
-      ("e" mwim-end-of-code-or-line)
-      ("E" end-of-defun)
-      ("," beginning-of-buffer)
-      ("." end-of-buffer)
-      ("l" recenter-top-bottom)
-      ("c" goto-last-change)
-      ("q" nil))
-
-    (defhydra hydra-flycheck
-      (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
-            :post (progn (setq hydra-hint-display-type nil)
-                         (quit-windows-on "*Flycheck errors*"))
-            :hint nil)
-      "Errors"
-      ("f" flycheck-error-list-set-filter "Filter")
-      ("n" flycheck-next-error "Next")
-      ("p" flycheck-previous-error "Previous")
-      ("<" flycheck-first-error "First")
-      (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-      ("q" nil))
-
-    ;; Used in conjunction with occur-mode-goto-occurrence-advice this helps keep
-    ;; focus on the *Occur* window and hides upon request in case needed later.
-    (defhydra hydra-occur-dwim ()
-      "Occur mode"
-      ("o" occur-dwim "Start occur-dwim" :color red)
-      ("j" occur-next "Next" :color red)
-      ("k" occur-prev "Prev":color red)
-      ("h" delete-window "Hide" :color blue)
-      ("r" (reattach-occur) "Re-attach" :color red)
-      ("q" nil)))
-
-  :bind
-  ("C-s-v" . hydra-move/body)
-  ("C-c w" . hydra-window/body)
-  (:map occur-mode-map
-        ("C-o" . hydra-occur-dwim/body)))
 
 (use-package counsel-ffdata
   :custom
@@ -4030,46 +3586,6 @@ The config is specified in the config file in `~/.mnt/'."
   ((prog-mode-hook text-mode-hook) . diff-hl-mode)
   (dired-mode-hook . diff-hl-dired-mode))
 
-(use-package smerge-mode
-  :config
-  (radian-protect-macros
-    (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
-      "
-^Move^       ^Keep^               ^Diff^                 ^Other^
-^^-----------^^-------------------^^---------------------^^-------
-_n_ext       _b_ase               _<_: upper/base        _C_ombine
-_p_rev       _u_pper              _=_: upper/lower       _r_esolve
-^^           _l_ower              _>_: base/lower        _k_ill current
-^^           _a_ll                _R_efine
-^^           _RET_: current       _E_diff
-"
-      ("n" smerge-next)
-      ("p" smerge-prev)
-      ("b" smerge-keep-base)
-      ("u" smerge-keep-upper)
-      ("l" smerge-keep-lower)
-      ("a" smerge-keep-all)
-      ("RET" smerge-keep-current)
-      ("C-m" smerge-keep-current)
-      ("<" smerge-diff-base-upper)
-      ("=" smerge-diff-upper-lower)
-      (">" smerge-diff-base-lower)
-      ("R" smerge-refine)
-      ("E" smerge-ediff)
-      ("C" smerge-combine-with-next)
-      ("r" smerge-resolve)
-      ("k" smerge-kill-current)
-      ("ZZ" (lambda ()
-              (interactive)
-              (save-buffer)
-              (bury-buffer))
-       "Save and bury buffer" :color blue)
-      ("q" nil "cancel" :color blue)))
-
-  :bind
-  (:map smerge-mode-map
-        ("C-s-s" . hydra-smerge/body)))
-
 (bind-keys
  ("M-m l" . git-home-link)
  ("M-m u" . git-home-unlink)
@@ -4256,31 +3772,6 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 (use-package multiple-cursors
   :commands
   mc/add-cursor-on-click
-  :config
-  (radian-protect-macros
-    (defhydra hydra-multiple-cursors (:hint nil)
-      "
-     ^Up^            ^Down^        ^Other^
-----------------------------------------------
-_p_   Next    _n_   Next    _l_ Edit lines
-_P_   Skip    _N_   Skip    _a_ Mark all
-_M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
-^ ^             ^ ^             _q_ Quit
-"
-      ("l" mc/edit-lines :exit t)
-      ("a" mc/mark-all-like-this :exit t)
-      ("n" mc/mark-next-like-this)
-      ("N" mc/skip-to-next-like-this)
-      ("M-n" mc/unmark-next-like-this)
-      ("p" mc/mark-previous-like-this)
-      ("P" mc/skip-to-previous-like-this)
-      ("M-p" mc/unmark-previous-like-this)
-      ("r" mc/mark-all-in-region-regexp :exit t)
-      ("<mouse-1>" mc/add-cursor-on-click)
-      ("<down-mouse-1>" ignore)
-      ("<drag-mouse-1>" ignore)
-      ("q" nil)))
-
   :bind
   ("M-<down-mouse-1>" . mc/add-cursor-on-click)
   ("C-S-c C-S-c" . mc/edit-lines)
@@ -5044,6 +4535,9 @@ predicate returns true."
         ("C-M-j" . term-switch-to-shell-mode)))
 
 (use-package vterm
+  :init
+  (add-to-list 'hl-line-disabled-mode-list 'vterm-mode)
+
   :custom
   (vterm-always-compile-module t)
   (vterm-buffer-name-string "*VTerm %s*")
@@ -5601,7 +5095,7 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
     (interactive)
     (let ((file (eshell-ls-file-at-point)))
       (when (yes-or-no-p (format "Delete file %s?" file))
-        (delete-file file))))
+        (delete-file file 'trash))))
 
   (defvar eshell-ls-file-keymap
     (let ((map (make-sparse-keymap)))
@@ -5636,13 +5130,12 @@ and FILE is the cons describing the file."
              ((and (/= (user-uid) 0) ; root can execute anything
                    (eshell-ls-applicable (cdr file) 3 #'file-executable-p (car file)))
               "*"))))
-      (propertize
-       (if (and suffix (not (string-suffix-p suffix name)))
-           (concat name (propertize suffix 'face 'shadow))
-         name)
-       'keymap eshell-ls-file-keymap
-       'mouse-face 'highlight
-       'eshell-ls-path default-directory)))
+      (concat (propertize name
+                          'keymap eshell-ls-file-keymap
+                          'mouse-face 'highlight
+                          'eshell-ls-path default-directory)
+              (when (and suffix (not (string-suffix-p suffix name)))
+                (propertize suffix 'face 'shadow)))))
 
   (advice-add 'eshell-ls-decorated-name :around #'eshell-ls-decorated-name-improved)
 
@@ -6466,10 +5959,10 @@ Open the `eww' buffer in another window."
   pyvenv-activate
   pyvenv-workon)
 
-(use-package ein
-  :commands
-  ein:run
-  ein:login)
+;; (use-package ein
+;;   :commands
+;;   ein:run
+;;   ein:login)
 
 
 ;;;; Swift
@@ -6598,9 +6091,7 @@ Open the `eww' buffer in another window."
   (prog-mode-hook . flycheck-mode)
 
   :bind
-  ("C-c ! !" . flycheck-mode)
-  (:map flycheck-mode-map
-        ("C-c ! ." . hydra-flycheck/body)))
+  ("C-c ! !" . flycheck-mode))
 
 (use-package lsp-mode
   :custom
@@ -7302,9 +6793,6 @@ This package sets these explicitly so we have to do the same."
 ;;         ("s-<return>" . eir-eval-in-shell)
 ;;         ("M-s-<return>" . eir-eval-in-shell-and-advance)))
 
-(use-package nix-mode
-  :mode "\\.nix\\'")
-
 (use-package nftables-mode
   :straight (:host github :repo "mnewt/nftables-mode")
   :mode ("\\.nft\\(?:ables\\)?\\'" "/etc/nftables.conf")
@@ -7453,12 +6941,21 @@ This package sets these explicitly so we have to do the same."
   org-map-entries
   org-capture
   org-capture-refile
+
   :config
 
-  ;; KLUDGE Redefining this internal function as a workaround for `straight' not
-  ;; setting org-version during the build process.
-  (defun org-release ()
+  ;; KLUDGE Redefining these internal functions is a workaround for `straight'
+  ;; not setting running make to set the proper variables during the build
+  ;; process.
+  (defun m-org-release ()
     "9.5-dev")
+
+  (advice-add #'org-release :override #'m-org-release)
+
+  (defun m-org-git-version ()
+    "Via straight.el")
+
+  (advice-add #'org-git-version :override #'m-org-git-version)
 
   (defun org-find-file-for-capture (&optional file)
     "Open a file and ready it for capture."
@@ -7716,7 +7213,7 @@ Adapted from
 https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
     (interactive)
     (org-map-entries (lambda ()
-                       (when (= 1 (org-current-level))
+                       (when (>= 3 (org-current-level))
                          (org-with-wide-buffer
                           ;; `org-map-entries' narrows the buffer, which prevents us from seeing
                           ;; newlines before the current heading, so we do this part widened.
@@ -7822,6 +7319,407 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   :bind
   ("M-m o w" . ox-clip-formatted-copy)
   ("M-m o W" . ox-clip-image-to-clipboard))
+
+
+
+;;;; Hydra
+
+(use-package hydra
+  :defer 10
+  :functions
+  hydra-default-pre
+  hydra-keyboard-quit
+  hydra--call-interactively-remap-maybe
+  hydra-show-hint
+  hydra-set-transient-map
+
+  :config
+  (radian-protect-macros
+
+    (with-eval-after-load 'hs
+      (defhydra hydra-hs (:color pink :hint nil)
+        "
+Hideshow
+
+Hide^^            ^Show^            ^Toggle^    ^Navigation^
+----------------------------------------------------------------
+_h_ hide all      _s_ show all      _t_ toggle    _n_ next line
+_d_ hide block    _a_ show block                _p_ previous line
+_l_ hide level
+
+_q_ quit
+"
+        ("s" hs-show-all)
+        ("h" hs-hide-all)
+        ("a" hs-show-block)
+        ("d" hs-hide-block)
+        ("t" hs-toggle-hiding)
+        ("l" hs-hide-level)
+        ("n" forward-line)
+        ("p" (forward-line -1))
+        ("q" nil))
+
+      (bind-key (kbd "C-c h") #'hydra-hs/body hs-minor-mode-map))
+
+    (with-eval-after-load 'outline
+      (defhydra hydra-outline (:color pink :hint nil)
+        "
+Outline
+
+^Hide^             ^Show^           ^Move
+^^^^^^------------------------------------------------------
+_s_ sublevels     _a_ all         _u_ up
+_t_ body          _e_ entry       _n_ next visible
+_o_ other         _i_ children    _p_ previous visible
+_c_ entry         _k_ branches    _f_ forward same level
+_l_ leaves        _s_ subtree     _b_ backward same level
+_d_ subtree
+
+"
+        ;; Hide
+        ("q" outline-hide-sublevels)
+        ("t" outline-hide-body)
+        ("o" outline-hide-other)
+        ("c" outline-hide-entry)
+        ("l" outline-hide-leaves)
+        ("d" outline-hide-subtree)
+        ;; Show
+        ("a" outline-show-all)
+        ("e" outline-show-entry)
+        ("i" outline-show-children)
+        ("k" outline-show-branches)
+        ("s" outline-show-subtree)
+        ;; Move
+        ("u" outline-up-heading)
+        ("n" outline-next-visible-heading)
+        ("p" outline-previous-visible-heading)
+        ("f" outline-forward-same-level)
+        ("b" outline-backward-same-level)
+        ("q" nil "leave"))
+
+      (bind-key (kbd "C-c #") #'hydra-outline/body outline-minor-mode-map))
+
+    (with-eval-after-load 'ibuffer
+      (defhydra hydra-ibuffer-main (:color pink :hint nil)
+        "
+    ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
+    _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
+    _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
+    _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
+    _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
+    "
+        ("m" ibuffer-mark-forward)
+        ("u" ibuffer-unmark-forward)
+        ("*" hydra-ibuffer-mark/body :color blue)
+        ("t" ibuffer-toggle-marks)
+
+        ("D" ibuffer-do-delete)
+        ("s" ibuffer-do-save)
+        ("a" hydra-ibuffer-action/body :color blue)
+
+        ("g" ibuffer-update)
+        ("S" hydra-ibuffer-sort/body :color blue)
+        ("/" hydra-ibuffer-filter/body :color blue)
+        ("H" describe-mode :color blue)
+
+        ("h" ibuffer-backward-filter-group)
+        ("k" ibuffer-backward-line)
+        ("l" ibuffer-forward-filter-group)
+        ("j" ibuffer-forward-line)
+        ("RET" ibuffer-visit-buffer :color blue)
+
+        ("TAB" ibuffer-toggle-filter-group)
+
+        ("o" ibuffer-visit-buffer-other-window :color blue)
+        ("q" quit-window :color blue)
+        ("." nil :color blue))
+
+      (defhydra hydra-ibuffer-mark (:color teal :columns 5
+                                           :after-exit (hydra-ibuffer-main/body))
+        "Mark"
+        ("*" ibuffer-unmark-all "unmark all")
+        ("M" ibuffer-mark-by-mode "mode")
+        ("m" ibuffer-mark-modified-buffers "modified")
+        ("u" ibuffer-mark-unsaved-buffers "unsaved")
+        ("s" ibuffer-mark-special-buffers "special")
+        ("r" ibuffer-mark-read-only-buffers "read-only")
+        ("/" ibuffer-mark-dired-buffers "dired")
+        ("e" ibuffer-mark-dissociated-buffers "dissociated")
+        ("h" ibuffer-mark-help-buffers "help")
+        ("z" ibuffer-mark-compressed-file-buffers "compressed")
+        ("b" hydra-ibuffer-main/body "back" :color blue))
+
+      (defhydra hydra-ibuffer-action (:color teal :columns 4
+                                             :after-exit
+                                             (if (eq major-mode 'ibuffer-mode)
+                                                 (hydra-ibuffer-main/body)))
+        "Action"
+        ("A" ibuffer-do-view "view")
+        ("E" ibuffer-do-eval "eval")
+        ("F" ibuffer-do-shell-command-file "shell-command-file")
+        ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
+        ("H" ibuffer-do-view-other-frame "view-other-frame")
+        ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
+        ("M" ibuffer-do-toggle-modified "toggle-modified")
+        ("O" ibuffer-do-occur "occur")
+        ("P" ibuffer-do-print "print")
+        ("Q" ibuffer-do-query-replace "query-replace")
+        ("R" ibuffer-do-rename-uniquely "rename-uniquely")
+        ("T" ibuffer-do-toggle-read-only "toggle-read-only")
+        ("U" ibuffer-do-replace-regexp "replace-regexp")
+        ("V" ibuffer-do-revert "revert")
+        ("W" ibuffer-do-view-and-eval "view-and-eval")
+        ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
+        ("b" nil "back"))
+
+      (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
+        "Sort"
+        ("i" ibuffer-invert-sorting "invert")
+        ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
+        ("v" ibuffer-do-sort-by-recency "recently used")
+        ("s" ibuffer-do-sort-by-size "size")
+        ("f" ibuffer-do-sort-by-filename/process "filename")
+        ("m" ibuffer-do-sort-by-major-mode "mode")
+        ("b" hydra-ibuffer-main/body "back" :color blue))
+
+      (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
+        "Filter"
+        ("m" ibuffer-filter-by-used-mode "mode")
+        ("M" ibuffer-filter-by-derived-mode "derived mode")
+        ("n" ibuffer-filter-by-name "name")
+        ("c" ibuffer-filter-by-content "content")
+        ("e" ibuffer-filter-by-predicate "predicate")
+        ("f" ibuffer-filter-by-filename "filename")
+        (">" ibuffer-filter-by-size-gt "size")
+        ("<" ibuffer-filter-by-size-lt "size")
+        ("/" ibuffer-filter-disable "disable")
+        ("b" hydra-ibuffer-main/body "back" :color blue))
+
+      (bind-key (kbd ".") #'hydra-ibuffer-main/body ibuffer-mode-map))
+
+    (with-eval-after-load 'dired
+      (defhydra hydra-dired (:hint nil :color pink)
+        "
+  _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
+  _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
+  _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
+  _R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
+  _Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
+  _S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
+  _A_ find regexp    _Q_ repl regexp                                      _q_ quit
+
+  C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
+  "
+        ("(" dired-hide-details-mode)
+        (")" dired-omit-mode)
+        ("+" dired-create-directory)
+        ("?" dired-summary)
+        ("A" dired-do-find-regexp)
+        ("C" dired-do-copy)
+        ("D" dired-do-delete)
+        ("E" dired-mark-extension)
+        ("e" dired-ediff-files)
+        ("F" dired-do-find-marked-files)
+        ("G" dired-do-chgrp)
+        ("g" revert-buffer)
+        ("i" dired-maybe-insert-subdir)
+        ("l" dired-do-redisplay) ;; relist the marked or single directory
+        ("M" dired-do-chmod)
+        ("m" dired-mark)
+        ("O" dired-display-file)
+        ("o" dired-find-file-other-window)
+        ("Q" dired-do-find-regexp-and-replace)
+        ("R" dired-do-rename)
+        ("r" dired-rsync)
+        ("S" dired-do-symlink)
+        ("s" dired-sort-toggle-or-edit)
+        ("t" dired-toggle-marks)
+        ("U" dired-unmark-all-marks)
+        ("u" dired-unmark)
+        ("v" dired-view-file) ;; q to exit, s to search, = gets line #
+        ("w" dired-kill-subdir)
+        ("W" wdired-change-to-wdired-mode)
+        ("Y" dired-do-relsymlink)
+        ("z" dired-do-compress)
+        ("q" nil)
+        ("." nil :color blue))
+
+      (bind-keys :map dired-mode-map
+                 ("." . hydra-dired/body)
+                 ("C-c C-s" . hydra-dired-quick-sort/body)))
+
+    (autoload #'windmove-find-other-window "windmove")
+    (with-eval-after-load 'windmove
+      (defun hydra-move-splitter-left (arg)
+        "Move window splitter left by ARG characters."
+        (interactive "p")
+        (if (windmove-find-other-window 'right)
+            (shrink-window-horizontally arg)
+          (enlarge-window-horizontally arg)))
+
+      (defun hydra-move-splitter-right (arg)
+        "Move window splitter right by ARG characters."
+        (interactive "p")
+        (if (windmove-find-other-window 'right)
+            (enlarge-window-horizontally arg)
+          (shrink-window-horizontally arg)))
+
+      (defun hydra-move-splitter-up (arg)
+        "Move window splitter up by ARG characters."
+        (interactive "p")
+        (if (windmove-find-other-window 'up)
+            (enlarge-window arg)
+          (shrink-window arg)))
+
+      (defun hydra-move-splitter-down (arg)
+        "Move window splitter down by ARG characters."
+        (interactive "p")
+        (if (windmove-find-other-window 'up)
+            (shrink-window arg)
+          (enlarge-window arg)))
+
+      (defhydra hydra-window (:hint nil)
+        "
+  MOVE WINDOW^   _h_ left          _j_ down                    _k_ up             _l_ right
+  MOVE BUFFER^   _←_ left          _↓_ down                    _↑_ up             _→_ right
+  SPLIT^         _V_ vertical      _H_ horizontal              _u_ undo           _r_ redo
+  SIZE^          _b_ thinner       _n_ taller                  _p_ shorter        _f_ wider                 _B_ balance
+  DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  _W_ delete other windows
+                _q_ quit
+  "
+        ("h" windmove-left)
+        ("j" windmove-down)
+        ("k" windmove-up)
+        ("l" windmove-right)
+        ("<left>" buf-move-left)
+        ("<down>" buf-move-down)
+        ("<up>" buf-move-up)
+        ("<right>" buf-move-right)
+        ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
+        ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
+        ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
+        ("r" winner-redo)
+        ("b" hydra-move-splitter-left)
+        ("n" hydra-move-splitter-down)
+        ("p" hydra-move-splitter-up)
+        ("f" hydra-move-splitter-right)
+        ("B" balance-windows)
+        ("d" kill-current-buffer)
+        ("D" kill-buffer-and-window)
+        ("w" delete-window)
+        ("W" delete-other-windows)
+        ("q" nil))
+
+      (defhydra hydra-move (:hint nil)
+        "
+  hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] [_,_ _._ _l_ _c_] _q_"
+        ("n" next-line)
+        ("N" scroll-down-margin)
+        ("p" previous-line)
+        ("P" scroll-up-margin)
+        ("v" scroll-up-command)
+        ("V" scroll-down-command)
+        ("u" scroll-window-up)
+        ("d" scroll-window-down)
+        ("f" forward-char)
+        ("F" forward-word)
+        ("b" backward-char)
+        ("B" backward-word)
+        ("a" mwim-beginning-of-code-or-line)
+        ("A" beginning-of-defun)
+        ("e" mwim-end-of-code-or-line)
+        ("E" end-of-defun)
+        ("," beginning-of-buffer)
+        ("." end-of-buffer)
+        ("l" recenter-top-bottom)
+        ("c" goto-last-change)
+        ("q" nil)))
+
+    (with-eval-after-load 'flycheck
+      (defhydra hydra-flycheck
+        (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
+              :post (progn (setq hydra-hint-display-type nil)
+                           (quit-windows-on "*Flycheck errors*"))
+              :hint nil)
+        "Errors"
+        ("f" flycheck-error-list-set-filter "Filter")
+        ("n" flycheck-next-error "Next")
+        ("p" flycheck-previous-error "Previous")
+        ("<" flycheck-first-error "First")
+        (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
+        ("q" nil))
+
+      (bind-key (kbd "C-c ! .") #'hydra-flycheck/body flycheck-mode-map))
+
+    (with-eval-after-load 'smerge
+      (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
+        "
+^Move^       ^Keep^               ^Diff^                 ^Other^
+^^-----------^^-------------------^^---------------------^^-------
+_n_ext       _b_ase               _<_: upper/base        _C_ombine
+_p_rev       _u_pper              _=_: upper/lower       _r_esolve
+^^           _l_ower              _>_: base/lower        _k_ill current
+^^           _a_ll                _R_efine
+^^           _RET_: current       _E_diff
+"
+        ("n" smerge-next)
+        ("p" smerge-prev)
+        ("b" smerge-keep-base)
+        ("u" smerge-keep-upper)
+        ("l" smerge-keep-lower)
+        ("a" smerge-keep-all)
+        ("RET" smerge-keep-current)
+        ("C-m" smerge-keep-current)
+        ("<" smerge-diff-base-upper)
+        ("=" smerge-diff-upper-lower)
+        (">" smerge-diff-base-lower)
+        ("R" smerge-refine)
+        ("E" smerge-ediff)
+        ("C" smerge-combine-with-next)
+        ("r" smerge-resolve)
+        ("k" smerge-kill-current)
+        ("ZZ" (lambda ()
+                (interactive)
+                (save-buffer)
+                (bury-buffer))
+         "Save and bury buffer" :color blue)
+        ("q" nil "cancel" :color blue))
+
+      (bind-key (kbd "C-s-s") #'hydra-smerge/body smerge-mode-map))
+
+    (with-eval-after-load 'multiple-cursors
+      (defhydra hydra-multiple-cursors (:hint nil)
+        "
+     ^Up^            ^Down^        ^Other^
+----------------------------------------------
+_p_   Next    _n_   Next    _l_ Edit lines
+_P_   Skip    _N_   Skip    _a_ Mark all
+_M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
+^ ^             ^ ^             _q_ Quit
+"
+        ("l" mc/edit-lines :exit t)
+        ("a" mc/mark-all-like-this :exit t)
+        ("n" mc/mark-next-like-this)
+        ("N" mc/skip-to-next-like-this)
+        ("M-n" mc/unmark-next-like-this)
+        ("p" mc/mark-previous-like-this)
+        ("P" mc/skip-to-previous-like-this)
+        ("M-p" mc/unmark-previous-like-this)
+        ("r" mc/mark-all-in-region-regexp :exit t)
+        ("<mouse-1>" mc/add-cursor-on-click)
+        ("<down-mouse-1>" ignore)
+        ("<drag-mouse-1>" ignore)
+        ("q" nil))))
+
+  (use-package ivy-hydra
+    :demand t
+    :after ivy hydra
+    :config
+    (setq ivy-read-action-function #'ivy-hydra-read-action))
+
+  :bind
+  ("C-s-v" . hydra-move/body)
+  ("C-c w" . hydra-window/body))
 
 
 ;;;; Garbage Collection

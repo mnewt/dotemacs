@@ -236,11 +236,11 @@ do_install() {
   [ -d "$DO_APP_LOCATION" ] && mv "$DO_APP_LOCATION" "$DO_APP_LOCATION.bak"
 
   # Move Emacs.app to its final location.
-  sudo mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
+  mv "nextstep/Emacs.app" "$DO_APP_LOCATION"
 
   # Copy native compiled ELisp into Emacs.app, which is where it is expected by
   # the configure and compilation process.
-  sudo cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
+  cp -R "native-lisp" "$DO_APP_LOCATION/Contents/"
 
   # Add annotations to Emacs.app to request access to special directories.
   plist="$DO_APP_LOCATION/Contents/Info.plist"

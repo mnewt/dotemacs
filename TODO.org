@@ -1,24 +1,67 @@
 #+TITLE: TODO
 
-* Tasks
+* TODO Remove =hydra= to =/lisp=
 
-** TODO =exec-path-from-shell-setenv= should set =eshell-path-env= in each Eshell buffer
-   Because it's a buffer local variable
-** TODO Create =dired-do-backup=
-   Like =dired-do-copy= but renames the file on the other end with a timestamp.
-** TODO Submit patch to Org for =org-do-emphasis-faces=
-** TODO eshell-ls-decorated-name [0/2]
-*** TODO Fix it so =ls= to a different directory embeds correct links (it currently assumes files are relative to =default-directory=)
-*** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow=
-*** TODO Submit upstream
-** TODO Make =dired-rainbow-listing= into a package
-** TODO =counsel-term= stuff
-*** TODO Make =counsel-term-cd= into =counsel-dired-jump=
-*** TODO =counsel-term-cd=
-    https://github.com/tautologyclub/counsel-term/pull/2
-    [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
-** TODO Send PR for =helpful-goto-face=
-** TODO Font-lock source code blocks in Info pages
-** TODO =flash-thing=
-** TODO Implement =bat= in Elisp =highlight-things.el=
-** DONE Fix =dired-listing-human-readable= or whatever it's called
+* TODO Make changes to d12frosted/emacs-plus [0/3]
+
+** TODO Install C source files
+   #+begin_src ruby
+   prefix.install "src"
+   #+end_src
+
+** TODO Don't compress source files
+   #+begin_src
+--without-compress-install
+   #+end_src
+
+** TODO Compile with cores
+   #+begin_src ruby
+   system "make", "-j", `sysctl -n hw.ncpu`
+   #+end_src
+
+** TODO Compiler optimization settings
+   #+begin_src ruby
+   ENV.append_to_cflags %w[
+                              -Ofast
+                              -march=native
+                              -pipe
+                              -falign-functions=64
+                              -fomit-frame-pointer
+                              -funit-at-a-time
+                              -fforce-addr
+                              -mfpmath=sse
+                              -fno-finite-math-only
+                              -fstack-check
+                            ].join(" ")
+   #+end_src
+
+* TODO Create =dired-do-backup=
+  Like =dired-do-copy= but renames the file on the other end with a timestamp.
+
+* TODO Submit patch to Org for =org-do-emphasis-faces=
+
+* TODO eshell-ls-decorated-name [1/3]
+** DONE Fix it so =ls= to a different directory embeds correct links (it currently assumes files are relative to =default-directory=)
+** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow=
+** TODO Submit upstream
+
+* TODO Make =dired-rainbow-listing= into a package
+
+* TODO =counsel-term= stuff
+** TODO Make =counsel-term-cd= into =counsel-dired-jump=
+** TODO =counsel-term-cd=
+   https://github.com/tautologyclub/counsel-term/pull/2
+   [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]
+
+* TODO Send PR for =helpful-goto-face=
+
+* TODO Font-lock source code blocks in Info pages
+
+* TODO =flash-thing=
+
+* TODO Implement =bat= in Elisp =highlight-things.el=
+
+* DONE Fix =dired-listing-human-readable= or whatever it's called
+
+* DONE =exec-path-from-shell-setenv= should set =eshell-path-env= in each Eshell buffer
+  Because it's a buffer local variable
