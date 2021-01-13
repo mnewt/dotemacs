@@ -133,11 +133,11 @@
 
 *** Move =Emacs.app= to =~/Applications=
     #+begin_src
-    mv /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
+    mv -f /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
     #+end_src
 
 *** Rebuild packages
-    This is an optional step, but can often be necessary or at least helpful when there are changes to GCCEmacs. *BUT be careful not to delete =straight= if you have uncommitted changes to repos!*
+    This is an optional step, but can often be necessary or at least helpful when there are changes to GCCEmacs. *BUT be careful not to delete =straight= if you have uncommitted changes to repos!* If you don't want to blow away and rebuild all your packages, just delete =eln-cache=.
     #+begin_src sh
     rm -rf ~/.emacs.d/{eln-cache,straight}
     #+end_src
