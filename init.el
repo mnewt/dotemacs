@@ -4378,7 +4378,6 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 
   (defun shell-mode-setup ()
     "Set up `shell-mode'."
-    (message "Running `shell-mode-setup'...")
     (setenv "TERM" "xterm-256color"))
 
   :hook
