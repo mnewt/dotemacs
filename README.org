@@ -132,7 +132,7 @@
    #+end_src
 
 *** Move =Emacs.app= to =~/Applications=
-    #+begin_src
+    #+begin_src sh
     mv -f /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
     #+end_src
 
