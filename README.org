@@ -119,26 +119,27 @@
 *** Prepare dependencies
     It's currently critical to install =libgccjit= from source because of packaging problems with the Homebrew formula. See [[https://github.com/d12frosted/homebrew-emacs-plus/pull/302#issuecomment-756933970][this comment and its thread]] for some context.
 
-   #+begin_src sh
+   #+begin_src sh :async
    brew uninstall gcc libgccjit --force
    brew install gcc
    brew install libgccjit --build-from-source
    #+end_src
 
 *** Update and install emacs-plus
-   #+begin_src sh
+   #+begin_src sh :async
    brew tap d12frosted/emacs-plus
    brew install emacs-plus@28 --with-native-comp --build-from-source
    #+end_src
 
 *** Move =Emacs.app= to =~/Applications=
     #+begin_src sh
-    mv -f /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
+    rm -rf ~/Applications/Emacs.app
+    mv /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
     #+end_src
 
 *** Rebuild packages
     This is an optional step, but can often be necessary or at least helpful when there are changes to GCCEmacs. *BUT be careful not to delete =straight= if you have uncommitted changes to repos!* If you don't want to blow away and rebuild all your packages, just delete =eln-cache=.
-    #+begin_src sh
+    #+begin_src sh :async
     rm -rf ~/.emacs.d/{eln-cache,straight}
     #+end_src
 
