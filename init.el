@@ -7216,7 +7216,7 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
                          (org-with-wide-buffer
                           ;; `org-map-entries' narrows the buffer, which prevents us from seeing
                           ;; newlines before the current heading, so we do this part widened.
-                          (while (not (looking-back "\n\n" nil))
+                          (while (not (looking-back "\n\\(?:[[:space:]]+\\)?\n" nil))
                             ;; Insert blank lines before heading.
                             (insert "\n")))))
                      t nil))
