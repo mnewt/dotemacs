@@ -2281,6 +2281,12 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     :hook
     (company-mode-hook . company-prescient-mode))
 
+  (use-package ivy-rich
+    :custom
+    (ivy-rich-parse-remote-buffer nil)
+    :hook
+    (counsel-mode-hook . ivy-rich-mode))
+
   (counsel-mode)
 
   :bind
@@ -2315,12 +2321,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-c C-f" . counsel-find-file-edit-path))
   (:map minibuffer-local-map
         ("M-r" . counsel-minibuffer-history)))
-
-(use-package ivy-rich
-  :custom
-  (ivy-rich-parse-remote-buffer nil)
-  :hook
-  (counsel-mode-hook . ivy-rich-mode))
 
 ;; (use-package all-the-icons-ivy-rich
 ;;   :hook
