@@ -442,12 +442,7 @@ higher level up to the top level form."
   (recentf-max-menu-items 15)
   (recentf-auto-cleanup 'never)
 
-  :commands
-  recentf-save-list
-  recentf-cleanup
-  recentf-mode
-
-  :config
+  :preface
   (defun recentf-add-dired-directory ()
     (if (and dired-directory
              (file-directory-p dired-directory)
@@ -457,6 +452,11 @@ higher level up to the top level form."
            (if (= ?/ (aref dired-directory last-idx))
                (substring dired-directory 0 last-idx)
              dired-directory)))))
+
+  :commands
+  recentf-save-list
+  recentf-cleanup
+  recentf-mode
 
   :hook
   (ivy-mode-hook . recentf-mode)
