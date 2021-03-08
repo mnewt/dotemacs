@@ -1926,7 +1926,7 @@ Each EXPR should create one window."
       (replace-match replacement))))
 
 ;; Show line in the original buffer from occur mode
-(setq list-matching-lines-jump-to-current-line t)
+(custom-set-variables '(list-matching-lines-jump-to-current-line t))
 
 (use-package imenu
   :config
@@ -2458,9 +2458,10 @@ previous jump.
 
 CONTINUE will be non nil if this is a continuation of a previous jump."
     (interactive)
-    (let ((old (current-buffer)))
-      (smart-jump-go smart-list continue)
-      (let ((new (current-buffer)))
+    (let ((old (current-buffer))
+          new)
+      (call-interactively #'smart-jump-go smart-list continue)
+      (setq new (current-buffer)
         ;; If old and new are the same then `xref' has popped up another window
         ;; listing multiple definitions and we bail.
         (unless (eq new old)
@@ -7281,6 +7282,7 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
         ("i" . org-insert-link)
         ("l" . org-store-link)
         ("n" . org-new-note)
+        ("o" . org-overview)
         ("s" . org-search-org-directory)
         ("t" . org-todo-file))
   (:map m-search-map
