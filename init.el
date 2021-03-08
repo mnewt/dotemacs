@@ -386,8 +386,6 @@ higher level up to the top level form."
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
- ("s-<return>" . eval-last-sexp)
- ("s-RET" . eval-last-sexp)
  ("M-m M-p" . profiler-dwim)
  ("s-." . repeat))
 
@@ -2283,6 +2281,12 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     :hook
     (company-mode-hook . company-prescient-mode))
 
+  (use-package ivy-rich
+    :custom
+    (ivy-rich-parse-remote-buffer nil)
+    :hook
+    (counsel-mode-hook . ivy-rich-mode))
+
   (counsel-mode)
 
   :bind
@@ -2317,12 +2321,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-c C-f" . counsel-find-file-edit-path))
   (:map minibuffer-local-map
         ("M-r" . counsel-minibuffer-history)))
-
-(use-package ivy-rich
-  :custom
-  (ivy-rich-parse-remote-buffer nil)
-  :hook
-  (counsel-mode-hook . ivy-rich-mode))
 
 ;; (use-package all-the-icons-ivy-rich
 ;;   :hook
@@ -5203,7 +5201,11 @@ and FILE is the cons describing the file."
     ;; Ugh. It's the Emacs Lisp standard.
     (setq-local sentence-end-double-space t))
   :hook
-  (emacs-lisp-mode-hook . emacs-lisp-mode-setup))
+  (emacs-lisp-mode-hook . emacs-lisp-mode-setup)
+  :bind
+  (:map emacs-lisp-mode-map
+        ("s-<return>" . eval-last-sexp)
+        ("s-RET" . eval-last-sexp)))
 
 (use-package lisp-extra-font-lock
   :hook
