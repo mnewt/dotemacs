@@ -2417,16 +2417,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   :config
   (eldoc-add-command #'company-select-next #'company-select-previous)
 
-  (use-package company-box
-    :if window-system
-    ;; :custom
-    ;; (company-box-enable-icon nil)
-    ;; :config
-    ;; ;; So as not to grab the `company-box' buffer name.
-    ;; (advice-add #'company-box-doc--hide :after #'mood-line--refresh-buffer-name)
-    :hook
-    (company-mode-hook . company-box-mode))
-
   (global-company-mode)
 
   :hook
@@ -2448,8 +2438,14 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
 
+(use-package company-box
+  :if window-system
+  :after company
+  :hook
+  (company-mode-hook . company-box-mode))
+
 (use-package smart-jump
-  :config
+  :preface
   (defun smart-jump-go-other-window (&optional smart-list continue)
     "Show the function/variable declartion for thing at point in another window.
 
@@ -2461,13 +2457,14 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
     (let ((old (current-buffer))
           new)
       (call-interactively #'smart-jump-go smart-list continue)
-      (setq new (current-buffer)
-        ;; If old and new are the same then `xref' has popped up another window
-        ;; listing multiple definitions and we bail.
-        (unless (eq new old)
-          (switch-to-buffer old)
-          (switch-to-buffer-other-window new)))))
+      (setq new (current-buffer))
+      ;; If old and new are the same then `xref' has popped up another window
+      ;; listing multiple definitions and we bail.
+      (unless (eq new old)
+        (switch-to-buffer old)
+        (switch-to-buffer-other-window new))))
 
+  :config
   (smart-jump-setup-default-registers)
 
   ;; Use xref-goto-definitions in `helpful-mode'.
@@ -3809,6 +3806,7 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 
 (use-package smartparens
   :defer 3
+
   :custom
   ;; Don't kill the entire symbol with `sp-kill-hybrid-sexp'. If we want to kill
   ;; the entire symbol, use `sp-kill-symbol'.
@@ -3992,10 +3990,12 @@ See https://github.com/Fuco1/smartparens/issues/80."
     (sp-local-pair "(" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+
   (sp-with-modes 'python-mode
     (sp-local-pair "\"\"\"" "\"\"\""
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent))))
+
   (sp-with-modes 'sh-mode
     (sp-local-pair "{" nil
                    :post-handlers
@@ -5144,34 +5144,6 @@ and FILE is the cons describing the file."
     (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
              '(((name 64 64 :left) " " (process 0 -1 :right)))))
 
-  ;; ElDoc in Eshell.
-  (use-package esh-help
-    :config
-    (defun esh-help-setup ()
-      "Setup eldoc function for Eshell."
-      (setq-local eldoc-documentation-function #'esh-help-eldoc-command))
-    :hook
-    (eshell-mode-hook . esh-help-setup))
-
-  ;; Fish-like autosuggestions.
-  (use-package esh-autosuggest
-    :config
-    (defvar esh-autosuggest-active-map)
-    (defun esh-autosuggest-setup ()
-      "Set up `esh-autosuggest-mode'."
-      (esh-autosuggest-mode)
-      (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
-    :hook
-    (eshell-mode-hook . esh-autosuggest-setup))
-
-  (use-package eshell-bookmark
-    :hook
-    (eshell-mode-hook . eshell-bookmark-setup))
-
-  (use-package eshell-syntax-highlighting
-    :config
-    (eshell-syntax-highlighting-global-mode +1))
-
   :hook
   (eshell-mode-hook . eshell/init)
   (eshell-before-prompt-hook . eshell-prompt-housekeeping)
@@ -5184,6 +5156,38 @@ and FILE is the cons describing the file."
   ("C-s-e" . eshell-choose-buffer)
   ("M-E" . ibuffer-show-eshell-buffers)
   ("C-c M-e" . ibuffer-show-eshell-buffers))
+
+;; ElDoc in Eshell.
+(use-package esh-help
+  :after eshell
+  :config
+  (defun esh-help-setup ()
+    "Setup eldoc function for Eshell."
+    (setq-local eldoc-documentation-function #'esh-help-eldoc-command))
+  :hook
+  (eshell-mode-hook . esh-help-setup))
+
+;; Fish-like autosuggestions.
+(use-package esh-autosuggest
+  :after eshell
+  :config
+  (defvar esh-autosuggest-active-map)
+  (defun esh-autosuggest-setup ()
+    "Set up `esh-autosuggest-mode'."
+    (esh-autosuggest-mode)
+    (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
+  :hook
+  (eshell-mode-hook . esh-autosuggest-setup))
+
+(use-package eshell-bookmark
+  :after eshell
+  :hook
+  (eshell-mode-hook . eshell-bookmark-setup))
+
+(use-package eshell-syntax-highlighting
+  :after eshell
+  :config
+  (eshell-syntax-highlighting-global-mode +1))
 
 
 ;;;; Lisp
@@ -5248,28 +5252,6 @@ and FILE is the cons describing the file."
         ("C-i" . indent-for-tab-command)
         ("<tab>" . parinfer-smart-tab:dwim-right)
         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
-
-;; TODO Tried this 2020-08-03 but change tracking is buggy and slow.  Check back
-;; later.
-;; (use-package parinfer-rust-mode
-;;   :hook
-;;   ((clojure-mode-hook
-;;     emacs-lisp-mode-hook
-;;     hy-mode-hook
-;;     lisp-interaction-mode-hook
-;;     lisp-mode-hook
-;;     scheme-mode-hook) . parinfer-rust-mode))
-
-;; (use-package emr
-;;   :bind
-;;   (:map prog-mode-map
-;;         ("C-c r" . emr-show-refactor-menu))
-;;   (:map popup-menu-keymap
-;;         ("M-n" . popup-next)
-;;         ("M-p" . popup-previous)
-;;         ("M-/" . popup-select)
-;;         ("<return>" . popup-select)
-;;         ("<tab>" . popup-select)))
 
 (defun advice-functions-on-symbol (symbol)
   "Return a list of functions advising SYMBOL."
@@ -5766,12 +5748,10 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 (when (fboundp 'imagemagick-register-types)
   (imagemagick-register-types))
 
-(use-package shr
+(use-package shr-tag-pre-highlight
+  :after shr
   :config
-  (use-package shr-tag-pre-highlight
-    :demand t
-    :config
-    (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight))))
+  (add-to-list 'shr-external-rendering-functions '(pre . shr-tag-pre-highlight)))
 
 (use-package eww
   :config
@@ -6036,13 +6016,7 @@ Open the `eww' buffer in another window."
   (flycheck-idle-change-delay 1)
   (flycheck-mode-line-prefix "")
   (flycheck-emacs-lisp-load-path 'inherit)
-  :commands
-  flycheck-define-error-level
-  flycheck-list-errors
-  flycheck-error-list-set-filter
-  flycheck-next-error
-  flycheck-previous-error
-  flycheck-first-error
+
   :config
   ;; Stolen from spacemacs
   (define-fringe-bitmap 'my-flycheck-fringe-indicator
@@ -6082,18 +6056,19 @@ Open the `eww' buffer in another window."
     :fringe-bitmap 'my-flycheck-fringe-indicator
     :fringe-face 'flycheck-fringe-info)
 
-  (use-package flycheck-package
-    :demand t
-    :config
-    (flycheck-package-setup)
-    :bind
-    (:map flycheck-mode-map
-          ("C-c ! C-l" . package-lint-current-buffer)))
   :hook
   (prog-mode-hook . flycheck-mode)
 
   :bind
   ("C-c ! !" . flycheck-mode))
+
+(use-package flycheck-package
+  :after flycheck
+  :config
+  (flycheck-package-setup)
+  :bind
+  (:map flycheck-mode-map
+        ("C-c ! C-l" . package-lint-current-buffer)))
 
 (use-package lsp-mode
   :custom
@@ -7714,15 +7689,14 @@ _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
         ("<drag-mouse-1>" ignore)
         ("q" nil))))
 
-  (use-package ivy-hydra
-    :demand t
-    :after ivy hydra
-    :config
-    (setq ivy-read-action-function #'ivy-hydra-read-action))
-
   :bind
   ("C-s-v" . hydra-move/body)
   ("C-c w" . hydra-window/body))
+
+(use-package ivy-hydra
+  :after ivy hydra
+  :preface
+  (setq ivy-read-action-function #'ivy-hydra-read-action))
 
 
 ;;;; Garbage Collection
