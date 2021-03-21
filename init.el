@@ -644,8 +644,8 @@ See `theme-attribute'."
 (defvar fiat-theme 'whiteboard
   "The current theme.")
 
-(defvar fiat-themes '((light . doom-one-light)
-                      (dark . doom-one))
+(defvar fiat-themes '((light . modus-operandi)
+                      (dark . modus-vivendi))
   "The light and dark themes.")
 
 (defun fiat-save-theme (theme &rest _)
@@ -716,9 +716,12 @@ then choose the next key in the Alist `fiat-themes'."
   :config
   (doom-themes-visual-bell-config))
 
-;; (use-package modus-themes
-;;   :custom
-;;   (modus-vivendi-theme-mode-line 'moody))
+(use-package modus-themes
+  :demand t
+  :custom
+  (modus-themes-slanted-constructs t)
+  (modus-themes-bold-constructs t)
+  (modus-themes-intense-paren-match 'intense))
 
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
@@ -1031,11 +1034,11 @@ Watches `edebug-active' and sets the mode-line when it changes."
                        (:eval (mood-line-segment-flycheck))
                        (:eval (mood-line-segment-misc-info)))))))))
 
-(defun custom-enabled-themes-reset (&rest _)
+(defun theme-reset (&rest _)
   "Remove all current themes before loading a new theme."
   (mapc #'disable-theme custom-enabled-themes))
 
-(defun m-customize-faces (&rest _)
+(defun theme-customize-faces (&rest _)
   "Customize faces after a theme is loaded.
 
 This sets things up for `window-highlight' and `mode-line'."
@@ -1046,16 +1049,16 @@ This sets things up for `window-highlight' and `mode-line'."
                                    (theme-face-attribute 'default :foreground)
                                    0.95)))
     ;; cursor
-    (set-face-background 'cursor "magenta")
+    ;; (set-face-background 'cursor "magenta")
     ;; mode-line
     (set-face-attribute 'mode-line nil :box nil)
     (set-face-attribute 'mode-line-inactive nil :box nil)
-    (with-eval-after-load 'vterm
-      (set-face-background 'vterm-color-white active-bg))
-    (with-eval-after-load 'smartparens
-      (set-face-attribute 'sp-show-pair-match-face nil
-                          :foreground (face-foreground 'highlight)
-                          :background (face-background 'highlight)))
+    ;; (with-eval-after-load 'vterm
+    ;;   (set-face-background 'vterm-color-white active-bg))
+    ;; (with-eval-after-load 'smartparens
+    ;;   (set-face-attribute 'sp-show-pair-match-face nil
+    ;;                       :foreground (face-foreground 'highlight)
+    ;;                       :background (face-background 'highlight)))
     (with-eval-after-load 'eldoc-box
       (set-face-background 'eldoc-box-body
                            (color-blend
@@ -1068,15 +1071,19 @@ This sets things up for `window-highlight' and `mode-line'."
       (set-face-foreground 'vertical-border inactive-bg)
       (set-face-background 'window-highlight-focused-window active-bg))
     (with-eval-after-load 'org
-      (set-face-attribute 'org-document-title nil :height 1.5))
+      (set-face-attribute 'org-document-title nil :height 1.5)
+      (set-face-attribute 'org-level-1 nil :height 1.4)
+      (set-face-attribute 'org-level-2 nil :height 1.2)
+      (set-face-attribute 'org-level-3 nil :height 1.1))
     (with-eval-after-load 'outline
       (set-face-attribute 'outline-1 nil :height 1.4)
       (set-face-attribute 'outline-2 nil :height 1.2)
       (set-face-attribute 'outline-3 nil :height 1.1)))
-  (mood-line--refresh-bar))
+  (with-eval-after-load 'mood-line
+    (mood-line--refresh-bar)))
 
-(advice-add #'load-theme :before #'custom-enabled-themes-reset)
-(advice-add #'load-theme :after #'m-customize-faces)
+(advice-add #'load-theme :before #'theme-reset)
+(advice-add #'load-theme :after #'theme-customize-faces)
 
 (when (display-graphic-p)
   (load-theme fiat-theme t))
