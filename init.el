@@ -711,10 +711,30 @@ then choose the next key in the Alist `fiat-themes'."
   (set-frame-parameter (selected-frame) 'last-focus-update t)
   (window-highlight-mode))
 
-(use-package doom-themes
-  :demand t
-  :config
-  (doom-themes-visual-bell-config))
+;; (use-package doom-themes
+;;   :demand t
+;;   :config
+;;   (doom-themes-visual-bell-config))
+
+;; These are ripped straight from `doom-themes-ext-visual-bell' so we don't have
+;; to load `doom-themes' to get them.
+(defface doom-visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
+  "Face to use for the mode-line when `doom-themes-visual-bell-config' is used."
+  :group 'doom-themes)
+
+(defun doom-themes-visual-bell-fn ()
+  "Blink the mode-line briefly. Set `ring-bell-function' to this to use it."
+  (let ((doom-themes--bell-cookie (face-remap-add-relative 'mode-line 'doom-visual-bell)))
+    (force-mode-line-update)
+    (run-with-timer 0.15 nil
+                    (lambda (cookie buf)
+                      (with-current-buffer buf
+                        (face-remap-remove-relative cookie)
+                        (force-mode-line-update)))
+                    doom-themes--bell-cookie
+                    (current-buffer))))
+
+(setq ring-bell-function #'doom-themes-visual-bell-fn)
 
 (use-package modus-themes
   :demand t
@@ -1049,7 +1069,7 @@ This sets things up for `window-highlight' and `mode-line'."
                                    (theme-face-attribute 'default :foreground)
                                    0.95)))
     ;; cursor
-    ;; (set-face-background 'cursor "magenta")
+    (set-face-background 'cursor "magenta")
     ;; mode-line
     (set-face-attribute 'mode-line nil :box nil)
     (set-face-attribute 'mode-line-inactive nil :box nil)
@@ -2992,6 +3012,9 @@ ERR and IND are ignored."
 (use-package which-key
   :defer 19
   :custom
+  ;; Fix misalignment, probably due to fallback font being used for the arrows.
+  ;; Also the non-unicode colons are more pleasing anyway.
+  (which-key-dont-use-unicode t)
   (which-key-idle-delay 0.25)
   :config
   (defun which-key-M-x-prefix+ (&optional _)
