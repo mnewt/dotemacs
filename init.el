@@ -1669,7 +1669,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :bind
-  ("C-c C-h" . hs-minor-mode)
+  ("C-c h" . hs-minor-mode)
   (:map hs-minor-mode-map
         ("C-<tab>" . hs-toggle-hiding)))
 
