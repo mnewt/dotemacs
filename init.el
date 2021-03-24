@@ -3564,26 +3564,12 @@ The config is specified in the config file in `~/.mnt/'."
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
 
-  :config
-  (use-package forge :demand t)
-
-  :commands
-  magit-call-git
-
   :bind
   ("C-x g" . magit-status)
   ("C-x M-g" . magit-dispatch))
 
-;; Seems to have some performance problems in certain cases because it just
-;; keeps running and running on dotfiles repos. It's not super necessary so not
-;; worth the hassle.
-;; (use-package magit-todos
-;;   :commands
-;;   magit-todos--scan-with-git-grep
-;;   :custom
-;;   (magit-todos-scanner #'magit-todos--scan-with-git-grep)
-;;   :hook
-;;   (magit-mode-hook . magit-todos-mode))
+(use-package forge
+  :after magit)
 
 (use-package git-timemachine
   :commands
