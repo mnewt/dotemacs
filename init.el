@@ -3563,8 +3563,6 @@ The config is specified in the config file in `~/.mnt/'."
   :custom
   (magit-repository-directories `((,code-directory . 1)))
   (magit-completing-read-function 'ivy-completing-read)
-  ;; Set for performance reasons
-  (magit-git-executable (executable-find "git"))
 
   :config
   (use-package forge :demand t)
