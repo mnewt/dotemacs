@@ -213,6 +213,9 @@ If AND-MEM is non-nil, profile memory as well."
     (profiler-stop)
     (profiler-report)))
 
+(bind-keys
+ ("M-m M-p" . profiler-dwim))
+
 
 ;;;;; Additional Package Management Configuration
 
@@ -291,17 +294,16 @@ higher level up to the top level form."
 
 ;;;; Third Party Libraries
 
-;; Common libraries and associated functions.
+;; Common libraries that are effectively part of the Emacs core library because
+;; they are used by so many packages.
 
 (use-package dash :demand t)
 
-(use-package s)
+(use-package s :demand t)
 
-(use-package f)
+(use-package f :demand t)
 
 (use-package async
-  :commands
-  async-let
   :hook
   (dired-mode-hook . dired-async-mode))
 
@@ -312,6 +314,9 @@ higher level up to the top level form."
 
 (cl-case system-type
   (darwin
+   ;; Mitsuharu Yamamoto's Emacs Mac uses the `mac-*' prefix.
+   (setq mac-option-modifier 'meta
+         mac-command-modifier 'super)
    (defvar ns-right-alternate-modifier)
    (defvar ns-function-modifier)
    (defvar ns-pop-up-frames)
@@ -359,6 +364,10 @@ higher level up to the top level form."
 ;; below.
 
 (bind-keys
+ ;; Basic macOS keys
+ ;; ("s-z" . undo)
+ ;; ("s-x" . kill-region)
+ ;; ("s-c" . kill-ring-save)
  ;; Editing
  ("C-d" . delete-forward-char)
  ("M-c" . capitalize-dwim)
@@ -386,7 +395,6 @@ higher level up to the top level form."
  ("s-h" . ns-do-hide-emacs)
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
- ("M-m M-p" . profiler-dwim)
  ("s-." . repeat))
 
 
@@ -564,9 +572,9 @@ returned."
     (some-font '("Arial Unicode MS-12" "DejaVu Sans Mono-12"))
     "The fallback font for unicode glyphs the other fonts don't support.")
 
-  (dolist (fontset '("fontset-default" "fontset-standard" "fontset-startup"))
-    (set-fontset-font fontset '(#x000000 . #x3FFFFF) m-fallback-font)
-    (set-fontset-font fontset nil m-fallback-font))
+  ;; (dolist (fontset '("fontset-default" "fontset-standard" "fontset-startup"))
+  ;;   (set-fontset-font fontset '(#x000000 . #x3FFFFF) m-fallback-font)
+  ;;   (set-fontset-font fontset nil m-fallback-font))
 
   (dolist (face '(default fixed-pitch))
     (set-face-font face m-fixed-pitch-font))
@@ -716,25 +724,25 @@ then choose the next key in the Alist `fiat-themes'."
 ;;   :config
 ;;   (doom-themes-visual-bell-config))
 
-;; These are ripped straight from `doom-themes-ext-visual-bell' so we don't have
-;; to load `doom-themes' to get them.
-(defface doom-visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
+(defface visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
   "Face to use for the mode-line when `doom-themes-visual-bell-config' is used."
   :group 'doom-themes)
 
-(defun doom-themes-visual-bell-fn ()
-  "Blink the mode-line briefly. Set `ring-bell-function' to this to use it."
-  (let ((doom-themes--bell-cookie (face-remap-add-relative 'mode-line 'doom-visual-bell)))
+(defun visual-bell-fn ()
+  "Blink the mode-line briefly. Set `ring-bell-function' to this to use it.
+This is a modified version of `doom-themes-ext-visual-bell-fn'."
+  (let ((doom-themes--bell-cookie (face-remap-add-relative 'mode-line 'visual-bell)))
     (force-mode-line-update)
     (run-with-timer 0.15 nil
                     (lambda (cookie buf)
-                      (with-current-buffer buf
-                        (face-remap-remove-relative cookie)
-                        (force-mode-line-update)))
+                      (when (buffer-live-p buf)
+                        (with-current-buffer buf
+                          (face-remap-remove-relative cookie)
+                          (force-mode-line-update))))
                     doom-themes--bell-cookie
                     (current-buffer))))
 
-(setq ring-bell-function #'doom-themes-visual-bell-fn)
+(setq ring-bell-function #'visual-bell-fn)
 
 (use-package modus-themes
   :demand t
@@ -1073,18 +1081,6 @@ This sets things up for `window-highlight' and `mode-line'."
     ;; mode-line
     (set-face-attribute 'mode-line nil :box nil)
     (set-face-attribute 'mode-line-inactive nil :box nil)
-    ;; (with-eval-after-load 'vterm
-    ;;   (set-face-background 'vterm-color-white active-bg))
-    ;; (with-eval-after-load 'smartparens
-    ;;   (set-face-attribute 'sp-show-pair-match-face nil
-    ;;                       :foreground (face-foreground 'highlight)
-    ;;                       :background (face-background 'highlight)))
-    (with-eval-after-load 'eldoc-box
-      (set-face-background 'eldoc-box-body
-                           (color-blend
-                            active-bg
-                            (theme-face-attribute 'default :foreground)
-                            1.2)))
     (with-eval-after-load 'window-highlight
       (set-face-background 'default inactive-bg)
       (set-face-background 'fringe  inactive-bg)
@@ -1174,6 +1170,7 @@ This sets things up for `window-highlight' and `mode-line'."
 ;; Navigation tools
 
 (use-package outshine
+  :after outline
   :config
   (defun outline-show-current-sublevel ()
     "Show only the current top level section."
@@ -1208,11 +1205,6 @@ This sets things up for `window-highlight' and `mode-line'."
 
   (eldoc-add-command #'outshine-self-insert-command)
 
-  (use-package outorg
-    :bind
-    (:map outline-minor-mode-map
-          ("M-# #" . outorg-edit-as-org)))
-
   :hook
   (outline-minor-mode-hook . outshine-mode)
   :bind
@@ -1224,6 +1216,12 @@ This sets things up for `window-highlight' and `mode-line'."
         ("M-=" . outline-show-current-sublevel)
         ("M-p" . outline-subtree-previous)
         ("M-n" . outline-subtree-next)))
+
+(use-package outorg
+  :after outline
+  :bind
+  (:map outline-minor-mode-map
+        ("M-# #" . outorg-edit-as-org)))
 
 (defun fullscreen ()
   "Toggle fullscreen mode."
@@ -1558,17 +1556,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   ("C-c 0" . winum-select-window-0))
 
 (use-package perspective
-  :custom
-  ;; Don't show modestring on the modeline; it's displayed on the frame title
-  ;; instead.
-  (persp-show-modestring nil)
-  (persp-sort 'created)
-  (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
-  (persp-modestring-dividers `("" "" ,(propertize "|" 'face 'shadow)))
-
-  :config
-  (make-directory (file-name-directory persp-state-default-file) t)
-
+  :preface
   (defun persp-names-reverse ()
     "Like `persp-names' with 'created but latest is last."
     (mapcar #'persp-name
@@ -1627,6 +1615,17 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
     (interactive)
     (persp-switch "main"))
 
+  :custom
+  ;; Don't show modestring on the modeline; it's displayed on the frame title
+  ;; instead.
+  (persp-show-modestring nil)
+  (persp-sort 'created)
+  (persp-state-default-file (expand-file-name "var/perspective" user-emacs-directory))
+  (persp-modestring-dividers `("" "" ,(propertize "|" 'face 'shadow)))
+
+  :config
+  (make-directory (file-name-directory persp-state-default-file) t)
+
   :hook
   (emacs-startup-hook . persp-mode)
   (persp-activated-hook . persp-set-frame-title)
@@ -1638,9 +1637,13 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
         ("C-x x C-s" . persp-state-save)
         ("C-x x x" . persp-switch-nth)
         ("C-s-[" . persp-prev)
+        ("H-[" . persp-prev)
+        ("H-]" . persp-next)
         ("C-s-]" . persp-next)
         ("s-o" . persp-switch-to-org)
-        ("s-m" . persp-switch-to-main)))
+        ("s-m" . persp-switch-to-main)
+        ("s-;" . persp-switch)
+        ("M-s-p" . persp-switch)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -2514,10 +2517,9 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
 
 ;;;; File Management
 
-(use-package files
-  :straight (:type built-in)
-  :custom
-  (remote-file-name-inhibit-cache nil))
+;; Customize `files'.
+(custom-set-variables
+ '(remote-file-name-inhibit-cache nil))
 
 (use-package epg
   :custom
@@ -2702,28 +2704,12 @@ With a prefix ARG always prompt for command to use."
   ;; Don't prompt to kill buffers of deleted directories.
   (find-ls-option '("-print0 | xargs -0 ls -alhd" . ""))
 
-  :commands
-  dired-summary
-  dired-do-delete
-  dired-mark
-  dired-display-file
-  dired-find-file-other-window
-  dired-sort-toggle-or-edit
-  dired-toggle-marks
-  dired-unmark-all-marks
-  dired-unmark
-  dired-view-file
-  dired-ediff-files
+  ;; Also customize `dired-x'.
+  (dired-clean-confirm-killing-deleted-buffers nil)
+  (dired-bind-man nil)
+  (dired-bind-info nil)
 
   :config
-  (use-package dired-x
-    :defer t
-    :straight (:type built-in)
-    :custom
-    (dired-clean-confirm-killing-deleted-buffers nil)
-    (dired-bind-man nil)
-    (dired-bind-info nil))
-
   ;; Set it here because inside :custom it overrides defer
   (setq dired-listing-switches "-aFhl"
         ;; Try to use GNU ls on macOS since BSD ls doesn't explicitly support
@@ -2737,161 +2723,14 @@ With a prefix ARG always prompt for command to use."
       (message "Opening %s..." file)
       (os-open-file file)))
 
-  ;; TODO Pop open status buffer
-  ;; TODO Fix status buffer's display
-  ;; TODO Send PR, reference:
-  ;; https://github.com/stsquad/dired-rsync/issues/12
-  (use-package dired-rsync
-    :demand t
-    :commands
-    dired-rsync-backup
-    :config
-    (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
-      "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
-
-ERR and IND are ignored."
-      (setf (alist-get 'dired-rsync mode-line-misc-info)
-            (list dired-rsync-modeline-status)))
-
-    (advice-add #'dired-rsync--update-modeline
-                :after #'dired-rsync--set-mode-line-misc-info)
-
-    (defun dired-rsync-backup--add-version (file)
-      "Return FILE modified with a version string."
-      (let ((extension (file-name-extension file)))
-        (concat (file-name-directory file) (file-name-base file)
-                "-" (format-time-string "%Y-%m-%d")
-                (when extension (concat "." extension)))))
-
-    (defun dired-rsync-backup (dest)
-      "Like `dired-rsync' but appends a timestamp to DEST."
-      (interactive (list (read-file-name "Backup to: " (dired-dwim-target-directory)
-                                         nil nil nil #'file-directory-p)))
-      (let* ((sfiles (funcall dired-rsync-source-files))
-             (backup-name (if (cdr sfiles)
-                              ;; If backing up multiple files, create a directory
-                              ;; at the destination with the same name as the
-                              ;; parent of the first source file.
-                              (expand-file-name (file-name-nondirectory
-                                                 (directory-file-name
-                                                  (file-name-directory (car sfiles))))
-                                                dest)
-                            ;; If backing up a single file, create a file at the
-                            ;; destination.
-                            (car sfiles)))
-             extension file)
-        (dired-rsync (dired-rsync-backup--add-version backup-name)))))
-
-  (use-package disk-usage
-    :commands
-    disk-usage-here)
-
-  (use-package wdired
-    :custom
-    (wdired-allow-to-change-permissions t)
-    (wdired-create-parent-directories t)
-    :commands
-    wdired-change-to-wdired-mode)
-
-  (use-package dired-rainbow
-    :demand t
-    :config
-    (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-    (dired-rainbow-define html "#eb5286"
-                          ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
-                           "eml" "mustache" "xhtml"))
-    (dired-rainbow-define xml "#f2d024"
-                          ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
-                           "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
-                           "meta" "unity" "tres" "tscn" "import" "godot"))
-    (dired-rainbow-define document "#9561e2"
-                          ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
-                           "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
-                           "vsd" "vsdx" "plantuml"))
-    (dired-rainbow-define markdown "#4dc0b5"
-                          ("org" "org_archive" "etx" "info" "markdown" "md"
-                           "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
-    (dired-rainbow-define database "#6574cd"
-                          ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-    (dired-rainbow-define media "#de751f"
-                          ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
-                           "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
-    (dired-rainbow-define image "#f66d9b"
-                          ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
-                           "psd" "eps" "svg"))
-    (dired-rainbow-define log "#c17d11"
-                          ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
-                           "log.7" "log.8" "log.9"))
-    (dired-rainbow-define shell "#f6993f"
-                          ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
-    (dired-rainbow-define interpreted "#38c172"
-                          ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
-                           "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                           "scala" "js" "jsx" "lua" "fnl" "gd"))
-    (dired-rainbow-define compiled "#6cb2eb"
-                          ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
-                           "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
-                           "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
-                           "pyc" "java"))
-    (dired-rainbow-define executable "#8cc4ff"
-                          ("com" "exe" "msi"))
-    (dired-rainbow-define compressed "#51d88a"
-                          ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
-                           "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
-    (dired-rainbow-define packaged "#faad63"
-                          ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
-                           "vpk" "bsp"))
-    (dired-rainbow-define encrypted "#f2d024"
-                          ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
-                           "pem"))
-    (dired-rainbow-define fonts "#f6993f"
-                          ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
-                           "woff2" "eot"))
-    (dired-rainbow-define partition "#e3342f"
-                          ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
-                           "bak"))
-    (dired-rainbow-define vc "#6cb2eb"
-                          ("git" "gitignore" "gitattributes" "gitmodules"))
-    (dired-rainbow-define config "#5040e2"
-                          ("cfg" "conf"))
-    (dired-rainbow-define certificate "#6cb2eb"
-                          ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
-    (dired-rainbow-define junk "#7F7D7D"
-                          ("DS_Store" "projectile"))
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-
-    (dolist (b (buffer-list))
-      (with-current-buffer b
-        (when (equal major-mode 'dired-mode)
-          (font-lock-refresh-defaults)))))
-
-  (use-package dired-narrow
-    :commands
-    dired-narrow)
-
-  (use-package dired-rainbow-listing
-    :straight (:type git :host github :repo "mnewt/dired-rainbow-listing")
-    :hook
-    (dired-mode-hook . dired-rainbow-listing-mode))
-
-  (use-package dired-filter
-    :custom
-    (dired-filter-verbose nil)
-    (dired-filter-prefix "/")
-    :hook
-    (dired-mode-hook . dired-filter-mode))
-
-  (use-package dired-subtree)
-
-  (use-package dired-collapse
-    :hook
-    (dired-mode-hook . dired-collapse-mode))
-
-  (use-package dired-quick-sort)
-
   :hook
   (dired-mode-hook . dired-hide-details-mode)
   :bind
+  ("C-x M-s" . psync-maybe)
+  ("C-c o" . os-open-file)
+  ("C-c O" . os-reveal-file)
+  (:map m-toggle-map
+        ("r" . auto-revert-mode))
   (:map dired-mode-map
         ("C-c C-o" . dired-open-file)
         ("T" . touch)
@@ -2910,13 +2749,175 @@ ERR and IND are ignored."
         ("C-, ^" . dired-subtree-up)
         ("C-, v" . dired-subtree-down)))
 
+;; TODO Pop open status buffer
+;; TODO Fix status buffer's display
+;; TODO Send PR, reference:
+;; https://github.com/stsquad/dired-rsync/issues/12
+(use-package dired-rsync
+  :after dired
+  :commands
+  dired-rsync-backup
+  :config
+  (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
+    "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
+
+ERR and IND are ignored."
+    (setf (alist-get 'dired-rsync mode-line-misc-info)
+          (list dired-rsync-modeline-status)))
+
+  (advice-add #'dired-rsync--update-modeline
+              :after #'dired-rsync--set-mode-line-misc-info)
+
+  (defun dired-rsync-backup--add-version (file)
+    "Return FILE modified with a version string."
+    (let ((extension (file-name-extension file)))
+      (concat (file-name-directory file) (file-name-base file)
+              "-" (format-time-string "%Y-%m-%d")
+              (when extension (concat "." extension)))))
+
+  (defun dired-rsync-backup (dest)
+    "Like `dired-rsync' but appends a timestamp to DEST."
+    (interactive (list (read-file-name "Backup to: " (dired-dwim-target-directory)
+                                       nil nil nil #'file-directory-p)))
+    (let* ((sfiles (funcall dired-rsync-source-files))
+           (backup-name (if (cdr sfiles)
+                            ;; If backing up multiple files, create a directory
+                            ;; at the destination with the same name as the
+                            ;; parent of the first source file.
+                            (expand-file-name (file-name-nondirectory
+                                               (directory-file-name
+                                                (file-name-directory (car sfiles))))
+                                              dest)
+                          ;; If backing up a single file, create a file at the
+                          ;; destination.
+                          (car sfiles)))
+           extension file)
+      (dired-rsync (dired-rsync-backup--add-version backup-name)))))
+
+(use-package disk-usage
+  :after dired
+  :commands
+  disk-usage-here)
+
+(use-package wdired
+  :after dired
+  :custom
+  (wdired-allow-to-change-permissions t)
+  (wdired-create-parent-directories t)
+  :commands
+  wdired-change-to-wdired-mode)
+
+(use-package dired-rainbow
+  :after dired
+  :config
+  (dired-rainbow-define-chmod directory "#0074d9" "d.*")
+  (dired-rainbow-define html "#eb5286"
+                        ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
+                         "eml" "mustache" "xhtml"))
+  (dired-rainbow-define xml "#f2d024"
+                        ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
+                         "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
+                         "meta" "unity" "tres" "tscn" "import" "godot"))
+  (dired-rainbow-define document "#9561e2"
+                        ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
+                         "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
+                         "vsd" "vsdx" "plantuml"))
+  (dired-rainbow-define markdown "#4dc0b5"
+                        ("org" "org_archive" "etx" "info" "markdown" "md"
+                         "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
+  (dired-rainbow-define database "#6574cd"
+                        ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+  (dired-rainbow-define media "#de751f"
+                        ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
+                         "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
+  (dired-rainbow-define image "#f66d9b"
+                        ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
+                         "psd" "eps" "svg"))
+  (dired-rainbow-define log "#c17d11"
+                        ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
+                         "log.7" "log.8" "log.9"))
+  (dired-rainbow-define shell "#f6993f"
+                        ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+  (dired-rainbow-define interpreted "#38c172"
+                        ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
+                         "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
+                         "scala" "js" "jsx" "lua" "fnl" "gd"))
+  (dired-rainbow-define compiled "#6cb2eb"
+                        ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
+                         "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
+                         "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
+                         "pyc" "java"))
+  (dired-rainbow-define executable "#8cc4ff"
+                        ("com" "exe" "msi"))
+  (dired-rainbow-define compressed "#51d88a"
+                        ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
+                         "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
+  (dired-rainbow-define packaged "#faad63"
+                        ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
+                         "vpk" "bsp"))
+  (dired-rainbow-define encrypted "#f2d024"
+                        ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
+                         "pem"))
+  (dired-rainbow-define fonts "#f6993f"
+                        ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
+                         "woff2" "eot"))
+  (dired-rainbow-define partition "#e3342f"
+                        ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
+                         "bak"))
+  (dired-rainbow-define vc "#6cb2eb"
+                        ("git" "gitignore" "gitattributes" "gitmodules"))
+  (dired-rainbow-define config "#5040e2"
+                        ("cfg" "conf"))
+  (dired-rainbow-define certificate "#6cb2eb"
+                        ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
+  (dired-rainbow-define junk "#7F7D7D"
+                        ("DS_Store" "projectile"))
+  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+
+  (dolist (b (buffer-list))
+    (with-current-buffer b
+      (when (equal major-mode 'dired-mode)
+        (font-lock-refresh-defaults)))))
+
+(use-package dired-rainbow-listing
+  :after dired
+  :straight (:type git :host github :repo "mnewt/dired-rainbow-listing")
+  :hook
+  (dired-mode-hook . dired-rainbow-listing-mode))
+
+(use-package dired-narrow
+  :after dired
+  :commands
+  dired-narrow)
+
+(use-package dired-filter
+  :after dired
+  :custom
+  (dired-filter-verbose nil)
+  (dired-filter-prefix "/")
+  :hook
+  (dired-mode-hook . dired-filter-mode))
+
+(use-package dired-subtree
+  :after dired)
+
+(use-package dired-collapse
+  :after dired
+  :hook
+  (dired-mode-hook . dired-collapse-mode))
+
 (use-package dired-list
+  :after dired
   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
                         :files ("dired-list.el"))
   :commands
   dired-list-git-ls-files)
 
+(use-package dired-quick-sort
+  :after dired)
+
 (use-package dired-sidebar
+  :after dired
   :config
   (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
   (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
@@ -2926,13 +2927,6 @@ ERR and IND are ignored."
                                  (auto-revert-mode))))
   :bind
   ("C-x C-d" . dired-sidebar-toggle-sidebar))
-
-(bind-keys
- ("C-x M-s" . psync-maybe)
- ("C-c o" . os-open-file)
- ("C-c O" . os-reveal-file)
- :map m-toggle-map
- ("r" . auto-revert-mode))
 
 
 ;;;; Help
@@ -2945,6 +2939,7 @@ ERR and IND are ignored."
 ;; Change yes/no prompts to y/n
 (defalias 'yes-or-no-p 'y-or-n-p)
 
+;; Customize `simple'.
 (custom-set-variables
  '(shell-command-prompt-show-cwd t)
  '(suggest-key-bindings 5))
@@ -2952,19 +2947,21 @@ ERR and IND are ignored."
 ;; Enable all commands without warnings.
 (setq disabled-command-function nil)
 
-(defun push-button-other-window ()
-  "Like push button but opens in other window."
-  (interactive)
-  (let (new-buffer)
-    (save-window-excursion
-      (push-button)
-      (setq new-buffer (current-buffer)))
-    (other-window 1)
-    (switch-to-buffer new-buffer)))
-
 (use-package helpful
+  :preface
+  (defun push-button-other-window ()
+    "Like push button but opens in other window."
+    (interactive)
+    (let ((new-buffer (save-window-excursion
+                        (push-button)
+                        (current-buffer))))
+      ;; Don't use `pop-to-buffer' because we are actively trying to ignore
+      ;; `display-buffer-alist' and pop to a new buffer no matter what.
+      (other-window 1)
+      (switch-to-buffer new-buffer)))
+
   :config
-  (set-face-attribute 'helpful-heading nil :inherit 'org-level-3)
+  (set-face-attribute 'helpful-heading nil :inherit 'outline-2)
 
   (defun helpful-keymap ()
     "Select keymap with ivy, display help with helpful."
@@ -3001,13 +2998,13 @@ ERR and IND are ignored."
 (use-package eldoc
   :defer 20
   :config
-  ;; (use-package eldoc-box
-  ;;   :demand t
-  ;;   :config
-  ;;   (eldoc-box-hover-at-point-mode))
-
   (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
+
+(use-package eldoc-box
+  :after eldoc
+  :hook
+  (eldoc-mode-hook . eldoc-box-hover-mode))
 
 (use-package which-key
   :defer 19
@@ -3664,8 +3661,11 @@ Wraps on `fill-column' columns."
 
 (use-package so-long
   :if (>= emacs-major-version 27)
-  :hook
-  (ivy-mode-hook . global-so-long-mode))
+  :defer 11
+  :custom
+  (so-long-threshold 500)
+  :config
+  (global-so-long-mode))
 
 (use-package unfill
   :bind
@@ -4253,6 +4253,8 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 
 ;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
 (use-package tramp
+  ;; FIXME The git version of TRAMP currently doesn't seem to work with straight.
+  ;; :straight (:type built-in)
   :functions
   tramp-cleanup-all
   tramp-insert-remote-part
@@ -5691,6 +5693,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
         ("s-f" . isearch-forward)))
 
 (use-package pdf-continuous-scroll-mode
+  :after pdf-tools
   :straight (:host github :repo "dalanicolai/pdf-continuous-scroll-mode.el")
   :hook
   (pdf-view-mode-hook . pdf-continuous-scroll-mode))
@@ -5935,6 +5938,7 @@ Open the `eww' buffer in another window."
   :straight (:type built-in)
   :mode
   ("\\.py\\'" . python-mode)
+  ("requirements\\.txt\\'" . conf-mode)
   :interpreter ("python3?" . python-mode)
   :custom
   (gud-pdb-command-name "python -m pdb")
@@ -5945,12 +5949,14 @@ Open the `eww' buffer in another window."
 
 ;; pip install python-language-server
 (use-package lsp-python-ms
+  :after python
   :config
   (require 'lsp-python-ms)
   :hook
   (python-mode-hook . lsp-deferred))
 
 (use-package pyvenv
+  :after python
   :commands
   pyvenv-activate
   pyvenv-workon)

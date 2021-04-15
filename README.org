@@ -117,12 +117,10 @@
    https://github.com/d12frosted/homebrew-emacs-plus#gccemacs
 
 *** Prepare dependencies
-    It's currently critical to install =libgccjit= from source because of packaging problems with the Homebrew formula. See [[https://github.com/d12frosted/homebrew-emacs-plus/pull/302#issuecomment-756933970][this comment and its thread]] for some context.
+    Install =gcc= and =libgccjit=
 
    #+begin_src sh :async
-   brew uninstall --ignore-dependencies gcc libgccjit
-   brew install gcc
-   brew install libgccjit --build-from-source
+   brew install gcc libgccjit
    #+end_src
 
 *** Update and install emacs-plus
