@@ -3654,7 +3654,7 @@ The config is specified in the config file in `~/.mnt/'."
   "Automatically fill comments.
 
 Wraps on `fill-column' columns."
-  (set (make-local-variable 'comment-auto-fill-only-comments) t)
+  (setq-local comment-auto-fill-only-comments t)
   (auto-fill-mode t))
 
 (add-hook 'prog-mode-hook #'auto-fill-mode-setup)
