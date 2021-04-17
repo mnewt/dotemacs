@@ -199,24 +199,6 @@ If VARS is not specified, use `env-cache-vars'."
 ;;   ;; To disable collection of benchmark data after init is done.
 ;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
 
-(defun profiler-dwim (and-mem)
-  "Toggle `profiler'.
-
-If `profiler' is stopped, start it in cpu mode.
-
-If `profiler' is started, stop it and run `profiler-report'.
-
-If AND-MEM is non-nil, profile memory as well."
-  (interactive "P")
-  (if (not (and (fboundp 'profiler-cpu-running-p) (profiler-cpu-running-p)))
-      (profiler-start (if and-mem 'cpu+mem 'cpu))
-    (profiler-stop)
-    (profiler-report)))
-
-(bind-keys
- ("M-m M-p" . profiler-dwim))
-
-
 ;;;;; Additional Package Management Configuration
 
 (defvar emacs-start-time)
@@ -396,6 +378,26 @@ higher level up to the top level form."
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
  ("s-." . repeat))
+
+
+;;;; Profiler
+
+(defun profiler-dwim (and-mem)
+  "Toggle `profiler'.
+
+If `profiler' is stopped, start it in cpu mode.
+
+If `profiler' is started, stop it and run `profiler-report'.
+
+If AND-MEM is non-nil, profile memory as well."
+  (interactive "P")
+  (if (not (and (fboundp 'profiler-cpu-running-p) (profiler-cpu-running-p)))
+      (profiler-start (if and-mem 'cpu+mem 'cpu))
+    (profiler-stop)
+    (profiler-report)))
+
+(bind-keys
+ ("M-m M-p" . profiler-dwim))
 
 
 ;;;; Outline
@@ -2064,12 +2066,13 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
     (set-window-point (get-buffer-window reb-target-buffer)
                       (with-current-buffer reb-target-buffer (point-max))))
 
-  (use-package pcre2el
-    :hook
-    ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
   :bind
   (:map prog-mode-map
         ("C-c x" . re-builder)))
+
+(use-package pcre2el
+  :hook
+  ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
 (use-package wgrep
   :custom
@@ -2128,17 +2131,8 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
   (defun ivy-end-of-line-or-partial ()
     "If `eolp' then done, else move to eol."
     (interactive)
-    (if (eolp) (ivy-partial) (end-of-line)))
+    (if (eolp) (ivy-partial) (end-of-line))
 
-  (use-package prescient
-    :hook
-    (ivy-mode-hook . prescient-persist-mode))
-
-  (use-package ivy-prescient
-    :config
-    (setq ivy-prescient-sort-commands
-          (append ivy-prescient-sort-commands
-                  '(counsel-grep counsel-grep-or-swiper counsel-switch-buffer)))
     :hook
     (ivy-mode-hook . ivy-prescient-mode))
 
@@ -2151,6 +2145,17 @@ https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
         ("C-e" . ivy-end-of-line-or-partial)
         ("M-/" . ivy-partial-or-done)
         ("M-J" . ivy-yank-complete-symbol-at-point)))
+
+(use-package prescient
+  :hook
+  (ivy-mode-hook . prescient-persist-mode))
+
+(use-package ivy-prescient
+  :after ivy
+  :config
+  (setq ivy-prescient-sort-commands
+        (append ivy-prescient-sort-commands
+                '(counsel-grep counsel-grep-or-swiper counsel-switch-buffer))))
 
 (use-package swiper
   :defer 2
@@ -2307,16 +2312,6 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
     (bind-keys :map eshell-hist-mode-map
                ("M-r" . counsel-esh-history)))
 
-  (use-package company-prescient
-    :hook
-    (company-mode-hook . company-prescient-mode))
-
-  (use-package ivy-rich
-    :custom
-    (ivy-rich-parse-remote-buffer nil)
-    :hook
-    (counsel-mode-hook . ivy-rich-mode))
-
   (counsel-mode)
 
   :bind
@@ -2351,6 +2346,13 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("C-c C-f" . counsel-find-file-edit-path))
   (:map minibuffer-local-map
         ("M-r" . counsel-minibuffer-history)))
+
+(use-package ivy-rich
+  :custom
+  (ivy-rich-parse-remote-buffer nil)
+  :hook
+  (counsel-mode-hook . ivy-rich-mode))
+
 
 ;; (use-package all-the-icons-ivy-rich
 ;;   :hook
@@ -2467,6 +2469,10 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
         ("M-/" . completion-at-point))
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
+
+(use-package company-prescient
+  :hook
+  (company-mode-hook . company-prescient-mode))
 
 (use-package company-box
   :if window-system
@@ -3812,11 +3818,15 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   ;; Don't write messages at startup.
   (yas-verbosity 1)
   :config
-  (use-package yasnippet-snippets :demand t)
   (yas-global-mode)
   :bind
   ("s-'" . yas-expand)
   ("C-c C-y" . yas-insert-snippet))
+
+(use-package yasnippet-snippets
+  :after yasnippet
+  :config
+  (yasnippet-snippets-initialize))
 
 (use-package smartparens
   :defer 3
@@ -4386,11 +4396,6 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (interactive)
     (async-shell-command (car shell-command-history)))
 
-  (use-package native-complete
-    :demand t
-    :config
-    (native-complete-setup-bash))
-
   (defun shell-mode-setup ()
     "Set up `shell-mode'."
     (setenv "TERM" "xterm-256color"))
@@ -4408,6 +4413,11 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
         ("SPC" . comint-magic-space)
         ("M-r" . counsel-shell-history)))
+
+(use-package native-complete
+  :after shell
+  :config
+  (native-complete-setup-bash))
 
 (use-package with-editor
   :commands
@@ -5444,125 +5454,128 @@ Interactively, reads the register using `register-read-with-preview'."
   :interpreter
   ("inlein" . clojure-mode)
 
-  :config
-  (use-package clojure-mode-extra-font-locking :demand t)
-
-  (use-package clj-refactor
-    :config
-    (defun clj-refactor-setup ()
-      "Set up `clj-refactor-mode'."
-      (clj-refactor-mode 1)
-      (cljr-add-keybindings-with-prefix "C-c C-m"))
-    :hook
-    (clojure-mode-hook . clj-refactor-setup)
-    :bind
-    (:map clojure-mode-map
-          ("C-s-r" . cljr-rename-symbol)))
-
-  ;; brew install borkdude/brew/clj-kondo
-  (use-package flycheck-clj-kondo
-    :demand t)
-
-  (use-package inf-clojure
-    :commands
-    inf-clojure
-    inf-clojure-connect
-    inf-clojure-minor-mode
-    :config
-    (defun inf-clojure-start-lumo ()
-      "Start lumo as a subprocess and then connect to it over TCP.
-This is preferable to starting it directly because lumo has lots
-of problems in that context."
-      (interactive)
-      (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-      (inf-clojure-minor-mode)
-      (shell-command "pkill -f 'lumo -d -n 2000'")
-      (async-shell-command "lumo -d -n 2000")
-      (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
-
-    (defvar inf-clojure-minor-mode-map)
-    (bind-keys :map inf-clojure-minor-mode-map
-               ("s-<return>" . inf-clojure-eval-last-sexp)
-               ("C-c C-k" . inf-clojure-eval-buffer)))
-
-  (use-package cider
-    :custom
-    ;; Never prompt when looking up a symbol.
-    (cider-prompt-for-symbol nil)
-    ;; Always prompt for the jack in command.
-    (cider-edit-jack-in-command t)
-
-    :functions
-    cider--find-var
-    cider--find-var-other-window
-
-    :config
-    (defun cider-find-var-other-window (&optional arg _var _line)
-      "Find the var in the other window."
-      (interactive "P")
-      (funcall (cider-prompt-for-symbol-function arg)
-               "Symbol"
-               (if (cider--open-other-window-p arg)
-                   #'cider--find-var
-                 #'cider--find-var-other-window)))
-
-    (defun toggle-nrepl-buffer ()
-      "Toggle the nREPL REPL on and off."
-      (interactive)
-      (if (string-match "cider-repl" (buffer-name (current-buffer)))
-          (delete-window)
-        (cider-switch-to-repl-buffer)))
-
-    (defun cider-save-and-refresh ()
-      "Save the buffer and refresh CIDER."
-      (interactive)
-      (save-buffer)
-      (call-interactively 'cider-refresh))
-
-    (defun cider-eval-last-sexp-and-append ()
-      "Eval last sexp and append the result."
-      (interactive)
-      (cider-eval-last-sexp '(1)))
-
-    (defvar cider-stacktrace-frames-background-color)
-
-    (defun cider-stacktrace-adapt-to-theme (&rest _)
-      "The standard advice function runs at the wrong time I guess?
-  Anyway, it often gets set to the wrong color when switching
-  themes via `theme-choose'."
-      (when (fboundp 'cider-scale-background-color)
-        (setq cider-stacktrace-frames-background-color
-              (cider-scale-background-color))))
-
-    (advice-add #'load-theme :after #'cider-stacktrace-adapt-to-theme)
-
-    (defun cider-pprint-register (register)
-      "Eval REGISTER as clojure code and pretty print the result.
-
-https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-ginger-tea."
-      (interactive (list (register-read-with-preview "Eval register: ")))
-      (cider--pprint-eval-form (get-register register)))
-
-    :hook
-    (cider-mode-hook . cider-company-enable-fuzzy-completion)
-    (cider-repl-mode-hook . cider-company-enable-fuzzy-completion)
-
-    :bind
-    (:map cider-mode-map
-          ("s-<return>" . cider-eval-last-sexp)
-          ("C-x 4 ." . cider-find-var-other-window)))
-
   :hook
   (clojure-mode-hook . subword-mode))
 
-;; (use-package sly
-;;   :mode
-;;   ("\\.lisp\\'" . sly-mode)
-;;   :custom
-;;   (inferior-lisp-program (executable-find "sbcl"))
-;;   :bind
-;;   (:map sly-prefix-map
-;;         ("M-h" . sly-documentation-lookup)))
+(use-package clojure-mode-extra-font-locking
+  :after clojure)
+
+(use-package clj-refactor
+  :after clojure
+  :config
+  (defun clj-refactor-setup ()
+    "Set up `clj-refactor-mode'."
+    (clj-refactor-mode 1)
+    (cljr-add-keybindings-with-prefix "C-c C-m"))
+  :hook
+  (clojure-mode-hook . clj-refactor-setup)
+  :bind
+  (:map clojure-mode-map
+        ("C-s-r" . cljr-rename-symbol)))
+
+;; brew install borkdude/brew/clj-kondo
+(use-package flycheck-clj-kondo
+  :after clojure)
+
+(use-package inf-clojure
+  :after clojure
+  :commands
+  inf-clojure
+  inf-clojure-connect
+  inf-clojure-minor-mode
+  :config
+  (defun inf-clojure-start-lumo ()
+    "Start lumo as a subprocess and then connect to it over TCP.
+This is preferable to starting it directly because lumo has lots
+of problems in that context."
+    (interactive)
+    (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
+    (inf-clojure-minor-mode)
+    (shell-command "pkill -f 'lumo -d -n 2000'")
+    (async-shell-command "lumo -d -n 2000")
+    (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
+
+  (defvar inf-clojure-minor-mode-map)
+  (bind-keys :map inf-clojure-minor-mode-map
+             ("s-<return>" . inf-clojure-eval-last-sexp)
+             ("C-c C-k" . inf-clojure-eval-buffer)))
+
+(use-package cider
+  :after clojure
+  :custom
+  ;; Never prompt when looking up a symbol.
+  (cider-prompt-for-symbol nil)
+  ;; Always prompt for the jack in command.
+  (cider-edit-jack-in-command t)
+
+  :functions
+  cider--find-var
+  cider--find-var-other-window
+
+  :config
+  (defun cider-find-var-other-window (&optional arg _var _line)
+    "Find the var in the other window."
+    (interactive "P")
+    (funcall (cider-prompt-for-symbol-function arg)
+             "Symbol"
+             (if (cider--open-other-window-p arg)
+                 #'cider--find-var
+               #'cider--find-var-other-window)))
+
+  (defun toggle-nrepl-buffer ()
+    "Toggle the nREPL REPL on and off."
+    (interactive)
+    (if (string-match "cider-repl" (buffer-name (current-buffer)))
+        (delete-window)
+      (cider-switch-to-repl-buffer)))
+
+  (defun cider-save-and-refresh ()
+    "Save the buffer and refresh CIDER."
+    (interactive)
+    (save-buffer)
+    (call-interactively 'cider-refresh))
+
+  (defun cider-eval-last-sexp-and-append ()
+    "Eval last sexp and append the result."
+    (interactive)
+    (cider-eval-last-sexp '(1)))
+
+  (defvar cider-stacktrace-frames-background-color)
+
+  (defun cider-stacktrace-adapt-to-theme (&rest _)
+    "The standard advice function runs at the wrong time I guess?
+  Anyway, it often gets set to the wrong color when switching
+  themes via `theme-choose'."
+    (when (fboundp 'cider-scale-background-color)
+      (setq cider-stacktrace-frames-background-color
+            (cider-scale-background-color))))
+
+  (advice-add #'load-theme :after #'cider-stacktrace-adapt-to-theme)
+
+  (defun cider-pprint-register (register)
+    "Eval REGISTER as clojure code and pretty print the result.
+
+https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-ginger-tea."
+    (interactive (list (register-read-with-preview "Eval register: ")))
+    (cider--pprint-eval-form (get-register register)))
+
+  :hook
+  (cider-mode-hook . cider-company-enable-fuzzy-completion)
+  (cider-repl-mode-hook . cider-company-enable-fuzzy-completion)
+
+  :bind
+  (:map cider-mode-map
+        ("s-<return>" . cider-eval-last-sexp)
+        ("C-x 4 ." . cider-find-var-other-window)))
+
+(use-package sly
+  :mode
+  ("\\.lisp\\'" . sly-mode)
+  :custom
+  (inferior-lisp-program (executable-find "sbcl"))
+  :bind
+  (:map sly-prefix-map
+        ("M-h" . sly-documentation-lookup)))
 
 (use-package scheme
   :mode ("\\.scheme\\'" . scheme-mode)
@@ -5844,21 +5857,24 @@ Open the `eww' buffer in another window."
    '(("css" . (ac-source-css-property))
      ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
 
-  :config
-  (use-package company-web
-    :commands
-    company-web-html
-    :config
-    (defun company-web-setup ()
-      "Set up `company-web'."
-      (make-local-variable 'company-backends)
-      (add-to-list 'company-backends 'company-web-html))
-    :hook
-    (web-mode-hook . company-web-setup))
-
   :hook
   (web-mode-hook . lsp-deferred)
   (web-mode-hook . web-mode-setup))
+
+(use-package company-web
+  :after company web-mode
+
+  :commands
+  company-web-html
+
+  :config
+  (defun company-web-setup ()
+    "Set up `company-web'."
+    (make-local-variable 'company-backends)
+    (add-to-list 'company-backends 'company-web-html))
+
+  :hook
+  (web-mode-hook . company-web-setup))
 
 (use-package css-mode
   :mode "\\.css\\'"
@@ -5877,30 +5893,35 @@ Open the `eww' buffer in another window."
 (use-package emmet-mode
   :custom
   (emmet-expand-jsx-className? t)
+
   :hook
   ((web-mode-hook sgml-mode-hook css-mode-hook) . emmet-mode))
 
 (use-package restclient
   :mode ("\\.restclient\\'" . restclient-mode)
+
   :commands
-  restclient-outline-mode
+  restclient-outline-mode)
+
+(use-package company-restclient
+  :after restclient
 
   :config
-  (use-package company-restclient
-    :config
-    (defun company-restclient-setup ()
-      "Set up `company-restclient'."
-      (make-local-variable 'company-backends)
-      (add-to-list 'company-backends 'company-restclient))
-    :hook
-    (restclient-mode-hook . company-restclient-setup))
+  (defun company-restclient-setup ()
+    "Set up `company-restclient'."
+    (make-local-variable 'company-backends)
+    (add-to-list 'company-backends 'company-restclient))
+  :hook
+  (restclient-mode-hook . company-restclient-setup))
 
-  (use-package know-your-http-well
-    :commands
-    http-header
-    http-method
-    http-relation
-    http-status-code))
+(use-package know-your-http-well
+  :after restclient
+
+  :commands
+  http-header
+  http-method
+  http-relation
+  http-status-code)
 
 
 ;;;; Javascript
@@ -6589,17 +6610,18 @@ This package sets these explicitly so we have to do the same."
   ;; :ensure-system-package
   ;; (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
-  :config
-  (use-package inf-ruby
-    :hook
-    (enh-ruby-mode-hook . inf-ruby-minor-mode)
-    (compilation-filter . inf-ruby-auto-enter)
-    :bind
-    (:map inf-ruby-minor-mode-map
-          ("s-<return>". ruby-send-last-sexp)
-          ("C-M-x" . ruby-send-block)))
   :hook
   (ruby-mode-hook . lsp-deferred))
+
+(use-package inf-ruby
+  :after ruby-mode
+  :hook
+  (enh-ruby-mode-hook . inf-ruby-minor-mode)
+  (compilation-filter . inf-ruby-auto-enter)
+  :bind
+  (:map inf-ruby-minor-mode-map
+        ("s-<return>". ruby-send-last-sexp)
+        ("C-M-x" . ruby-send-block)))
 
 ;; brew install lua luarocks
 ;; luarocks install --server=https://luarocks.org/dev lua-lsp --local
@@ -6621,17 +6643,18 @@ This package sets these explicitly so we have to do the same."
   (rust-mode-hook . lsp-deferred))
 
 (use-package go-mode
-  :mode "\\.go\\'"
+  :mode "\\.go\\'")
+
+(use-package company-go
+  :after go-mode
   :config
-  (use-package company-go
-    :config
-    (defun company-go-setup ()
-      "Set up `company-go'."
-      (make-local-variable 'company-backends)
-      (add-to-list 'company-backends 'company-go))
-    :hook
-    (go-mode-hook . company-go-setup)
-    (go-mode-hook . lsp-deferred)))
+  (defun company-go-setup ()
+    "Set up `company-go'."
+    (make-local-variable 'company-backends)
+    (add-to-list 'company-backends 'company-go))
+  :hook
+  (go-mode-hook . company-go-setup)
+  (go-mode-hook . lsp-deferred))
 
 ;; Install on macOS:
 ;; # brew install powershell
@@ -6800,13 +6823,6 @@ This package sets these explicitly so we have to do the same."
   :mode "\\.gd\\'"
 
   :config
-  (use-package yasnippet-godot-gdscript
-    :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
-    :init
-    ;; FIXME the directory name doesn't match the major mode.
-    (with-eval-after-load 'yasnippet
-      (add-to-list 'yas-snippet-dirs
-                   (straight--repos-dir "yasnippet-godot-gdscript" "snippets"))))
 
   ;; FIXME
   ;; https://github.com/emacs-lsp/lsp-mode/issues/2127
@@ -6828,6 +6844,15 @@ This package sets these explicitly so we have to do the same."
 
   :hook
   (gdscript-mode-hook . gdscript-setup))
+
+(use-package yasnippet-godot-gdscript
+  :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
+  :after gdscript-mode
+  :init
+  ;; FIXME the directory name doesn't match the major mode.
+  (with-eval-after-load 'yasnippet
+    (add-to-list 'yas-snippet-dirs
+                 (straight--repos-dir "yasnippet-godot-gdscript" "snippets"))))
 
 (use-package vimrc-mode
   :mode "\\.vim\\(rc\\)?\\'")
@@ -7169,40 +7194,6 @@ With a prefix ARG, create it in `org-directory'."
   ;;   :hook
   ;;   (org-mode-hook . org-spacer-setup))
 
-  (use-package ob-async :demand t)
-
-  (use-package ob-session-async
-    :demand t
-    :straight (:host github :repo "jackkamm/ob-session-async"))
-
-  (use-package org-download
-    :hook
-    (dired-mode-hook . org-download-enable))
-
-  (use-package htmlize
-    :commands
-    htmlize-buffer
-    htmlize-file)
-
-  (use-package org-preview-html
-    :commands
-    org-preview-html-mode)
-
-  ;; TODO Get this to work.
-  ;; (use-package inherit-org
-  ;;   :demand t
-  ;;   :straight (:host github :repo "chenyanming/inherit-org")
-  ;;   :config
-  ;;   (with-eval-after-load 'info
-  ;;     (add-hook 'Info-mode-hook 'inherit-org-mode))
-
-  ;;   (with-eval-after-load 'helpful
-  ;;     (add-hook 'helpful-mode-hook 'inherit-org-mode))
-
-  ;;   (with-eval-after-load 'w3m
-  ;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
-  ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
-
   (defun org-fix-blank-lines ()
     "Ensure blank lines exist between top level headings.
 
@@ -7288,6 +7279,44 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
         ;; Don't shadow mwim and org-mode bindings
         ([remap move-beginning-of-line] . nil)))
 
+(use-package ob-async
+  :after org)
+
+(use-package ob-session-async
+  :after org
+  :straight (:host github :repo "jackkamm/ob-session-async"))
+
+(use-package org-download
+  :after org
+  :hook
+  (dired-mode-hook . org-download-enable))
+
+(use-package htmlize
+  :after org
+  :commands
+  htmlize-buffer
+  htmlize-file)
+
+(use-package org-preview-html
+  :after org
+  :commands
+  org-preview-html-mode)
+
+;; TODO Get this to work.
+;; (use-package inherit-org
+;;   :straight (:host github :repo "chenyanming/inherit-org")
+;;   :after org
+;;   :config
+;;   (with-eval-after-load 'info
+;;     (add-hook 'Info-mode-hook 'inherit-org-mode))
+
+;;   (with-eval-after-load 'helpful
+;;     (add-hook 'helpful-mode-hook 'inherit-org-mode))
+
+;;   (with-eval-after-load 'w3m
+;;     (add-hook 'w3m-fontify-before-hook 'inherit-org-w3m-headline-fontify)
+;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
+
 ;; Install:
 ;; brew install tclap
 ;; cd [[~/.emacs.d/straight/repos/notdeft/xapian]]
@@ -7310,14 +7339,15 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   :hook
   (prog-mode-hook . orglink-mode))
 
+;; `ov' is an implicit dependency of `ox-clip'.
+(use-package ov)
+
 (use-package ox-clip
+  :after ov
   :config
-  ;; `ov' is an implicit dependency.
-  (use-package ov :demand t)
   :bind
   ("M-m o w" . ox-clip-formatted-copy)
   ("M-m o W" . ox-clip-image-to-clipboard))
-
 
 
 ;;;; Hydra
