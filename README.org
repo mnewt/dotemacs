@@ -93,7 +93,7 @@
     - Nested language support with [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
 
 ** Supported Emacs versions
-   25.3+, however a few features are 27.1+ only.
+   Attempts have been made to make this config compatible with 25.3+. However, they are half-hearted and some features are 27+ or even 28+ only.
 
 ** Install
    1. Clone the repo:
@@ -108,6 +108,8 @@
    3. Start Emacs. The first run will install lots of stuff so it will take a few minutes.
 
 ** macOS Menus Need Two Clicks
+   Sometimes a problem arises where the menus in the macOS menu bar for Emacs don't respond to the first mouse click, but they do respond to the second. This is a bug in Emacs but it can be mitigated with these steps.
+   
    1. Navigate to =System Preferences= > =Security and Privacy= > =Privacy= > =Accessibility=
    2. Click Emacs, if it's in the list, and click =-= to delete it.
    3. Add it again using =+=. It should be installed at =~/Applications/Emacs.app=.

@@ -193,11 +193,12 @@ If VARS is not specified, use `env-cache-vars'."
         debug-on-error t))
 
 ;; FIXME Eager macro-expansion failure: (wrong-number-of-arguments (3 . 4) 2)
-;; (use-package benchmark-init
-;;   :demand t
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate)))
+(use-package benchmark-init
+  :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
+  :demand t
+  :config
+  ;; To disable collection of benchmark data after init is done.
+  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 ;;;;; Additional Package Management Configuration
 
@@ -400,18 +401,6 @@ If AND-MEM is non-nil, profile memory as well."
  ("M-m M-p" . profiler-dwim))
 
 
-;;;; Outline
-
-;; `outline' must be loaded before `persistent-scratch' to ensure that
-;; `outline-minor-mode-prefix' is set before `outline-mode' is autoloaded.
-
-(use-package outline
-  :custom
-  (outline-minor-mode-prefix (kbd "M-#"))
-  :hook
-  (prog-mode-hook . outline-minor-mode))
-
-
 ;;;; Persistence
 
 ;; Persist Emacs session data.
@@ -447,6 +436,7 @@ If AND-MEM is non-nil, profile memory as well."
   (find-file-hook . save-place-find-file-hook))
 
 (use-package recentf
+  :defer 7
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
@@ -469,7 +459,6 @@ If AND-MEM is non-nil, profile memory as well."
   recentf-mode
 
   :hook
-  (ivy-mode-hook . recentf-mode)
   (dired-mode-hook . recentf-add-dired-directory)
   :bind
   ("C-x M-f" . recentf-grep-recent-files))
@@ -492,7 +481,6 @@ If AND-MEM is non-nil, profile memory as well."
                                    read-expression-history
                                    command-history
                                    extended-command-history
-                                   ivy-history
                                    window-config-alist
                                    magit-read-rev-history
                                    fiat-theme))
@@ -510,6 +498,8 @@ If AND-MEM is non-nil, profile memory as well."
 ;;;; Appearance
 
 ;; Set up visual UI and theme stuff.
+
+(setq enable-recursive-minibuffers t)
 
 (custom-set-variables '(inhibit-splash-screen t))
 
@@ -703,9 +693,7 @@ then choose the next key in the Alist `fiat-themes'."
 
 (bind-keys
  ("C-M-s-t" . fiat)
- ("M-m t t" . fiat)
- ("C-M-S-s-t" . counsel-load-theme)
- ("M-m M-t" . counsel-load-theme))
+ ("M-m t t" . fiat))
 
 (use-package window-highlight
   :if (and window-system
@@ -1096,7 +1084,11 @@ This sets things up for `window-highlight' and `mode-line'."
     (with-eval-after-load 'outline
       (set-face-attribute 'outline-1 nil :height 1.4)
       (set-face-attribute 'outline-2 nil :height 1.2)
-      (set-face-attribute 'outline-3 nil :height 1.1)))
+      (set-face-attribute 'outline-3 nil :height 1.1))
+    (with-eval-after-load 'eldoc-box
+      (set-face-background
+       'eldoc-box-body
+       (color-blend active-bg (theme-face-attribute 'default :foreground) 0.8))))
   (with-eval-after-load 'mood-line
     (mood-line--refresh-bar)))
 
@@ -1171,53 +1163,16 @@ This sets things up for `window-highlight' and `mode-line'."
 
 ;; Navigation tools
 
-(use-package outshine
-  :after outline
-  :config
-  (defun outline-show-current-sublevel ()
-    "Show only the current top level section."
-    (interactive)
-    (unless (bound-and-true-p 'outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-hide-sublevels 1)
-    (outline-show-subtree))
-
-  (defun outline-subtree-previous ()
-    "Go to and expand previous sublevel."
-    (interactive)
-    (unless (bound-and-true-p outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-previous-visible-heading 1)
-    (outline-show-subtree))
-
-  (defun outline-subtree-next ()
-    "Go to and expand previous sublevel."
-    (interactive)
-    (unless (bound-and-true-p outline-minor-mode)
-      (outline-minor-mode t))
-    (outline-next-visible-heading 1)
-    (outline-show-subtree))
-
-  (defun outshine-narrow-dwim (&rest _args)
-    (unless (outline-on-heading-p t)
-      (outline-previous-visible-heading 1)))
-
-  ;; Narrowing now works within the headline rather than requiring to be on it
-  (advice-add 'outshine-narrow-to-subtree :before #'outshine-narrow-dwim)
-
-  (eldoc-add-command #'outshine-self-insert-command)
-
+(use-package outline
   :hook
-  (outline-minor-mode-hook . outshine-mode)
+  (prog-mode-hook . outline-minor-mode)
   :bind
-  (:map outline-minor-mode-map
-        ;; Don't shadow smarparens or org bindings
-        ("M-<up>" . nil)
-        ("M-<down>" . nil)
-        ("C-<tab>" . outshine-cycle-buffer)
-        ("M-=" . outline-show-current-sublevel)
-        ("M-p" . outline-subtree-previous)
-        ("M-n" . outline-subtree-next)))
+  ("C-<tab>" . outline-cycle))
+
+(use-package outline-minor-faces
+  :after outline
+  :hook
+  (outline-minor-mode-hook . outline-minor-faces-add-font-lock-keywords))
 
 (use-package outorg
   :after outline
@@ -1679,8 +1634,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
         ("C-<tab>" . hs-toggle-hiding)))
 
 (use-package symbol-overlay
-  :config
-  (set-face-attribute 'symbol-overlay-default-face nil :background "gray")
   :hook
   ((prog-mode-hook helpful-mode-hook help-mode-hook) . symbol-overlay-mode)
   :bind
@@ -1791,10 +1744,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer occur (occur-next 1))
 (specialize-end-of-buffer occur (occur-prev 1))
 
-(defvar ivy-occur-grep-mode-map)
-(specialize-beginning-of-buffer ivy-occur-grep (ivy-occur-next-line 1))
-(specialize-end-of-buffer ivy-occur-grep (ivy-occur-previous-line 1))
-
 (defvar ibuffer-mode-map)
 (specialize-beginning-of-buffer ibuffer (ibuffer-forward-line 1))
 (specialize-end-of-buffer ibuffer (ibuffer-backward-line 1))
@@ -1897,8 +1846,6 @@ Each EXPR should create one window."
  ("C-c }" . next-buffer)
  ("s-{" . previous-buffer)
  ("C-c {" . previous-buffer)
- ("C-s-j" . counsel-switch-buffer-by-mode)
- ("C-c M-j" . counsel-switch-buffer-by-mode)
 
  ;; windmove
  ("H-a" . windmove-left)
@@ -2008,386 +1955,245 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("C-c i n" . imenu-goto-next)
   ("C-'" . imenu))
 
-(use-package imenu-anywhere
-  ;; FIXME With this setting, often it returns no results at all.
-  ;; :custom
-  ;; (imenu-anywhere-buffer-filter-functions '(imenu-anywhere-same-project-p))
-  :bind
-  ("s-r" . ivy-imenu-anywhere))
-
-;; (use-package visual-regexp-steroids
-;;   :bind
-;;   ("C-r" . vr/isearch-backward)
-;;   ("C-s" . vr/isearch-forward)
-;;   ("C-c r" . vr/replace)
-;;   ("C-c q" . vr/query-replace)
-;;   ("C-c m" . vr/mc-mark))
-
-;; (use-package phi-search
-;;   :bind
-;;   ([remap isearch-forward] . phi-search)
-;;   ([remap isearch-backward] . phi-search-backward))
-
-(use-package anzu
-  :config
-  ;; (set-face-attribute 'anzu-replace-to nil :foreground nil :background "lime green")
-  (global-anzu-mode +1)
-  :bind
-  ([remap query-replace] . anzu-query-replace)
-  ([remap query-replace-regexp] . anzu-query-replace-regexp)
-  (:map isearch-mode-map
-        ([remap isearch-query-replace] . anzu-isearch-query-replace)
-        ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp)))
-
-(use-package re-builder
-  :custom
-  ;; string syntax means you don't need to double escape things.
-  (reb-re-syntax 'read)
-
-  :config
-  (defun reb-query-replace (to-string)
-    "Replace current RE from point with `query-replace-regexp'."
-    (interactive
-     (progn (barf-if-buffer-read-only)
-            (list (query-replace-read-to (reb-target-binding reb-regexp)
-                                         "Query replace"  t))))
-    (with-current-buffer reb-target-buffer
-      (query-replace-regexp (reb-target-binding reb-regexp) to-string)))
-
-  (defun reb-beginning-of-buffer ()
-    "In re-builder, move target buffer point position back to beginning."
-    (interactive)
-    (set-window-point (get-buffer-window reb-target-buffer)
-                      (with-current-buffer reb-target-buffer (point-min))))
-
-  (defun reb-end-of-buffer ()
-    "In re-builder, move target buffer point position back to beginning."
-    (interactive)
-    (set-window-point (get-buffer-window reb-target-buffer)
-                      (with-current-buffer reb-target-buffer (point-max))))
-
-  :bind
-  (:map prog-mode-map
-        ("C-c x" . re-builder)))
-
-(use-package pcre2el
-  :hook
-  ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
-
-(use-package wgrep
-  :custom
-  ;; Save changed buffers immediately when exiting wgrep mode
-  (wgrep-auto-save-buffer t)
-  :bind
-  (:map grep-mode-map
-        ("C-c C-p" . wgrep-change-to-wgrep-mode)
-        :map occur-mode-map
-        ("C-c C-p" . wgrep-change-to-wgrep-mode)))
-
-(use-package rg
-  ;; :ensure-system-package
-  ;; (rg . ripgrep)
-  :custom
-  (rg-keymap-prefix (kbd "C-c M-s"))
-  :config
-  (rg-enable-default-bindings (kbd "C-r")))
-
-(use-package ivy
-  :defer 2
-  :custom
-  (enable-recursive-minibuffers t)
-  (ivy-count-format "[%d/%d] ")
-  ;; Don't exit the minibuffer when pressing backspace on an empty line.
-  (ivy-on-del-error-function 'ignore)
-
-  :config
-  ;; (use-package ivy-posframe
-  ;;   :demand t
-  ;;   :custom
-  ;;   (ivy-posframe-display-functions-alist
-  ;;    '((swiper . nil)
-  ;;      (counsel-grep-or-swiper . nil)
-  ;;      (counsel-rg . nil)
-  ;;      (counsel-projectile-rg . nil)
-  ;;      (t . ivy-posframe-display-at-frame-top-center)))
-  ;;   :config
-  ;;   (ivy-posframe-mode 1)
-  ;;   (custom-set-faces
-  ;;    `(ivy-posframe ((t (:background nil :inherit window-highlight-focused-window))))))
-
-  (defun ivy-yank-complete-symbol-at-point (&optional arg)
-    "Insert whole symbol from buffer to ivy prompt.
-
-Prefix args allowed.
-
-https://www.reddit.com/r/emacs/comments/baby94/some_ivy_hacks/."
-    (interactive "p")
-    (let ((text (with-ivy-window
-                  (forward-thing 'symbol (or arg 1))
-                  (thing-at-point 'symbol 'no-props))))
-      (when text
-        (insert (replace-regexp-in-string " +" " " text t t)))))
-
-  (defun ivy-end-of-line-or-partial ()
-    "If `eolp' then done, else move to eol."
-    (interactive)
-    (if (eolp) (ivy-partial) (end-of-line))
-
-    :hook
-    (ivy-mode-hook . ivy-prescient-mode))
-
-  (ivy-mode)
-
-  :bind
-  (:map ivy-mode-map
-        ("C-c C-r" . ivy-resume)
-        :map ivy-minibuffer-map
-        ("C-e" . ivy-end-of-line-or-partial)
-        ("M-/" . ivy-partial-or-done)
-        ("M-J" . ivy-yank-complete-symbol-at-point)))
-
-(use-package prescient
-  :hook
-  (ivy-mode-hook . prescient-persist-mode))
-
-(use-package ivy-prescient
-  :after ivy
-  :config
-  (setq ivy-prescient-sort-commands
-        (append ivy-prescient-sort-commands
-                '(counsel-grep counsel-grep-or-swiper counsel-switch-buffer))))
-
-(use-package swiper
-  :defer 2
-  :config
-  (defvar minibuffer-this-command nil
-    "Command minibuffer started with.")
-
-  (defun minibuffer-set-this-command ()
-    (setq minibuffer-this-command real-this-command))
-
-  (defun minibuffer-restart-with-prefix ()
-    "Restart current minibuffer/ivy command with prefix argument.
-
-https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr5?utm_source=share&utm_medium=web2x"
-    (interactive)
-    (let ((input (ivy--input)))
-      (cond ((memq  #'ivy--queue-exhibit post-command-hook)
-             (ivy-quit-and-run
-               (let ((current-prefix-arg '(4))
-                     (ivy-initial-inputs-alist `((,(ivy-state-caller ivy-last) . ,input))))
-                 (call-interactively (ivy-state-caller ivy-last)))))
-            (t
-             (ivy-quit-and-run
-               (let ((current-prefix-arg '(4)))
-                 (minibuffer-with-setup-hook (lambda ()
-                                               (insert input)
-                                               (minibuffer-message "C-u"))
-                   (call-interactively minibuffer-this-command))))))))
-
-  :hook
-  (minibuffer-setup-hook . minibuffer-set-this-command)
-  :bind
-  (:map ivy-minibuffer-map
-        ("C-u" . minibuffer-restart-with-prefix)
-        ("C-c C-c" . ivy-toggle-calling)
-        ("s-5" . ivy--replace-regexp-entire-buffer)
-        ("C-u" . minibuffer-restart-with-prefix)))
-
-(use-package counsel
-  :defer 3
-  :after ivy
-  :custom
-  (counsel-find-file-at-point t)
-  (counsel-grep-base-command
-   "rg -i -M 120 --no-heading --line-number --color never '%s' %s")
-
-  :commands
-  counsel-mode
-
-  :config
-  (defun counsel-switch-buffer-by-mode (mode)
-    "Choose a major MODE, then select from buffers of that mode."
-    (interactive
-     (list (ivy-read "Choose buffers for major mode: "
-                     (list-buffer-major-modes)
-                     :history 'switch-to-buffer-by-mode-history
-                     :action 'counsel-switch-buffer-by-mode)))
-    (when (stringp mode) (setq mode (intern mode)))
-    (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
-      (ivy-read (format "%s buffers: " mode) buffers
-                :keymap ivy-switch-buffer-map
-                :action #'ivy--switch-buffer-action
-                :matcher #'ivy--switch-buffer-matcher
-                :preselect (when (eq major-mode mode) (cadr buffers))
-                ;; Use the `ivy-switch-buffer' actions.
-                :caller #'ivy-switch-buffer)))
-
-  (defun counsel-find-file-edit-path ()
-    "Make the path in `counsel-find-file' editable."
-    (interactive)
-    (let ((dir ivy--directory))
-      (setq ivy--old-cands nil)
-      (setq ivy--old-re nil)
-      (ivy-set-index 0)
-      (setq ivy--directory "")
-      (setq ivy--all-candidates nil)
-      (setq ivy-text "")
-      (delete-minibuffer-contents)
-      (insert dir)))
-
-  (defun ivy--call-with-current-buffer-in-other-window-action (x)
-    "Switch to other window and call command X."
-    (switch-to-buffer-other-window (current-buffer)
-                                   (call-interactively (intern x))))
-
-  (defun ivy--call-with-other-window-action (x)
-    "Switch current buffer to other window and call command X."
-    (other-window 1)
-    (call-interactively (intern x)))
-
-  (defun counsel-rg-default-directory (f &rest args)
-    "Call F (`counsel-rg') with ARGS from `default-directory'."
-    (funcall f (car args)
-             (or (cadr args) default-directory)
-             (caddr args)
-             (or (cadddr args) (format "[%s] rg: " default-directory))))
-
-  (advice-add #'counsel-rg :around #'counsel-rg-default-directory)
-
-  (defun reloading (cmd)
-    "Wrap CMD, reloading ivy."
-    (lambda (x)
-      (funcall cmd x)
-      (ivy--reset-state ivy-last)))
-
-  (defun given-file (cmd prompt)
-    "Wrap in a closure and call CMD, with interactive PROMPT."
-    (lambda (source)
-      (let ((target
-             (let ((enable-recursive-minibuffers t))
-               (read-file-name
-                (format "%s %s to:" prompt source)))))
-        (funcall cmd source target 1))))
-
-  (defun confirm-delete-file (file)
-    "Delete FILE with confirmation."
-    (dired-delete-file file 'confirm-each-subdirectory))
-
-  (defun counsel-git-grep-other-window-action (x)
-    "Switch to other window and call `counsel-git-grep-action'."
-    (switch-to-buffer-other-window (current-buffer))
-    (counsel-git-grep-action x))
-
-  (ivy-add-actions
-   'counsel-M-x
-   '(("j" ivy--call-with-current-buffer-in-other-window-action "other window")))
-  (ivy-add-actions
-   'counsel-find-file
-   `(("c" ,(given-file #'copy-file "Copy") "copy")
-     ("m" ,(reloading (given-file #'rename-file "Move")) "move")))
-  (ivy-add-actions
-   'counsel-projectile-find-file
-   `(("c" ,(given-file #'copy-file "Copy") "copy")
-     ("m" ,(reloading (given-file #'rename-file "Move")) "move")
-     ("b" counsel-find-file-cd-bookmark-action "cd bookmark")))
-  (ivy-add-actions
-   'counsel-switch-buffer
-   '(("f" ivy--find-file-action "find file")
-     ("j" ivy--switch-buffer-other-window-action "other window")
-     ("k" ivy--kill-buffer-action "kill")
-     ("r" ivy--rename-buffer-action "rename")))
-  (ivy-add-actions
-   'counsel-rg
-   '(("j" counsel-git-grep-other-window-action "other window")))
-  (ivy-set-actions
-   'counsel-register
-   '(("d" counsel-register-action-delete "delete")
-     ("k" counsel-register-action-then-delete "call then delete")))
-
-  (ivy-configure 'counsel-imenu :update-fn 'auto)
-
-  (with-eval-after-load 'em-hist
-    (defvar eshell-hist-mode-map)
-    (bind-keys :map eshell-hist-mode-map
-               ("M-r" . counsel-esh-history)))
-
-  (counsel-mode)
-
-  :bind
-  ("M-x" . counsel-M-x)
-  ("C-h C-l" . counsel-find-library)
-  ("s-f" . counsel-grep-or-swiper)
-  ("s-F" . counsel-rg)
-  ("C-x C-f" . counsel-find-file)
-  ("C-x F" . counsel-recentf)
-  ("C-x f" . counsel-file-jump)
-  ("C-x C-j" . counsel-dired-jump)
-  ("s-b" . counsel-switch-buffer)
-  ("s-B" . counsel-switch-buffer-other-window)
-  ("C-h <tab>" . counsel-info-lookup-symbol)
-  ("C-h C-f" . counsel-describe-face)
-  ("C-h C-a" . counsel-apropos)
-  ("C-c u" . counsel-unicode-char)
-  ("C-c g" . counsel-git)
-  ("C-c j" . counsel-git-grep)
-  ("C-c M-o" . counsel-outline)
-  ("M-s-v" . counsel-yank-pop)
-  ("M-Y" . counsel-yank-pop)
-  ("C-x r h" . counsel-register)
-  ("C-c C-j" . counsel-register)
-  ("C-c C-b" . counsel-bookmark)
-  (:map counsel-mode-map
-        ;; Don't shadow default binding.
-        ([remap yank-pop] . nil))
-  (:map ivy-minibuffer-map
-        ("M-<backspace>" . counsel-up-directory)
-        ("M-DEL" . counsel-up-directory)
-        ("C-c C-f" . counsel-find-file-edit-path))
-  (:map minibuffer-local-map
-        ("M-r" . counsel-minibuffer-history)))
-
-(use-package ivy-rich
-  :custom
-  (ivy-rich-parse-remote-buffer nil)
-  :hook
-  (counsel-mode-hook . ivy-rich-mode))
-
-
-;; (use-package all-the-icons-ivy-rich
-;;   :hook
-;;   (ivy-rich-mode-hook . all-the-icons-ivy-rich-mode))
-
-;; (use-package counsel-term
-;;   :straight (counsel-term
-;;              :host github :repo "tautologyclub/counsel-term"
-;;              :fork (:host nil :repo "git@github.com:mnewt/counsel-term"))
-;;   :commands
-;;   counsel-term-cd
-;;   counsel-eshell-cd
+;; TODO Make `mini-frame-mode' play nice with `window-highlight-mode'.
+;; (use-package mini-frame
+;;   :demand t
+;;   :custom
+;;   (mini-frame-show-parameters '((top . 10) (width . 0.9) (left . 0.5)))
 ;;   :config
-;;   (with-eval-after-load 'vterm
-;;     (bind-keys :map vterm-mode-map
-;;                ("M-r" . counsel-term-history)
-;;                ("M-^" . term-downdir)
-;;                ("C-x d" . counsel-term-cd)))
+;;   (mini-frame-mode))
 
-;;   (with-eval-after-load 'em-hist
-;;     (bind-keys :map eshell-hist-mode-map
-;;                ("C-x d" . counsel-eshell-cd)))
-;;   :bind
-;;   (:map term-mode-map
-;;         ("M-r" . counsel-term-history)
-;;         ("M-^" . term-downdir)))
+(use-package selectrum
+  :demand t
+
+  :preface
+  ;; Stolen from https://github.com/raxod502/selectrum/wiki/Additional-Configuration#minibuffer-default-add-function.
+  (autoload 'ffap-guesser "ffap")
+
+  (setq minibuffer-default-add-function
+        (defun minibuffer-default-add-function+ ()
+          (with-selected-window (minibuffer-selected-window)
+            (delete-dups
+             (delq nil
+                   (list (thing-at-point 'symbol)
+                         (thing-at-point 'list)
+                         (ffap-guesser)
+                         (thing-at-point-url-at-point)))))))
+
+
+  ;; Stolen from
+  ;; https://github.com/raxod502/selectrum/wiki/Additional-Configuration#complete-file-names-at-point
+  (autoload 'ffap-file-at-point "ffap")
+
+  (add-hook 'completion-at-point-functions
+            (defun complete-path-at-point+ ()
+              (let ((fn (ffap-file-at-point))
+                    (fap (thing-at-point 'filename)))
+                (when (and (or fn
+                               (equal "/" fap))
+                           (save-excursion
+                             (search-backward fap (line-beginning-position) t)))
+                  (list (match-beginning 0)
+                        (match-end 0)
+                        #'completion-file-name-table)))) 'append)
+  :config
+  (selectrum-mode)
+  :bind
+  ("C-c C-r" . selectrum-repeat))
+
+(use-package selectrum-prescient
+  :after selectrum
+  :demand t
+  :config
+  (selectrum-prescient-mode)
+  (prescient-persist-mode))
+
+(use-package consult
+  :defer 2
+
+  :init
+  ;; Optionally configure the register formatting. This improves the register
+  ;; preview for `consult-register', `consult-register-load',
+  ;; `consult-register-store' and the Emacs built-ins.
+  (setq register-preview-delay 0
+        register-preview-function #'consult-register-format)
+
+  ;; Optionally tweak the register preview window.
+  ;; This adds thin lines, sorting and hides the mode line of the window.
+  (advice-add #'register-preview :override #'consult-register-window)
+
+  ;; Use Consult to select xref locations with preview
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+
+  ;; Configure other variables and modes in the :config section,
+  ;; after lazily loading the package.
+  :config
+
+  ;; Optionally configure preview. Note that the preview-key can also be
+  ;; configured on a per-command basis via `consult-config'. The default value
+  ;; is 'any, such that any key triggers the preview.
+  ;; (setq consult-preview-key 'any)
+  ;; (setq consult-preview-key (kbd "M-p"))
+  ;; (setq consult-preview-key (list (kbd "<S-down>") (kbd "<S-up>")))
+
+  ;; Optionally configure the narrowing key.
+  ;; Both < and C-+ work reasonably well.
+  (setq consult-narrow-key "<") ;; (kbd "C-+")
+
+  ;; Optionally make narrowing help available in the minibuffer.
+  ;; Probably not needed if you are using which-key.
+  ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
+
+  ;; Optionally configure a function which returns the project root directory.
+  ;; There are multiple reasonable alternatives to chose from:
+  ;; * projectile-project-root
+  ;; * vc-root-dir
+  ;; * project-roots
+  ;; * locate-dominating-file
+  (autoload 'projectile-project-root "projectile")
+  (setq consult-project-root-function #'projectile-project-root)
+
+
+  ;; TODO Port this to `consult'.
+  ;; (defun counsel-switch-buffer-by-mode (mode)
+  ;;   "Choose a major MODE, then select from buffers of that mode."
+  ;;   (interactive)
+  ;;   (list (ivy-read "Choose buffers for major mode: "
+  ;;                   (list-buffer-major-modes)
+  ;;                   :history 'switch-to-buffer-by-mode-history
+  ;;                   :action 'counsel-switch-buffer-by-mode))
+  ;;   (when (stringp mode) (setq mode (intern mode)))
+  ;;   (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
+  ;;     (ivy-read (format "%s buffers: " mode) buffers
+  ;;               :keymap ivy-switch-buffer-map
+  ;;               :action #'ivy--switch-buffer-action
+  ;;               :matcher #'ivy--switch-buffer-matcher
+  ;;               :preselect (when (eq major-mode mode) (cadr buffers))
+  ;;               ;; Use the `ivy-switch-buffer' actions.
+  ;;               :caller #'ivy-switch-buffer)))
+
+  :bind
+  ;; C-c bindings (mode-specific-map)
+  ("C-c h" . consult-history)
+  ("C-c m" . consult-mode-command)
+  ("C-c b" . consult-bookmark)
+  ("C-c k" . consult-kmacro)
+
+  ;; C-x bindings (ctl-x-map)
+  ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complet-command
+  ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+  ("s-b" . consult-buffer)
+  ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+  ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
+
+  ;; Custom M-# bindings for fast register access
+  ("M-'" . consult-register-load)
+  ("C-M-'" . consult-register-store) ;; orig. abbrev-prefix-mark (unrelated)
+  ("C-s-'" . consult-register)
+
+  ;; Other custom bindings
+  ("M-s-v" . consult-yank-pop)
+  ("M-Y" . consult-yank-pop)
+
+  ;; M-g bindings (goto-map)
+  ("M-g e" . consult-compile-error)
+  ("M-g g" . consult-goto-line)   ;; orig. goto-line
+  ("M-g M-g" . consult-goto-line) ;; orig. goto-line
+  ("M-g o" . consult-outline)
+  ("M-g m" . consult-mark)
+  ("M-g k" . consult-global-mark)
+  ("M-g i" . consult-imenu)
+  ("C-'" . consult-imenu)
+  ("M-g I" . consult-project-imenu)
+
+  ;; M-s bindings (search-map)
+  ("M-s f" . consult-find)
+  ("M-s L" . consult-locate)
+  ("M-s g" . consult-grep)
+  ("M-s G" . consult-git-grep)
+  ("M-s r" . consult-ripgrep)
+  ("M-s-f" . consult-ripgrep)
+  ("M-s l" . consult-line)
+  ("s-f" . consult-line)
+  ("M-s m" . consult-multi-occur)
+  ("M-s k" . consult-keep-lines)
+  ("M-s u" . consult-focus-lines)
+
+  ;; Isearch integration
+  ("M-s e" . consult-isearch)
+
+  ;; Theme
+  ("C-M-S-s-t" . consult-theme)
+  ("M-m M-t" . consult-theme)
+
+  (:map isearch-mode-map
+        ("M-e" . consult-isearch)   ;; orig. isearch-edit-string
+        ("M-s e" . consult-isearch) ;; orig. isearch-edit-string
+        ("M-s l" . consult-line)))    ;; required by consult-line to detect isearch
+
+(use-package marginalia
+  :defer 4
+  :config
+  (marginalia-mode))
+
+(use-package embark
+  :defer 5
+
+  :init
+  ;; Optionally replace the key help with a completing-read interface
+  (setq prefix-help-command #'embark-prefix-help-command)
+
+  :config
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none))))
+
+  ;; Use `which-key' as a reminder for `embark' key bindings.
+  (setq embark-action-indicator
+        (lambda (map _target)
+          (which-key--show-keymap "Embark" map nil nil 'no-paging)
+          #'which-key--hide-popup-ignore-command)
+        embark-become-indicator embark-action-indicator)
+
+  :bind
+  ("C-s-a" . embark-act)
+  ;; alternative for `describe-bindings'
+  ("C-h B" . embark-bindings)
+  (:map selectrum-minibuffer-map
+        ("C-o" . embark-act)
+        ("M-o" . embark-act)
+        :map embark-symbol-map
+        ("h" . helpful-symbol)
+        :map embark-become-help-map
+        ("v" . helpful-variable)
+        ("f" . helpful-function)
+        ("s" . helpful-symbol)))
+
+(use-package embark-consult
+  :after embark consult
+  :defer 6
+  ;; only necessary if you have the hook below
+  ;; if you want to have consult previews as you move around an
+  ;; auto-updating embark collect buffer
+  :hook
+  (embark-collect-mode . embark-consult-preview-minor-mode))
+
+(use-package ctrlf
+  :defer 7
+  :config
+  (ctrlf-mode))
 
 (use-package projectile
   :custom
   (projectile-keymap-prefix (kbd "C-c p"))
-  (projectile-completion-system 'ivy)
   (projectile-project-search-path (list code-directory))
   (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
   (projectile-switch-project-action 'projectile-dired)
   (projectile-mode-line nil)
+
   :config
   (defun projectile-git-ls-files (&optional dir)
     "List of the tracked files in the git repo, specified by DIR."
@@ -2416,28 +2222,19 @@ https://www.reddit.com/r/emacs/comments/cmnumy/weekly_tipstricketc_thread/ew3jyr
                                     :compile "clj "
                                     :test-suffix "_test")
   (projectile-mode)
+
   :bind-keymap
   ("C-c p" . projectile-command-map)
+
   :bind
+  ("s-p" . projectile-find-file)
+  ("s-P" . projectile-switch-project)
+  ("s-B" . projectile-switch-to-buffer)
   ("s-}" . projectile-next-project-buffer)
   ("C-c }" . projectile-next-project-buffer)
   ("s-{" . projectile-previous-project-buffer)
-  ("C-c {" . projectile-previous-project-buffer))
-
-(use-package counsel-projectile
-  :defer 12
-  :custom
-  (counsel-projectile-remove-current-buffer t)
-  (counsel-projectile-remove-current-project t)
-  :config
-  ;; When switching projects, go straight to dired in the project root.
-  (setcar counsel-projectile-switch-project-action 4)
-  (counsel-projectile-mode)
-  :bind
-  ("s-p" . counsel-projectile)
-  ("s-P" . counsel-projectile-switch-project)
-  ("M-s-f" . counsel-projectile-rg)
-  ("C-s-b" . counsel-projectile-switch-to-buffer))
+  ("C-c {" . projectile-previous-project-buffer)
+  ("C-s-b" . projectile-switch-to-buffer))
 
 (use-package company
   :defer 5
@@ -2511,6 +2308,21 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
   ("M-?" . smart-jump-references)
   ("M-P" . smart-jump-go-other-window)
   ("C-x 4 ." . smart-jump-go-other-window))
+
+(use-package wgrep
+  :custom
+  ;; Save changed buffers immediately when exiting wgrep mode
+  (wgrep-auto-save-buffer t)
+  :bind
+  (:map grep-mode-map
+        ("C-c C-p" . wgrep-change-to-wgrep-mode)
+        :map occur-mode-map
+        ("C-c C-p" . wgrep-change-to-wgrep-mode)))
+
+;; brew install ripgrep
+(use-package rg
+  :config
+  (rg-enable-default-bindings (kbd "M-s M-r")))
 
 (use-package spotlight
   :bind
@@ -2698,6 +2510,83 @@ With a prefix ARG always prompt for command to use."
 
 ;;;; Dired
 
+(use-package dired-rainbow
+  :defer 4
+  :config
+  (dired-rainbow-define-chmod directory "#0074d9" "d.*")
+  (dired-rainbow-define html "#eb5286"
+                        ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
+                         "eml" "mustache" "xhtml"))
+  (dired-rainbow-define xml "#f2d024"
+                        ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
+                         "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
+                         "meta" "unity" "tres" "tscn" "import" "godot"))
+  (dired-rainbow-define document "#9561e2"
+                        ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
+                         "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
+                         "vsd" "vsdx" "plantuml"))
+  (dired-rainbow-define markdown "#4dc0b5"
+                        ("org" "org_archive" "etx" "info" "markdown" "md"
+                         "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
+  (dired-rainbow-define database "#6574cd"
+                        ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
+  (dired-rainbow-define media "#de751f"
+                        ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
+                         "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
+  (dired-rainbow-define image "#f66d9b"
+                        ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
+                         "psd" "eps" "svg"))
+  (dired-rainbow-define log "#c17d11"
+                        ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
+                         "log.7" "log.8" "log.9"))
+  (dired-rainbow-define shell "#f6993f"
+                        ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
+  (dired-rainbow-define interpreted "#38c172"
+                        ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
+                         "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
+                         "scala" "js" "jsx" "lua" "fnl" "gd"))
+  (dired-rainbow-define compiled "#6cb2eb"
+                        ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
+                         "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
+                         "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
+                         "pyc" "java"))
+  (dired-rainbow-define executable "#8cc4ff"
+                        ("com" "exe" "msi"))
+  (dired-rainbow-define compressed "#51d88a"
+                        ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
+                         "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
+  (dired-rainbow-define packaged "#faad63"
+                        ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
+                         "vpk" "bsp"))
+  (dired-rainbow-define encrypted "#f2d024"
+                        ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
+                         "pem"))
+  (dired-rainbow-define fonts "#f6993f"
+                        ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
+                         "woff2" "eot"))
+  (dired-rainbow-define partition "#e3342f"
+                        ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
+                         "bak"))
+  (dired-rainbow-define vc "#6cb2eb"
+                        ("git" "gitignore" "gitattributes" "gitmodules"))
+  (dired-rainbow-define config "#5040e2"
+                        ("cfg" "conf"))
+  (dired-rainbow-define certificate "#6cb2eb"
+                        ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
+  (dired-rainbow-define junk "#7F7D7D"
+                        ("DS_Store" "projectile"))
+  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
+
+  (dolist (b (buffer-list))
+    (with-current-buffer b
+      (when (equal major-mode 'dired-mode)
+        (font-lock-refresh-defaults)))))
+
+(use-package dired-rainbow-listing
+  :straight (:type git :host github :repo "mnewt/dired-rainbow-listing")
+  :hook
+  (dired-mode-hook . dired-rainbow-listing-mode))
+
 (use-package dired
   :straight (:type built-in)
   :custom
@@ -2813,84 +2702,6 @@ ERR and IND are ignored."
   :commands
   wdired-change-to-wdired-mode)
 
-(use-package dired-rainbow
-  :after dired
-  :config
-  (dired-rainbow-define-chmod directory "#0074d9" "d.*")
-  (dired-rainbow-define html "#eb5286"
-                        ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
-                         "eml" "mustache" "xhtml"))
-  (dired-rainbow-define xml "#f2d024"
-                        ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg"
-                         "pgn" "rss" "yaml" "yml" "rdata" "sln" "csproj"
-                         "meta" "unity" "tres" "tscn" "import" "godot"))
-  (dired-rainbow-define document "#9561e2"
-                        ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps"
-                         "rtf" "djvu" "epub" "odp" "ppt" "pptx" "xls" "xlsx"
-                         "vsd" "vsdx" "plantuml"))
-  (dired-rainbow-define markdown "#4dc0b5"
-                        ("org" "org_archive" "etx" "info" "markdown" "md"
-                         "mkd" "nfo" "pod" "rst" "tex" "texi" "textfile" "txt"))
-  (dired-rainbow-define database "#6574cd"
-                        ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-  (dired-rainbow-define media "#de751f"
-                        ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv"
-                         "ogg" "mov" "mid" "midi" "wav" "aiff" "flac" "mkv"))
-  (dired-rainbow-define image "#f66d9b"
-                        ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png"
-                         "psd" "eps" "svg"))
-  (dired-rainbow-define log "#c17d11"
-                        ("log" "log.1" "log.2" "log.3" "log.4" "log.5" "log.6"
-                         "log.7" "log.8" "log.9"))
-  (dired-rainbow-define shell "#f6993f"
-                        ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
-  (dired-rainbow-define interpreted "#38c172"
-                        ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
-                         "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                         "scala" "js" "jsx" "lua" "fnl" "gd"))
-  (dired-rainbow-define compiled "#6cb2eb"
-                        ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
-                         "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
-                         "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
-                         "pyc" "java"))
-  (dired-rainbow-define executable "#8cc4ff"
-                        ("com" "exe" "msi"))
-  (dired-rainbow-define compressed "#51d88a"
-                        ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
-                         "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
-  (dired-rainbow-define packaged "#faad63"
-                        ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf"
-                         "vpk" "bsp"))
-  (dired-rainbow-define encrypted "#f2d024"
-                        ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12"
-                         "pem"))
-  (dired-rainbow-define fonts "#f6993f"
-                        ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf" "woff"
-                         "woff2" "eot"))
-  (dired-rainbow-define partition "#e3342f"
-                        ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk"
-                         "bak"))
-  (dired-rainbow-define vc "#6cb2eb"
-                        ("git" "gitignore" "gitattributes" "gitmodules"))
-  (dired-rainbow-define config "#5040e2"
-                        ("cfg" "conf"))
-  (dired-rainbow-define certificate "#6cb2eb"
-                        ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
-  (dired-rainbow-define junk "#7F7D7D"
-                        ("DS_Store" "projectile"))
-  (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-
-  (dolist (b (buffer-list))
-    (with-current-buffer b
-      (when (equal major-mode 'dired-mode)
-        (font-lock-refresh-defaults)))))
-
-(use-package dired-rainbow-listing
-  :after dired
-  :straight (:type git :host github :repo "mnewt/dired-rainbow-listing")
-  :hook
-  (dired-mode-hook . dired-rainbow-listing-mode))
-
 (use-package dired-narrow
   :after dired
   :commands
@@ -2969,22 +2780,6 @@ ERR and IND are ignored."
   :config
   (set-face-attribute 'helpful-heading nil :inherit 'outline-2)
 
-  (defun helpful-keymap ()
-    "Select keymap with ivy, display help with helpful."
-    (interactive)
-    (ivy-read "Keymap: "
-              (let (cands)
-                (mapatoms (lambda (x)
-                            (and (boundp x) (keymapp (symbol-value x))
-                                 (push (symbol-name x) cands))))
-                cands)
-              :require-match t
-              :history 'counsel-describe-keymap-history
-              :sort t
-              :preselect (ivy-thing-at-point)
-              :keymap counsel-describe-map
-              :caller 'counsel-helpful-keymap-describe
-              :action (lambda (map-name) (helpful-variable (intern map-name)))))
   :bind
   ("C-h ." . helpful-at-point)
   ("C-h f" . helpful-callable)
@@ -3003,6 +2798,10 @@ ERR and IND are ignored."
 
 (use-package eldoc
   :defer 20
+  :custom
+  ;; Display the message using up to 90% of the frame height.  See
+  ;; `elisp--fnsym-add-docstring'.
+  (eldoc-echo-area-use-multiline-p 0.9)
   :config
   (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
@@ -3096,10 +2895,7 @@ Include PREFIX in prompt if given."
   ("C-h C-m" . man))
 
 (use-package woman
-  :commands
-  tramp-aware-woman
-
-  :config
+  :preface
   ;; TODO Make this usable by:
   ;;   1. Search the remote MANPATH for the file
   (defun tramp-aware-woman (man-page-path)
@@ -3218,16 +3014,6 @@ INITIAL will be used as the initial input, if given."
   :bind
   ("C-h M-l" . devdocs-lookup))
 
-(use-package counsel-ffdata
-  :custom
-  (counsel-ffdata-database-path
-   (car (file-expand-wildcards
-         (concat (getenv "HOME")
-                 "/Library/Application Support/Firefox/Profiles/*/places.sqlite"))))
-  :bind
-  ("C-c F h" . counsel-ffdata-firefox-history)
-  ("C-c F b" . counsel-ffdata-firefox-bookmarks))
-
 (use-package atomic-chrome
   :defer 16
   :custom
@@ -3239,13 +3025,6 @@ INITIAL will be used as the initial input, if given."
   (atomic-chrome-start-server)
   :hook
   (atomic-chrome-edit-done-hook . atomic-chrome-switch-to-firefox))
-
-(use-package counsel-web
-  :straight (counsel-web :host github :repo "mnewt/counsel-web")
-  :bind
-  (:map m-search-map
-        ("w" . counsel-web-suggest)
-        ("W" . counsel-web-search)))
 
 (use-package gif-screencast
   :custom
@@ -3278,9 +3057,7 @@ INITIAL will be used as the initial input, if given."
 (bind-keys
  ("C-h C-i" . elisp-index-search)
  ("C-h M-i" . info-apropos)
- :map Info-mode-map
- ("j" . next-line)
- ("k" . previous-line))
+ ("C-h C-l" . find-library))
 
 
 ;;;; Calendar and Journal
@@ -3565,7 +3342,6 @@ The config is specified in the config file in `~/.mnt/'."
 (use-package magit
   :custom
   (magit-repository-directories `((,code-directory . 1)))
-  (magit-completing-read-function 'ivy-completing-read)
 
   :bind
   ("C-x g" . magit-status)
@@ -4274,10 +4050,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     "Clean up all tramp buffers and connections."
     (interactive)
     (tramp-cleanup-all-buffers)
-    (tramp-cleanup-all-connections)
-    (setq ivy-history
-          (seq-remove (lambda (s) (file-remote-p (substring-no-properties s)))
-                      ivy-history)))
+    (tramp-cleanup-all-connections))
 
   (defun tramp-insert-remote-part ()
     "Insert current tramp prefix at point."
@@ -4300,13 +4073,6 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   :bind
   ("C-c d" . tramp-dired)
   ("C-:" . tramp-insert-remote-part))
-
-(use-package counsel-tramp
-  :hook
-  (counsel-tramp-pre-command-hook . (lambda () (projectile-mode 0)))
-  (counsel-tramp-quit-hook . projectile-mode)
-  :commands
-  counsel-tramp)
 
 (defun insert-environment-variable ()
   "Insert contents of an envionment variable at point."
@@ -4793,8 +4559,8 @@ Split the window vertically."
   (defun eshell-get-or-create ()
     "Get or create an Eshell buffer."
     (interactive)
-    (or (when current-prefix-arg (eshell-create-in-background))
-        (car (filter-buffers-by-mode 'eshell-mode))
+    (or (unless current-prefix-arg
+          (car (filter-buffers-by-mode 'eshell-mode)))
         (eshell-create-in-background)))
 
   (defun eshell-switch-to-buffer ()
@@ -5224,23 +4990,100 @@ and FILE is the cons describing the file."
   :straight (:type built-in)
   :defer 19
   :mode ("Cask\\'" . emacs-lisp-mode)
+
   :config
   (add-to-list 'safe-local-variable-values
                '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
+
+  (defcustom emacs-lisp-eldoc-docstring 'full
+    "Display docstrings in `eldoc' for Emacs Lisp."
+    :type '(choice
+            (symbol :tag "Full docstring" full)
+            (symbol :tag "First line" first-line)
+            (const :tag "No docstring" nil)))
+
+  (defun elisp--fnsym-add-docstring (f sym &optional index)
+    "Add the docstring for SYM to `eldoc'.
+See `elisp-get-fnsym-args-string'."
+    (when sym
+      (let* ((string (funcall f sym index))
+             (doc (cl-case emacs-lisp-eldoc-docstring
+                    (full (documentation sym t))
+                    (first-line (elisp--docstring-first-line (documentation sym t)))
+                    ('nil "")))
+             (w (frame-width))
+             (color-doc (propertize doc 'face 'font-lock-doc-face)))
+        (if (and doc (not (string-empty-p doc)))
+            (concat string "\n" color-doc)
+          string))))
+
+  (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
+
   (defun emacs-lisp-mode-setup ()
     "Set up `emacs-lisp-mode'."
     ;; Ugh. It's the Emacs Lisp standard.
-    (setq-local sentence-end-double-space t))
+    (setq-local sentence-end-double-space t)
+    ;; Only comment headings should be part of the outline, not top level forms
+    ;; or autoloads. See `lisp-mode' for the default.
+    (setq-local outline-regexp ";;;\\(;* [^ \t\n]\\)"))
+
   :hook
   (emacs-lisp-mode-hook . emacs-lisp-mode-setup)
+
   :bind
-  (:map emacs-lisp-mode-map
+  ;; `lisp-mode-shared-map' is shared between `emacs-lisp-mode' and
+  ;; `lisp-interaction-mode'.
+  (:map lisp-mode-shared-map
         ("s-<return>" . eval-last-sexp)
-        ("s-RET" . eval-last-sexp)))
+        ("s-RET" . eval-last-sexp)
+        ("C-s-<return>" . eval-last-sexp-other-window)
+        ("C-c C-k" . eval-buffer)
+        ("C-x C-r" . eval-region)
+        ("C-x M-p" . pp-eval-last-sexp)
+        ("C-x M-e" . pp-macroexpand-last-sexp)
+        ("C-x r E" . expression-to-register)
+        ("C-x r e" . eval-register)
+        ("M-s-t" . ert-run-test-at-point)
+        ("C-s-t" . ert-reload-and-run-tests-in-project)))
 
 (use-package lisp-extra-font-lock
   :hook
   (lisp-data-mode-hook . lisp-extra-font-lock-mode))
+
+(use-package re-builder
+  :custom
+  ;; string syntax means you don't need to double escape things.
+  (reb-re-syntax 'read)
+
+  :config
+  (defun reb-query-replace (to-string)
+    "Replace current RE from point with `query-replace-regexp'."
+    (interactive
+     (progn (barf-if-buffer-read-only)
+            (list (query-replace-read-to (reb-target-binding reb-regexp)
+                                         "Query replace"  t))))
+    (with-current-buffer reb-target-buffer
+      (query-replace-regexp (reb-target-binding reb-regexp) to-string)))
+
+  (defun reb-beginning-of-buffer ()
+    "In re-builder, move target buffer point position back to beginning."
+    (interactive)
+    (set-window-point (get-buffer-window reb-target-buffer)
+                      (with-current-buffer reb-target-buffer (point-min))))
+
+  (defun reb-end-of-buffer ()
+    "In re-builder, move target buffer point position back to beginning."
+    (interactive)
+    (set-window-point (get-buffer-window reb-target-buffer)
+                      (with-current-buffer reb-target-buffer (point-max))))
+
+  :bind
+  (:map prog-mode-map
+        ("C-c x" . re-builder)))
+
+(use-package pcre2el
+  :hook
+  ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
 (use-package parinfer
   :custom
@@ -5670,29 +5513,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :commands
   (geiser run-geiser run-chicken))
 
-(bind-keys
- :map emacs-lisp-mode-map
- ("s-<return>" . eval-last-sexp)
- ("C-s-<return>" . eval-last-sexp-other-window)
- ("C-c C-k" . eval-buffer)
- ("C-x C-r" . eval-region)
- ("C-x M-p" . pp-eval-last-sexp)
- ("C-x M-e" . pp-macroexpand-last-sexp)
- ("C-x r E" . expression-to-register)
- ("C-x r e" . eval-register)
- ("M-s-t" . ert-run-test-at-point)
- ("C-s-t" . ert-reload-and-run-tests-in-project)
- :map lisp-interaction-mode-map
- ("s-<return>" . eval-last-sexp)
- ("C-s-<return>" . eval-last-sexp-other-window)
- ("C-c C-k" . eval-buffer)
- ("C-x C-r" . eval-region)
- ("C-x M-p" . pp-eval-last-sexp)
- ("C-x M-e" . pp-macroexpand-last-sexp)
- ("C-x r E" . expression-to-register)
- ("C-x r e" . eval-register)
- ("C-s-t" . ert-reload-and-run-tests-in-project))
-
 
 ;;;; Reading
 
@@ -5722,6 +5542,7 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :custom
   (datetime-timezone 'US/Pacific))
 
+;; TODO Why is this loaded at startup?
 (use-package logview
   :mode ("\\.log.*" . logview-mode)
   :custom
@@ -6111,6 +5932,11 @@ Open the `eww' buffer in another window."
   (:map flycheck-mode-map
         ("C-c ! C-l" . package-lint-current-buffer)))
 
+(use-package consult-flycheck
+  :bind
+  (:map flycheck-command-map
+        ("!" . consult-flycheck)))
+
 (use-package lsp-mode
   :custom
   (lsp-enable-snippet t)
@@ -6153,10 +5979,10 @@ Open the `eww' buffer in another window."
   (:map lsp-command-map
         ("i" . lsp-ui-imenu)))
 
-(use-package lsp-ivy
-  :commands
-  lsp-ivy-workspace-symbol
-  lsp-ivy-global-workspace-symbol)
+;; (use-package lsp-ivy
+;;   :commands
+;;   lsp-ivy-workspace-symbol
+;;   lsp-ivy-global-workspace-symbol)
 
 (use-package lsp-treemacs
   :bind
@@ -7042,10 +6868,10 @@ open it in `org-directory'."
                                    org-directory))))
 
   (defun org-search-org-directory ()
-    "Search ~/org using `counsel-rg'."
+    "Search ~/org using `ripgrep'."
     (interactive)
     (let ((default-directory org-directory))
-      (counsel-rg)))
+      (consult-ripgrep)))
 
   (defun org-new-note (arg)
     "Create a new Org buffer with ARG controlling the location.
@@ -7352,401 +7178,396 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
 
 ;;;; Hydra
 
-(use-package hydra
-  :defer 10
-  :functions
-  hydra-default-pre
-  hydra-keyboard-quit
-  hydra--call-interactively-remap-maybe
-  hydra-show-hint
-  hydra-set-transient-map
+;; (use-package hydra
+;;   :defer 10
+;;   :functions
+;;   hydra-default-pre
+;;   hydra-keyboard-quit
+;;   hydra--call-interactively-remap-maybe
+;;   hydra-show-hint
+;;   hydra-set-transient-map
 
-  :config
-  (radian-protect-macros
+;;   :config
+;;   (radian-protect-macros
 
-    (with-eval-after-load 'hs
-      (defhydra hydra-hs (:color pink :hint nil)
-        "
-Hideshow
+;;     (with-eval-after-load 'hs
+;;       (defhydra hydra-hs (:color pink :hint nil)
+;;         "
+;; Hideshow
 
-Hide^^            ^Show^            ^Toggle^    ^Navigation^
-----------------------------------------------------------------
-_h_ hide all      _s_ show all      _t_ toggle    _n_ next line
-_d_ hide block    _a_ show block                _p_ previous line
-_l_ hide level
+;; Hide^^            ^Show^            ^Toggle^    ^Navigation^
+;; ----------------------------------------------------------------
+;; _h_ hide all      _s_ show all      _t_ toggle    _n_ next line
+;; _d_ hide block    _a_ show block                _p_ previous line
+;; _l_ hide level
 
-_q_ quit
-"
-        ("s" hs-show-all)
-        ("h" hs-hide-all)
-        ("a" hs-show-block)
-        ("d" hs-hide-block)
-        ("t" hs-toggle-hiding)
-        ("l" hs-hide-level)
-        ("n" forward-line)
-        ("p" (forward-line -1))
-        ("q" nil))
+;; _q_ quit
+;; "
+;;         ("s" hs-show-all)
+;;         ("h" hs-hide-all)
+;;         ("a" hs-show-block)
+;;         ("d" hs-hide-block)
+;;         ("t" hs-toggle-hiding)
+;;         ("l" hs-hide-level)
+;;         ("n" forward-line)
+;;         ("p" (forward-line -1))
+;;         ("q" nil))
 
-      (bind-key (kbd "C-c h") #'hydra-hs/body hs-minor-mode-map))
+;;       (bind-key (kbd "C-c h") #'hydra-hs/body hs-minor-mode-map))
 
-    (with-eval-after-load 'outline
-      (defhydra hydra-outline (:color pink :hint nil)
-        "
-Outline
+;;     (with-eval-after-load 'outline
+;;       (defhydra hydra-outline (:color pink :hint nil)
+;;         "
+;; Outline
 
-^Hide^             ^Show^           ^Move
-^^^^^^------------------------------------------------------
-_s_ sublevels     _a_ all         _u_ up
-_t_ body          _e_ entry       _n_ next visible
-_o_ other         _i_ children    _p_ previous visible
-_c_ entry         _k_ branches    _f_ forward same level
-_l_ leaves        _s_ subtree     _b_ backward same level
-_d_ subtree
+;; ^Hide^             ^Show^           ^Move
+;; ^^^^^^------------------------------------------------------
+;; _s_ sublevels     _a_ all         _u_ up
+;; _t_ body          _e_ entry       _n_ next visible
+;; _o_ other         _i_ children    _p_ previous visible
+;; _c_ entry         _k_ branches    _f_ forward same level
+;; _l_ leaves        _s_ subtree     _b_ backward same level
+;; _d_ subtree
 
-"
-        ;; Hide
-        ("q" outline-hide-sublevels)
-        ("t" outline-hide-body)
-        ("o" outline-hide-other)
-        ("c" outline-hide-entry)
-        ("l" outline-hide-leaves)
-        ("d" outline-hide-subtree)
-        ;; Show
-        ("a" outline-show-all)
-        ("e" outline-show-entry)
-        ("i" outline-show-children)
-        ("k" outline-show-branches)
-        ("s" outline-show-subtree)
-        ;; Move
-        ("u" outline-up-heading)
-        ("n" outline-next-visible-heading)
-        ("p" outline-previous-visible-heading)
-        ("f" outline-forward-same-level)
-        ("b" outline-backward-same-level)
-        ("q" nil "leave"))
+;; "
+;;         ;; Hide
+;;         ("q" outline-hide-sublevels)
+;;         ("t" outline-hide-body)
+;;         ("o" outline-hide-other)
+;;         ("c" outline-hide-entry)
+;;         ("l" outline-hide-leaves)
+;;         ("d" outline-hide-subtree)
+;;         ;; Show
+;;         ("a" outline-show-all)
+;;         ("e" outline-show-entry)
+;;         ("i" outline-show-children)
+;;         ("k" outline-show-branches)
+;;         ("s" outline-show-subtree)
+;;         ;; Move
+;;         ("u" outline-up-heading)
+;;         ("n" outline-next-visible-heading)
+;;         ("p" outline-previous-visible-heading)
+;;         ("f" outline-forward-same-level)
+;;         ("b" outline-backward-same-level)
+;;         ("q" nil "leave"))
 
-      (bind-key (kbd "C-c #") #'hydra-outline/body outline-minor-mode-map))
+;;       (bind-key (kbd "C-c #") #'hydra-outline/body outline-minor-mode-map))
 
-    (with-eval-after-load 'ibuffer
-      (defhydra hydra-ibuffer-main (:color pink :hint nil)
-        "
-    ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
-    _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
-    _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
-    _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
-    _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
-    "
-        ("m" ibuffer-mark-forward)
-        ("u" ibuffer-unmark-forward)
-        ("*" hydra-ibuffer-mark/body :color blue)
-        ("t" ibuffer-toggle-marks)
+;;     (with-eval-after-load 'ibuffer
+;;       (defhydra hydra-ibuffer-main (:color pink :hint nil)
+;;         "
+;;     ^Mark^         ^Actions^         ^View^          ^Select^              ^Navigation^
+;;     _m_ mark      _D_ delete       _g_ refresh    _q_ quit             _k_   ↑    _h_
+;;     _u_ unmark    _s_ save marked  _S_ sort       _TAB_ toggle         _RET_ visit
+;;     _*_ specific  _a_ all actions  _/_ filter     _o_ other window     _j_   ↓    _l_
+;;     _t_ toggle    _._ toggle hydra _H_ help       C-o other win no-select
+;;     "
+;;         ("m" ibuffer-mark-forward)
+;;         ("u" ibuffer-unmark-forward)
+;;         ("*" hydra-ibuffer-mark/body :color blue)
+;;         ("t" ibuffer-toggle-marks)
 
-        ("D" ibuffer-do-delete)
-        ("s" ibuffer-do-save)
-        ("a" hydra-ibuffer-action/body :color blue)
+;;         ("D" ibuffer-do-delete)
+;;         ("s" ibuffer-do-save)
+;;         ("a" hydra-ibuffer-action/body :color blue)
 
-        ("g" ibuffer-update)
-        ("S" hydra-ibuffer-sort/body :color blue)
-        ("/" hydra-ibuffer-filter/body :color blue)
-        ("H" describe-mode :color blue)
+;;         ("g" ibuffer-update)
+;;         ("S" hydra-ibuffer-sort/body :color blue)
+;;         ("/" hydra-ibuffer-filter/body :color blue)
+;;         ("H" describe-mode :color blue)
 
-        ("h" ibuffer-backward-filter-group)
-        ("k" ibuffer-backward-line)
-        ("l" ibuffer-forward-filter-group)
-        ("j" ibuffer-forward-line)
-        ("RET" ibuffer-visit-buffer :color blue)
+;;         ("h" ibuffer-backward-filter-group)
+;;         ("k" ibuffer-backward-line)
+;;         ("l" ibuffer-forward-filter-group)
+;;         ("j" ibuffer-forward-line)
+;;         ("RET" ibuffer-visit-buffer :color blue)
 
-        ("TAB" ibuffer-toggle-filter-group)
+;;         ("TAB" ibuffer-toggle-filter-group)
 
-        ("o" ibuffer-visit-buffer-other-window :color blue)
-        ("q" quit-window :color blue)
-        ("." nil :color blue))
+;;         ("o" ibuffer-visit-buffer-other-window :color blue)
+;;         ("q" quit-window :color blue)
+;;         ("." nil :color blue))
 
-      (defhydra hydra-ibuffer-mark (:color teal :columns 5
-                                           :after-exit (hydra-ibuffer-main/body))
-        "Mark"
-        ("*" ibuffer-unmark-all "unmark all")
-        ("M" ibuffer-mark-by-mode "mode")
-        ("m" ibuffer-mark-modified-buffers "modified")
-        ("u" ibuffer-mark-unsaved-buffers "unsaved")
-        ("s" ibuffer-mark-special-buffers "special")
-        ("r" ibuffer-mark-read-only-buffers "read-only")
-        ("/" ibuffer-mark-dired-buffers "dired")
-        ("e" ibuffer-mark-dissociated-buffers "dissociated")
-        ("h" ibuffer-mark-help-buffers "help")
-        ("z" ibuffer-mark-compressed-file-buffers "compressed")
-        ("b" hydra-ibuffer-main/body "back" :color blue))
+;;       (defhydra hydra-ibuffer-mark (:color teal :columns 5
+;;                                            :after-exit (hydra-ibuffer-main/body))
+;;         "Mark"
+;;         ("*" ibuffer-unmark-all "unmark all")
+;;         ("M" ibuffer-mark-by-mode "mode")
+;;         ("m" ibuffer-mark-modified-buffers "modified")
+;;         ("u" ibuffer-mark-unsaved-buffers "unsaved")
+;;         ("s" ibuffer-mark-special-buffers "special")
+;;         ("r" ibuffer-mark-read-only-buffers "read-only")
+;;         ("/" ibuffer-mark-dired-buffers "dired")
+;;         ("e" ibuffer-mark-dissociated-buffers "dissociated")
+;;         ("h" ibuffer-mark-help-buffers "help")
+;;         ("z" ibuffer-mark-compressed-file-buffers "compressed")
+;;         ("b" hydra-ibuffer-main/body "back" :color blue))
 
-      (defhydra hydra-ibuffer-action (:color teal :columns 4
-                                             :after-exit
-                                             (if (eq major-mode 'ibuffer-mode)
-                                                 (hydra-ibuffer-main/body)))
-        "Action"
-        ("A" ibuffer-do-view "view")
-        ("E" ibuffer-do-eval "eval")
-        ("F" ibuffer-do-shell-command-file "shell-command-file")
-        ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
-        ("H" ibuffer-do-view-other-frame "view-other-frame")
-        ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
-        ("M" ibuffer-do-toggle-modified "toggle-modified")
-        ("O" ibuffer-do-occur "occur")
-        ("P" ibuffer-do-print "print")
-        ("Q" ibuffer-do-query-replace "query-replace")
-        ("R" ibuffer-do-rename-uniquely "rename-uniquely")
-        ("T" ibuffer-do-toggle-read-only "toggle-read-only")
-        ("U" ibuffer-do-replace-regexp "replace-regexp")
-        ("V" ibuffer-do-revert "revert")
-        ("W" ibuffer-do-view-and-eval "view-and-eval")
-        ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
-        ("b" nil "back"))
+;;       (defhydra hydra-ibuffer-action (:color teal :columns 4
+;;                                              :after-exit
+;;                                              (if (eq major-mode 'ibuffer-mode)
+;;                                                  (hydra-ibuffer-main/body)))
+;;         "Action"
+;;         ("A" ibuffer-do-view "view")
+;;         ("E" ibuffer-do-eval "eval")
+;;         ("F" ibuffer-do-shell-command-file "shell-command-file")
+;;         ("I" ibuffer-do-query-replace-regexp "query-replace-regexp")
+;;         ("H" ibuffer-do-view-other-frame "view-other-frame")
+;;         ("N" ibuffer-do-shell-command-pipe-replace "shell-cmd-pipe-replace")
+;;         ("M" ibuffer-do-toggle-modified "toggle-modified")
+;;         ("O" ibuffer-do-occur "occur")
+;;         ("P" ibuffer-do-print "print")
+;;         ("Q" ibuffer-do-query-replace "query-replace")
+;;         ("R" ibuffer-do-rename-uniquely "rename-uniquely")
+;;         ("T" ibuffer-do-toggle-read-only "toggle-read-only")
+;;         ("U" ibuffer-do-replace-regexp "replace-regexp")
+;;         ("V" ibuffer-do-revert "revert")
+;;         ("W" ibuffer-do-view-and-eval "view-and-eval")
+;;         ("X" ibuffer-do-shell-command-pipe "shell-command-pipe")
+;;         ("b" nil "back"))
 
-      (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
-        "Sort"
-        ("i" ibuffer-invert-sorting "invert")
-        ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
-        ("v" ibuffer-do-sort-by-recency "recently used")
-        ("s" ibuffer-do-sort-by-size "size")
-        ("f" ibuffer-do-sort-by-filename/process "filename")
-        ("m" ibuffer-do-sort-by-major-mode "mode")
-        ("b" hydra-ibuffer-main/body "back" :color blue))
+;;       (defhydra hydra-ibuffer-sort (:color amaranth :columns 3)
+;;         "Sort"
+;;         ("i" ibuffer-invert-sorting "invert")
+;;         ("a" ibuffer-do-sort-by-alphabetic "alphabetic")
+;;         ("v" ibuffer-do-sort-by-recency "recently used")
+;;         ("s" ibuffer-do-sort-by-size "size")
+;;         ("f" ibuffer-do-sort-by-filename/process "filename")
+;;         ("m" ibuffer-do-sort-by-major-mode "mode")
+;;         ("b" hydra-ibuffer-main/body "back" :color blue))
 
-      (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
-        "Filter"
-        ("m" ibuffer-filter-by-used-mode "mode")
-        ("M" ibuffer-filter-by-derived-mode "derived mode")
-        ("n" ibuffer-filter-by-name "name")
-        ("c" ibuffer-filter-by-content "content")
-        ("e" ibuffer-filter-by-predicate "predicate")
-        ("f" ibuffer-filter-by-filename "filename")
-        (">" ibuffer-filter-by-size-gt "size")
-        ("<" ibuffer-filter-by-size-lt "size")
-        ("/" ibuffer-filter-disable "disable")
-        ("b" hydra-ibuffer-main/body "back" :color blue))
+;;       (defhydra hydra-ibuffer-filter (:color amaranth :columns 4)
+;;         "Filter"
+;;         ("m" ibuffer-filter-by-used-mode "mode")
+;;         ("M" ibuffer-filter-by-derived-mode "derived mode")
+;;         ("n" ibuffer-filter-by-name "name")
+;;         ("c" ibuffer-filter-by-content "content")
+;;         ("e" ibuffer-filter-by-predicate "predicate")
+;;         ("f" ibuffer-filter-by-filename "filename")
+;;         (">" ibuffer-filter-by-size-gt "size")
+;;         ("<" ibuffer-filter-by-size-lt "size")
+;;         ("/" ibuffer-filter-disable "disable")
+;;         ("b" hydra-ibuffer-main/body "back" :color blue))
 
-      (bind-key (kbd ".") #'hydra-ibuffer-main/body ibuffer-mode-map))
+;;       (bind-key (kbd ".") #'hydra-ibuffer-main/body ibuffer-mode-map))
 
-    (with-eval-after-load 'dired
-      (defhydra hydra-dired (:hint nil :color pink)
-        "
-  _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
-  _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
-  _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
-  _R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
-  _Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
-  _S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
-  _A_ find regexp    _Q_ repl regexp                                      _q_ quit
+;;     (with-eval-after-load 'dired
+;;       (defhydra hydra-dired (:hint nil :color pink)
+;;         "
+;;   _+_ mkdir          _v_ view         _m_ mark             _(_ details        _i_ insert-subdir
+;;   _C_ copy           _O_ view other   _U_ unmark all       _)_ omit-mode      _W_  wdired
+;;   _D_ delete         _o_ open other   _u_ unmark           _l_ redisplay      _w_ kill-subdir
+;;   _R_ rename         _M_ chmod        _t_ toggle           _g_ revert buf     _e_ ediff
+;;   _Y_ rel symlink    _G_ chgrp        _E_ extension mark   _s_ sort           _r_ rsync
+;;   _S_ symlink        _z_ compress     _F_ find marked                       _?_ summary
+;;   _A_ find regexp    _Q_ repl regexp                                      _q_ quit
 
-  C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
-  "
-        ("(" dired-hide-details-mode)
-        (")" dired-omit-mode)
-        ("+" dired-create-directory)
-        ("?" dired-summary)
-        ("A" dired-do-find-regexp)
-        ("C" dired-do-copy)
-        ("D" dired-do-delete)
-        ("E" dired-mark-extension)
-        ("e" dired-ediff-files)
-        ("F" dired-do-find-marked-files)
-        ("G" dired-do-chgrp)
-        ("g" revert-buffer)
-        ("i" dired-maybe-insert-subdir)
-        ("l" dired-do-redisplay) ;; relist the marked or single directory
-        ("M" dired-do-chmod)
-        ("m" dired-mark)
-        ("O" dired-display-file)
-        ("o" dired-find-file-other-window)
-        ("Q" dired-do-find-regexp-and-replace)
-        ("R" dired-do-rename)
-        ("r" dired-rsync)
-        ("S" dired-do-symlink)
-        ("s" dired-sort-toggle-or-edit)
-        ("t" dired-toggle-marks)
-        ("U" dired-unmark-all-marks)
-        ("u" dired-unmark)
-        ("v" dired-view-file) ;; q to exit, s to search, = gets line #
-        ("w" dired-kill-subdir)
-        ("W" wdired-change-to-wdired-mode)
-        ("Y" dired-do-relsymlink)
-        ("z" dired-do-compress)
-        ("q" nil)
-        ("." nil :color blue))
+;;   C-x C-q : edit     C-c C-c : commit C-c ESC : abort                 _._ toggle hydra
+;;   "
+;;         ("(" dired-hide-details-mode)
+;;         (")" dired-omit-mode)
+;;         ("+" dired-create-directory)
+;;         ("?" dired-summary)
+;;         ("A" dired-do-find-regexp)
+;;         ("C" dired-do-copy)
+;;         ("D" dired-do-delete)
+;;         ("E" dired-mark-extension)
+;;         ("e" dired-ediff-files)
+;;         ("F" dired-do-find-marked-files)
+;;         ("G" dired-do-chgrp)
+;;         ("g" revert-buffer)
+;;         ("i" dired-maybe-insert-subdir)
+;;         ("l" dired-do-redisplay) ;; relist the marked or single directory
+;;         ("M" dired-do-chmod)
+;;         ("m" dired-mark)
+;;         ("O" dired-display-file)
+;;         ("o" dired-find-file-other-window)
+;;         ("Q" dired-do-find-regexp-and-replace)
+;;         ("R" dired-do-rename)
+;;         ("r" dired-rsync)
+;;         ("S" dired-do-symlink)
+;;         ("s" dired-sort-toggle-or-edit)
+;;         ("t" dired-toggle-marks)
+;;         ("U" dired-unmark-all-marks)
+;;         ("u" dired-unmark)
+;;         ("v" dired-view-file) ;; q to exit, s to search, = gets line #
+;;         ("w" dired-kill-subdir)
+;;         ("W" wdired-change-to-wdired-mode)
+;;         ("Y" dired-do-relsymlink)
+;;         ("z" dired-do-compress)
+;;         ("q" nil)
+;;         ("." nil :color blue))
 
-      (bind-keys :map dired-mode-map
-                 ("." . hydra-dired/body)
-                 ("C-c C-s" . hydra-dired-quick-sort/body)))
+;;       (bind-keys :map dired-mode-map
+;;                  ("." . hydra-dired/body)
+;;                  ("C-c C-s" . hydra-dired-quick-sort/body)))
 
-    (autoload #'windmove-find-other-window "windmove")
-    (with-eval-after-load 'windmove
-      (defun hydra-move-splitter-left (arg)
-        "Move window splitter left by ARG characters."
-        (interactive "p")
-        (if (windmove-find-other-window 'right)
-            (shrink-window-horizontally arg)
-          (enlarge-window-horizontally arg)))
+;;     (autoload #'windmove-find-other-window "windmove")
+;;     (with-eval-after-load 'windmove
+;;       (defun hydra-move-splitter-left (arg)
+;;         "Move window splitter left by ARG characters."
+;;         (interactive "p")
+;;         (if (windmove-find-other-window 'right)
+;;             (shrink-window-horizontally arg)
+;;           (enlarge-window-horizontally arg)))
 
-      (defun hydra-move-splitter-right (arg)
-        "Move window splitter right by ARG characters."
-        (interactive "p")
-        (if (windmove-find-other-window 'right)
-            (enlarge-window-horizontally arg)
-          (shrink-window-horizontally arg)))
+;;       (defun hydra-move-splitter-right (arg)
+;;         "Move window splitter right by ARG characters."
+;;         (interactive "p")
+;;         (if (windmove-find-other-window 'right)
+;;             (enlarge-window-horizontally arg)
+;;           (shrink-window-horizontally arg)))
 
-      (defun hydra-move-splitter-up (arg)
-        "Move window splitter up by ARG characters."
-        (interactive "p")
-        (if (windmove-find-other-window 'up)
-            (enlarge-window arg)
-          (shrink-window arg)))
+;;       (defun hydra-move-splitter-up (arg)
+;;         "Move window splitter up by ARG characters."
+;;         (interactive "p")
+;;         (if (windmove-find-other-window 'up)
+;;             (enlarge-window arg)
+;;           (shrink-window arg)))
 
-      (defun hydra-move-splitter-down (arg)
-        "Move window splitter down by ARG characters."
-        (interactive "p")
-        (if (windmove-find-other-window 'up)
-            (shrink-window arg)
-          (enlarge-window arg)))
+;;       (defun hydra-move-splitter-down (arg)
+;;         "Move window splitter down by ARG characters."
+;;         (interactive "p")
+;;         (if (windmove-find-other-window 'up)
+;;             (shrink-window arg)
+;;           (enlarge-window arg)))
 
-      (defhydra hydra-window (:hint nil)
-        "
-  MOVE WINDOW^   _h_ left          _j_ down                    _k_ up             _l_ right
-  MOVE BUFFER^   _←_ left          _↓_ down                    _↑_ up             _→_ right
-  SPLIT^         _V_ vertical      _H_ horizontal              _u_ undo           _r_ redo
-  SIZE^          _b_ thinner       _n_ taller                  _p_ shorter        _f_ wider                 _B_ balance
-  DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  _W_ delete other windows
-                _q_ quit
-  "
-        ("h" windmove-left)
-        ("j" windmove-down)
-        ("k" windmove-up)
-        ("l" windmove-right)
-        ("<left>" buf-move-left)
-        ("<down>" buf-move-down)
-        ("<up>" buf-move-up)
-        ("<right>" buf-move-right)
-        ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
-        ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
-        ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
-        ("r" winner-redo)
-        ("b" hydra-move-splitter-left)
-        ("n" hydra-move-splitter-down)
-        ("p" hydra-move-splitter-up)
-        ("f" hydra-move-splitter-right)
-        ("B" balance-windows)
-        ("d" kill-current-buffer)
-        ("D" kill-buffer-and-window)
-        ("w" delete-window)
-        ("W" delete-other-windows)
-        ("q" nil))
+;;       (defhydra hydra-window (:hint nil)
+;;         "
+;;   MOVE WINDOW^   _h_ left          _j_ down                    _k_ up             _l_ right
+;;   MOVE BUFFER^   _←_ left          _↓_ down                    _↑_ up             _→_ right
+;;   SPLIT^         _V_ vertical      _H_ horizontal              _u_ undo           _r_ redo
+;;   SIZE^          _b_ thinner       _n_ taller                  _p_ shorter        _f_ wider                 _B_ balance
+;;   DELETE^        _d_ kill buffer   _D_ kill buffer and window  _w_ delete window  _W_ delete other windows
+;;                 _q_ quit
+;;   "
+;;         ("h" windmove-left)
+;;         ("j" windmove-down)
+;;         ("k" windmove-up)
+;;         ("l" windmove-right)
+;;         ("<left>" buf-move-left)
+;;         ("<down>" buf-move-down)
+;;         ("<up>" buf-move-up)
+;;         ("<right>" buf-move-right)
+;;         ("V" (lambda () (interactive) (split-window-right) (windmove-right)))
+;;         ("H" (lambda () (interactive) (split-window-below) (windmove-down)))
+;;         ("u" (progn (winner-undo) (setq this-command 'winner-undo)))
+;;         ("r" winner-redo)
+;;         ("b" hydra-move-splitter-left)
+;;         ("n" hydra-move-splitter-down)
+;;         ("p" hydra-move-splitter-up)
+;;         ("f" hydra-move-splitter-right)
+;;         ("B" balance-windows)
+;;         ("d" kill-current-buffer)
+;;         ("D" kill-buffer-and-window)
+;;         ("w" delete-window)
+;;         ("W" delete-other-windows)
+;;         ("q" nil))
 
-      (defhydra hydra-move (:hint nil)
-        "
-  hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] [_,_ _._ _l_ _c_] _q_"
-        ("n" next-line)
-        ("N" scroll-down-margin)
-        ("p" previous-line)
-        ("P" scroll-up-margin)
-        ("v" scroll-up-command)
-        ("V" scroll-down-command)
-        ("u" scroll-window-up)
-        ("d" scroll-window-down)
-        ("f" forward-char)
-        ("F" forward-word)
-        ("b" backward-char)
-        ("B" backward-word)
-        ("a" mwim-beginning-of-code-or-line)
-        ("A" beginning-of-defun)
-        ("e" mwim-end-of-code-or-line)
-        ("E" end-of-defun)
-        ("," beginning-of-buffer)
-        ("." end-of-buffer)
-        ("l" recenter-top-bottom)
-        ("c" goto-last-change)
-        ("q" nil)))
+;;       (defhydra hydra-move (:hint nil)
+;;         "
+;;   hydra-move: [_n_ _N_ _p_ _P_ _v_ _V_ _u_ _d_] [_f_ _F_ _b_ _B_ _a_ _A_ _e_ _E_] [_,_ _._ _l_ _c_] _q_"
+;;         ("n" next-line)
+;;         ("N" scroll-down-margin)
+;;         ("p" previous-line)
+;;         ("P" scroll-up-margin)
+;;         ("v" scroll-up-command)
+;;         ("V" scroll-down-command)
+;;         ("u" scroll-window-up)
+;;         ("d" scroll-window-down)
+;;         ("f" forward-char)
+;;         ("F" forward-word)
+;;         ("b" backward-char)
+;;         ("B" backward-word)
+;;         ("a" mwim-beginning-of-code-or-line)
+;;         ("A" beginning-of-defun)
+;;         ("e" mwim-end-of-code-or-line)
+;;         ("E" end-of-defun)
+;;         ("," beginning-of-buffer)
+;;         ("." end-of-buffer)
+;;         ("l" recenter-top-bottom)
+;;         ("c" goto-last-change)
+;;         ("q" nil)))
 
-    (with-eval-after-load 'flycheck
-      (defhydra hydra-flycheck
-        (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
-              :post (progn (setq hydra-hint-display-type nil)
-                           (quit-windows-on "*Flycheck errors*"))
-              :hint nil)
-        "Errors"
-        ("f" flycheck-error-list-set-filter "Filter")
-        ("n" flycheck-next-error "Next")
-        ("p" flycheck-previous-error "Previous")
-        ("<" flycheck-first-error "First")
-        (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
-        ("q" nil))
+;;     (with-eval-after-load 'flycheck
+;;       (defhydra hydra-flycheck
+;;         (:pre (progn (setq hydra-hint-display-type t) (flycheck-list-errors))
+;;               :post (progn (setq hydra-hint-display-type nil)
+;;                            (quit-windows-on "*Flycheck errors*"))
+;;               :hint nil)
+;;         "Errors"
+;;         ("f" flycheck-error-list-set-filter "Filter")
+;;         ("n" flycheck-next-error "Next")
+;;         ("p" flycheck-previous-error "Previous")
+;;         ("<" flycheck-first-error "First")
+;;         (">" (progn (goto-char (point-max)) (flycheck-previous-error)) "Last")
+;;         ("q" nil))
 
-      (bind-key (kbd "C-c ! .") #'hydra-flycheck/body flycheck-mode-map))
+;;       (bind-key (kbd "C-c ! .") #'hydra-flycheck/body flycheck-mode-map))
 
-    (with-eval-after-load 'smerge
-      (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
-        "
-^Move^       ^Keep^               ^Diff^                 ^Other^
-^^-----------^^-------------------^^---------------------^^-------
-_n_ext       _b_ase               _<_: upper/base        _C_ombine
-_p_rev       _u_pper              _=_: upper/lower       _r_esolve
-^^           _l_ower              _>_: base/lower        _k_ill current
-^^           _a_ll                _R_efine
-^^           _RET_: current       _E_diff
-"
-        ("n" smerge-next)
-        ("p" smerge-prev)
-        ("b" smerge-keep-base)
-        ("u" smerge-keep-upper)
-        ("l" smerge-keep-lower)
-        ("a" smerge-keep-all)
-        ("RET" smerge-keep-current)
-        ("C-m" smerge-keep-current)
-        ("<" smerge-diff-base-upper)
-        ("=" smerge-diff-upper-lower)
-        (">" smerge-diff-base-lower)
-        ("R" smerge-refine)
-        ("E" smerge-ediff)
-        ("C" smerge-combine-with-next)
-        ("r" smerge-resolve)
-        ("k" smerge-kill-current)
-        ("ZZ" (lambda ()
-                (interactive)
-                (save-buffer)
-                (bury-buffer))
-         "Save and bury buffer" :color blue)
-        ("q" nil "cancel" :color blue))
+;;     (with-eval-after-load 'smerge
+;;       (defhydra hydra-smerge (:color pink :hint nil :post (smerge-auto-leave))
+;;         "
+;; ^Move^       ^Keep^               ^Diff^                 ^Other^
+;; ^^-----------^^-------------------^^---------------------^^-------
+;; _n_ext       _b_ase               _<_: upper/base        _C_ombine
+;; _p_rev       _u_pper              _=_: upper/lower       _r_esolve
+;; ^^           _l_ower              _>_: base/lower        _k_ill current
+;; ^^           _a_ll                _R_efine
+;; ^^           _RET_: current       _E_diff
+;; "
+;;         ("n" smerge-next)
+;;         ("p" smerge-prev)
+;;         ("b" smerge-keep-base)
+;;         ("u" smerge-keep-upper)
+;;         ("l" smerge-keep-lower)
+;;         ("a" smerge-keep-all)
+;;         ("RET" smerge-keep-current)
+;;         ("C-m" smerge-keep-current)
+;;         ("<" smerge-diff-base-upper)
+;;         ("=" smerge-diff-upper-lower)
+;;         (">" smerge-diff-base-lower)
+;;         ("R" smerge-refine)
+;;         ("E" smerge-ediff)
+;;         ("C" smerge-combine-with-next)
+;;         ("r" smerge-resolve)
+;;         ("k" smerge-kill-current)
+;;         ("ZZ" (lambda ()
+;;                 (interactive)
+;;                 (save-buffer)
+;;                 (bury-buffer))
+;;          "Save and bury buffer" :color blue)
+;;         ("q" nil "cancel" :color blue))
 
-      (bind-key (kbd "C-s-s") #'hydra-smerge/body smerge-mode-map))
+;;       (bind-key (kbd "C-s-s") #'hydra-smerge/body smerge-mode-map))
 
-    (with-eval-after-load 'multiple-cursors
-      (defhydra hydra-multiple-cursors (:hint nil)
-        "
-     ^Up^            ^Down^        ^Other^
-----------------------------------------------
-_p_   Next    _n_   Next    _l_ Edit lines
-_P_   Skip    _N_   Skip    _a_ Mark all
-_M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
-^ ^             ^ ^             _q_ Quit
-"
-        ("l" mc/edit-lines :exit t)
-        ("a" mc/mark-all-like-this :exit t)
-        ("n" mc/mark-next-like-this)
-        ("N" mc/skip-to-next-like-this)
-        ("M-n" mc/unmark-next-like-this)
-        ("p" mc/mark-previous-like-this)
-        ("P" mc/skip-to-previous-like-this)
-        ("M-p" mc/unmark-previous-like-this)
-        ("r" mc/mark-all-in-region-regexp :exit t)
-        ("<mouse-1>" mc/add-cursor-on-click)
-        ("<down-mouse-1>" ignore)
-        ("<drag-mouse-1>" ignore)
-        ("q" nil))))
+;;     (with-eval-after-load 'multiple-cursors
+;;       (defhydra hydra-multiple-cursors (:hint nil)
+;;         "
+;;      ^Up^            ^Down^        ^Other^
+;; ----------------------------------------------
+;; _p_   Next    _n_   Next    _l_ Edit lines
+;; _P_   Skip    _N_   Skip    _a_ Mark all
+;; _M-p_ Unmark  _M-n_ Unmark  _r_ Mark by regexp
+;; ^ ^             ^ ^             _q_ Quit
+;; "
+;;         ("l" mc/edit-lines :exit t)
+;;         ("a" mc/mark-all-like-this :exit t)
+;;         ("n" mc/mark-next-like-this)
+;;         ("N" mc/skip-to-next-like-this)
+;;         ("M-n" mc/unmark-next-like-this)
+;;         ("p" mc/mark-previous-like-this)
+;;         ("P" mc/skip-to-previous-like-this)
+;;         ("M-p" mc/unmark-previous-like-this)
+;;         ("r" mc/mark-all-in-region-regexp :exit t)
+;;         ("<mouse-1>" mc/add-cursor-on-click)
+;;         ("<down-mouse-1>" ignore)
+;;         ("<drag-mouse-1>" ignore)
+;;         ("q" nil))))
 
-  :bind
-  ("C-s-v" . hydra-move/body)
-  ("C-c w" . hydra-window/body))
-
-(use-package ivy-hydra
-  :after ivy hydra
-  :preface
-  (setq ivy-read-action-function #'ivy-hydra-read-action))
+;;   :bind
+;;   ("C-s-v" . hydra-move/body)
+;;   ("C-c w" . hydra-window/body))
 
 
 ;;;; Garbage Collection
