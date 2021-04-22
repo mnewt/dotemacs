@@ -193,12 +193,12 @@ If VARS is not specified, use `env-cache-vars'."
         debug-on-error t))
 
 ;; FIXME Eager macro-expansion failure: (wrong-number-of-arguments (3 . 4) 2)
-(use-package benchmark-init
-  :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
-  :demand t
-  :config
-  ;; To disable collection of benchmark data after init is done.
-  (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
+;;   :demand t
+;;   :config
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
 ;;;;; Additional Package Management Configuration
 
