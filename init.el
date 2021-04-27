@@ -192,7 +192,6 @@ If VARS is not specified, use `env-cache-vars'."
         use-package-compute-statistics t
         debug-on-error t))
 
-;; FIXME Eager macro-expansion failure: (wrong-number-of-arguments (3 . 4) 2)
 ;; (use-package benchmark-init
 ;;   :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
 ;;   :demand t
@@ -1459,7 +1458,8 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
 (use-package winner
   :defer 10
-  :config
+
+  :preface
   (defun winner-wrong-window ()
     "Open the last opened buffer in the other window."
     (interactive)
@@ -1470,7 +1470,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
       (winner-undo)
       (switch-to-buffer-other-window buffer)))
 
+  :config
   (winner-mode)
+
   :bind
   ("C-c [" . winner-undo)
   ("s-[" . winner-undo)
@@ -1488,8 +1490,10 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 (use-package winum
   :custom
   (winum-auto-setup-mode-line nil)
+
   :config
   (winum-mode)
+
   :bind
   ("s-1" . winum-select-window-1)
   ("C-c 1" . winum-select-window-1)
@@ -2008,6 +2012,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (selectrum-prescient-mode)
   (prescient-persist-mode))
 
+;; FIXME `consult-man' doesn't show any results for `rg' because it's only two
+;; characters.
 (use-package consult
   :defer 2
 
@@ -2140,11 +2146,31 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 (use-package embark
   :defer 5
 
-  :init
-  ;; Optionally replace the key help with a completing-read interface
-  (setq prefix-help-command #'embark-prefix-help-command)
+  :preface
+  ;; WIP
+  (defun embark-other-window (target)
+    "Complete the current action in another window."
+    (run-with-timer
+     0 nil
+     (lambda (command target)
+       (switch-to-buffer-other-window (current-buffer))
+       (funcall-interactively command target))
+     selectrum--last-command
+     target))
+
+  (defun embark-execute-command-other-window (command)
+    "Execute `command' in another window."
+    (run-with-timer
+     0 nil
+     (lambda (command)
+       (switch-to-buffer-other-window (current-buffer))
+       (call-interactively (intern command)))
+     command))
 
   :config
+  ;; Replace the key help with a completing-read interface
+  (setq prefix-help-command #'embark-prefix-help-command)
+
   ;; Hide the mode line of the Embark live/completions buffers
   (add-to-list 'display-buffer-alist
                '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
@@ -2164,9 +2190,12 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("C-h B" . embark-bindings)
   (:map selectrum-minibuffer-map
         ("C-o" . embark-act)
-        ("M-o" . embark-act)
         :map embark-symbol-map
         ("h" . helpful-symbol)
+        :map embark-general-map
+        ("o" . embark-other-window)
+        :map embark-command-map
+        ("o" . embark-execute-command-other-window)
         :map embark-become-help-map
         ("v" . helpful-variable)
         ("f" . helpful-function)
@@ -2175,11 +2204,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 (use-package embark-consult
   :after embark consult
   :defer 6
-  ;; only necessary if you have the hook below
-  ;; if you want to have consult previews as you move around an
-  ;; auto-updating embark collect buffer
   :hook
-  (embark-collect-mode . embark-consult-preview-minor-mode))
+  ;; Enable `consult' previews as you move around an auto-updating
+  ;; `embark-collect' buffer.
+  (embark-collect-mode-hook . embark-consult-preview-minor-mode))
 
 (use-package ctrlf
   :defer 7
@@ -2238,13 +2266,17 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
 (use-package company
   :defer 5
+
   :custom
   (company-dabbrev-ignore-case t)
+
   :commands
   company-select-next
   company-select-previous
+
   :config
-  (eldoc-add-command #'company-select-next #'company-select-previous)
+  (with-eval-after-load 'eldoc
+    (eldoc-add-command #'company-select-next #'company-select-previous))
 
   (global-company-mode)
 
@@ -2252,6 +2284,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ((prog-mode-hook lisp-interaction-mode-hook cider-repl-mode-hook) . company-mode)
   ;; TODO: Figure out how to make company-mode work in the minibuffer.
   ;; (minibuffer-setup-hook . company-mode)
+
   :bind
   ("M-/" . company-complete)
   (:map company-mode-map
@@ -2794,20 +2827,46 @@ ERR and IND are ignored."
         ("<tab>" . forward-button)
         ("M-p" . imenu-goto-previous)
         ("M-n" . imenu-goto-next)
-        ("o" . push-button-other-window)))
+        ("o" . push-button-other-window)
+        ("C-x C-e" . eval-last-sexp)
+        ("s-<return>" . eval-last-sexp)))
 
 (use-package eldoc
   :defer 20
-  :custom
-  ;; Display the message using up to 90% of the frame height.  See
-  ;; `elisp--fnsym-add-docstring'.
-  (eldoc-echo-area-use-multiline-p 0.9)
   :config
-  (eldoc-add-command #'keyboard-quit)
   (global-eldoc-mode))
 
 (use-package eldoc-box
   :after eldoc
+
+  :custom
+  (eldoc-box-clear-with-C-g t)
+
+  :config
+  ;; Display the message using up to 90% of the frame height.
+  (custom-set-variables '(eldoc-echo-area-use-multiline-p 0.9))
+
+  ;; Customize `eldoc' setup for Emacs Lisp to display docstrings in addition to
+  ;; the usual signature.
+  (with-eval-after-load 'elisp-mode
+    (defun elisp--fnsym-add-docstring (f sym &optional index)
+      "Add the docstring for SYM to `eldoc'.
+See `elisp-get-fnsym-args-string'."
+      (when-let ((string (funcall f sym index))
+                 (doc (propertize (documentation sym t) 'face 'font-lock-doc-face)))
+        (concat string "\n" doc)))
+
+    (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
+
+    (defun elisp--var-full-docstring (f sym)
+      "Modify `elisp-get-var-docstring' to return the full docstring."
+      (cl-letf (((symbol-function #'elisp--docstring-first-line)
+                 (lambda (doc) doc)))
+        (when-let ((doc (funcall f sym)))
+          (propertize doc 'face 'font-lock-doc-face))))
+
+    (advice-add #'elisp-get-var-docstring :around #'elisp--var-full-docstring))
+
   :hook
   (eldoc-mode-hook . eldoc-box-hover-mode))
 
@@ -4993,30 +5052,6 @@ and FILE is the cons describing the file."
   :config
   (add-to-list 'safe-local-variable-values
                '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
-
-  (defcustom emacs-lisp-eldoc-docstring 'full
-    "Display docstrings in `eldoc' for Emacs Lisp."
-    :type '(choice
-            (symbol :tag "Full docstring" full)
-            (symbol :tag "First line" first-line)
-            (const :tag "No docstring" nil)))
-
-  (defun elisp--fnsym-add-docstring (f sym &optional index)
-    "Add the docstring for SYM to `eldoc'.
-See `elisp-get-fnsym-args-string'."
-    (when sym
-      (let* ((string (funcall f sym index))
-             (doc (cl-case emacs-lisp-eldoc-docstring
-                    (full (documentation sym t))
-                    (first-line (elisp--docstring-first-line (documentation sym t)))
-                    ('nil "")))
-             (w (frame-width))
-             (color-doc (propertize doc 'face 'font-lock-doc-face)))
-        (if (and doc (not (string-empty-p doc)))
-            (concat string "\n" color-doc)
-          string))))
-
-  (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
 
   (defun emacs-lisp-mode-setup ()
     "Set up `emacs-lisp-mode'."
