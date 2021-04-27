@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Install support utilities for various Emacs modes and packages.
+# Read init.el for every line that begins like ";; > " and prompt to run those commands.
+
+set -euo pipefail
+
+# Prompt user to confirm
+prompt_confirm() {
+  local confirm
+  while true; do
+    read -p "$* [y/N]: " confirm
+    case $confirm in
+      [yY]*) return 0 ;;
+      [nN]*) return 1 ;;
+    esac
+  done
+}
+
+# Run command and read into the specified variable.
+# $1: variable name
+# All other args are the command
+into_array() {
+  local array_var="$1"
+  shift
+  IFS=$'\n' read -r -d '' -a "$array_var" < <($@ && printf '\0')
+}
+
+# Display and execute the command
+exe() {
+  echo "> $*"
+  "$@"
+}
+
+into_array commands awk -F'> ' '/^ *;; +>/ {print $2}' "$HOME/.emacs.d/init.el"
+
+printf "%s\n" "${commands[@]}"
+echo
+if prompt_confirm "Run the above commands?"; then
+  echo "Running commands..."
+  for command in "${commands[@]}"; do
+    exe $command
+  done
+fi

@@ -2319,7 +2319,7 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
         :map occur-mode-map
         ("C-c C-p" . wgrep-change-to-wgrep-mode)))
 
-;; brew install ripgrep
+;; > brew install ripgrep
 (use-package rg
   :config
   (rg-enable-default-bindings (kbd "M-s M-r")))
@@ -2920,10 +2920,9 @@ Include PREFIX in prompt if given."
   :hook
   (Info-selection-hook . info-colors-fontify-node))
 
+;; > pip install eg
 (use-package eg.el
   :straight (eg.el :host github :repo "mnewt/eg.el")
-  ;;  :ensure-system-package
-  ;;  (eg . "pip install eg")
   :bind
   ("C-h C-e" . eg))
 
@@ -2931,8 +2930,8 @@ Include PREFIX in prompt if given."
   :bind
   ("C-h t" . tldr))
 
+;; > brew install sqlite3
 (use-package counsel-dash
-  ;; :ensure-system-package sqlite3
   :custom
   (dash-docs-browser-func #'eww-other-window)
   (dash-docs-enable-debugging nil)
@@ -5316,7 +5315,7 @@ Interactively, reads the register using `register-read-with-preview'."
   (:map clojure-mode-map
         ("C-s-r" . cljr-rename-symbol)))
 
-;; brew install borkdude/brew/clj-kondo
+;; > brew install borkdude/brew/clj-kondo
 (use-package flycheck-clj-kondo
   :after clojure)
 
@@ -5704,9 +5703,8 @@ Open the `eww' buffer in another window."
   :hook
   (css-mode-hook . lsp-deferred))
 
+;; disable > gem install sass
 (use-package sass-mode
-  ;; :ensure-system-package
-  ;; (sass . "gem install sass")
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)"
   :hook
   (sass-mode-hook . lsp-deferred))
@@ -5766,8 +5764,8 @@ Open the `eww' buffer in another window."
 (use-package json-mode
   :mode ("\\.json\\'" "prettierrc\\'"))
 
+;; > brew install jq
 (use-package jq-mode
-  ;;  :ensure-system-package jq
   :mode "\\.jq$")
 
 (use-package graphql-mode
@@ -5789,7 +5787,7 @@ Open the `eww' buffer in another window."
         ("s-v" . yank)
         ("s-<return>" . python-shell-send-defun)))
 
-;; pip install python-language-server
+;; disable > pip install python-language-server
 (use-package lsp-python-ms
   :after python
   :config
@@ -6403,9 +6401,7 @@ This command defaults to running the previous command."
   "nginx\\.conf\\'"
   "/nginx/.+\\.conf\\'"
   :custom
-  (nginx-indent-level tab-width)
-  :commands
-  nginx-mode)
+  (nginx-indent-level tab-width))
 
 (use-package caddyfile-mode
   :mode "Caddyfile.*"
@@ -6432,9 +6428,8 @@ This package sets these explicitly so we have to do the same."
   "\\.toml\\'"
   "Pipfile\\'")
 
+;; > gem install rufo
 (use-package ruby-mode
-  ;; :ensure-system-package
-  ;; (rufo . "gem install rufo")
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :hook
   (ruby-mode-hook . lsp-deferred))
@@ -6449,7 +6444,7 @@ This package sets these explicitly so we have to do the same."
         ("s-<return>". ruby-send-last-sexp)
         ("C-M-x" . ruby-send-block)))
 
-;; brew install lua luarocks
+;; disable > brew install lua luarocks
 ;; luarocks install --server=https://luarocks.org/dev lua-lsp --local
 (use-package lua-mode
   :mode "\\.lua\\'"
@@ -6483,7 +6478,7 @@ This package sets these explicitly so we have to do the same."
   (go-mode-hook . lsp-deferred))
 
 ;; Install on macOS:
-;; # brew install powershell
+;; > brew install powershell
 (use-package powershell
   :mode "\\.ps1\\'"
   :custom
@@ -6568,8 +6563,8 @@ This package sets these explicitly so we have to do the same."
 (use-package ahk-mode
   :mode "\\.ahk\\'")
 
+;; > brew install plantuml
 (use-package plantuml-mode
-  ;; :ensure-system-package plantuml
   :mode "\\.puml\\'"
   :custom
   ;; The server doesn't work right because of encoding problems.
@@ -7144,9 +7139,7 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
 ;;     (add-hook 'w3m-fontify-after-hook 'inherit-org-mode)))
 
 ;; Install:
-;; brew install tclap
-;; cd [[~/.emacs.d/straight/repos/notdeft/xapian]]
-;; make
+;; disable > brew install tclap
 (use-package notdeft
   :straight (:host github :repo "hasu/notdeft")
   :custom
