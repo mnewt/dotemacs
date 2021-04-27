@@ -452,15 +452,11 @@ If AND-MEM is non-nil, profile memory as well."
                (substring dired-directory 0 last-idx)
              dired-directory)))))
 
-  :commands
-  recentf-save-list
-  recentf-cleanup
-  recentf-mode
+  :config
+  (recentf-mode)
 
   :hook
-  (dired-mode-hook . recentf-add-dired-directory)
-  :bind
-  ("C-x M-f" . recentf-grep-recent-files))
+  (dired-mode-hook . recentf-add-dired-directory))
 
 (use-package autorevert
   :custom
@@ -484,7 +480,7 @@ If AND-MEM is non-nil, profile memory as well."
                                    magit-read-rev-history
                                    fiat-theme))
   :config
-  (put 'kill-ring 'history-length 200)
+  (put 'kill-ring 'history-length 300)
   (savehist-mode))
 
 
@@ -574,30 +570,32 @@ returned."
 
   (with-eval-after-load 'mwheel
     (setq mouse-wheel-follow-mouse t
-          mouse-wheel-scroll-amount '(1 ((shift) . 1))))
+          mouse-wheel-scroll-amount '(1 ((shift) . 1)))))
 
-  (use-package mixed-pitch
-    :custom
-    (mixed-pitch-set-height t)
-    :config
+(use-package mixed-pitch
+  :if window-system
+  :custom
+  (mixed-pitch-set-height t)
+  :config
 
-    (defvar mixed-pitch-exclude-modes
-      '(dns-mode yaml-mode xml-mode)
-      "Modes excluded from `mixed-pitch-mode'.")
+  (defvar mixed-pitch-exclude-modes
+    '(dns-mode yaml-mode xml-mode)
+    "Modes excluded from `mixed-pitch-mode'.")
 
-    (defun maybe-enable-mixed-pitch-mode ()
-      "Maybe enable `mixed-pitch-mode'."
-      (unless (seq-some (lambda (mode) (derived-mode-p mode))
-                        mixed-pitch-exclude-modes)
-        (mixed-pitch-mode)))
+  (defun maybe-enable-mixed-pitch-mode ()
+    "Maybe enable `mixed-pitch-mode'."
+    (unless (seq-some (lambda (mode) (derived-mode-p mode))
+                      mixed-pitch-exclude-modes)
+      (mixed-pitch-mode)))
 
-    :hook
-    (text-mode-hook . maybe-enable-mixed-pitch-mode)
-    (Info-mode-hook . mixed-pitch-mode))
+  :hook
+  (text-mode-hook . maybe-enable-mixed-pitch-mode)
+  (Info-mode-hook . mixed-pitch-mode))
 
-  (use-package fontify-face
-    :hook
-    (emacs-lisp-mode-hook . fontify-face-mode)))
+(use-package fontify-face
+  :if window-system
+  :hook
+  (emacs-lisp-mode-hook . fontify-face-mode))
 
 ;; Wrap text at the end of a line like a word processor.
 (add-hook 'text-mode-hook #'turn-on-visual-line-mode)
@@ -1166,12 +1164,41 @@ This sets things up for `window-highlight' and `mode-line'."
   :hook
   (prog-mode-hook . outline-minor-mode)
   :bind
-  ("C-<tab>" . outline-cycle))
+  (:map outline-minor-mode-map
+        ("C-<tab>" . outline-cycle)
+        ("M-p" . outline-previous-heading)
+        ("M-n" . outline-next-heading)))
 
 (use-package outline-minor-faces
   :after outline
+  :config
+
+  ;; WIP
+;;   (defun outline-minor-faces--comment-matcher (regexp)
+;;     "Return a matcher that matches REGEXP only in comments.
+;; Intended to replace `outline-minor-faces--syntactic-matcher'."
+;;     (if font-lock-keywords-only
+;;         regexp
+;;       (lambda (limit)
+;;         (and (re-search-forward regexp limit t)
+;;              ;; this apparently doesn't work.
+;;              (nth 4 (syntax-ppss (match-end 0)))))))
+
+  ;; Another idea that doesn't work. See https://emacs.stackexchange.com/questions/14269/how-to-detect-if-the-point-is-within-a-comment-area
+  ;; (let* ((fontfaces (get-text-property pos 'face)))
+  ;;   (when (not (listp fontfaces))
+  ;;     (setf fontfaces (list fontfaces)))
+  ;;   (or (member 'font-lock-comment-face fontfaces)
+  ;;       (member 'font-lock-comment-delimiter-face fontfaces))))
+
+  ;; (advice-add #'outline-minor-faces--syntactic-matcher
+  ;;             :override #'outline-minor-faces--comment-matcher)
+
+  ;; Only comment headings should be part of the outline, not top level forms
+  ;; or autoloads. See `lisp-mode' for the default.
+  ;; (setq-local outline-minor-faces-regexp ";;;\\(;* [^ \t\n]\\)")
   :hook
-  (outline-minor-mode-hook . outline-minor-faces-add-font-lock-keywords))
+  (emacs-lisp-mode-hook . outline-minor-faces-add-font-lock-keywords))
 
 (use-package outorg
   :after outline
@@ -1633,7 +1660,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :custom
   (hs-hide-comments-when-hiding-all nil)
   :bind
-  ("C-c h" . hs-minor-mode)
+  ("C-c C-h" . hs-minor-mode)
   (:map hs-minor-mode-map
         ("C-<tab>" . hs-toggle-hiding)))
 
@@ -2132,6 +2159,9 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; Theme
   ("C-M-S-s-t" . consult-theme)
   ("M-m M-t" . consult-theme)
+
+  ;; Recentf
+  ("C-x f" . consult-recent-file)  ;; orig. set-fill-column
 
   (:map isearch-mode-map
         ("M-e" . consult-isearch)   ;; orig. isearch-edit-string
@@ -5057,10 +5087,7 @@ and FILE is the cons describing the file."
   (defun emacs-lisp-mode-setup ()
     "Set up `emacs-lisp-mode'."
     ;; Ugh. It's the Emacs Lisp standard.
-    (setq-local sentence-end-double-space t)
-    ;; Only comment headings should be part of the outline, not top level forms
-    ;; or autoloads. See `lisp-mode' for the default.
-    (setq-local outline-regexp ";;;\\(;* [^ \t\n]\\)"))
+    (setq-local sentence-end-double-space t))
 
   :hook
   (emacs-lisp-mode-hook . emacs-lisp-mode-setup)
@@ -6684,7 +6711,6 @@ This package sets these explicitly so we have to do the same."
   :mode "\\.gd\\'"
 
   :config
-
   ;; FIXME
   ;; https://github.com/emacs-lsp/lsp-mode/issues/2127
   ;; (require 'lsp-gdscript)
@@ -6698,13 +6724,8 @@ This package sets these explicitly so we have to do the same."
   ;;                                           ("textDocument/publishDiagnostics" 'ignore)
   ;;                                           ("executeCommand" 'ignore))))
 
-  (defun gdscript-setup ()
-    "Set up `gdscript-mode'."
-    (remove-hook 'company-mode-hook #'company-box-mode 'local)
-    (lsp-deferred))
-
   :hook
-  (gdscript-mode-hook . gdscript-setup))
+  (gdscript-mode-hook . lsp-deferred))
 
 (use-package yasnippet-godot-gdscript
   :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
