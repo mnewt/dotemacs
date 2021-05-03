@@ -2535,9 +2535,14 @@ See: https://github.com/mnewt/psync"
                                         (dired-get-file-for-visit))))))
 
 (use-package reveal-in-osx-finder
+  :if (eq system-type 'darwin))
+
+;; > brew install trash
+(use-package osx-trash
   :if (eq system-type 'darwin)
-  :commands
-  reveal-in-osx-finder)
+  :config
+  (setq delete-by-moving-to-trash t)
+  (osx-trash-setup))
 
 (defun reveal-file (&optional _file)
   "Reveal FILE using the operating system's GUI file browser."
@@ -2795,6 +2800,12 @@ ERR and IND are ignored."
 
 (use-package dired-quick-sort
   :after dired)
+
+(use-package dired-git-info
+  :after dired
+  :bind
+  (:map dired-mode-map
+        ("_" . dired-git-info-mode)))
 
 (use-package dired-sidebar
   :after dired

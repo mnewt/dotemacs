@@ -2,7 +2,7 @@
 # Build or rebuild an Emacs-Plus installation
 # https://github.com/d12frosted/homebrew-emacs-plus
 
-setopt -euo pipefail
+set -euo pipefail
 
 # Prompt user to confirm
 prompt_confirm() {
@@ -19,11 +19,9 @@ prompt_confirm() {
 brew install gcc libgccjit || brew upgrade gcc libgccjit
 brew tap d12frosted/emacs-plus
 brew unlink emacs-plus@28 || true
-brew install emacs-plus@28 --with-native-comp --build-from-source ||
-  brew reinstall emacs-plus@28 --with-native-comp --build-from-source
-brew link --overwrite emacs-plus@28
-# Should be a symlink
-rm ~/Applications/Emacs.app
-ln -s /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
+brew reinstall emacs-plus@28 --with-native-comp --build-from-source ||
+  brew install emacs-plus@28 --with-native-comp --build-from-source
+rm -rf ~/Applications/Emacs.app
+brew link emacs-plus@28
 prompt_confirm "Remove ~/.emacs.d/{eln-cache,straight}?" &&
   rm -rf ~/.emacs.d/{eln-cache,straight}
