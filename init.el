@@ -116,7 +116,7 @@ If VARS is not specified, use `env-cache-vars'."
 (custom-set-variables
  ;; Suppress warning popups when the byte compiler issues warnings during async
  ;; native compilation.
- '(comp-async-report-warnings-errors nil))
+ '(native-comp-async-report-warnings-errors nil))
 
 
 ;;;;; Security
@@ -3575,6 +3575,7 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (undo-tree-history-directory-alist
    `(("." . ,(expand-file-name "var/undo-tree" user-emacs-directory))))
   (undo-tree-enable-undo-in-region t)
+  (undo-tree-visualizer-diff t)
 
   :config
   (defun undo-keep-region (f &optional arg)
@@ -3679,8 +3680,8 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 (use-package move-text
   :bind
   (:map prog-mode-map
-        ("M-S-<up>" . move-text-up)
-        ("M-S-<down>" . move-text-down)))
+        ("M-<up>" . move-text-up)
+        ("M-<down>" . move-text-down)))
 
 (use-package string-inflection
   :config
