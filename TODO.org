@@ -1,5 +1,11 @@
 #+TITLE: TODO
 
+* TODO Try Corfu
+
+* TODO Company in text-mode changes capitalization when accepting a completion. It should leave it alone.
+
+* TODO =consult-line= should start on the next matching line, in order
+
 * TODO Remove =hydra= to =/lisp=
 
 * TODO Make changes to d12frosted/emacs-plus [0/3]
@@ -41,14 +47,19 @@
 * TODO Submit patch to Org for =org-do-emphasis-faces=
 
 * TODO eshell-ls-decorated-name [1/3]
+
 ** DONE Fix it so =ls= to a different directory embeds correct links (it currently assumes files are relative to =default-directory=)
+
 ** TODO Extend =eshell-ls-decorated-name= to color output like =dired-rainbow=
+
 ** TODO Submit upstream
 
 * TODO Make =dired-rainbow-listing= into a package
 
 * TODO =counsel-term= stuff
+
 ** TODO Make =counsel-term-cd= into =counsel-dired-jump=
+
 ** TODO =counsel-term-cd=
    https://github.com/tautologyclub/counsel-term/pull/2
    [[file:git/counsel-term/counsel-term.el::(defun%20counsel-term-cd-function%20(str)][counsel-term-cd-function]]

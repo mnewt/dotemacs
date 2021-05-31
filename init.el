@@ -130,6 +130,9 @@ If VARS is not specified, use `env-cache-vars'."
 
 ;;;;; straight
 
+;; FIXME https://github.com/raxod502/straight.el/issues/757
+(setq comp-deferred-compilation-deny-list nil)
+
 (custom-set-variables
  '(straight-repository-branch "develop")
  '(straight-check-for-modifications '(check-on-save find-when-checking))
@@ -2048,8 +2051,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; Optionally configure the register formatting. This improves the register
   ;; preview for `consult-register', `consult-register-load',
   ;; `consult-register-store' and the Emacs built-ins.
-  (setq register-preview-delay 0
-        register-preview-function #'consult-register-format)
+  ;; (setq register-preview-delay 0)
+        ;; register-preview-function #'consult-register-format)
 
   ;; Optionally tweak the register preview window.
   ;; This adds thin lines, sorting and hides the mode line of the window.
@@ -2086,6 +2089,24 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; * locate-dominating-file
   (autoload 'projectile-project-root "projectile")
   (setq consult-project-root-function #'projectile-project-root)
+
+  ;; FIXME Don't preview buffer when using TRAMP and `consult-buffer'.  This
+  ;; seems like a band-aid, not a real solution.
+  (defun consult-buffer-state-no-tramp ()
+    "Buffer state function that doesn't preview Tramp buffers."
+    (let ((orig-state (consult--buffer-state))
+          (filter (lambda (cand restore)
+                    (if (or restore
+                            (let ((buffer (get-buffer cand)))
+                              (and buffer
+                                   (not (file-remote-p (buffer-local-value 'default-directory buffer))))))
+                        cand
+                      nil))))
+      (lambda (cand restore)
+        (funcall orig-state (funcall filter cand restore) restore))))
+
+  (setq consult--source-buffer
+        (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
 
 
   ;; TODO Port this to `consult'.
@@ -2202,10 +2223,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (setq prefix-help-command #'embark-prefix-help-command)
 
   ;; Hide the mode line of the Embark live/completions buffers
-  (add-to-list 'display-buffer-alist
-               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
-                 nil
-                 (window-parameters (mode-line-format . none))))
+  ;; (add-to-list 'display-buffer-alist
+  ;;              '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+  ;;                nil
+  ;;                (window-parameters (mode-line-format . none))))
 
   ;; Use `which-key' as a reminder for `embark' key bindings.
   (setq embark-action-indicator
@@ -2216,8 +2237,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
   :bind
   ("C-s-a" . embark-act)
-  ;; alternative for `describe-bindings'
-  ("C-h B" . embark-bindings)
+  ;; Alternative for `describe-bindings'.
+  ("C-h C-b" . embark-bindings)
   (:map selectrum-minibuffer-map
         ("C-o" . embark-act)
         :map embark-symbol-map
@@ -3254,14 +3275,9 @@ INITIAL will be used as the initial input, if given."
 (use-package pcap-mode
   :mode "\\.pcap\\'")
 
-;; `erc' has `erc-viper', which requires `viper'.  When viper loads it asks the
-;; user whether to "viperize" their Emacs.  This is horrible.  This line makes
-;; the horribleness stop.
-(custom-set-variables '(viper-mode nil))
-
-;; Automate communication with services, such as nicserv.
 (use-package erc
   :hook
+  ;; Automate communication with services, such as nicserv.
   (erc-connect-pre-hook . erc-services-mode))
 
 (defun dis (hostname)
@@ -6060,11 +6076,23 @@ Open the `eww' buffer in another window."
   :bind
   ("S-l \\'" . lsp-treemacs-symbols))
 
-(use-package dap-mode
-  :hook
-  (lsp-mode-hook . dap-mode)
-  (dap-mode-hook . dap-ui-mode)
-  (dap-ui-mode-hook . dap-ui-controls-mode))
+;; TODO Make this something worth using. See also the competing
+;; https://github.com/realgud/realgud, which is an Emacs package to interface
+;; with cli debuggers.
+;; (use-package dap-mode
+;;   :preface
+;;   (defun dap-hydra-interactive ()
+;;     "Call `dap-hydra' interactively."
+;;     (call-interactively #'dap-hydra))
+
+;;   :config
+;;   (dap-ui-controls-mode 1)
+
+;;   :hook
+;;   (lsp-mode-hook . dap-mode)
+;;   (dap-mode-hook . dap-ui-mode)
+;;   (dap-ui-mode-hook . dap-ui-controls-mode)
+;;   (dap-stopped-hook . dap-hydra-interactive))
 
 (use-package apheleia
   :straight (apheleia :host github :repo "raxod502/apheleia")
@@ -7235,6 +7263,11 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   :bind
   ("M-m o w" . ox-clip-formatted-copy)
   ("M-m o W" . ox-clip-image-to-clipboard))
+
+(use-package math-at-point
+  :straight (:host github :repo "shankar2k/math-at-point")
+  :bind
+  ("C-c C-=" . math-at-point))
 
 
 ;;;; Hydra
