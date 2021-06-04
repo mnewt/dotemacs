@@ -17,22 +17,6 @@
     (load "~/.emacs.d/early-init.el")))
 
 
-;;;;; Variables
-
-;; Top level user variables
-
-(defvar elisp-directory (expand-file-name "lisp" user-emacs-directory)
-  "Drop package files here to put them on the `load-path'.")
-
-(defvar code-directory "~/code"
-  "Default directory to store programming projects.")
-
-(defvar org-directory "~/org"
-  "Directory in which to find Org files.")
-
-(add-to-list 'load-path elisp-directory)
-
-
 ;;;;; Environment Variables
 
 ;; PATH and LIBRARY_PATH need to be defined before any packages get loaded. This
@@ -130,9 +114,6 @@ If VARS is not specified, use `env-cache-vars'."
 
 ;;;;; straight
 
-;; FIXME https://github.com/raxod502/straight.el/issues/757
-(setq comp-deferred-compilation-deny-list nil)
-
 (custom-set-variables
  '(straight-repository-branch "develop")
  '(straight-check-for-modifications '(check-on-save find-when-checking))
@@ -202,7 +183,10 @@ If VARS is not specified, use `env-cache-vars'."
 ;;   ;; To disable collection of benchmark data after init is done.
 ;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
 
+
 ;;;;; Additional Package Management Configuration
+
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
 (defvar emacs-start-time)
 (defvar straight--repo-cache)
@@ -381,26 +365,6 @@ higher level up to the top level form."
  ("s-H" . ns-do-hide-others)
  ("C-c U" . revert-buffer)
  ("s-." . repeat))
-
-
-;;;; Profiler
-
-(defun profiler-dwim (and-mem)
-  "Toggle `profiler'.
-
-If `profiler' is stopped, start it in cpu mode.
-
-If `profiler' is started, stop it and run `profiler-report'.
-
-If AND-MEM is non-nil, profile memory as well."
-  (interactive "P")
-  (if (not (and (fboundp 'profiler-cpu-running-p) (profiler-cpu-running-p)))
-      (profiler-start (if and-mem 'cpu+mem 'cpu))
-    (profiler-stop)
-    (profiler-report)))
-
-(bind-keys
- ("M-m M-p" . profiler-dwim))
 
 
 ;;;; Persistence
@@ -1236,7 +1200,7 @@ If it's already there, scroll `scroll-margin' lines up."
   (interactive)
   (let ((line (line-number-at-pos))
         (line-beg (line-number-at-pos (window-start))))
-    (if (= (- line line-beg) scroll-margin)
+    (if (<= (- line line-beg) scroll-margin)
         (forward-line (- scroll-margin))
       (forward-line (+ (- line-beg line) scroll-margin)))))
 
@@ -1246,16 +1210,11 @@ If it's already there, scroll `scroll-margin' lines up."
 If it's already there, scroll `scroll-margin' lines down."
   (interactive)
   (let ((line (line-number-at-pos))
+        ;; 2 is for minibuffer + modeline.
         (line-end (- (line-number-at-pos (window-end)) 2)))
-    (if (= (- line-end line) scroll-margin)
+    (if (<= (- line-end line) scroll-margin)
         (forward-line scroll-margin)
       (forward-line (- line-end line scroll-margin)))))
-
-(defvar scratch-other-modes
-  '(lisp-interaction-mode js-mode js-jsx-mode)
-  "Modes to add to the new scratch buffer list.
-This list exists because these modes may not be added
-  automatically.  See `list-major-modes'.")
 
 (defun filter-buffers-by-name (regexp)
   "Return a list of buffers whose names match REGEXP."
@@ -1348,7 +1307,7 @@ See `scratch-buffer'."
         (if this-win-2nd (other-window 1))))))
 
 (use-package ffap
-  :config
+  :preface
   (defun find-file-at-point-with-line (&optional filename)
     "Open FILENAME at point and move point to line specified next to file name."
     (interactive)
@@ -1837,6 +1796,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
      (concat "Hidden Mode Line Mode enabled.  "
              "Use M-x hidden-mode-line-mode to make the mode-line appear."))))
 
+;; TODO Use this I guess?
 (defmacro window-config-make (name &rest exprs)
   "Make window-config NAME command, running EXPRS.
 
@@ -2265,61 +2225,11 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :config
   (ctrlf-mode))
 
-(use-package projectile
-  :custom
-  (projectile-keymap-prefix (kbd "C-c p"))
-  (projectile-project-search-path (list code-directory))
-  (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
-  (projectile-switch-project-action 'projectile-dired)
-  (projectile-mode-line nil)
-
-  :config
-  (defun projectile-git-ls-files (&optional dir)
-    "List of the tracked files in the git repo, specified by DIR."
-    (cd (or dir (projectile-project-root)))
-    (cl-remove-if #'string-blank-p
-                  (split-string (shell-command-to-string "git ls-files") "\n")))
-
-  (defun projectile-git-ls-files-dired (&optional dir)
-    "Dired list of the tracked files in the git repo, specified by DIR."
-    (interactive)
-    (let ((dir (or dir (projectile-project-root))))
-      (dired (cons dir (projectile-git-ls-files dir)))
-      (rename-buffer (format "*git ls-files %s*" dir))))
-
-  (projectile-register-project-type 'npm '("package.json")
-                                    :compile "npm start"
-                                    :test "npm test"
-                                    :test-suffix ".test")
-  (projectile-register-project-type 'clojure-cli '("deps.edn")
-                                    :compile "clj "
-                                    :test-suffix "_test")
-  (projectile-register-project-type 'shadow-cljs '("shadow-cljs.edn")
-                                    :compile "clj "
-                                    :test-suffix "_test")
-  (projectile-register-project-type 'python '("shadow-cljs.edn")
-                                    :compile "clj "
-                                    :test-suffix "_test")
-  (projectile-mode)
-
-  :bind-keymap
-  ("C-c p" . projectile-command-map)
-
-  :bind
-  ("s-p" . projectile-find-file)
-  ("s-P" . projectile-switch-project)
-  ("s-B" . projectile-switch-to-buffer)
-  ("s-}" . projectile-next-project-buffer)
-  ("C-c }" . projectile-next-project-buffer)
-  ("s-{" . projectile-previous-project-buffer)
-  ("C-c {" . projectile-previous-project-buffer)
-  ("C-s-b" . projectile-switch-to-buffer))
-
 (use-package company
   :defer 5
 
-  :custom
-  (company-dabbrev-ignore-case t)
+  ;; :custom
+  ;; (company-dabbrev-ignore-case t)
 
   :commands
   company-select-next
@@ -2360,6 +2270,54 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :after company
   :hook
   (company-mode-hook . company-box-mode))
+
+(use-package projectile
+  :custom
+  (projectile-keymap-prefix (kbd "C-c p"))
+  (projectile-project-search-path (list code-directory))
+  (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
+  (projectile-switch-project-action 'projectile-dired)
+  (projectile-mode-line nil)
+
+  :config
+  (defun projectile-git-ls-files (&optional dir)
+    "List of the tracked files in the git repo, specified by DIR."
+    (cd (or dir (projectile-project-root)))
+    (cl-remove-if #'string-blank-p
+                  (split-string (shell-command-to-string "git ls-files") "\n")))
+
+  (defun projectile-git-ls-files-dired (&optional dir)
+    "Dired list of the tracked files in the git repo, specified by DIR."
+    (interactive)
+    (let ((dir (or dir (projectile-project-root))))
+      (dired (cons dir (projectile-git-ls-files dir)))
+      (rename-buffer (format "*git ls-files %s*" dir))))
+
+  (projectile-register-project-type 'npm '("package.json")
+                                    :compile "npm start"
+                                    :test "npm test"
+                                    :test-suffix ".test")
+  (projectile-register-project-type 'clojure-cli '("deps.edn")
+                                    :compile "clj "
+                                    :test-suffix "_test")
+  (projectile-register-project-type 'shadow-cljs '("shadow-cljs.edn")
+                                    :compile "clj "
+                                    :test-suffix "_test")
+
+  (projectile-mode)
+
+  :bind-keymap
+  ("C-c p" . projectile-command-map)
+
+  :bind
+  ("s-p" . projectile-find-file)
+  ("s-P" . projectile-switch-project)
+  ("s-B" . projectile-switch-to-buffer)
+  ("s-}" . projectile-next-project-buffer)
+  ("C-c }" . projectile-next-project-buffer)
+  ("s-{" . projectile-previous-project-buffer)
+  ("C-c {" . projectile-previous-project-buffer)
+  ("C-s-b" . projectile-switch-to-buffer))
 
 (use-package smart-jump
   :preface
@@ -3574,13 +3532,15 @@ Wraps on `fill-column' columns."
   (interactive "p")
   (save-excursion (beginning-of-line arg) (open-line arg)))
 
-(defun delete-indentation-forward ()
+(defun delete-indentation-forward (&optional arg beg end)
   "Like `delete-indentation', but in the opposite direction.
 Bring the line below point up to the current line.
 
-http://whattheemacsd.com/key-bindings.el-03.html"
-  (interactive)
-  (join-line -1))
+See another way: http://whattheemacsd.com/key-bindings.el-03.html"
+  (interactive (cons current-prefix-arg
+                     (and (use-region-p)
+                          (list (region-beginning) (region-end)))))
+  (delete-indentation (not arg) beg end))
 
 (use-package undo-tree
   ;; `global-undo-tree-mode' must be loaded before any files are opened so that
@@ -3594,6 +3554,15 @@ http://whattheemacsd.com/key-bindings.el-03.html"
   (undo-tree-visualizer-diff t)
 
   :config
+  (add-to-list 'undo-tree-incompatible-major-modes 'vterm-mode)
+
+  (defun undo-tree-save-history-quietly (f &rest r)
+    "Cause `undo-tree' to save history without printing messages."
+    (let ((inhibit-message t))
+      (apply f r)))
+
+  (advice-add 'undo-tree-save-history :around #'undo-tree-save-history-quietly)
+
   (defun undo-keep-region (f &optional arg)
     "Keep region when undoing in region.
 
@@ -3611,51 +3580,11 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   (advice-add 'undo-tree-undo :around #'undo-keep-region)
 
   (global-undo-tree-mode)
+
   :bind
   ("s-z" . undo-tree-undo)
   ("s-Z" . undo-tree-redo)
   ("C-s-z" . undo-tree-visualize))
-
-;; (use-package undo-redo
-;;   :straight (undo-redo :host github :repo "clemera-dev/undo-redo")
-;;   :bind
-;;   ("s-z" . undo-modern)
-;;   ("s-Z" . redo))
-
-;; (use-package undo-fu
-;;   :straight (undo-fu :host gitlab :repo "ideasman42/emacs-undo-fu")
-;;   :custom
-;;   (undo-fu-allow-undo-in-region t)
-;;   :bind
-;;   ("s-z" . undo-fu-only-undo)
-;;   ("s-Z" . undo-fu-only-redo))
-
-;; (use-package undohist
-;;   :demand t
-;;   :straight (undohist :host github :repo "clemera-dev/undohist")
-;;   :custom
-;;   (undohist-ignored-files '("COMMIT_EDITMSG"
-;;                             "\\.gpg\\'"
-;;                             file-remote-p))
-;;   :config
-;;   ;; https://www.reddit.com/r/emacs/comments/dyv74e/
-;;   (advice-add 'undohist-save-1 :before-while
-;;               (defun undohist-only-save-file-buffers+ (&rest _)
-;;                 (and (buffer-file-name (current-buffer))
-;;                      (undohist-recover-file-p (buffer-file-name (current-buffer))))))
-;;   (undohist-initialize))
-
-;; (use-package undo-propose
-;;   :bind
-;;   ("M-s-z" . undo-propose))
-
-;; TODO: Keep this from bringing in `etags'.
-;; (use-package volatile-highlights
-;;   :defer 30
-;;   :config
-;;   (vhl/define-extension 'undo-redo 'undo-modern 'undo)
-;;   (vhl/install-extension 'undo-redo)
-;;   (volatile-highlights-mode t))
 
 (use-package goto-chg
   :bind
@@ -3678,10 +3607,8 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   ("C-+" . er/contract-region))
 
 (use-package multiple-cursors
-  :commands
-  mc/add-cursor-on-click
   :bind
-  ("M-<down-mouse-1>" . mc/add-cursor-on-click)
+  ("M-<down-mouse-1>" . mc/toggle-cursor-on-click)
   ("C-S-c C-S-c" . mc/edit-lines)
   ("M-s-m" . mc/edit-lines)
   ("C->" . mc/mark-next-like-this)
@@ -4363,13 +4290,13 @@ Stolen from https://emacs.stackexchange.com/questions/10077/how-to-edit-crontab-
 (declare-function 'eshell-send-input "esh-mode")
 
 (defun sudo-toggle ()
-  "Reopen the current file, directory, or shell as root.
+  "Reopen the current buffer as root.
 
-For files and dired buffers, the non-sudo buffer is replaced with
-a sudo buffer.
+Works on file, `dired', `shell', `eshell', and `vterm' buffers.
 
-For shells, a sudo shell is opened but the
-non-sudo shell is left intact."
+A sudo enabled buffer is opened and the non-sudo buffer is left
+intact.  `vterm' is an exception--for that we just type 'sudo -i'
+into the terminal and hope for the best."
   (interactive)
   (let* ((position (point))
          (f (expand-file-name (or buffer-file-name default-directory)))
@@ -4391,6 +4318,11 @@ non-sudo shell is left intact."
           ((derived-mode-p 'eshell-mode)
            (cd newf)
            (eshell-emit-prompt))
+          ((derived-mode-p 'vterm-mode)
+           (vterm-send-C-a)
+           (vterm-send-C-k)
+           (vterm-insert "sudo -i")
+           (vterm-send-return))
           (t (message "Can't sudo this buffer")))))
 
 (defun filter-functions (regexp &optional predicate)
@@ -4485,8 +4417,11 @@ predicate returns true."
   (:map vterm-mode-map
         ;; Override the normal `clipboard-yank-and-indent'.
         ("s-v" . vterm-yank)
+        ;; Provide consistency with `eshell', `shell-mode'.
         ("M-p" . vterm-send-up)
-        ("M-n" . vterm-send-down)))
+        ("M-n" . vterm-send-down)
+        ;; macOS binding for undo.
+        ("s-z" . vterm-undo)))
 
 (use-package xterm-color
   :commands
@@ -5138,6 +5073,25 @@ and FILE is the cons describing the file."
 (use-package lisp-extra-font-lock
   :hook
   (lisp-data-mode-hook . lisp-extra-font-lock-mode))
+
+(use-package profiler
+  :preface
+  (defun profiler-dwim (and-mem)
+    "Toggle `profiler'.
+
+If `profiler' is stopped, start it in cpu mode.
+
+If `profiler' is started, stop it and run `profiler-report'.
+
+If AND-MEM is non-nil, profile memory as well."
+    (interactive "P")
+    (if (not (and (fboundp 'profiler-cpu-running-p) (profiler-cpu-running-p)))
+        (profiler-start (if and-mem 'cpu+mem 'cpu))
+      (profiler-stop)
+      (profiler-report)))
+
+  :bind
+  ("M-m M-p" . profiler-dwim))
 
 (use-package re-builder
   :custom
