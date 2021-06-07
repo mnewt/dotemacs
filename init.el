@@ -16,6 +16,9 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+;; For `esup'.
+;; (setq vc-follow-symlinks t)
+
 
 ;;;;; Environment Variables
 
@@ -141,7 +144,7 @@ If VARS is not specified, use `env-cache-vars'."
   "Prompt for package NAME and delete it from the file system."
   (interactive (list (completing-read "Delete package: " (hash-table-keys straight--repo-cache))))
   (let* ((repo (plist-get (gethash name straight--repo-cache) :local-repo))
-         (eln-dirs (cl-loop for dir in comp-eln-load-path append
+         (eln-dirs (cl-loop for dir in native-comp-eln-load-path append
                             (directory-files dir t "[^.].*")))
          (modules (mapcar #'file-name-sans-extension
                           (directory-files (straight--repos-dir repo) nil ".*\\.el")))
@@ -176,13 +179,17 @@ If VARS is not specified, use `env-cache-vars'."
         use-package-compute-statistics t
         debug-on-error t))
 
-;; (use-package benchmark-init
-;;   :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
-;;   :demand t
-;;   :config
-;;   ;; To disable collection of benchmark data after init is done.
-;;   (add-hook 'emacs-startup-hook 'benchmark-init/deactivate))
+(use-package benchmark-init
+  :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
+  :demand t
+  :hook
+  ;; To disable collection of benchmark data after init is done.
+  (emacs-startup-hook . benchmark-init/deactivate))
 
+;; (use-package esup
+;;   :straight (esup :host github :repo "phikal/esup")
+;;   :config
+;;   (setq esup-depth 0))
 
 ;;;;; Additional Package Management Configuration
 
@@ -473,10 +480,6 @@ higher level up to the top level form."
 ;; GUI Configuration
 (when window-system
   (setq
-   ;; We don't set a frame title because Emacs on macOS renders the
-   ;; frame title face terribly. No rendering is better than terrible
-   ;; rendering. Also, it is clean and nice this way.
-   frame-title-format nil
    ;; No icon in the titlebar
    ns-use-proxy-icon nil
    ;; Smoother and nicer scrolling
@@ -530,8 +533,8 @@ returned."
   ;;   (set-fontset-font fontset '(#x000000 . #x3FFFFF) m-fallback-font)
   ;;   (set-fontset-font fontset nil m-fallback-font))
 
-  (dolist (face '(default fixed-pitch))
-    (set-face-font face m-fixed-pitch-font))
+  (set-face-font 'default m-fixed-pitch-font)
+  (set-face-font 'fixed-pitch m-fixed-pitch-font)
 
   (set-face-font 'variable-pitch m-variable-pitch-font)
 
@@ -2196,7 +2199,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
         embark-become-indicator embark-action-indicator)
 
   :bind
-  ("C-s-a" . embark-act)
+  ("C-s-o" . embark-act)
   ;; Alternative for `describe-bindings'.
   ("C-h C-b" . embark-bindings)
   (:map selectrum-minibuffer-map
@@ -5041,15 +5044,15 @@ and FILE is the cons describing the file."
   :straight (:type built-in)
   :defer 19
   :mode ("Cask\\'" . emacs-lisp-mode)
-
-  :config
-  (add-to-list 'safe-local-variable-values
-               '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
-
+  :preface
   (defun emacs-lisp-mode-setup ()
     "Set up `emacs-lisp-mode'."
     ;; Ugh. It's the Emacs Lisp standard.
     (setq-local sentence-end-double-space t))
+
+  :config
+  (add-to-list 'safe-local-variable-values
+               '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
 
   :hook
   (emacs-lisp-mode-hook . emacs-lisp-mode-setup)
@@ -5639,8 +5642,8 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 ;;;; Web
 
 ;; use imagemagick, if available
-(when (fboundp 'imagemagick-register-types)
-  (imagemagick-register-types))
+;; (when (fboundp 'imagemagick-register-types)
+;;   (imagemagick-register-types))
 
 (use-package shr-tag-pre-highlight
   :after shr
