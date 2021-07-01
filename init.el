@@ -240,7 +240,7 @@ higher level up to the top level form."
    t)
   (message "Finished updating Emacs packages."))
 
-;; WIP This doesn't ever prompt for decisions, like what to do if the repo is
+;; TODO This doesn't ever prompt for decisions, like what to do if the repo is
 ;; dirty.
 ;; See https://github.com/raxod502/straight.el/issues/103
 ;; (defun update-emacs-packages-async ()
@@ -1143,16 +1143,16 @@ This sets things up for `window-highlight' and `mode-line'."
   :after outline
   :config
 
-  ;; WIP
-;;   (defun outline-minor-faces--comment-matcher (regexp)
-;;     "Return a matcher that matches REGEXP only in comments.
-;; Intended to replace `outline-minor-faces--syntactic-matcher'."
-;;     (if font-lock-keywords-only
-;;         regexp
-;;       (lambda (limit)
-;;         (and (re-search-forward regexp limit t)
-;;              ;; this apparently doesn't work.
-;;              (nth 4 (syntax-ppss (match-end 0)))))))
+  ;; TODO
+  ;;   (defun outline-minor-faces--comment-matcher (regexp)
+  ;;     "Return a matcher that matches REGEXP only in comments.
+  ;; Intended to replace `outline-minor-faces--syntactic-matcher'."
+  ;;     (if font-lock-keywords-only
+  ;;         regexp
+  ;;       (lambda (limit)
+  ;;         (and (re-search-forward regexp limit t)
+  ;;              ;; this apparently doesn't work.
+  ;;              (nth 4 (syntax-ppss (match-end 0)))))))
 
   ;; Another idea that doesn't work. See https://emacs.stackexchange.com/questions/14269/how-to-detect-if-the-point-is-within-a-comment-area
   ;; (let* ((fontfaces (get-text-property pos 'face)))
@@ -1964,39 +1964,157 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :demand t
 
   :preface
+  (defvar selectrum-swiper-history nil "Submission history for `selectrum-swiper'.")
+  (autoload 'selectrum--read "selectrum")
+
+  ;; TODO
+  ;; In the process of adapting this from https://github.com/raxod502/selectrum/wiki/Useful-Commands#swiper-like-jumping-to-matching-lines.
+  (defun selectrum-swiper (&optional initial-input)
+    "Search for a matching line and jump to the beginning of its text.
+The default candidate is a non-empty line closest to point.
+This command obeys narrowing."
+    (interactive)
+    (let ((selectrum-should-sort nil)
+          ;; Get the current line number for determining the travel distance.
+          (current-line-number (line-number-at-pos (point) t)))
+      (cl-destructuring-bind (default-candidate formatted-candidates)
+          (cl-loop
+           with buffer-lines = (split-string (buffer-string) "\n")
+           with number-format = (concat "%0"
+                                        (number-to-string
+                                         (length (number-to-string
+                                                  (length buffer-lines))))
+                                        "d: ")
+
+           with formatted-candidates = nil
+           for line-text in buffer-lines
+           for line-num = (line-number-at-pos (point-min) t) then (1+ line-num)
+
+           with default-candidate = nil
+           with prev-distance-to-default-cand = 1.0e+INF ; This updated later.
+           for distance-to-default-cand = (abs (- current-line-number line-num))
+
+           unless (string-empty-p line-text) ; Just skip empty lines.
+           do
+           ;; Find if we’ve started to move away from the current line.
+           (when (null default-candidate)
+             (when (> distance-to-default-cand
+                      prev-distance-to-default-cand)
+               (setq default-candidate (cl-first formatted-candidates)))
+             (setq prev-distance-to-default-cand distance-to-default-cand))
+
+           ;; Format current line and collect candidate.
+           (push (propertize (concat (propertize (format number-format line-num)
+                                                 'face 'completions-annotations)
+                                     line-text)
+                             'line-num line-num)
+                 formatted-candidates)
+
+           finally return (list default-candidate
+                                (nreverse formatted-candidates)))
+        (let ((chosen-line-number
+               (get-text-property
+                0 'line-num
+                ;; (completing-read "Jump to matching line: "
+                ;;                  formatted-candidates
+                ;;                  nil t nil 'selectrum-swiper-history
+                ;;                  default-candidate))))
+
+                (selectrum--read "Jump to matching line: "
+                                 formatted-candidates
+                                 :default-candidate default-candidate
+                                 :history 'selectrum-swiper-history
+                                 :require-match t))))
+          (push-mark (point) t)
+          (forward-line (- chosen-line-number current-line-number))
+          (beginning-of-line-text 1)))))
+
+;;   (defun embark-export-selectrum-swiper (lines)
+;;     "Create an occur mode buffer listing LINES.
+;; Adapted from `embark-consult-export-occur'."
+;;     (message "Exporting lines: \n%S" lines)
+;;     (let ((buf (generate-new-buffer "*Embark Export Occur*"))
+;;           (mouse-msg "mouse-2: go to this occurrence")
+;;           last-buf)
+;;       (with-current-buffer buf
+;;         (dolist (line lines)
+;;           (let ((num (get-text-property 0 'line-num))
+;;                 ;; the text properties added to the following strings are
+;;                 ;; taken from occur-engine
+;;                 (lineno (propertize (format "%7d:" num)
+;;                                     'occur-prefix t
+;;                                     ;; Allow insertion of text at the end
+;;                                     ;; of the prefix (for Occur Edit mode).
+;;                                     'front-sticky t
+;;                                     'rear-nonsticky t
+;;                                     'occur-target loc
+;;                                     'follow-link t
+;;                                     'help-echo mouse-msg))
+;;                 (contents (propertize (embark-consult--strip line)
+;;                                       'occur-target loc
+;;                                       'occur-match t
+;;                                       'follow-link t
+;;                                       'help-echo mouse-msg))
+;;                 (nl (propertize "\n" 'occur-target loc))
+;;                 (this-buf (marker-buffer loc))
+;;                 (unless (eq this-buf last-buf)
+;;                   (insert (propertize
+;;                            (format "lines from buffer: %s\n" this-buf)
+;;                            'face list-matching-lines-buffer-name-face))
+;;                   (setq last-buf this-buf))
+;;                 (insert (concat lineno contents nl))))
+;;           (goto-char (point-min))
+;;           (occur-mode))
+;;         (pop-to-buffer buf))))
+
+;;   (with-eval-after-load 'embark
+;;     (add-to-list 'embark-exporters-alist
+;;                  '(selectrum-swiper . embark-export-selectrum-swiper)))
+
   ;; Stolen from https://github.com/raxod502/selectrum/wiki/Additional-Configuration#minibuffer-default-add-function.
   (autoload 'ffap-guesser "ffap")
 
-  (setq minibuffer-default-add-function
-        (defun minibuffer-default-add-function+ ()
-          (with-selected-window (minibuffer-selected-window)
-            (delete-dups
-             (delq nil
-                   (list (thing-at-point 'symbol)
-                         (thing-at-point 'list)
-                         (ffap-guesser)
-                         (thing-at-point-url-at-point)))))))
+  (defun minibuffer-default-add-function+ ()
+    (with-selected-window (minibuffer-selected-window)
+      (delete-dups
+       (delq nil
+             (list (thing-at-point 'symbol)
+                   (thing-at-point 'list)
+                   (ffap-guesser)
+                   (thing-at-point-url-at-point))))))
 
+  (setq minibuffer-default-add-function #'minibuffer-default-add-function+)
 
   ;; Stolen from
   ;; https://github.com/raxod502/selectrum/wiki/Additional-Configuration#complete-file-names-at-point
   (autoload 'ffap-file-at-point "ffap")
 
-  (add-hook 'completion-at-point-functions
-            (defun complete-path-at-point+ ()
-              (let ((fn (ffap-file-at-point))
-                    (fap (thing-at-point 'filename)))
-                (when (and (or fn
-                               (equal "/" fap))
-                           (save-excursion
-                             (search-backward fap (line-beginning-position) t)))
-                  (list (match-beginning 0)
-                        (match-end 0)
-                        #'completion-file-name-table)))) 'append)
+  (defun complete-path-at-point+ ()
+    (let ((fn (ffap-file-at-point))
+          (fap (thing-at-point 'filename)))
+      (when (and (or fn
+                     (equal "/" fap))
+                 (save-excursion
+                   (search-backward fap (line-beginning-position) t)))
+        (list (match-beginning 0)
+              (match-end 0)
+              #'completion-file-name-table))))
+
+  (add-hook 'completion-at-point-functions #'complete-path-at-point+ 'append)
+
+  :custom
+  ;; Don't move the default candidate to the top of the list.  This is important
+  ;; for `counsel-line' to preserve line order. See
+  ;; `consult-line-start-from-top'.
+  (selectrum-move-default-candidate nil)
+
   :config
   (selectrum-mode)
+
   :bind
-  ("C-c C-r" . selectrum-repeat))
+  ("C-c C-r" . selectrum-repeat)
+  ("s-f" . selectrum-swiper))
+
 
 (use-package selectrum-prescient
   :after selectrum
@@ -2011,45 +2129,43 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :defer 2
 
   :init
-  ;; Optionally configure the register formatting. This improves the register
-  ;; preview for `consult-register', `consult-register-load',
-  ;; `consult-register-store' and the Emacs built-ins.
-  ;; (setq register-preview-delay 0)
-        ;; register-preview-function #'consult-register-format)
-
-  ;; Optionally tweak the register preview window.
-  ;; This adds thin lines, sorting and hides the mode line of the window.
-  (advice-add #'register-preview :override #'consult-register-window)
-
   ;; Use Consult to select xref locations with preview
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
 
-  ;; Configure other variables and modes in the :config section,
-  ;; after lazily loading the package.
+  :preface
+  (defun consult-swiper (&optional initial start)
+    "A `swiper' clone for `consult'.
+Optional INITIAL input can be provided.
+The search starting point is changed if the START prefix argument is set.
+The symbol at point and the last `isearch-string' is added to the future history."
+    (interactive (list nil (not (not current-prefix-arg))))
+    (let ((candidates (consult--with-increased-gc
+                       (consult--line-candidates
+                        (not (eq start consult-line-start-from-top))))))
+      (consult--read
+       candidates
+       :prompt "Go to line: "
+       :annotate (consult--line-prefix)
+       :category 'consult-location
+       :sort nil
+       :require-match t
+       ;; Always add last isearch string to future history
+       :add-history (list (thing-at-point 'symbol) isearch-string)
+       :history '(:input consult--line-history)
+       :lookup #'consult--line-match
+       :default (caddr candidates)
+       ;; Add isearch-string as initial input if starting from isearch
+       :initial (or initial
+                    (and isearch-mode (prog1 isearch-string (isearch-done))))
+       :state (consult--jump-state))))
+
+  :custom
+  (consult-line-start-from-top 'start)
+  (consult-narrow-key "<")
+  (consult-find-command "fd --color=never --full-path ARG OPTS")
+
   :config
-
-  ;; Optionally configure preview. Note that the preview-key can also be
-  ;; configured on a per-command basis via `consult-config'. The default value
-  ;; is 'any, such that any key triggers the preview.
-  ;; (setq consult-preview-key 'any)
-  ;; (setq consult-preview-key (kbd "M-p"))
-  ;; (setq consult-preview-key (list (kbd "<S-down>") (kbd "<S-up>")))
-
-  ;; Optionally configure the narrowing key.
-  ;; Both < and C-+ work reasonably well.
-  (setq consult-narrow-key "<") ;; (kbd "C-+")
-
-  ;; Optionally make narrowing help available in the minibuffer.
-  ;; Probably not needed if you are using which-key.
-  ;; (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help)
-
-  ;; Optionally configure a function which returns the project root directory.
-  ;; There are multiple reasonable alternatives to chose from:
-  ;; * projectile-project-root
-  ;; * vc-root-dir
-  ;; * project-roots
-  ;; * locate-dominating-file
   (autoload 'projectile-project-root "projectile")
   (setq consult-project-root-function #'projectile-project-root)
 
@@ -2070,7 +2186,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
   (setq consult--source-buffer
         (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
-
 
   ;; TODO Port this to `consult'.
   ;; (defun counsel-switch-buffer-by-mode (mode)
@@ -2132,7 +2247,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("M-s r" . consult-ripgrep)
   ("M-s-f" . consult-ripgrep)
   ("M-s l" . consult-line)
-  ("s-f" . consult-line)
+  ;; Using `selectrum-swiper' instead.
+  ;; ("s-f" . consult-line)
   ("M-s m" . consult-multi-occur)
   ("M-s k" . consult-keep-lines)
   ("M-s u" . consult-focus-lines)
@@ -2161,7 +2277,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :defer 5
 
   :preface
-  ;; WIP
+  ;; TODO Make this robust and contribute upstream.
   (defun embark-other-window (target)
     "Complete the current action in another window."
     (run-with-timer
@@ -2283,6 +2399,14 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (projectile-mode-line nil)
 
   :config
+  (defun projectile-project-root-tramp-short-circuit (f &optional dir)
+    "Wrap `projectile-project-root' to short circuit TRAMP dirs."
+    (unless (file-remote-p (or dir default-directory))
+      (funcall f dir)))
+
+  (advice-add 'projectile-project-root
+              :around #'projectile-project-root-tramp-short-circuit)
+
   (defun projectile-git-ls-files (&optional dir)
     "List of the tracked files in the git repo, specified by DIR."
     (cd (or dir (projectile-project-root)))
@@ -2557,6 +2681,9 @@ With a prefix ARG always prompt for command to use."
   "Get the `homebrew' install prefix for PACKAGE."
   (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
 
+(bind-keys
+ ("C-c O" . reveal-file))
+
 
 ;;;; Dired
 
@@ -2673,7 +2800,6 @@ With a prefix ARG always prompt for command to use."
   :bind
   ("C-x M-s" . psync-maybe)
   ("C-c o" . os-open-file)
-  ("C-c O" . os-reveal-file)
   (:map m-toggle-map
         ("r" . auto-revert-mode))
   (:map dired-mode-map
@@ -5006,7 +5132,16 @@ and FILE is the cons describing the file."
 ;; ElDoc in Eshell.
 (use-package esh-help
   :after eshell
+
   :config
+  (defun esh-help-eldoc-command-tramp-short-circuit (f)
+    "Short circuit `esh-help' from TRAMP buffers."
+    (unless (file-remote-p default-directory)
+      (funcall f)))
+
+  (advice-add 'esh-help-eldoc-command
+              :around #'esh-help-eldoc-command-tramp-short-circuit)
+
   (defun esh-help-setup ()
     "Setup eldoc function for Eshell."
     (setq-local eldoc-documentation-function #'esh-help-eldoc-command))
@@ -5777,17 +5912,14 @@ Open the `eww' buffer in another window."
     "Set up `company-restclient'."
     (make-local-variable 'company-backends)
     (add-to-list 'company-backends 'company-restclient))
+
   :hook
   (restclient-mode-hook . company-restclient-setup))
 
 (use-package know-your-http-well
-  :after restclient
+  :after restclient)
 
-  :commands
-  http-header
-  http-method
-  http-relation
-  http-status-code)
+(use-package counsel-web)
 
 
 ;;;; Javascript
@@ -6067,7 +6199,6 @@ Open the `eww' buffer in another window."
   (dolist (mode '((clojure-mode . zprint)
                   (clojurec-mode . zprint)
                   (clojurescript-mode . zprint)
-                  (enh-ruby-mode . rufo)
                   (graphql-mode . prettier)
                   (lua-mode . lua-fmt)
                   (markdown-mode . prettier)
@@ -6496,7 +6627,7 @@ This package sets these explicitly so we have to do the same."
 (use-package inf-ruby
   :after ruby-mode
   :hook
-  (enh-ruby-mode-hook . inf-ruby-minor-mode)
+  (ruby-mode-hook . inf-ruby-minor-mode)
   (compilation-filter . inf-ruby-auto-enter)
   :bind
   (:map inf-ruby-minor-mode-map
