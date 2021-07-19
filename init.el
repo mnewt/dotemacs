@@ -2641,6 +2641,8 @@ See: https://github.com/mnewt/psync"
                                         (dired-get-file-for-visit))))))
 
 (use-package reveal-in-osx-finder
+  :straight (reveal-in-osx-finder :type git :host github
+                                  :repo "mnewt/reveal-in-osx-finder")
   :if (eq system-type 'darwin))
 
 ;; > brew install trash
@@ -3720,6 +3722,26 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   ("C-." . goto-last-change)
   ("C-s-." . goto-last-change-reverse))
 
+;; TODO Make this work.  Also the code does not look high quality.
+;; (use-package gumshoe
+;;   :defer 11
+;;   :straight (gumshoe :type git
+;;                      :host github
+;;                      :repo "Overdr0ne/gumshoe"
+;;                      :branch "master")
+
+;;   :preface
+;;   (defun consult-gumshoe ()
+;;     (interactive)
+;;     (consult-global-mark (ring-elements gumshoe--log)))
+
+;;   :config
+;;   ;; The minor mode must be enabled to begin tracking
+;;   (global-gumshoe-mode 1)
+
+;;   :bind
+;;   ("M-g C-g" . consult-gumshoe))
+
 ;; (use-package easy-kill
 ;;   :bind
 ;;   (([remap kill-ring-save] . easy-kill)
@@ -4260,7 +4282,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 (defun list-hosts-from-known-hosts ()
   "Return a list of hosts from `~/.ssh/known_hosts'."
   (with-temp-buffer
-    (insert-file-contents "~/.ssh/known_hosts")
+    (insert-file-contents-literally "~/.ssh/known_hosts")
     (cl-remove-if (lambda (host) (string= "" host))
                   (mapcar (lambda (line) (replace-regexp-in-string
                                           "\\]\\|\\[" ""
@@ -4270,16 +4292,18 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 (defun list-hosts-from-ssh-config ()
   "Return a list of hosts from `~/.ssh/config'."
   (with-temp-buffer
-    (insert-file-contents "~/.ssh/config")
-    (keep-lines "^Host")
-    (cl-remove-if (lambda (host) (or (string=  "" host) (string= "*" host)))
-                  (mapcar (lambda (line) (replace-regexp-in-string "Host +" "" line))
-                          (split-string (buffer-string) "\n")))))
+    (insert-file-contents-literally "~/.ssh/config")
+    (goto-char (point-min))
+    (let (hosts)
+      (while (re-search-forward "^Host " nil t)
+        (while (re-search-forward "\\_<[0-9a-zA-Z._-]+\\_>" (line-end-position) t)
+          (push (buffer-substring (match-beginning 0) (match-end 0)) hosts)))
+      hosts)))
 
 (defun list-hosts-from-etc-hosts ()
   "Return a list of hosts from `/etc/hosts'."
   (with-temp-buffer
-    (insert-file-contents "/etc/hosts")
+    (insert-file-contents-literally "/etc/hosts")
     (flush-lines "^#")
     (flush-lines "^$")
     (cl-remove-if (lambda (host) (or (string= host "localhost")

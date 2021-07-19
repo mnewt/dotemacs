@@ -23,9 +23,9 @@ brew install emacs-plus@28 --build-from-source --with-native-comp
 # brew install d12frosted/emacs-plus/emacs-plus@28 --with-native-comp --with-c-source --without-compressed-elisp --build-from-source
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
-rm ~/Applications/Emacs.app
+rm ~/Applications/Emacs.app || true
 brew unlink emacs-plus@28 || true
 brew link emacs-plus@28
-ln -s "$(brew --prefix emacs-plus@28)/Emacs.app" "~/Applications/"
+ln -s "$(brew --prefix emacs-plus@28)/Emacs.app" "$HOME/Applications/"
 prompt_confirm "Remove ~/.emacs.d/{eln-cache,straight}?" &&
   rm -rf ~/.emacs.d/{eln-cache,straight}
