@@ -549,7 +549,7 @@ returned."
   :config
 
   (defvar mixed-pitch-exclude-modes
-    '(dns-mode yaml-mode xml-mode)
+    '(dns-mode yaml-mode nxml-mode)
     "Modes excluded from `mixed-pitch-mode'.")
 
   (defun maybe-enable-mixed-pitch-mode ()
