@@ -521,7 +521,7 @@ returned."
     "The default font to use for fixed pitch applications.")
 
   (defvar m-variable-pitch-font
-    (some-font '("Avenir-17" "Calibri" "Helvetica Neue" "Helvetica"
+    (some-font '("Avenir-17" "Calibri-15" "Helvetica Neue-15" "Helvetica-15"
                  "Georgia-15"))
     "The default font to use for variable pitch applications.")
 
@@ -2568,9 +2568,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (x509-mode :host github :repo "mnewt/x509-mode")
-  :commands
-  x509-viewcert)
+  :straight (x509-mode :host github :repo "mnewt/x509-mode"))
 
 (defun unison-sync (command)
   "Run a Unison sync of files using COMMAND."
@@ -4213,9 +4211,10 @@ added as they are used."
 
 If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (interactive)
-    (ssh (concat (when prefix-arg
-                   (concat (read-from-minibuffer "ssh arguments: ") " "))
-                 (ssh-choose-host))))
+    (let ((default-directory "~"))
+      (ssh (concat (when prefix-arg
+                     (concat (read-from-minibuffer "ssh arguments: ") " "))
+                   (ssh-choose-host)))))
 
   (defun ssh-mode-setup ()
     "Set up `ssh-mode'."
@@ -4317,13 +4316,12 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 (defun list-hosts-from-recentf ()
   "Return a list of hosts from the `recentf-list'."
   (cl-remove-duplicates
-   (mapcar (lambda (s)
-             (replace-regexp-in-string
-              ":.*" ""
-              (replace-regexp-in-string "^/sshx\?:" "" s)))
-           (cl-remove-if
-            (apply-partially #'string-match "^/sshx\?:\\([a-z]+\\):")
-            recentf-list))))
+   (let (hosts)
+     (dolist (host recentf-list)
+       (when (string-match "^/\\(?:s\\(?:cp\\|shx?\\)\\)\?:\\([^:|]+\\)[:|]" host)
+         (push (match-string-no-properties 1 host) hosts)))
+     hosts)
+   :test #'string=))
 
 (defun list-hosts ()
   "Return a list of remote hosts from various sources."
@@ -4332,7 +4330,8 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (list-hosts-from-recentf)
     (list-hosts-from-known-hosts)
     (list-hosts-from-ssh-config)
-    (list-hosts-from-etc-hosts))))
+    (list-hosts-from-etc-hosts))
+   :test #'string=))
 
 (defun ssh-choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
