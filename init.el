@@ -16,6 +16,13 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+;;;;; User variables
+
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
+(defvar code-directory "~/code"
+  "Default directory for storing programming projects.")
+
 ;; For `esup'.
 ;; (setq vc-follow-symlinks t)
 
@@ -192,8 +199,6 @@ If VARS is not specified, use `env-cache-vars'."
 ;;   (setq esup-depth 0))
 
 ;;;;; Additional Package Management Configuration
-
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
 (defvar emacs-start-time)
 (defvar straight--repo-cache)
