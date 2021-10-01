@@ -2757,6 +2757,7 @@ With a prefix ARG always prompt for command to use."
                         ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
   (dired-rainbow-define junk "#7F7D7D"
                         ("DS_Store" "projectile"))
+  (dired-rainbow-define icloud "#e3342f" ("icloud"))
   (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
 
   (dolist (b (buffer-list))
@@ -3975,9 +3976,10 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   (require 'smartparens-config)
 
-  (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode java-mode
-                          javascript-mode js-mode js2-mode json-mode lua-mode objc-mode
-                          swift-mode web-mode)
+  (sp-with-modes '(c-mode c++-mode caddyfile-mode csharp-mode css-mode
+                          graphql-mode java-mode javascript-mode js-mode
+                          js2-mode json-mode lua-mode objc-mode swift-mode
+                          web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
