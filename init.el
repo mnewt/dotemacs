@@ -16,6 +16,13 @@
   (when (version< emacs-version "27")
     (load "~/.emacs.d/early-init.el")))
 
+;;;;; User variables
+
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
+(defvar code-directory "~/code"
+  "Default directory for storing programming projects.")
+
 ;; For `esup'.
 ;; (setq vc-follow-symlinks t)
 
@@ -180,6 +187,7 @@ If VARS is not specified, use `env-cache-vars'."
         debug-on-error t))
 
 (use-package benchmark-init
+  :if init-file-debug
   :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
   :demand t
   :hook
@@ -192,8 +200,6 @@ If VARS is not specified, use `env-cache-vars'."
 ;;   (setq esup-depth 0))
 
 ;;;;; Additional Package Management Configuration
-
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
 (defvar emacs-start-time)
 (defvar straight--repo-cache)
@@ -1356,6 +1362,7 @@ See `scratch-buffer'."
                                        "no such file or directory"
                                        filename))))))
   :bind
+  ("C-x M-f" . find-file-at-point)
   ("C-c C-f" . find-file-at-point-with-line))
 
 (defun parse-colon-notation (filename)
@@ -2752,6 +2759,7 @@ With a prefix ARG always prompt for command to use."
                         ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
   (dired-rainbow-define junk "#7F7D7D"
                         ("DS_Store" "projectile"))
+  (dired-rainbow-define icloud "#e3342f" ("icloud"))
   (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
 
   (dolist (b (buffer-list))
@@ -2809,7 +2817,6 @@ With a prefix ARG always prompt for command to use."
         (";" . dired-git-add)
         ("C-c C-p" . wdired-change-to-wdired-mode)
         ("C-c C-r" . dired-rsync)
-        (")" . disk-usage-here)
         ("N" . dired-narrow)
         ("I" . dired-subtree-cycle)
         ("TAB" . dired-subtree-cycle)
@@ -2867,8 +2874,8 @@ ERR and IND are ignored."
 
 (use-package disk-usage
   :after dired
-  :commands
-  disk-usage-here)
+  :bind (:map dired-mode-map
+              (")" . disk-usage-here)))
 
 (use-package wdired
   :after dired
@@ -2902,9 +2909,7 @@ ERR and IND are ignored."
 (use-package dired-list
   :after dired
   :straight (dired-list :host github :repo "Fuco1/dired-hacks"
-                        :files ("dired-list.el"))
-  :commands
-  dired-list-git-ls-files)
+                        :files ("dired-list.el")))
 
 (use-package dired-quick-sort
   :after dired)
@@ -3128,31 +3133,21 @@ Include PREFIX in prompt if given."
   :hook
   (Info-selection-hook . info-colors-fontify-node))
 
+;; TODO Fix `eg.el'.
 ;; > pip install eg
-(use-package eg.el
-  :straight (eg.el :host github :repo "mnewt/eg.el")
-  :bind
-  ("C-h C-e" . eg))
+;; (use-package eg.el
+;;   :straight (eg.el :host github :repo "mnewt/eg.el")
+;;   :bind
+;;   ("C-h C-e" . eg))
 
 (use-package tldr
   :bind
   ("C-h t" . tldr))
 
-;; > brew install sqlite3
-(use-package counsel-dash
-  :custom
-  (dash-docs-browser-func #'eww-other-window)
-  (dash-docs-enable-debugging nil)
-  (dash-docs-docsets-path "~/.config/docsets")
+(use-package consult-dash
+  :straight (consult-dash :host github :repo "canatella/consult-dash")
 
-  :functions
-  dash-docs-installed-docsets
-  dash-docs-official-docsets
-  dash-docs-unofficial-docsets
-
-  :config
-  (make-directory dash-docs-docsets-path t)
-
+  :preface
   (defcustom dash-docs-docset-modes
     '((emacs-lisp-mode . "Emacs Lisp")
       (lisp-interaction-mode . "Emacs Lisp")
@@ -3168,20 +3163,18 @@ the corresponding docset."
 
   (defvar dash-docs-docset-modes)
 
-  (defun counsel-dash-with-docset (docset &optional initial)
+  (defun consult-dash-with-docset (docset &optional initial)
     "Query dash DOCSET.
 INITIAL will be used as the initial input, if given."
     (interactive (list (assoc-default major-mode dash-docs-docset-modes)))
     (when docset
       (setq initial (concat docset " " initial)))
-    (counsel-dash initial))
+    (consult-dash initial))
 
   (defun dash-docs-update-docsets-var (&rest _)
     "Update `dash-docs-common-docsets' variable."
     (setq dash-docs-common-docsets (dash-docs-installed-docsets))
     (dash-docs-reset-connections))
-
-  (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
 
   (defun dash-docs-update-all-docsets ()
     "Update all official and unofficial docsets."
@@ -3205,10 +3198,18 @@ INITIAL will be used as the initial input, if given."
     (dash-docs-update-docsets-var)
     (insert "\n\ndone."))
 
+  :custom
+  (dash-docs-browser-func #'eww-other-window)
+  (dash-docs-enable-debugging nil)
+  (dash-docs-docsets-path "~/.config/docsets")
+
+  :config
+  (make-directory dash-docs-docsets-path t)
+
+  (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
+
   (setq dash-docs-common-docsets (dash-docs-installed-docsets))
 
-  :commands
-  dash-docs-update-all-docsets
   :bind
   ("M-s-l" . counsel-dash)
   ("C-h C-d" . counsel-dash)
@@ -3970,9 +3971,10 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   (require 'smartparens-config)
 
-  (sp-with-modes '(c-mode c++-mode csharp-mode css-mode graphql-mode java-mode
-                          javascript-mode js-mode js2-mode json-mode lua-mode objc-mode
-                          swift-mode web-mode)
+  (sp-with-modes '(c-mode c++-mode caddyfile-mode csharp-mode css-mode
+                          graphql-mode java-mode javascript-mode js-mode
+                          js2-mode json-mode lua-mode objc-mode swift-mode
+                          web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
@@ -5943,9 +5945,11 @@ Open the `eww' buffer in another window."
   (restclient-mode-hook . company-restclient-setup))
 
 (use-package know-your-http-well
+  :defer t
   :after restclient)
 
-(use-package counsel-web)
+;; TODO Make `consult-web'.
+;; (use-package counsel-web)
 
 
 ;;;; Javascript
@@ -6035,21 +6039,20 @@ Open the `eww' buffer in another window."
 
 (use-package apples-mode
   :mode "\\.\\(applescri\\|sc\\)pt\\'"
-  :interpreter "osascript"
-  :commands
-  apples-open-scratch)
+  :interpreter "osascript")
 
 ;; Allow editing of binary .scpt files (applescript) on mac.
-;; https://www.emacswiki.org/emacs/AppleScript
-(add-to-list 'jka-compr-compression-info-list
-             `["\\.scpt\\'"
-               "converting text applescript to binary applescript "
-               ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
-               "converting binary applescript to text applescprit "
-               ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
-               nil t "FasdUAS"])
-;;It is necessary to perform an update!
-(jka-compr-update)
+;; https://www.emacswiki.org/emacs/AppleScript.
+;; It's necessary to set it using `custom-set-variables' in order to put the
+;; change into effect.
+(custom-set-variables
+ '(jka-compr-compression-info-list
+   `["\\.scpt\\'"
+     "converting text applescript to binary applescript "
+     ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
+     "converting binary applescript to text applescprit "
+     ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
+     nil t "FasdUAS"]))
 
 
 ;;;; File Modes
@@ -6191,6 +6194,11 @@ Open the `eww' buffer in another window."
   :bind
   ("S-l \\'" . lsp-treemacs-symbols))
 
+(use-package consult-lsp
+  :bind
+  (:map lsp-mode-map
+        ([remap xref-find-apropos] . consult-lsp-symbols)))
+
 ;; TODO Make this something worth using. See also the competing
 ;; https://github.com/realgud/realgud, which is an Emacs package to interface
 ;; with cli debuggers.
@@ -6317,173 +6325,6 @@ Prefix ARG is passed to `fill-paragraph'."
 (bind-keys
  ("C-M-\\" . format-buffer-or-region)
  ("C-\\" . format-defun-or-region))
-
-;; (use-package reformatter
-;;   :defer 20
-;;   :config
-;;   (radian-protect-macros
-;;     (defgroup reformatter nil
-;;       "Customized reformatter parts."
-;;       :prefix "reformatter-"
-;;       :group 'tools)
-
-;;     (defvar reformatter-alist nil
-;;       "Alist mapping major mode to formatter commands.
-
-;;   KEY is a major mode symbol.
-
-;;   VALUE is a `reformatter' symbol which is either the symbol from a
-;;   `reformatter-define' statement (e.g. `zprint') or the symbol
-;;   referencing a format region function, which takes two arguments:
-;;   `beginning' and `end' (e.g. `format-region').")
-
-;;     ;; Try to use the native image version, fall back to the JVM.
-;;     (defvar reformatter-zprint-command nil)
-;;     (defvar reformatter-zprint-args '("{:map {:comma? false}}"))
-;;     (if-let ((zp (executable-find "~/.bin/zprint")))
-;;         (setq reformatter-zprint-command zp)
-;;       (progn
-;;         (setq reformatter-zprint-command (executable-find "clojure"))
-;;         (push '("-A:zprint") reformatter-zprint-args)))
-;;     (reformatter-define zprint
-;;       :program reformatter-zprint-command
-;;       :args reformatter-zprint-args
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(clojure-mode . zprint))
-;;     (add-to-list 'reformatter-alist '(clojurec-mode . zprint))
-;;     (add-to-list 'reformatter-alist '(clojurescript-mode . zprint))
-
-;;     (defvar reformatter-prettier-command (executable-find "prettier"))
-;;     (reformatter-define prettier-babel
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "babel")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(js-mode . prettier-babel))
-
-;;     (reformatter-define prettier-json
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "json")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(json-mode . prettier-json))
-
-;;     (reformatter-define prettier-css
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "css")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(css-mode . prettier-css))
-
-;;     (reformatter-define prettier-scss
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "scss")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(scss-mode . prettier-scss))
-
-;;     (reformatter-define prettier-html
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "html")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(html-mode . prettier-html))
-;;     (add-to-list 'reformatter-alist '(web-mode . prettier-html))
-
-;;     (reformatter-define prettier-graphql
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "graphql")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(graphql-mode . prettier-graphql))
-
-;;     (reformatter-define prettier-markdown
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "markdown")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(markdown-mode . prettier-markdown))
-
-;;     (reformatter-define prettier-yaml
-;;       :program reformatter-prettier-command
-;;       :args '("--parser" "yaml")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(yaml-mode . prettier-yaml))
-
-;;     (defvar reformatter-xmllint-command (executable-find "xmllint"))
-;;     (reformatter-define xmllint
-;;       :program reformatter-xmllint-command
-;;       :args '("--format" "-")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(nxml-mode . xmllint))
-
-;;     (defvar reformatter-black-command (executable-find "black"))
-;;     (reformatter-define black
-;;       :program reformatter-black-command
-;;       :args '("--line-length" "80" "-")
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(python-mode . black))
-
-;;     (defvar reformatter-shfmt-command (executable-find "shfmt"))
-;;     (reformatter-define shfmt
-;;       :program reformatter-shfmt-command
-;;       :group 'reformatter-reformatter)
-;;     (add-to-list 'reformatter-alist '(sh-mode . shfmt))
-
-;;     ;; Add format on save mode for each pair in `reformatter-alist'.
-;;     (cl-loop for (mode . sym) in reformatter-alist do
-;;              (add-hook (intern (concat (symbol-name mode) "-hook"))
-;;                        (intern (concat (symbol-name sym) "-on-save-mode"))))
-
-;;     (add-hook 'json-mode-hook
-;;               (lambda () (remove-hook 'before-save-hook 'prettier-babel-buffer 'local)))
-
-;;     (defun reformat-region (beg end)
-;;       "Reformat the region.
-
-;;   This is a fallback in case we can't find a dedicated reformatter
-;;   for the buffer."
-;;       (interactive)
-;;       (indent-region beg end))
-
-;;     (defun reformat-buffer ()
-;;       "Reformat the buffer.
-
-;;   This is a fallback in case we can't find a dedicated reformatter
-;;   for the buffer."
-;;       (interactive)
-;;       (reformat-region (point-min) (point-max)))
-
-;;     (defun reformat-buffer-or-region (beg end &optional thing)
-;;       "Reformat the region from BEG to END.
-
-;;   If no region is active, format the buffer.
-
-;;   Prefix ARG is passed to `fill-paragraph'."
-;;       (interactive "r")
-;;       (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg))
-;;       (call-interactively #'crux-cleanup-buffer-or-region)
-;;       (let ((format-region-fn (let ((f (alist-get major-mode reformatter-alist)))
-;;                                 (cl-some (lambda (x) (when (fboundp x) x))
-;;                                          (list (intern (format "%s-region" f))
-;;                                                f
-;;                                                'reformat-region))))
-;;             (beg (or beg (if (use-region-p) (region-beginning) (point-min))))
-;;             (end (or end (if (use-region-p) (region-end) (point-max))))
-;;             (thing (or thing (if (use-region-p) "region" "buffer"))))
-;;         (funcall-interactively format-region-fn beg end)
-;;         (message "Formatted the %s." thing)))
-
-;;     (defun reformat-defun-or-region ()
-;;       "Reformat the current defun or region."
-;;       (interactive)
-;;       (if (use-region-p)
-;;           (reformat-buffer-or-region (region-beginning) (region-end) "region")
-;;         (save-excursion
-;;           (mark-defun)
-;;           (reformat-buffer-or-region (region-beginning) (region-end) "defun"))))
-
-;;     (defun reformat-line ()
-;;       "Reformat the current line."
-;;       (interactive)
-;;       (reformat-buffer-or-region (line-beginning-position) (line-end-position) "line")))
-
-;;   :bind
-;;   ("C-M-\\" . reformat-buffer-or-region)
-;;   ("C-\\" . reformat-defun-or-region))
 
 (defun maybe-reset-major-mode ()
   "Reset the buffer's `major-mode' if a different mode seems like a better fit.
@@ -6826,29 +6667,6 @@ This package sets these explicitly so we have to do the same."
 (use-package ob-mermaid
   :functions
   org-babel-execute:mermaid)
-
-;; (use-package eval-in-repl
-;;   :custom
-;;   (eir-jump-after-eval nil)
-;;   :config
-;;   (defun eir-eval-in-shell-and-advance ()
-;;     "Eval in REPL and advance for shell script.
-
-;; This version has the opposite behavior to the eir-jump-after-eval
-;; configuration when invoked to evaluate a line."
-;;     (interactive)
-;;     (let ((eir-jump-after-eval t))
-;;       (eir-eval-in-shell)))
-
-;;   (defun eval-in-repl-sh-mode-setup ()
-;;     (require 'eval-in-repl-shell))
-
-;;   :hook
-;;   (sh-mode-hook . eval-in-repl-sh-mode-setup)
-;;   :bind
-;;   (:map sh-mode-map
-;;         ("s-<return>" . eir-eval-in-shell)
-;;         ("M-s-<return>" . eir-eval-in-shell-and-advance)))
 
 (use-package nftables-mode
   :straight (:host github :repo "mnewt/nftables-mode")
