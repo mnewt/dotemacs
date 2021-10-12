@@ -6036,20 +6036,19 @@ Open the `eww' buffer in another window."
 
 (use-package apples-mode
   :mode "\\.\\(applescri\\|sc\\)pt\\'"
-  :interpreter "osascript")
-
-;; Allow editing of binary .scpt files (applescript) on mac.
-;; https://www.emacswiki.org/emacs/AppleScript.
-;; It's necessary to set it using `custom-set-variables' in order to put the
-;; change into effect.
-(custom-set-variables
- '(jka-compr-compression-info-list
-   `["\\.scpt\\'"
-     "converting text applescript to binary applescript "
-     ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
-     "converting binary applescript to text applescprit "
-     ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
-     nil t "FasdUAS"]))
+  :interpreter "osascript"
+  :preface
+  ;; Allow editing of binary .scpt files (applescript) on mac.
+  ;; https://www.emacswiki.org/emacs/AppleScript
+  (add-to-list 'jka-compr-compression-info-list
+               `["\\.scpt\\'"
+                 "converting text applescript to binary applescript "
+                 ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
+                 "converting binary applescript to text applescprit "
+                 ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
+                 nil t "FasdUAS"])
+  ;; It is necessary to perform an update after changing the above variable.
+  (jka-compr-update))
 
 
 ;;;; File Modes
