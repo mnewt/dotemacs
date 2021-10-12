@@ -4335,9 +4335,12 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
     (list-hosts-from-etc-hosts))
    :test #'string=))
 
+(defvar ssh-choose-host-history nil
+  "History for the `ssh-choose-host' command.")
+
 (defun ssh-choose-host (&optional prompt)
   "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
-  (completing-read (or prompt "SSH to Host: ") (list-hosts)))
+  (completing-read (or prompt "SSH to Host: ") (list-hosts) nil nil nil ssh-choose-host-history))
 
 (use-package shell
   :config
