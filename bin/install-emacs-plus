@@ -20,12 +20,13 @@ brew install gcc libgccjit || brew upgrade gcc libgccjit
 brew tap d12frosted/emacs-plus
 brew uninstall emacs-plus@28 || true
 brew install emacs-plus@28 --build-from-source --with-native-comp
+# These are PRs that I don't think will be accepted.
 # brew install d12frosted/emacs-plus/emacs-plus@28 --with-native-comp --with-c-source --without-compressed-elisp --build-from-source
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
-rm ~/Applications/Emacs.app || true
-brew unlink emacs-plus@28 || true
-brew link emacs-plus@28
-ln -s "$(brew --prefix emacs-plus@28)/Emacs.app" "$HOME/Applications/"
+rm /Applications/Emacs.app || true
+ln -s "$(brew --prefix emacs-plus@28)/Emacs.app" "~/Applications/"
 prompt_confirm "Remove ~/.emacs.d/{eln-cache,straight}?" &&
   rm -rf ~/.emacs.d/{eln-cache,straight}
+
+echo "Restart Emacs for changes to take effect"
