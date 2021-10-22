@@ -4621,7 +4621,10 @@ predicate returns true."
     (defun xterm-color-compilation-filter (f proc string)
       (funcall f proc (xterm-color-filter string)))
 
-    (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
+    ;; Emacs 28 renamed `compilation-filter' to `compilation-filter-hook'.
+    (advice-add (if (boundp 'compilation-filter-hook)
+                    'compilation-filter-hook
+                  'compilation-filter) :around #'xterm-color-compilation-filter))
 
   (setenv "TERM" "eterm-256color")
 
