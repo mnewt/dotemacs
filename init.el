@@ -6219,15 +6219,18 @@ Open the `eww' buffer in another window."
 ;;   (dap-ui-mode-hook . dap-ui-controls-mode)
 ;;   (dap-stopped-hook . dap-hydra-interactive))
 
+;; > npm install -g lua-fmt
+;; > gem install rubocop
+;; > brew install shfmt
+;; > brew install zprint
 (use-package apheleia
   :straight (apheleia :host github :repo "raxod502/apheleia")
   :defer 11
   :config
-  (dolist (formatter '((lua-fmt "luafmt" "--stdin")
+  (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" ,(number-to-string tab-width))
                        (rubocop "rubocop" "--format" "emacs" file)
-                       (rufo "rufo" "--simple-exit" "--filename" file)
                        (swift-format "xcrun" "swift-format")
-                       (shfmt  "shfmt" "-i" "2" "-ci")
+                       (shfmt  "shfmt" "-i" ,(number-to-string tab-width) "-ci")
                        (xmllint "xmllint" "--format" "-")
                        (zprint "zprint" "{:style :community :map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
