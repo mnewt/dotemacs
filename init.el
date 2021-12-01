@@ -1778,10 +1778,6 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
   :bind
   ("C-x M-b" . ibuffer))
 
-(use-package bufler
-  :bind
-  ("C-x C-b" . bufler-list))
-
 (defvar hide-mode-line nil
   "Save old `mode-line-format'.")
 
@@ -2109,18 +2105,18 @@ This command obeys narrowing."
 
   (add-hook 'completion-at-point-functions #'complete-path-at-point+ 'append)
 
-  :custom
+  ;; :custom
   ;; Don't move the default candidate to the top of the list.  This is important
   ;; for `counsel-line' to preserve line order. See
   ;; `consult-line-start-from-top'.
-  (selectrum-move-default-candidate nil)
+  ;; (selectrum-move-default-candidate nil)
 
   :config
   (selectrum-mode)
 
   :bind
-  ("C-c C-r" . selectrum-repeat)
-  ("s-f" . selectrum-swiper))
+  ("C-c C-r" . selectrum-repeat))
+  ;; ("s-f" . selectrum-swiper))
 
 
 (use-package selectrum-prescient
@@ -2168,7 +2164,7 @@ The symbol at point and the last `isearch-string' is added to the future history
        :state (consult--jump-state))))
 
   :custom
-  (consult-line-start-from-top 'start)
+  ;; (consult-line-start-from-top 'start)
   (consult-narrow-key "<")
   (consult-find-command "fd --color=never --full-path ARG OPTS")
 
@@ -2255,7 +2251,7 @@ The symbol at point and the last `isearch-string' is added to the future history
   ("M-s-f" . consult-ripgrep)
   ("M-s l" . consult-line)
   ;; Using `selectrum-swiper' instead.
-  ;; ("s-f" . consult-line)
+  ("s-f" . consult-line)
   ("M-s m" . consult-multi-occur)
   ("M-s k" . consult-keep-lines)
   ("M-s u" . consult-focus-lines)
@@ -3537,10 +3533,6 @@ The config is specified in the config file in `~/.mnt/'."
   (vc-follow-symlinks t)
   ;; Backup even if file is in vc.
   (vc-make-backup-files t))
-
-(use-package gitconfig-mode
-  :mode ("/\\.gitconfig\\'" "/\\.git/config\\'" "/modules/.*/config\\'"
-         "/git/config\\'" "/\\.gitmodules\\'" "/etc/gitconfig\\'"))
 
 (use-package magit
   :custom
