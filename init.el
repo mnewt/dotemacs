@@ -316,6 +316,12 @@ higher level up to the top level form."
          w32-pass-rwindow-to-system nil
          w32-rwindow-modifier 'super)))
 
+;; If Emacs was built using Homebrew and the sources are gone, then try to find
+;; them elsewhere.
+(when (and (string-prefix-p "/private/tmp" source-directory)
+           (file-directory-p "~/code/emacs"))
+  (setq source-directory "~/code/emacs"))
+
 
 ;;;; Bindings
 
@@ -2947,6 +2953,18 @@ ERR and IND are ignored."
 ;; Enable all commands without warnings.
 (setq disabled-command-function nil)
 
+(defun describe-peek--find-function (&optional position)
+  "Find a symbol relevant to point."
+  (or (symbol-at-point)
+      (with-demoted-errors "describe-peek: no symbol found around point."
+          (save-excursion (backward-up-list) (forward-char) (symbol-at-point)))))
+
+(defun describe-peek (sym)
+  "Show help for symbol without changing focus."
+  (interactive (list (describe-peek--find-function)))
+  (when sym
+    (describe-symbol sym)))
+
 (use-package helpful
   :preface
   (defun push-button-other-window ()
@@ -3023,10 +3041,10 @@ See `elisp-get-fnsym-args-string'."
             (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
             (advice-add #'elisp-get-var-docstring :around #'elisp--var-full-docstring))
         (advice-remove #'elisp-get-fnsym-args-string #'elisp--fnsym-add-docstring)
-        (advice-remove #'elisp-get-var-docstring #'elisp--var-full-docstring)))))
+        (advice-remove #'elisp-get-var-docstring #'elisp--var-full-docstring))))
 
-  ;; :hook
-  ;; (eldoc-box-hover-mode . eldoc-box-elisp-full-docstring-mode)
+  :hook
+  (eldoc-box-hover-mode . eldoc-box-elisp-full-docstring-mode))
   ;; (eldoc-mode-hook . eldoc-box-hover-mode))
 
 (use-package which-key
@@ -3270,7 +3288,8 @@ Include PREFIX in prompt if given."
 (bind-keys
  ("C-h C-i" . elisp-index-search)
  ("C-h M-i" . info-apropos)
- ("C-h C-l" . find-library))
+ ("C-h C-l" . find-library)
+ ("C-h C-p" . describe-peek))
 
 
 ;;;; Calendar and Journal
