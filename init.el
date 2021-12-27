@@ -2997,7 +2997,8 @@ ERR and IND are ignored."
   (custom-set-variables '(eldoc-echo-area-use-multiline-p 0.9))
 
   ;; Customize `eldoc' setup for Emacs Lisp to display docstrings in addition to
-  ;; the usual signature.
+  ;; the usual signature.  Inspired by `lsp-ui-doc'. This only makes sense if
+  ;; also using `eldoc-box-hover-mode'.
   (with-eval-after-load 'elisp-mode
     (defun elisp--fnsym-add-docstring (f sym &optional index)
       "Add the docstring for SYM to `eldoc'.
@@ -3006,8 +3007,6 @@ See `elisp-get-fnsym-args-string'."
                  (doc (propertize (documentation sym t) 'face 'font-lock-doc-face)))
         (concat string "\n" doc)))
 
-    (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
-
     (defun elisp--var-full-docstring (f sym)
       "Modify `elisp-get-var-docstring' to return the full docstring."
       (cl-letf (((symbol-function #'elisp--docstring-first-line)
@@ -3015,10 +3014,20 @@ See `elisp-get-fnsym-args-string'."
         (when-let ((doc (funcall f sym)))
           (propertize doc 'face 'font-lock-doc-face))))
 
-    (advice-add #'elisp-get-var-docstring :around #'elisp--var-full-docstring))
+    (define-minor-mode eldoc-box-elisp-full-docstring-mode
+      "Minor mode to show the full docstring using `eldoc-box'."
+      :global t
+      :group 'help
+      (if eldoc-box-elisp-full-docstring-mode
+          (progn
+            (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
+            (advice-add #'elisp-get-var-docstring :around #'elisp--var-full-docstring))
+        (advice-remove #'elisp-get-fnsym-args-string #'elisp--fnsym-add-docstring)
+        (advice-remove #'elisp-get-var-docstring #'elisp--var-full-docstring)))))
 
-  :hook
-  (eldoc-mode-hook . eldoc-box-hover-mode))
+  ;; :hook
+  ;; (eldoc-box-hover-mode . eldoc-box-elisp-full-docstring-mode)
+  ;; (eldoc-mode-hook . eldoc-box-hover-mode))
 
 (use-package which-key
   :defer 19
@@ -3136,87 +3145,87 @@ Include PREFIX in prompt if given."
 ;;   :bind
 ;;   ("C-h C-e" . eg))
 
-(use-package tldr
-  :bind
-  ("C-h t" . tldr))
+;; (use-package tldr
+;;   :bind
+;;   ("C-h t" . tldr))
 
-(use-package consult-dash
-  :straight (consult-dash :host github :repo "canatella/consult-dash")
+;; (use-package consult-dash
+;;   :straight (consult-dash :host github :repo "canatella/consult-dash")
 
-  :preface
-  (defcustom dash-docs-docset-modes
-    '((emacs-lisp-mode . "Emacs Lisp")
-      (lisp-interaction-mode . "Emacs Lisp")
-      (clojure-mode . "Clojure")
-      (clojurescript-mode . "ClojureScript")
-      (js-mode . "JavaScript")
-      (csharp-mode . "Unity 3D"))
-    "Alist mapping major modes to docsets.
-If the current major mode is in this list, scope the search to
-the corresponding docset."
-    :type 'list
-    :group 'dash-docs)
+;;   :preface
+;;   (defcustom dash-docs-docset-modes
+;;     '((emacs-lisp-mode . "Emacs Lisp")
+;;       (lisp-interaction-mode . "Emacs Lisp")
+;;       (clojure-mode . "Clojure")
+;;       (clojurescript-mode . "ClojureScript")
+;;       (js-mode . "JavaScript")
+;;       (csharp-mode . "Unity 3D"))
+;;     "Alist mapping major modes to docsets.
+;; If the current major mode is in this list, scope the search to
+;; the corresponding docset."
+;;     :type 'list
+;;     :group 'dash-docs)
 
-  (defvar dash-docs-docset-modes)
+;;   (defvar dash-docs-docset-modes)
 
-  (defun consult-dash-with-docset (docset &optional initial)
-    "Query dash DOCSET.
-INITIAL will be used as the initial input, if given."
-    (interactive (list (assoc-default major-mode dash-docs-docset-modes)))
-    (when docset
-      (setq initial (concat docset " " initial)))
-    (consult-dash initial))
+;;   (defun consult-dash-with-docset (docset &optional initial)
+;;     "Query dash DOCSET.
+;; INITIAL will be used as the initial input, if given."
+;;     (interactive (list (assoc-default major-mode dash-docs-docset-modes)))
+;;     (when docset
+;;       (setq initial (concat docset " " initial)))
+;;     (consult-dash initial))
 
-  (defun dash-docs-update-docsets-var (&rest _)
-    "Update `dash-docs-common-docsets' variable."
-    (setq dash-docs-common-docsets (dash-docs-installed-docsets))
-    (dash-docs-reset-connections))
+;;   (defun dash-docs-update-docsets-var (&rest _)
+;;     "Update `dash-docs-common-docsets' variable."
+;;     (setq dash-docs-common-docsets (dash-docs-installed-docsets))
+;;     (dash-docs-reset-connections))
 
-  (defun dash-docs-update-all-docsets ()
-    "Update all official and unofficial docsets."
-    (interactive)
-    (pop-to-buffer (get-buffer-create "*dash-docs updates*"))
-    (erase-buffer)
-    (insert "Updating Dash Docs\n==================\n\n")
-    (let ((official-docsets (dash-docs-official-docsets))
-          (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
-      (dolist (d (mapcar (lambda (s) (replace-regexp-in-string " " "_" s))
-                         (dash-docs-installed-docsets)))
-        (insert (propertize (concat"  " d ": ") 'face 'bold))
-        (cond
-         ((member d official-docsets)
-          (progn (insert "Updating official docset...\n")
-                 (dash-docs-install-docset d)))
-         ((member d unofficial-docsets)
-          (progn (insert "Updating unofficial docset...\n")
-                 (dash-docs-install-user-docset d)))
-         (t (insert "Skipping manually installed docset...\n")))))
-    (dash-docs-update-docsets-var)
-    (insert "\n\ndone."))
+;;   (defun dash-docs-update-all-docsets ()
+;;     "Update all official and unofficial docsets."
+;;     (interactive)
+;;     (pop-to-buffer (get-buffer-create "*dash-docs updates*"))
+;;     (erase-buffer)
+;;     (insert "Updating Dash Docs\n==================\n\n")
+;;     (let ((official-docsets (dash-docs-official-docsets))
+;;           (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
+;;       (dolist (d (mapcar (lambda (s) (replace-regexp-in-string " " "_" s))
+;;                          (dash-docs-installed-docsets)))
+;;         (insert (propertize (concat"  " d ": ") 'face 'bold))
+;;         (cond
+;;          ((member d official-docsets)
+;;           (progn (insert "Updating official docset...\n")
+;;                  (dash-docs-install-docset d)))
+;;          ((member d unofficial-docsets)
+;;           (progn (insert "Updating unofficial docset...\n")
+;;                  (dash-docs-install-user-docset d)))
+;;          (t (insert "Skipping manually installed docset...\n")))))
+;;     (dash-docs-update-docsets-var)
+;;     (insert "\n\ndone."))
 
-  :custom
-  (dash-docs-browser-func #'eww-other-window)
-  (dash-docs-enable-debugging nil)
-  (dash-docs-docsets-path "~/.config/docsets")
+;;   :custom
+;;   (dash-docs-browser-func #'eww-other-window)
+;;   (dash-docs-enable-debugging nil)
+;;   (dash-docs-docsets-path "~/.config/docsets")
 
-  :config
-  (make-directory dash-docs-docsets-path t)
+;;   :config
+;;   (make-directory dash-docs-docsets-path t)
 
-  (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
+;;   (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
 
-  (setq dash-docs-common-docsets (dash-docs-installed-docsets))
+;;   (setq dash-docs-common-docsets (dash-docs-installed-docsets))
 
-  :bind
-  ("M-s-l" . counsel-dash)
-  ("C-h C-d" . counsel-dash)
-  ("M-s-." . counsel-dash-at-point))
+;;   :bind
+;;   ("M-s-l" . counsel-dash)
+;;   ("C-h C-d" . counsel-dash)
+;;   ("M-s-." . counsel-dash-at-point))
 
-(use-package devdocs-lookup
-  :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
-  :config
-  (devdocs-setup)
-  :bind
-  ("C-h M-l" . devdocs-lookup))
+;; (use-package devdocs-lookup
+;;   :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
+;;   :config
+;;   (devdocs-setup)
+;;   :bind
+;;   ("C-h M-l" . devdocs-lookup))
 
 (use-package atomic-chrome
   :defer 16
