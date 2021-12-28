@@ -2502,11 +2502,11 @@ CONTINUE will be non nil if this is a continuation of a previous jump."
   :config
   (rg-enable-default-bindings (kbd "M-s M-r")))
 
-(use-package spotlight
-  :bind
-  (:map m-search-map
-        ("s" . spotlight)
-        ("S" . spotlight-fast)))
+;; (use-package spotlight
+;;   :bind
+;;   (:map m-search-map
+;;         ("s" . spotlight)
+;;         ("S" . spotlight-fast)))
 
 (bind-key "s-5" #'replace-regexp-entire-buffer-immediately)
 
@@ -2953,15 +2953,14 @@ ERR and IND are ignored."
 ;; Enable all commands without warnings.
 (setq disabled-command-function nil)
 
-(defun describe-peek--find-function (&optional position)
-  "Find a symbol relevant to point."
-  (or (symbol-at-point)
-      (with-demoted-errors "describe-peek: no symbol found around point."
-          (save-excursion (backward-up-list) (forward-char) (symbol-at-point)))))
-
 (defun describe-peek (sym)
   "Show help for symbol without changing focus."
-  (interactive (list (describe-peek--find-function)))
+  (interactive
+   (list (or (symbol-at-point)
+             (with-demoted-errors "describe-peek: no symbol found around point."
+               (save-excursion (backward-up-list)
+                               (forward-char)
+                               (symbol-at-point))))))
   (when sym
     (describe-symbol sym)))
 
