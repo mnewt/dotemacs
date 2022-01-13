@@ -2190,6 +2190,9 @@ The symbol at point and the last `isearch-string' is added to the future history
   (setq consult--source-buffer
         (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
 
+  (with-eval-after-load 'org
+    (bind-key "M-g o" #'consult-org-heading org-mode-map))
+
   ;; TODO Port this to `consult'.
   ;; (defun counsel-switch-buffer-by-mode (mode)
   ;;   "Choose a major MODE, then select from buffers of that mode."
@@ -2269,7 +2272,7 @@ The symbol at point and the last `isearch-string' is added to the future history
   (:map isearch-mode-map
         ("M-e" . consult-isearch)   ;; orig. isearch-edit-string
         ("M-s e" . consult-isearch) ;; orig. isearch-edit-string
-        ("M-s l" . consult-line)))    ;; required by consult-line to detect isearch
+        ("M-s l" . consult-line)))   ;; required by consult-line to detect isearch
 
 (use-package marginalia
   :defer 4
@@ -4044,7 +4047,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
   :hook
   (smartparens-mode-hook . show-smartparens-mode)
   ((cider-repl-mode-hook conf-mode-hook prog-mode-hook text-mode-hook
-                         toml-mode-hook minibuffer-setup-hook)
+                         toml-mode-hook)
    . smartparens-mode)
 
   :bind
@@ -5075,8 +5078,7 @@ Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
 
   (defun eshell-ls-file-at-point ()
     "Get the full path of the Eshell listing at point."
-    (expand-file-name (substring-no-properties (thing-at-point 'filename))
-                      (get-text-property (point) 'eshell-ls-path)))
+    (get-text-property (point) 'file-name))
 
   (defun eshell-ls-find-file ()
     "Open the Eshell listing at point."
@@ -5126,7 +5128,7 @@ and FILE is the cons describing the file."
       (concat (propertize name
                           'keymap eshell-ls-file-keymap
                           'mouse-face 'highlight
-                          'eshell-ls-path default-directory)
+                          'file-name (expand-file-name (substring-no-properties (car file)) default-directory))
               (when (and suffix (not (string-suffix-p suffix name)))
                 (propertize suffix 'face 'shadow)))))
 
@@ -6073,6 +6075,18 @@ Open the `eww' buffer in another window."
 ;;   (:map flyspell-mode-map
 ;;         ([remap flyspell-correct-word-before-point] . flyspell-correct-previous-word-generic)))
 
+;; TODO Enable this after M1 binaries have been fully integrated.
+;; https://github.com/emacs-tree-sitter/elisp-tree-sitter/issues/88
+;; (use-package tree-sitter
+;;   :defer 20)
+
+;; (use-package tree-sitter-langs
+;;   :after tree-sitter
+;;   :config
+;;   (global-tree-sitter-mode)
+;;   :hook
+;;   (tree-sitter-after-on-hook . tree-sitter-hl-mode))
+
 (use-package flycheck
   :custom
   (flycheck-idle-change-delay 1)
@@ -6184,9 +6198,9 @@ Open the `eww' buffer in another window."
 ;;   lsp-ivy-workspace-symbol
 ;;   lsp-ivy-global-workspace-symbol)
 
-(use-package lsp-treemacs
-  :bind
-  ("S-l \\'" . lsp-treemacs-symbols))
+;; (use-package lsp-treemacs
+;;   :bind
+;;   ("S-l \\'" . lsp-treemacs-symbols))
 
 (use-package consult-lsp
   :bind
