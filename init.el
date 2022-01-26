@@ -3259,29 +3259,29 @@ Include PREFIX in prompt if given."
   :hook
   (atomic-chrome-edit-done-hook . atomic-chrome-switch-to-firefox))
 
-(use-package gif-screencast
-  :custom
-  ;; To shut up the shutter sound of `screencapture'
-  (gif-screencast-args '("-x"))
-  (gif-screencast-cropping-program "mogrify")
-  (gif-screencast-capture-format "ppm")
-  (gif-screencast-output-directory (expand-file-name "~/Downloads"))
-  :functions
-  git-screencast--cropping-region
-  :config
-  ;; FIXME: https://gitlab.com/ambrevar/emacs-gif-screencast/issues/14
-  ;; Double the size of the window because the cropping region is not
-  ;; calculated correctly on hi-res displays like retina macbooks.
-  (advice-add
-   #'gif-screencast--cropping-region
-   :around
-   (lambda (oldfun &rest r)
-     (apply #'format "%dx%d+%d+%d"
-            (mapcar
-             (lambda (x) (* 2 (string-to-number x)))
-             (split-string (apply oldfun r) "[+x]")))))
-  :commands
-  gif-screencast)
+;; (use-package gif-screencast
+;;   :custom
+;;   ;; To shut up the shutter sound of `screencapture'
+;;   (gif-screencast-args '("-x"))
+;;   (gif-screencast-cropping-program "mogrify")
+;;   (gif-screencast-capture-format "ppm")
+;;   (gif-screencast-output-directory (expand-file-name "~/Downloads"))
+;;   :functions
+;;   git-screencast--cropping-region
+;;   :config
+;;   ;; FIXME: https://gitlab.com/ambrevar/emacs-gif-screencast/issues/14
+;;   ;; Double the size of the window because the cropping region is not
+;;   ;; calculated correctly on hi-res displays like retina macbooks.
+;;   (advice-add
+;;    #'gif-screencast--cropping-region
+;;    :around
+;;    (lambda (oldfun &rest r)
+;;      (apply #'format "%dx%d+%d+%d"
+;;             (mapcar
+;;              (lambda (x) (* 2 (string-to-number x)))
+;;              (split-string (apply oldfun r) "[+x]")))))
+;;   :commands
+;;   gif-screencast)
 
 ;; SICP in Info Format.
 ;; (use-package sicp
