@@ -1595,6 +1595,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
   :hook
   (emacs-startup-hook . persp-mode)
   (persp-activated-hook . persp-set-frame-title)
+  (persp-after-rename-hook . persp-set-frame-title)
   (kill-emacs-hook . persp-state-save)
 
   :bind
