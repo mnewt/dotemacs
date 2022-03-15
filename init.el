@@ -3795,9 +3795,8 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 
 (use-package move-text
   :bind
-  (:map prog-mode-map
-        ("M-<up>" . move-text-up)
-        ("M-<down>" . move-text-down)))
+  ("M-<up>" . move-text-up)
+  ("M-<down>" . move-text-down))
 
 (use-package string-inflection
   :config
@@ -4577,7 +4576,8 @@ predicate returns true."
   (defun vterm-switch-to-buffer ()
     "Switch to the most recent VTerm buffer or create a new one."
     (interactive)
-    (switch-to-buffer (vterm-get-or-create)))
+    (let ((default-directory "~"))
+      (switch-to-buffer (vterm-get-or-create))))
 
   (defun vterm-switch-to-buffer-other-window ()
     "Get or create a VTerm buffer, then switch to it."
@@ -6261,10 +6261,10 @@ Open the `eww' buffer in another window."
   :straight (apheleia :host github :repo "raxod502/apheleia")
   :defer 11
   :config
-  (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" ,(number-to-string tab-width))
+  (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" "2")
                        (rubocop "rubocop" "--format" "emacs" file)
                        (swift-format "xcrun" "swift-format")
-                       (shfmt  "shfmt" "-i" ,(number-to-string tab-width) "-ci")
+                       (shfmt  "shfmt" "-i" "2" "-ci")
                        (xmllint "xmllint" "--format" "-")
                        (zprint "zprint" "{:style :community :map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
@@ -6524,7 +6524,7 @@ This package sets these explicitly so we have to do the same."
   "\\.toml\\'"
   "Pipfile\\'")
 
-;; > gem install rufo
+;; > gem install rubocop
 (use-package ruby-mode
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :hook
