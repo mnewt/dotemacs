@@ -5774,12 +5774,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :hook
   (pdf-view-mode-hook . pdf-view-roll-minor-mode))
 
-(use-package pdf-continuous-scroll-mode
-  :after pdf-tools
-  :straight (:host github :repo "dalanicolai/pdf-continuous-scroll-mode.el")
-  :hook
-  (pdf-view-mode-hook . pdf-continuous-scroll-mode))
-
 ;; (use-package nov
 ;;   :mode ("\\.epub\\'" . nov-mode))
 
