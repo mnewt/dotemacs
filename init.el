@@ -1420,7 +1420,7 @@ return them in the Emacs format."
 (use-package bug-reference
   :custom
   (bug-reference-bug-regexp
-   "\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|[Ii]ssue ?#\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)")
+   "\\(\\b\\([Bb]ug ?#?\\|[Pp]atch ?#\\|RFE ?#\\|PR [a-z+-]+/\\|SER\\|REQ\\|INC\\|CHG\\)\\([0-9]+\\(?:#[0-9]+\\)?\\)\\)")
 
   :config
   (defvar bug-reference-dispatch-alist nil
@@ -1459,7 +1459,12 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   :hook
   (prog-mode-hook . bug-reference-prog-mode)
-  ((org-mode-hook text-mode-hook) . bug-reference-mode))
+  ((org-mode-hook text-mode-hook) . bug-reference-mode)
+
+  :bind
+  (:map bug-reference-map
+        ;; Like the binding for `org-open-at-point'.
+        ("C-c C-o" . bug-reference-push-button)))
 
 (use-package winner
   :defer 10
@@ -2954,8 +2959,12 @@ ERR and IND are ignored."
  '(shell-command-prompt-show-cwd t)
  '(suggest-key-bindings 5))
 
-;; Enable all commands without warnings.
-(setq disabled-command-function nil)
+;; Customize `help-at-pt'.
+(custom-set-variables
+ ;; Display help text when the cursor is over something with a `help-echo'
+ ;; property, such as a URL.
+ '(help-at-pt-display-when-idle t)
+ '(help-at-pt-timer-delay 0.2))
 
 (defun describe-peek (sym)
   "Show help for symbol without changing focus."
@@ -4699,9 +4708,7 @@ See https://github.com/mnewt/fpw."
   (let ((buffer (get-buffer-create "*Fun Password Generator*")))
     (shell-command command buffer)
     (with-current-buffer buffer
-      (save-excursion
-        (forward-line -1)
-        (copy-region-as-kill (line-beginning-position) (line-end-position))))
+      (copy-region-as-kill (line-beginning-position) (line-end-position)))
     (message "Copied to kill-ring: %s" (car kill-ring))
     (when current-prefix-arg
       (pop-to-buffer buffer))))
@@ -5012,7 +5019,10 @@ Call it a second time to print the prompt."
  ARGS are passed to the program.  At the moment, no piping of input is
  allowed.
 
-Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb."
+Stolen from https://gist.github.com/ralt/a36288cd748ce185b26237e6b85b27bb.
+
+There is an Emacs bug to fix this:
+https://debbugs.gnu.org/cgi/bugreport.cgi?bug=27612."
     (let* (eshell-interpreter-alist
            (original-args args)
            (interp (eshell-find-interpreter (car args) (cdr args)))
@@ -5758,6 +5768,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   :bind
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
+
+(use-package
+  :straight (:host github :repo "dalanicolai/image-roll.el")
+  :hook
+  (pdf-view-mode-hook . pdf-view-roll-minor-mode))
 
 (use-package pdf-continuous-scroll-mode
   :after pdf-tools
@@ -7066,6 +7081,9 @@ With a prefix ARG, create it in `org-directory'."
     (org-reveal)
     (org-show-subtree))
 
+  ;; TODO Redo this to not be specific to `org-mode' and capture 'link and
+  ;; 'bug-reference-url overlays instead. Actually, we should be able to re-use
+  ;; mouse-hover, at least in some cases.
   (defun org-link-message ()
     "When in `org-mode', display link destinations in the minibuffer."
     (when (derived-mode-p 'org-mode)
@@ -7127,7 +7145,6 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
   (org-babel-after-execute-hook . org-redisplay-inline-images)
 
   :bind
-  ("C-c C-o" . org-open-at-point)
   ("C-c l" . org-store-link)
   ("C-c C-l" . org-insert-link)
   ("C-c a" . org-agenda)
