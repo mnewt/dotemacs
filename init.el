@@ -5769,10 +5769,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   (:map pdf-view-mode-map
         ("s-f" . isearch-forward)))
 
-(use-package
-  :straight (:host github :repo "dalanicolai/image-roll.el")
-  :hook
-  (pdf-view-mode-hook . pdf-view-roll-minor-mode))
+;; TODO Get this to work
+;; (use-package image-roll
+;;   :straight (:host github :repo "dalanicolai/image-roll.el")
+;;   :hook
+;;   (pdf-view-mode-hook . image-roll-mode))
 
 ;; (use-package nov
 ;;   :mode ("\\.epub\\'" . nov-mode))
