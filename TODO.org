@@ -1,5 +1,7 @@
 #+TITLE: TODO
 
+* TODO Add mode-line `-f` for `auto-revert-tail-mode`.
+
 * TODO Try Corfu
 
 * TODO Company in text-mode changes capitalization when accepting a completion. It should leave it alone.

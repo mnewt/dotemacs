@@ -5817,6 +5817,9 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
   journalctl
   journalctl-unit)
 
+(use-package itail
+  :commands
+  itail)
 
 ;;;; Docker
 
@@ -6793,7 +6796,9 @@ This package sets these explicitly so we have to do the same."
 
 (use-package org
   :defer 17
+
   :mode ("\\.org\\'" . org-mode)
+
   :custom
   ;; Indent text according to the outline structure (`org-indent-mode')
   ;; (org-startup-indented t)
@@ -6862,21 +6867,7 @@ This package sets these explicitly so we have to do the same."
   org-capture
   org-capture-refile
 
-  :config
-
-  ;; KLUDGE Redefining these internal functions is a workaround for `straight'
-  ;; not setting running make to set the proper variables during the build
-  ;; process.
-  (defun m-org-release ()
-    "9.5-dev")
-
-  (advice-add #'org-release :override #'m-org-release)
-
-  (defun m-org-git-version ()
-    "Via straight.el")
-
-  (advice-add #'org-git-version :override #'m-org-git-version)
-
+  :preface
   (defun org-find-file-for-capture (&optional file)
     "Open a file and ready it for capture."
     (let ((default-directory org-directory))
@@ -6895,27 +6886,6 @@ This package sets these explicitly so we have to do the same."
            (format "justis/%s-meeting-%s"
                    (format-time-string "%F")
                    (read-string "Meeting Subject: ")))))
-
-  (org-babel-do-load-languages 'org-babel-load-languages
-                               '((awk . t)
-                                 (calc . t)
-                                 (clojure . t)
-                                 (emacs-lisp . t)
-                                 (js . t)
-                                 (lisp . t)
-                                 (mermaid . t)
-                                 (perl . t)
-                                 (plantuml . t)
-                                 (python . t)
-                                 (ruby . t)
-                                 (scheme . t)
-                                 (sed . t)
-                                 (shell . t)
-                                 (sql . t)
-                                 (sqlite . t)))
-
-  (defvar org-babel-clojure-backend)
-  (setq org-babel-clojure-backend 'cider)
 
   (defun window-config-org ()
     "Set up Org window config."
@@ -7086,6 +7056,42 @@ With a prefix ARG, create it in `org-directory'."
         (when (eq (car object) 'link)
           (message "%s" (org-element-property :raw-link object))))))
 
+  :config
+
+  ;; KLUDGE Redefining these internal functions is a workaround for `straight'
+  ;; not setting running make to set the proper variables during the build
+  ;; process.
+  ;; (defun m-org-release ()
+  ;;   "9.5-dev")
+
+  ;; (advice-add #'org-release :override #'m-org-release)
+
+  ;; (defun m-org-git-version ()
+  ;;   "Via straight.el")
+
+  ;; (advice-add #'org-git-version :override #'m-org-git-version)
+
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               '((awk . t)
+                                 (calc . t)
+                                 (clojure . t)
+                                 (emacs-lisp . t)
+                                 (js . t)
+                                 (lisp . t)
+                                 (mermaid . t)
+                                 (perl . t)
+                                 (plantuml . t)
+                                 (python . t)
+                                 (ruby . t)
+                                 (scheme . t)
+                                 (sed . t)
+                                 (shell . t)
+                                 (sql . t)
+                                 (sqlite . t)))
+
+  (defvar org-babel-clojure-backend)
+  (setq org-babel-clojure-backend 'cider)
+
   ;; (use-package org-spacer
   ;;   :straight (:host github :repo "dustinlacewell/org-spacer.el")
   ;;   :config
@@ -7129,11 +7135,11 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
       (when (and (eq system-type 'darwin) (file-exists-p cmd))
         (setq org-odt-convert-processes
               '(("LibreOffice"
-                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i")))))
+                 "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
 
-    (add-hook 'before-save-hook #'org-fix-blank-lines 90 'local)
+  (add-hook 'before-save-hook #'org-fix-blank-lines 90 'local)
 
-    (add-hook 'post-command-hook #'org-link-message 90 'local))
+  (add-hook 'post-command-hook #'org-link-message 90 'local)
 
   :hook
   (org-mode-hook . org-mode-setup)
@@ -7159,7 +7165,8 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
         ("C-M-d" . org-down-element)
         ("C-s-t" . org-show-only-current-subtree)
         ("C-M-u" . org-up-element)
-        ("C-M-d" . org-down-element))
+        ("C-M-d" . org-down-element)
+        ("C-c M-s" . org-sort-entries-by-todo-status))
   (:map m-org-map
         ("a" . org-agenda)
         ("b" . org-switchb)
