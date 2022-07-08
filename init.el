@@ -676,38 +676,38 @@ then choose the next key in the Alist `fiat-themes'."
            (not (eq window-system 'windows-nt)))
   :demand t
   :straight (window-highlight :host github :repo "dcolascione/emacs-window-highlight")
-  :config
+  :init
   ;; Sometimes on startup, Emacs doesn't realize it's in focus? I think this is
   ;; because of the way macOS starts Emacs (because starting it from the command
   ;; line doesn't exhibit this behavior). Anyway, it doesn't seem too terrible
   ;; to go ahead and set it manually.
   (set-frame-parameter (selected-frame) 'last-focus-update t)
+  :config
   (window-highlight-mode))
 
-;; (use-package doom-themes
-;;   :demand t
-;;   :config
-;;   (doom-themes-visual-bell-config))
-
-(defface visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
+(defface doom-themes-visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
   "Face to use for the mode-line when `doom-themes-visual-bell-config' is used."
   :group 'doom-themes)
 
-(defun visual-bell-fn ()
-  "Blink the mode-line briefly. Set `ring-bell-function' to this to use it.
-This is a modified version of `doom-themes-ext-visual-bell-fn'."
-  (let ((doom-themes--bell-cookie (face-remap-add-relative 'mode-line 'visual-bell)))
+;; FIXME
+;; See https://github.com/doomemacs/themes/issues/733 and
+;; http://debbugs.gnu.org/cgi/bugreport.cgi?bug=53636
+(defun doom-themes-visual-bell-fn ()
+  "Blink the mode-line red briefly. Set `ring-bell-function' to this to use it."
+  (let* ((buf (current-buffer))
+         (cookies `(,(face-remap-add-relative 'mode-line-active
+                                              'doom-themes-visual-bell)
+                    ,(face-remap-add-relative 'mode-line
+                                              'doom-themes-visual-bell))))
     (force-mode-line-update)
     (run-with-timer 0.15 nil
-                    (lambda (cookie buf)
-                      (when (buffer-live-p buf)
-                        (with-current-buffer buf
-                          (face-remap-remove-relative cookie)
-                          (force-mode-line-update))))
-                    doom-themes--bell-cookie
-                    (current-buffer))))
+                    (lambda ()
+                      (with-current-buffer buf
+                        (mapc #'face-remap-remove-relative cookies)
+                        (force-mode-line-update))))))
 
-(setq ring-bell-function #'visual-bell-fn)
+(setq ring-bell-function #'doom-themes-visual-bell-fn
+      visible-bell t)
 
 (use-package modus-themes
   :demand t
