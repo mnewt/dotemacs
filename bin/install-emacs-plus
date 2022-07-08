@@ -16,16 +16,19 @@ prompt_confirm() {
   done
 }
 
+emacs=emacs-plus@29
+destination="$HOME/Applications/Emacs.app"
+
 brew install gcc libgccjit || brew upgrade gcc libgccjit
 brew tap d12frosted/emacs-plus
-brew uninstall emacs-plus@28 || true
-brew install emacs-plus@28 --build-from-source --with-native-comp
+brew uninstall $emacs || true
+brew install $emacs --build-from-source --with-native-comp
 # These are PRs that I don't think will be accepted.
-# brew install d12frosted/emacs-plus/emacs-plus@28 --with-native-comp --with-c-source --without-compressed-elisp --build-from-source
+# brew install d12frosted/emacs-plus/$emacs --with-native-comp --with-c-source --without-compressed-elisp --build-from-source
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
-rm /Applications/Emacs.app || true
-ln -s "$(brew --prefix emacs-plus@28)/Emacs.app" "$HOME/Applications/Emacs.app"
+rm "$destination" || true
+ln -s "$(brew --prefix $emacs)/Emacs.app" "$destination"
 prompt_confirm "Remove $HOME/.emacs.d/{eln-cache,straight}?" &&
   rm -rf $HOME/.emacs.d/{eln-cache,straight}
 

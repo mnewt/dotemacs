@@ -285,9 +285,10 @@ higher level up to the top level form."
 
 (use-package f :demand t)
 
-(use-package async
-  :hook
-  (dired-mode-hook . dired-async-mode))
+(use-package async)
+;; FIXME `dired-async-mode' is just not reliable, and the progress is unclear too.
+;; :hook
+;; (dired-mode-hook . dired-async-mode))
 
 
 ;;;; Operating System
@@ -296,21 +297,17 @@ higher level up to the top level form."
 
 (cl-case system-type
   (darwin
-   ;; Mitsuharu Yamamoto's Emacs Mac uses the `mac-*' prefix.
-   (setq mac-option-modifier 'meta
-         mac-command-modifier 'super)
-   (defvar ns-right-alternate-modifier)
-   (defvar ns-function-modifier)
-   (defvar ns-pop-up-frames)
-   ;; Pass right option through to OS.
-   (setq ns-right-alternate-modifier 'none
+   (setq ns-alternate-modifier 'meta
+         ns-command-modifier 'super
          ns-function-modifier 'hyper
+         ;; Pass right option through to OS.
+         ns-right-alternate-modifier 'none
+         ;; Never open files from OS in a new frame.
          ns-pop-up-frames nil))
+         ;; Mitsuharu Yamamoto's Emacs Mac uses the `mac-*' prefix.
+         ;; mac-option-modifier 'meta
+         ;; mac-command-modifier 'super))
   (windows-nt
-   (defvar w32-pass-lwindow-to-system)
-   (defvar w32-lwindow-modifier)
-   (defvar w32-pass-rwindow-to-system)
-   (defvar w32-rwindow-modifier)
    (setq w32-pass-lwindow-to-system nil
          w32-lwindow-modifier 'super
          w32-pass-rwindow-to-system nil
@@ -318,9 +315,8 @@ higher level up to the top level form."
 
 ;; If Emacs was built using Homebrew and the sources are gone, then try to find
 ;; them elsewhere.
-(when (and (string-prefix-p "/private/tmp" source-directory)
-           (file-directory-p "~/code/emacs"))
-  (setq source-directory "~/code/emacs"))
+(when (file-directory-p "~/.emacs.d/emacs")
+  (setq source-directory "~/.emacs.d/emacs"))
 
 
 ;;;; Bindings
@@ -1587,6 +1583,8 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
     (persp-switch "main"))
 
   :custom
+  ;; The old prefix, "C-x x", is used by Emacs starting with 28.
+  (persp-mode-prefix-key (kbd "C-c C-p"))
   ;; Don't show modestring on the modeline; it's displayed on the frame title
   ;; instead.
   (persp-show-modestring nil)
@@ -1975,168 +1973,19 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 ;;   :config
 ;;   (mini-frame-mode))
 
-(use-package selectrum
+(use-package vertico
   :demand t
+  :init (vertico-mode))
 
+(use-package orderless
+  :after vertico
+  :demand t
   :preface
-  (defvar selectrum-swiper-history nil "Submission history for `selectrum-swiper'.")
-  (autoload 'selectrum--read "selectrum")
-
-  ;; TODO
-  ;; In the process of adapting this from https://github.com/raxod502/selectrum/wiki/Useful-Commands#swiper-like-jumping-to-matching-lines.
-  (defun selectrum-swiper (&optional initial-input)
-    "Search for a matching line and jump to the beginning of its text.
-The default candidate is a non-empty line closest to point.
-This command obeys narrowing."
-    (interactive)
-    (let ((selectrum-should-sort nil)
-          ;; Get the current line number for determining the travel distance.
-          (current-line-number (line-number-at-pos (point) t)))
-      (cl-destructuring-bind (default-candidate formatted-candidates)
-          (cl-loop
-           with buffer-lines = (split-string (buffer-string) "\n")
-           with number-format = (concat "%0"
-                                        (number-to-string
-                                         (length (number-to-string
-                                                  (length buffer-lines))))
-                                        "d: ")
-
-           with formatted-candidates = nil
-           for line-text in buffer-lines
-           for line-num = (line-number-at-pos (point-min) t) then (1+ line-num)
-
-           with default-candidate = nil
-           with prev-distance-to-default-cand = 1.0e+INF ; This updated later.
-           for distance-to-default-cand = (abs (- current-line-number line-num))
-
-           unless (string-empty-p line-text) ; Just skip empty lines.
-           do
-           ;; Find if we’ve started to move away from the current line.
-           (when (null default-candidate)
-             (when (> distance-to-default-cand
-                      prev-distance-to-default-cand)
-               (setq default-candidate (cl-first formatted-candidates)))
-             (setq prev-distance-to-default-cand distance-to-default-cand))
-
-           ;; Format current line and collect candidate.
-           (push (propertize (concat (propertize (format number-format line-num)
-                                                 'face 'completions-annotations)
-                                     line-text)
-                             'line-num line-num)
-                 formatted-candidates)
-
-           finally return (list default-candidate
-                                (nreverse formatted-candidates)))
-        (let ((chosen-line-number
-               (get-text-property
-                0 'line-num
-                ;; (completing-read "Jump to matching line: "
-                ;;                  formatted-candidates
-                ;;                  nil t nil 'selectrum-swiper-history
-                ;;                  default-candidate))))
-
-                (selectrum--read "Jump to matching line: "
-                                 formatted-candidates
-                                 :default-candidate default-candidate
-                                 :history 'selectrum-swiper-history
-                                 :require-match t))))
-          (push-mark (point) t)
-          (forward-line (- chosen-line-number current-line-number))
-          (beginning-of-line-text 1)))))
-
-;;   (defun embark-export-selectrum-swiper (lines)
-;;     "Create an occur mode buffer listing LINES.
-;; Adapted from `embark-consult-export-occur'."
-;;     (message "Exporting lines: \n%S" lines)
-;;     (let ((buf (generate-new-buffer "*Embark Export Occur*"))
-;;           (mouse-msg "mouse-2: go to this occurrence")
-;;           last-buf)
-;;       (with-current-buffer buf
-;;         (dolist (line lines)
-;;           (let ((num (get-text-property 0 'line-num))
-;;                 ;; the text properties added to the following strings are
-;;                 ;; taken from occur-engine
-;;                 (lineno (propertize (format "%7d:" num)
-;;                                     'occur-prefix t
-;;                                     ;; Allow insertion of text at the end
-;;                                     ;; of the prefix (for Occur Edit mode).
-;;                                     'front-sticky t
-;;                                     'rear-nonsticky t
-;;                                     'occur-target loc
-;;                                     'follow-link t
-;;                                     'help-echo mouse-msg))
-;;                 (contents (propertize (embark-consult--strip line)
-;;                                       'occur-target loc
-;;                                       'occur-match t
-;;                                       'follow-link t
-;;                                       'help-echo mouse-msg))
-;;                 (nl (propertize "\n" 'occur-target loc))
-;;                 (this-buf (marker-buffer loc))
-;;                 (unless (eq this-buf last-buf)
-;;                   (insert (propertize
-;;                            (format "lines from buffer: %s\n" this-buf)
-;;                            'face list-matching-lines-buffer-name-face))
-;;                   (setq last-buf this-buf))
-;;                 (insert (concat lineno contents nl))))
-;;           (goto-char (point-min))
-;;           (occur-mode))
-;;         (pop-to-buffer buf))))
-
-;;   (with-eval-after-load 'embark
-;;     (add-to-list 'embark-exporters-alist
-;;                  '(selectrum-swiper . embark-export-selectrum-swiper)))
-
-  ;; Stolen from https://github.com/raxod502/selectrum/wiki/Additional-Configuration#minibuffer-default-add-function.
-  (autoload 'ffap-guesser "ffap")
-
-  (defun minibuffer-default-add-function+ ()
-    (with-selected-window (minibuffer-selected-window)
-      (delete-dups
-       (delq nil
-             (list (thing-at-point 'symbol)
-                   (thing-at-point 'list)
-                   (ffap-guesser)
-                   (thing-at-point-url-at-point))))))
-
-  (setq minibuffer-default-add-function #'minibuffer-default-add-function+)
-
-  ;; Stolen from
-  ;; https://github.com/raxod502/selectrum/wiki/Additional-Configuration#complete-file-names-at-point
-  (autoload 'ffap-file-at-point "ffap")
-
-  (defun complete-path-at-point+ ()
-    (let ((fn (ffap-file-at-point))
-          (fap (thing-at-point 'filename)))
-      (when (and (or fn
-                     (equal "/" fap))
-                 (save-excursion
-                   (search-backward fap (line-beginning-position) t)))
-        (list (match-beginning 0)
-              (match-end 0)
-              #'completion-file-name-table))))
-
-  (add-hook 'completion-at-point-functions #'complete-path-at-point+ 'append)
-
-  ;; :custom
-  ;; Don't move the default candidate to the top of the list.  This is important
-  ;; for `counsel-line' to preserve line order. See
-  ;; `consult-line-start-from-top'.
-  ;; (selectrum-move-default-candidate nil)
-
-  :config
-  (selectrum-mode)
-
-  :bind
-  ("C-c C-r" . selectrum-repeat))
-  ;; ("s-f" . selectrum-swiper))
-
-
-(use-package selectrum-prescient
-  :after selectrum
-  :demand t
-  :config
-  (selectrum-prescient-mode)
-  (prescient-persist-mode))
+  (setq completion-category-defaults nil)
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles partial-completion))))
+  (orderless-matching-styles '(orderless-literal orderless-regexp orderless-initialism)))
 
 ;; FIXME `consult-man' doesn't show any results for `rg' because it's only two
 ;; characters.
@@ -2148,33 +1997,6 @@ This command obeys narrowing."
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
 
-  :preface
-  (defun consult-swiper (&optional initial start)
-    "A `swiper' clone for `consult'.
-Optional INITIAL input can be provided.
-The search starting point is changed if the START prefix argument is set.
-The symbol at point and the last `isearch-string' is added to the future history."
-    (interactive (list nil (not (not current-prefix-arg))))
-    (let ((candidates (consult--with-increased-gc
-                       (consult--line-candidates
-                        (not (eq start consult-line-start-from-top))))))
-      (consult--read
-       candidates
-       :prompt "Go to line: "
-       :annotate (consult--line-prefix)
-       :category 'consult-location
-       :sort nil
-       :require-match t
-       ;; Always add last isearch string to future history
-       :add-history (list (thing-at-point 'symbol) isearch-string)
-       :history '(:input consult--line-history)
-       :lookup #'consult--line-match
-       :default (caddr candidates)
-       ;; Add isearch-string as initial input if starting from isearch
-       :initial (or initial
-                    (and isearch-mode (prog1 isearch-string (isearch-done))))
-       :state (consult--jump-state))))
-
   :custom
   ;; (consult-line-start-from-top 'start)
   (consult-narrow-key "<")
@@ -2183,24 +2005,6 @@ The symbol at point and the last `isearch-string' is added to the future history
   :config
   (autoload 'projectile-project-root "projectile")
   (setq consult-project-root-function #'projectile-project-root)
-
-  ;; FIXME Don't preview buffer when using TRAMP and `consult-buffer'.  This
-  ;; seems like a band-aid, not a real solution.
-  (defun consult-buffer-state-no-tramp ()
-    "Buffer state function that doesn't preview Tramp buffers."
-    (let ((orig-state (consult--buffer-state))
-          (filter (lambda (cand restore)
-                    (if (or restore
-                            (let ((buffer (get-buffer cand)))
-                              (and buffer
-                                   (not (file-remote-p (buffer-local-value 'default-directory buffer))))))
-                        cand
-                      nil))))
-      (lambda (cand restore)
-        (funcall orig-state (funcall filter cand restore) restore))))
-
-  (setq consult--source-buffer
-        (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
 
   (with-eval-after-load 'org
     (bind-key "M-g o" #'consult-org-heading org-mode-map))
@@ -2231,8 +2035,8 @@ The symbol at point and the last `isearch-string' is added to the future history
   ("C-c k" . consult-kmacro)
 
   ;; C-x bindings (ctl-x-map)
-  ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complet-command
-  ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+  ("C-x M-:" . consult-complex-command) ;; orig. repeat-complet-command
+  ("C-x b" . consult-buffer)            ;; orig. switch-to-buffer
   ("s-b" . consult-buffer)
   ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
   ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
@@ -2279,7 +2083,7 @@ The symbol at point and the last `isearch-string' is added to the future history
   ("M-m M-t" . consult-theme)
 
   ;; Recentf
-  ("C-x f" . consult-recent-file)  ;; orig. set-fill-column
+  ("C-x f" . consult-recent-file) ;; orig. set-fill-column
 
   (:map isearch-mode-map
         ("M-e" . consult-isearch)   ;; orig. isearch-edit-string
@@ -2397,10 +2201,6 @@ The symbol at point and the last `isearch-string' is added to the future history
         ("M-/" . completion-at-point))
   (:map minibuffer-local-completion-map
         ("M-/" . completion-at-point)))
-
-(use-package company-prescient
-  :hook
-  (company-mode-hook . company-prescient-mode))
 
 (use-package company-box
   :if window-system
@@ -2737,9 +2537,9 @@ With a prefix ARG always prompt for command to use."
   (dired-rainbow-define shell "#f6993f"
                         ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
   (dired-rainbow-define interpreted "#38c172"
-                        ("py" "ipynb" "hy" "rb" "pl" "t" "msql" "mysql"
-                         "pgsql" "sql" "r" "clj" "cljs" "cljc" "cljx" "edn"
-                         "scala" "js" "jsx" "lua" "fnl" "gd"))
+                        ("clj" "cljc" "cljs" "cljx" "edn" "fnl" "gd" "hy"
+                         "ipynb" "js" "jsx" "lua" "msql" "mysql" "pgsql" "pl"
+                         "ps1" "py" "scala" "sql" "r" "rb" "t"))
   (dired-rainbow-define compiled "#6cb2eb"
                         ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                          "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
@@ -4266,11 +4066,13 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 ;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
 (use-package tramp
   ;; FIXME The git version of TRAMP currently doesn't seem to work with straight.
-  ;; :straight (:type built-in)
+  :straight (:type built-in)
+
   :functions
   tramp-cleanup-all
   tramp-insert-remote-part
   tramp-dired
+
   :config
   (defun tramp-cleanup-all ()
     "Clean up all tramp buffers and connections."
@@ -6094,7 +5896,7 @@ Open the `eww' buffer in another window."
 
 ;;;; File Modes
 
-;; All modes and mode related stuff which doesn't fit into a larger category.
+;; All modes and mode related stuff which don't fit into a larger category.
 
 ;; (use-package flyspell
 ;;   :custom
@@ -6110,23 +5912,15 @@ Open the `eww' buffer in another window."
 ;;         ("C-;" . nil)
 ;;         ("C-M-i" . nil)))
 
-;; (use-package flyspell-correct-ivy
-;;   :after flyspell
-;;   :bind
-;;   (:map flyspell-mode-map
-;;         ([remap flyspell-correct-word-before-point] . flyspell-correct-previous-word-generic)))
+(use-package tree-sitter
+  :defer 20)
 
-;; TODO Enable this after M1 binaries have been fully integrated.
-;; https://github.com/emacs-tree-sitter/elisp-tree-sitter/issues/88
-;; (use-package tree-sitter
-;;   :defer 20)
-
-;; (use-package tree-sitter-langs
-;;   :after tree-sitter
-;;   :config
-;;   (global-tree-sitter-mode)
-;;   :hook
-;;   (tree-sitter-after-on-hook . tree-sitter-hl-mode))
+(use-package tree-sitter-langs
+  :after tree-sitter
+  :config
+  (global-tree-sitter-mode)
+  :hook
+  (tree-sitter-after-on-hook . tree-sitter-hl-mode))
 
 (use-package flycheck
   :custom
@@ -6589,7 +6383,7 @@ This package sets these explicitly so we have to do the same."
 ;; Install on macOS:
 ;; > brew install powershell
 (use-package powershell
-  :mode "\\.ps1\\'"
+  :mode "\\.ps[dm]?1\\'"
   :custom
   (powershell-indent tab-width)
   (powershell-continuation-indent tab-width)
