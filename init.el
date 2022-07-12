@@ -1543,32 +1543,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
                                         (persp-names)
                                         "     ")))
 
-  (defun choose-by-number (options &optional prompt)
-    "Display a list and choose among OPTIONS by pressing its number."
-    (interactive)
-    (string-to-number
-     (char-to-string
-      (read-char
-       (string-join
-        (cons (or prompt "Choose by pressing a number:")
-              (seq-map-indexed (lambda (p n) (format "%d: %s" (1+ n) p)) options))
-        "\n")))))
-
-  (defun persp-switch-nth (n)
-    "Switch to the N-th perspective."
-    (interactive (list (choose-by-number (persp-names))))
-    (persp-switch (nth (1- n) (persp-names))))
-
-  ;; Create `persp-switch-to-X' and key bindings.
-  (dolist (n (number-sequence 1 9))
-    (let ((f (intern (format "persp-switch-to-%d" n))))
-      (bind-key (format "C-x x %d" n) f)
-      (bind-key (format "H-%d" n) f)
-      (eval `(defun ,f ()
-               ,(format "Switch to perspective number %d." n)
-               (interactive)
-               (persp-switch-nth ,n)))))
-
   (defun persp-switch-to-org ()
     "Switch to the Org perspective."
     (interactive)
@@ -1581,6 +1555,16 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
     "Switch to the Main perspective."
     (interactive)
     (persp-switch "main"))
+
+  :config
+  ;; Create `persp-switch-to-X' and key bindings.
+  (dolist (n (number-sequence 1 9))
+    (let ((f (intern (format "persp-switch-to-%d" n))))
+      (eval `(defun ,f ()
+               ,(format "Switch to perspective number %d." n)
+               (interactive)
+               (persp-switch-by-number ,n)))
+      (bind-key (format "H-%d" n) f)))
 
   :custom
   ;; The old prefix, "C-x x", is used by Emacs starting with 28.
@@ -1603,9 +1587,6 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   :bind
   (:map persp-mode-map
-        ("C-x x l" . persp-state-load)
-        ("C-x x C-s" . persp-state-save)
-        ("C-x x x" . persp-switch-nth)
         ("C-s-[" . persp-prev)
         ("H-[" . persp-prev)
         ("H-]" . persp-next)
@@ -1613,7 +1594,9 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
         ("s-o" . persp-switch-to-org)
         ("s-m" . persp-switch-to-main)
         ("s-;" . persp-switch)
-        ("M-s-p" . persp-switch)))
+        ("M-s-p" . persp-switch))
+  (:map perspective-map
+        ("C-n" . persp-switch-by-number)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -1977,6 +1960,16 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :demand t
   :init (vertico-mode))
 
+(use-package vertico-repeat
+  ;; `vertico-repeat' is part of the `vertico' package.
+  :straight nil
+  :load-path "straight/build/vertico/extensions/"
+  :after vertico
+  :hook
+  (minibuffer-setup-hook . vertico-repeat-save)
+  :bind
+  ("M-R" . vertico-repeat))
+
 (use-package orderless
   :after vertico
   :demand t
@@ -2069,7 +2062,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("M-s r" . consult-ripgrep)
   ("M-s-f" . consult-ripgrep)
   ("M-s l" . consult-line)
-  ;; Using `selectrum-swiper' instead.
   ("s-f" . consult-line)
   ("M-s m" . consult-multi-occur)
   ("M-s k" . consult-keep-lines)
@@ -2099,7 +2091,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :defer 5
 
   :preface
-  ;; TODO Make this robust and contribute upstream.
+  ;; TODO Make this work and contribute upstream.
   (defun embark-other-window (target)
     "Complete the current action in another window."
     (run-with-timer
@@ -2107,7 +2099,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
      (lambda (command target)
        (switch-to-buffer-other-window (current-buffer))
        (funcall-interactively command target))
-     selectrum--last-command
+     vertico-repeat--command
      target))
 
   (defun embark-execute-command-other-window (command)
@@ -2140,7 +2132,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("C-s-o" . embark-act)
   ;; Alternative for `describe-bindings'.
   ("C-h C-b" . embark-bindings)
-  (:map selectrum-minibuffer-map
+  (:map minibuffer-mode-map
         ("C-o" . embark-act)
         :map embark-symbol-map
         ("h" . helpful-symbol)
