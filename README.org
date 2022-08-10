@@ -1,102 +1,102 @@
+#+TITLE: An Emacs Configuration
 
+* About
+This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but will have more bugs) with running from a terminal, Linux, and Windows.
 
-* An Emacs configuration
-  This is my =~/.emacs.d= directory. My primary mode of operating is macOS GUI so things work best on that. It is also compatible (but will have more bugs) with running from a terminal, Linux, and Windows.
+#+CAPTION: Emacs frame with README and Magit windows
+[[file:screenshot.png]]
 
-  #+CAPTION: Emacs frame with README and Magit windows
-  [[file:screenshot.png]]
+* Goals
 
-** Goals
+** Always fast and responsive.
+Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] and =ssh= have been ironed out through heavy use.
 
-*** Always fast and responsive.
-    Nothing should produce unnecessary lag, waiting, or clunkiness. Remote use cases like [[https://www.gnu.org/software/tramp/][TRAMP]] and =ssh= have been ironed out through heavy use.
+** The appearance should be functional and attractive.
+For maximum concentration and ergonomics, there should be no extraneous information. Strip away any distracting lines or unnecessary UI elements.
 
-*** The appearance should be functional and attractive.
-    For maximum concentration and ergonomics, there should be no extraneous information. Strip away any distracting lines or unnecessary UI elements.
+** Optimize startup time.
+Slow startup is a barrier to improving this config and it just makes me feel bad. On my machine Emacs starts it up in about 0.8 seconds.
 
-*** Optimize startup time.
-    Slow startup is a barrier to improving this config and it just makes me feel bad. On my machine Emacs starts it up in about 0.8 seconds.
+** All interfaces should be uniform.
+[[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
 
-*** All interfaces should be uniform.
-    [[https://github.com/abo-abo/swiper][ivy]] and [[http://company-mode.github.io/][company]] are the two main ways to find stuff.
+** Use normal Emacs key bindings, enhance where appropriate.
+Then mix in the most common macOS key bindings so things like =s-c= and =s-w= work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
 
-*** Use normal Emacs key bindings, enhance where appropriate.
-    Then mix in the most common macOS key bindings so things like =s-c= and =s-w= work like in the rest of the OS. I work heavily with macOS applications like Mail, Calendar, Messages, MS Outlook, Firefox. So it's important that the basic key bindings in those applications have a translation in Emacs. Keep things as consistent and idiomatic as possible while merging these two disparate binding systems.
+** Extensive customization but no excess.
+If I'm not using a package, it's out. But I guess I use a lot of packages. About 180 at last count. Dependencies bump it up to about 210.
 
-*** Extensive customization but no excess.
-    If I'm not using a package, it's out. But I guess I use a lot of packages. About 180 at last count. Dependencies bump it up to about 210.
+** Custom Emacs build.
+Check out the =setup= script. It builds Emacs from the latest master to enjoy benefits such as performance improvements, better macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like =js-jsx-mode= and Jansson support (see [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][GNU Emacs NEWS]], or better yet, =M-x view-emacs-news=).
 
-*** Custom Emacs build.
-    Check out the =setup= script. It builds Emacs from the latest master to enjoy benefits such as performance improvements, better macOS compatibility, image viewing, modules like [[https://github.com/akermu/emacs-libvterm][libvterm]] and [[https://github.com/politza/pdf-tools][pdf-tools]], and new features like =js-jsx-mode= and Jansson support (see [[https://raw.githubusercontent.com/emacs-mirror/emacs/master/etc/NEWS][GNU Emacs NEWS]], or better yet, =M-x view-emacs-news=).
+** Reproducible and portable configuration
+It should work the same way on each machine out of the box with as little fuss as possible.
 
-*** Reproducible and portable configuration
-    It should work the same way on each machine out of the box with as little fuss as possible.
+** Frequent updates.
+I update frequently and often pick up new functionality from Emacs master.
 
-*** Frequent updates.
-    I update frequently and often pick up new functionality from Emacs master.
+** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://github.com/raxod502/straight.el][straight.el]] for as much configuration as possible.
+Defer loading non-core packages until they are needed. Straight is an amazing package management system that does everything better than package.el.
 
-*** Utilize [[https://github.com/jwiegley/use-package/tree/master][use-package]] and [[https://github.com/raxod502/straight.el][straight.el]] for as much configuration as possible.
-    Defer loading non-core packages until they are needed. Straight is an amazing package management system that does everything better than package.el.
+* Features
 
-** Features
+** A nice mode-line.
+It's a customized version of [[https://gitlab.com/jessieh/mood-line][mood-line]].
 
-*** A nice mode-line.
-    It's a customized version of [[https://gitlab.com/jessieh/mood-line][mood-line]].
+** Custom theming system.
+Quickly (and completely!) switch between light and dark, or any other themes. A key part of this is realizing that many packages have dependencies on the theme so it is not nearly enough to call =load-theme=. So there is some additional logic to automatically change as much as possible and use a hook to do the rest.
 
-*** Custom theming system.
-    Quickly (and completely!) switch between light and dark, or any other themes. A key part of this is realizing that many packages have dependencies on the theme so it is not nearly enough to call =load-theme=. So there is some additional logic to automatically change as much as possible and use a hook to do the rest.
+** Editing
+Highlights include
+- [[http://www.dr-qubit.org/undo-tree.html][undo-tree]]
+- [[https://github.com/magnars/multiple-cursors.el][Multiple cursors]]
+- [[https://github.com/DogLooksGood/parinfer-mode][Parinfer]]
+- [[https://github.com/Fuco1/smartparens][Smartparens]] with lots of customization
 
-*** Editing
-    Highlights include
-    - [[http://www.dr-qubit.org/undo-tree.html][undo-tree]]
-    - [[https://github.com/magnars/multiple-cursors.el][Multiple cursors]]
-    - [[https://github.com/DogLooksGood/parinfer-mode][Parinfer]]
-    - [[https://github.com/Fuco1/smartparens][Smartparens]] with lots of customization
+** Environment support.
+macOS doesn't hand its applications much in terms of standard UNIX environment configuration. I have a customized setup to initialize the environment by running =bash --login= and pulling in its environment variables. The details are handled in my non-Emacs [[https://github.com/mnewt/dotfiles][dotfiles]].
 
-*** Environment support.
-    macOS doesn't hand its applications much in terms of standard UNIX environment configuration. I have a customized setup to initialize the environment by running =bash --login= and pulling in its environment variables. The details are handled in my non-Emacs [[https://github.com/mnewt/dotfiles][dotfiles]].
+** Eshell.
+There is nothing like Eshell. It is truly amazing the way it enables powerful new ways to handle remote systems administration. There are extensive customizations to make it seamless with the rest of the environment and UI.
 
-*** Eshell.
-    There is nothing like Eshell. It is truly amazing the way it enables powerful new ways to handle remote systems administration. There are extensive customizations to make it seamless with the rest of the environment and UI.
+** File operations and Dired.
+Make the uniquely powerful Dired more comfortable, informative, and reliable. Heavily reliant on the awesome [[https://github.com/Fuco1/dired-hacks][dired-hacks]] collection.
 
-*** File operations and Dired.
-    Make the uniquely powerful Dired more comfortable, informative, and reliable. Heavily reliant on the awesome [[https://github.com/Fuco1/dired-hacks][dired-hacks]] collection.
+** Persistence.
+Manage window configuration and buffer persistence using [[https://github.com/nex3/perspective-el][perspective]], undo, command completions, recent files, etc.
 
-*** Persistence.
-    Manage window configuration and buffer persistence using [[https://github.com/nex3/perspective-el][perspective]], undo, command completions, recent files, etc.
+** Navigation.
+Some innovative intra- and extra- buffer navigation strategies. Check out =winner-wrong-window= for an example.
 
-*** Navigation.
-    Some innovative intra- and extra- buffer navigation strategies. Check out =winner-wrong-window= for an example.
+** Version control.
+[[https://magit.vc/][Magit]] and more. But mostly magit.
 
-*** Version control.
-    [[https://magit.vc/][Magit]] and more. But mostly magit.
+** Language support.
+- [[https://www.gnu.org/software/bash/][Bash]] and [[https://en.wikipedia.org/wiki/Unix_shell#Bourne_shell][friends]]
+- [[https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/][C#]] by way of [[https://github.com/OmniSharp/omnisharp-emacs][omnisharp]]
+- [[https://clojure.org/][Clojure]] and [[https://clojurescript.org/][Clojurescript]]
+- [[https://lisp-lang.org/][Common Lisp]]
+- [[https://www.docker.com/][Docker]]
+- [[https://www.gnu.org/software/emacs/manual/html_mono/eintr.html][Emacs Lisp]] of course, with many enhancements.
+- [[https://github.com/emacs-lsp/lsp-mode][lsp-mode]]
+- [[https://www.lua.org/][Lua]]
+- [[https://orgmode.org/][Org]] customizations
+- [[https://www.python.org/][Python]]
+- [[https://www.ruby-lang.org/][Ruby]]
+- [[https://schemers.org/][Scheme]] (mostly [[https://call-cc.org/][CHICKEN]])
+- [[http://web-mode.org/][Web]], Javascript and [[https://reactjs.org/][React]] development
 
-*** Language support.
-    - [[https://www.gnu.org/software/bash/][Bash]] and [[https://en.wikipedia.org/wiki/Unix_shell#Bourne_shell][friends]]
-    - [[https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/][C#]] by way of [[https://github.com/OmniSharp/omnisharp-emacs][omnisharp]]
-    - [[https://clojure.org/][Clojure]] and [[https://clojurescript.org/][Clojurescript]]
-    - [[https://lisp-lang.org/][Common Lisp]]
-    - [[https://www.docker.com/][Docker]]
-    - [[https://www.gnu.org/software/emacs/manual/html_mono/eintr.html][Emacs Lisp]] of course, with many enhancements.
-    - [[https://github.com/emacs-lsp/lsp-mode][lsp-mode]]
-    - [[https://www.lua.org/][Lua]]
-    - [[https://orgmode.org/][Org]] customizations
-    - [[https://www.python.org/][Python]]
-    - [[https://www.ruby-lang.org/][Ruby]]
-    - [[https://schemers.org/][Scheme]] (mostly [[https://call-cc.org/][CHICKEN]])
-    - [[http://web-mode.org/][Web]], Javascript and [[https://reactjs.org/][React]] development
+** Other nice things
+- Automatic code formatting, mostly with [[https://github.com/raxod502/apheleia][Apheleia]]
+- [[https://www.flycheck.org/en/latest/][flycheck]]
+- Log viewing - Docker, systemd, and others
+- Nested language support with [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
 
-*** Other nice things
-    - Automatic code formatting, mostly with [[https://github.com/raxod502/apheleia][Apheleia]]
-    - [[https://www.flycheck.org/en/latest/][flycheck]]
-    - Log viewing - Docker, systemd, and others
-    - Nested language support with [[https://github.com/aaronbieber/fence-edit.el][fence-edit]]
+* Supported Emacs versions
+Attempts have been made to make this config compatible with 27+. However, they are half-hearted and some features are 28+ or maybe even 29+ only.
 
-** Supported Emacs versions
-   Attempts have been made to make this config compatible with 25.3+. However, they are half-hearted and some features are 27+ or even 28+ only.
-
-** Install
-   1. Clone the repo:
+* Install
+1. Clone the repo:
    #+begin_src sh
    git clone https://github.com/mnewt/dotemacs.git ~/.emacs.d
    #+end_src
@@ -107,46 +107,13 @@
    #+end_src
    3. Start Emacs. The first run will install lots of stuff so it will take a few minutes.
 
-** macOS Menus Need Two Clicks
-   Sometimes a problem arises where the menus in the macOS menu bar for Emacs don't respond to the first mouse click, but they do respond to the second. This is a bug in Emacs but it can be mitigated with these steps.
-   
-   1. Navigate to =System Preferences= > =Security and Privacy= > =Privacy= > =Accessibility=
-   2. Click Emacs, if it's in the list, and click =-= to delete it.
-   3. Add it again using =+=. It should be installed at =~/Applications/Emacs.app=.
+** Emacs Build
+You can build Emacs with support for compiling packages to machine code using [[https://akrl.sdf.org/gccemacs.html][GCCEmacs]]. As of Emacs 28, this is an optional feature that seems to work pretty well. Currently, I'm using [[https://github.com/d12frosted/homebrew-emacs-plus][homebrew-emacs-plus]].
 
-** GCCEmacs
-   You can build Emacs with support for compiling packages to machine code using [[https://akrl.sdf.org/gccemacs.html][GCCEmacs]]. This is still experimental, especially on macOS. Currently, I'm using =emacs-plus= with these instructions:
-   https://github.com/d12frosted/homebrew-emacs-plus#gccemacs
-
-*** Prepare dependencies
-    Install =gcc= and =libgccjit=
-
-   #+begin_src sh :async
-   brew install gcc libgccjit
-   #+end_src
-
-*** Update and install emacs-plus
-   #+begin_src sh :async
-   brew tap d12frosted/emacs-plus
-   brew install emacs-plus@28 --with-native-comp --build-from-source
-   #+end_src
-
-*** Move =Emacs.app= to =~/Applications=
-    #+begin_src sh
-    rm -rf ~/Applications/Emacs.app
-    mv /usr/local/opt/emacs-plus@28/Emacs.app ~/Applications
-    #+end_src
-
-*** Rebuild packages
-    This is an optional step, but can often be necessary or at least helpful when there are changes to GCCEmacs. *BUT be careful not to delete =straight= if you have uncommitted changes to repos!* If you don't want to blow away and rebuild all your packages, just delete =eln-cache=.
-    #+begin_src sh :async
-    rm -rf ~/.emacs.d/{eln-cache,straight}
-    #+end_src
-
-    Once the native compiled files and the straight packages are deleted, start Emacs and let it rebuild everything.
+See the [[file:bin/install-emacs-plus][install-emacs-plus]] script for how I build Emacs on macOS.
 
 ** TODO
-   See [[file:TODO.org][TODO.org]].
+See [[file:TODO.org][TODO.org]].
 
 ** License
-   The Free Software Foundation may control certain pieces of this by virtue of them being contributed to Emacs or a package in ELPA or MELPA. The rest is basically in the public domain. See the LICENSE file for details.
+The Free Software Foundation may control certain pieces of this by virtue of them being contributed to Emacs or a package in ELPA. The rest is basically in the public domain. See the LICENSE file for details.

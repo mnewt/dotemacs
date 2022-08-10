@@ -7,15 +7,6 @@
 
 ;;; Code:
 
-;;;; Start
-
-;; Things that run at the very beginning of Emacs startup
-
-;; Ensure `early-init.el' runs even on older Emacs versions.
-(eval-when-compile
-  (when (version< emacs-version "27")
-    (load "~/.emacs.d/early-init.el")))
-
 ;;;;; User variables
 
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
@@ -194,11 +185,6 @@ If VARS is not specified, use `env-cache-vars'."
   ;; To disable collection of benchmark data after init is done.
   (emacs-startup-hook . benchmark-init/deactivate))
 
-;; (use-package esup
-;;   :straight (esup :host github :repo "phikal/esup")
-;;   :config
-;;   (setq esup-depth 0))
-
 ;;;;; Additional Package Management Configuration
 
 (defvar emacs-start-time)
@@ -245,22 +231,6 @@ higher level up to the top level form."
    (expand-file-name "lisp/exec-path-from-shell.el" user-emacs-directory)
    t)
   (message "Finished updating Emacs packages."))
-
-;; TODO This doesn't ever prompt for decisions, like what to do if the repo is
-;; dirty.
-;; See https://github.com/raxod502/straight.el/issues/103
-;; (defun update-emacs-packages-async ()
-;;   "Update Emacs packages using `straight'."
-;;   (interactive)
-;;   (pop-to-buffer
-;;    (process-buffer
-;;     (make-process
-;;      :name "*update-emacs-packages*"
-;;      :buffer "*update-emacs-packages*"
-;;      :command `("emacs" "--batch"
-;;                 "--load" ,(expand-file-name "early-init.el" user-emacs-directory)
-;;                 "--load" ,(expand-file-name "init.el" user-emacs-directory)
-;;                 "--funcall" "update-emacs-packages-sync")))))
 
 (defun update-system-packages ()
   "Update system packages using the dotfiles update scripts."
@@ -1248,10 +1218,12 @@ If it's already there, scroll `scroll-margin' lines down."
 
 It actually does not list them all because I don't know how to do
 that.  So, we find only ones which are associated with a magic
-string or file extension."
-  (delete-dups (mapcar #'cdr (append magic-mode-alist
-                                     auto-mode-alist
-                                     magic-fallback-mode-alist))))
+string or file extension, or are named *-mode."
+  (delete-dups (append '(shell-mode eshell-mode)
+                       (list-buffer-major-modes)
+                       (mapcar #'cdr (append magic-mode-alist
+                                             auto-mode-alist
+                                             magic-fallback-mode-alist)))))
 
 (defun scratch-buffer (arg)
   "Create or go to a scratch buffer.
@@ -1564,7 +1536,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
                ,(format "Switch to perspective number %d." n)
                (interactive)
                (persp-switch-by-number ,n)))
-      (bind-key (format "H-%d" n) f)))
+      (bind-key (format "H-%d" n) f persp-mode-map)))
 
   :custom
   ;; The old prefix, "C-x x", is used by Emacs starting with 28.
@@ -1763,6 +1735,24 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
 (specialize-beginning-of-buffer rg (compilation-next-error 1))
 (specialize-end-of-buffer rg (compilation-previous-error 1))
 
+(defvar switch-to-buffer-by-mode-history nil
+  "History for `switch-to-buffer-by-mode'.")
+
+(defun switch-to-buffer-by-mode (mode)
+  "Choose a major MODE, then select from buffers of that mode."
+  (interactive (list (if current-prefix-arg
+                         (completing-read "Switch to buffers of mode:"
+                                          (list-buffer-major-modes)
+                                          nil t nil
+                                          switch-to-buffer-by-mode-history)
+                       major-mode)))
+  (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
+    (switch-to-buffer (completing-read (format "%s buffers: " mode)
+                                       buffers nil t nil
+                                       switch-to-buffer-by-mode-history))))
+
+(bind-key "C-s-b" #'switch-to-buffer-by-mode)
+
 (use-package ibuffer
   :commands
   ibuffer-forward-line
@@ -1901,7 +1891,7 @@ Each EXPR should create one window."
 (custom-set-variables '(list-matching-lines-jump-to-current-line t))
 
 (use-package imenu
-  :config
+  :preface
   (defun imenu-goto-item (direction)
     "Jump to the next or previous imenu item, depending on DIRECTION.
 
@@ -1948,14 +1938,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("C-c i n" . imenu-goto-next)
   ("C-'" . imenu))
 
-;; TODO Make `mini-frame-mode' play nice with `window-highlight-mode'.
-;; (use-package mini-frame
-;;   :demand t
-;;   :custom
-;;   (mini-frame-show-parameters '((top . 10) (width . 0.9) (left . 0.5)))
-;;   :config
-;;   (mini-frame-mode))
-
 (use-package vertico
   :demand t
   :init (vertico-mode))
@@ -1978,10 +1960,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   :custom
   (completion-styles '(orderless basic))
   (completion-category-overrides '((file (styles partial-completion))))
-  (orderless-matching-styles '(orderless-literal orderless-regexp orderless-initialism)))
+  (orderless-matching-styles '(orderless-literal orderless-regexp orderless-prefixes)))
 
-;; FIXME `consult-man' doesn't show any results for `rg' because it's only two
-;; characters.
 (use-package consult
   :defer 2
 
@@ -1994,6 +1974,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; (consult-line-start-from-top 'start)
   (consult-narrow-key "<")
   (consult-find-command "fd --color=never --full-path ARG OPTS")
+  (consult-async-min-input 2)
 
   :config
   (autoload 'projectile-project-root "projectile")
@@ -2001,24 +1982,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
   (with-eval-after-load 'org
     (bind-key "M-g o" #'consult-org-heading org-mode-map))
-
-  ;; TODO Port this to `consult'.
-  ;; (defun counsel-switch-buffer-by-mode (mode)
-  ;;   "Choose a major MODE, then select from buffers of that mode."
-  ;;   (interactive)
-  ;;   (list (ivy-read "Choose buffers for major mode: "
-  ;;                   (list-buffer-major-modes)
-  ;;                   :history 'switch-to-buffer-by-mode-history
-  ;;                   :action 'counsel-switch-buffer-by-mode))
-  ;;   (when (stringp mode) (setq mode (intern mode)))
-  ;;   (let ((buffers (mapcar #'buffer-name (filter-buffers-by-mode mode))))
-  ;;     (ivy-read (format "%s buffers: " mode) buffers
-  ;;               :keymap ivy-switch-buffer-map
-  ;;               :action #'ivy--switch-buffer-action
-  ;;               :matcher #'ivy--switch-buffer-matcher
-  ;;               :preselect (when (eq major-mode mode) (cadr buffers))
-  ;;               ;; Use the `ivy-switch-buffer' actions.
-  ;;               :caller #'ivy-switch-buffer)))
 
   :bind
   ;; C-c bindings (mode-specific-map)
@@ -2153,108 +2116,101 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; `embark-collect' buffer.
   (embark-collect-mode-hook . embark-consult-preview-minor-mode))
 
-(use-package ctrlf
-  :defer 7
-  :config
-  (ctrlf-mode))
+;; (use-package ctrlf
+;;   :defer 7
+;;   :config
+;;   (ctrlf-mode))
 
-(use-package company
-  :defer 5
+;; Emacs built-in settings that are related to completion/corfu.
+(custom-set-variables
+ ;; TAB cycle if there are only few candidates.
+ '(completion-cycle-threshold 3)
+ ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+ ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+ '(read-extended-command-predicate #'command-completion-default-include-p)
+ '(tab-always-indent 'complete))
 
-  ;; :custom
-  ;; (company-dabbrev-ignore-case t)
-
-  :commands
-  company-select-next
-  company-select-previous
-
-  :config
-  (with-eval-after-load 'eldoc
-    (eldoc-add-command #'company-select-next #'company-select-previous))
-
-  (global-company-mode)
-
-  :hook
-  ((prog-mode-hook lisp-interaction-mode-hook cider-repl-mode-hook) . company-mode)
-  ;; TODO: Figure out how to make company-mode work in the minibuffer.
-  ;; (minibuffer-setup-hook . company-mode)
-
-  :bind
-  ("M-/" . company-complete)
-  (:map company-mode-map
-        ("M-/" . company-complete))
-  (:map company-active-map
-        ("RET" . nil)
-        ("<return>" . nil)
-        ("<tab>" . company-complete-selection)
-        ("C-s" . company-filter-candidates)
-        ("M-." . company-show-location))
-  (:map minibuffer-local-map
-        ("M-/" . completion-at-point))
-  (:map minibuffer-local-completion-map
-        ("M-/" . completion-at-point)))
-
-(use-package company-box
-  :if window-system
-  :after company
-  :hook
-  (company-mode-hook . company-box-mode))
-
-(use-package projectile
+(use-package corfu
   :custom
-  (projectile-keymap-prefix (kbd "C-c p"))
-  (projectile-project-search-path (list code-directory))
-  (projectile-globally-ignored-files '("TAGS" "package-lock.json"))
-  (projectile-switch-project-action 'projectile-dired)
-  (projectile-mode-line nil)
+  ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-auto t) ;; Enable auto completion
+  ;; (corfu-separator ?\s)          ;; Orderless field separator
+  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+  ;; (corfu-preselect-first nil)    ;; Disable candidate preselection
+  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  ;; (corfu-echo-documentation nil) ;; Disable documentation in the echo area
+  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
 
-  :config
-  (defun projectile-project-root-tramp-short-circuit (f &optional dir)
-    "Wrap `projectile-project-root' to short circuit TRAMP dirs."
-    (unless (file-remote-p (or dir default-directory))
-      (funcall f dir)))
+  :preface
+  (defun corfu-enable-in-minibuffer ()
+    "Enable Corfu in the minibuffer if `completion-at-point' is bound."
+    (when (where-is-internal #'completion-at-point (list (current-local-map)))
+      ;; (setq-local corfu-auto nil) Enable/disable auto completion
+      (corfu-mode 1)))
 
-  (advice-add 'projectile-project-root
-              :around #'projectile-project-root-tramp-short-circuit)
+  :init
+  (global-corfu-mode)
 
-  (defun projectile-git-ls-files (&optional dir)
-    "List of the tracked files in the git repo, specified by DIR."
-    (cd (or dir (projectile-project-root)))
-    (cl-remove-if #'string-blank-p
-                  (split-string (shell-command-to-string "git ls-files") "\n")))
-
-  (defun projectile-git-ls-files-dired (&optional dir)
-    "Dired list of the tracked files in the git repo, specified by DIR."
-    (interactive)
-    (let ((dir (or dir (projectile-project-root))))
-      (dired (cons dir (projectile-git-ls-files dir)))
-      (rename-buffer (format "*git ls-files %s*" dir))))
-
-  (projectile-register-project-type 'npm '("package.json")
-                                    :compile "npm start"
-                                    :test "npm test"
-                                    :test-suffix ".test")
-  (projectile-register-project-type 'clojure-cli '("deps.edn")
-                                    :compile "clj "
-                                    :test-suffix "_test")
-  (projectile-register-project-type 'shadow-cljs '("shadow-cljs.edn")
-                                    :compile "clj "
-                                    :test-suffix "_test")
-
-  (projectile-mode)
-
-  :bind-keymap
-  ("C-c p" . projectile-command-map)
+  :hook
+  (minibuffer-setup-hook . corfu-enable-in-minibuffer)
 
   :bind
-  ("s-p" . projectile-find-file)
-  ("s-P" . projectile-switch-project)
-  ("s-B" . projectile-switch-to-buffer)
-  ("s-}" . projectile-next-project-buffer)
-  ("C-c }" . projectile-next-project-buffer)
-  ("s-{" . projectile-previous-project-buffer)
-  ("C-c {" . projectile-previous-project-buffer)
-  ("C-s-b" . projectile-switch-to-buffer))
+  (:map corfu-map
+        ;; Remove bindings for C-p and C-n while `corfu' is active.
+        ([remap previous-line] . nil)
+        ([remap next-line] . nil)))
+
+(use-package cape
+  :init
+  ;; Add `completion-at-point-functions', used by `completion-at-point'.
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-history)
+  ;;(add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;;(add-to-list 'completion-at-point-functions #'cape-tex)
+  ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
+  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
+  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev)
+  (add-to-list 'completion-at-point-functions #'cape-ispell)
+  ;; (add-to-list 'completion-at-point-functions #'cape-dict)
+  (add-to-list 'completion-at-point-functions #'cape-symbol)
+  ;;(add-to-list 'completion-at-point-functions #'cape-line)
+
+  :bind
+  ("M-+ p" . completion-at-point) ;; capf
+  ("M-+ t" . complete-tag)        ;; etags
+  ("M-+ d" . cape-dabbrev)        ;; or dabbrev-completion
+  ("M-+ h" . cape-history)
+  ("M-+ f" . cape-file)
+  ("M-+ k" . cape-keyword)
+  ("M-+ s" . cape-symbol)
+  ("M-+ a" . cape-abbrev)
+  ("M-+ i" . cape-ispell)
+  ("M-+ l" . cape-line)
+  ("M-+ w" . cape-dict)
+  ("M-+ \\" . cape-tex)
+  ("M-+ _" . cape-tex)
+  ("M-+ ^" . cape-tex)
+  ("M-+ &" . cape-sgml)
+  ("M-+ r" . cape-rfc1345))
+
+(use-package corfu-doc
+  :hook
+  (corfu-mode-hook . corfu-doc-mode)
+  :bind
+  (:map corfu-map
+        ;; This seems backwards but it has the desired effect.
+        ("C-M-p" . corfu-doc-scroll-down)
+        ("C-M-n" . corfu-doc-scroll-up)
+        ("M-d" . corfu-doc-toggle)))
+
+(use-package project
+  :bind
+  ("s-p" . project-find-file)
+  ("s-P" . project-switch-project)
+  ("s-B" . project-switch-to-buffer))
 
 (use-package smart-jump
   :preface
@@ -4057,15 +4013,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
 
 ;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
 (use-package tramp
-  ;; FIXME The git version of TRAMP currently doesn't seem to work with straight.
-  :straight (:type built-in)
-
-  :functions
-  tramp-cleanup-all
-  tramp-insert-remote-part
-  tramp-dired
-
-  :config
+  :preface
   (defun tramp-cleanup-all ()
     "Clean up all tramp buffers and connections."
     (interactive)
@@ -4086,6 +4034,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
          host
        (find-file (concat "/ssh:" host ":")))))
 
+  :config
   ;; Configure TRAMP to respect the PATH variable on the remote machine (for
   ;; remote eshell sessions)
   (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
@@ -4202,8 +4151,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   ("C-S-s" . async-shell-command-run-last)
   (:map shell-mode-map
         ("C-d" . comint-delchar-or-eof-or-kill-buffer)
-        ("SPC" . comint-magic-space)
-        ("M-r" . counsel-shell-history)))
+        ("SPC" . comint-magic-space)))
 
 (use-package native-complete
   :after shell
@@ -4390,7 +4338,7 @@ predicate returns true."
   (defun vterm-choose-buffer ()
     "Interactively choose a VTerm buffer."
     (interactive)
-    (counsel-switch-buffer-by-mode 'vterm-mode))
+    (switch-to-buffer-by-mode 'vterm-mode))
 
   :bind
   ("s-t" . vterm-switch-to-buffer)
@@ -4614,7 +4562,9 @@ because I dynamically rename the buffer according to
   (defun eshell-choose-buffer ()
     "Interactively choose an Eshell buffer."
     (interactive)
-    (counsel-switch-buffer-by-mode 'eshell-mode))
+    (consult-buffer)
+    (switch buffer mode)
+    (switch-to-buffer-by-mode 'eshell-mode))
 
   (defun eshell/s (host)
     "Change directory to HOST via tramp."
@@ -4890,6 +4840,10 @@ https://debbugs.gnu.org/cgi/bugreport.cgi?bug=27612."
     ;; Set up `tramp-colon-prefix'.
     (add-hook 'post-self-insert-hook #'tramp-colon-prefix-maybe-expand nil t)
 
+    ;; Set up `corfu' in non-auto mode.
+    (setq-local corfu-auto nil)
+    (corfu-mode)
+
     (defvar eshell-mode-map)
     (bind-keys
      :map eshell-mode-map
@@ -5002,20 +4956,19 @@ and FILE is the cons describing the file."
   (defun esh-help-setup ()
     "Setup eldoc function for Eshell."
     (setq-local eldoc-documentation-function #'esh-help-eldoc-command))
+
   :hook
   (eshell-mode-hook . esh-help-setup))
 
 ;; Fish-like autosuggestions.
 (use-package esh-autosuggest
   :after eshell
-  :config
-  (defvar esh-autosuggest-active-map)
-  (defun esh-autosuggest-setup ()
-    "Set up `esh-autosuggest-mode'."
-    (esh-autosuggest-mode)
-    (bind-key "C-e" #'company-complete-selection esh-autosuggest-active-map))
   :hook
-  (eshell-mode-hook . esh-autosuggest-setup))
+  (eshell-mode-hook . esh-autosuggest-mode))
+
+;; capf for commands inside `shell' and `eshell'.
+(use-package pcmpl-args
+  :defer 11)
 
 (use-package eshell-bookmark
   :after eshell
@@ -5440,10 +5393,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
     (interactive (list (register-read-with-preview "Eval register: ")))
     (cider--pprint-eval-form (get-register register)))
 
-  :hook
-  (cider-mode-hook . cider-company-enable-fuzzy-completion)
-  (cider-repl-mode-hook . cider-company-enable-fuzzy-completion)
-
   :bind
   (:map cider-mode-map
         ("s-<return>" . cider-eval-last-sexp)
@@ -5723,21 +5672,6 @@ Open the `eww' buffer in another window."
   (web-mode-hook . lsp-deferred)
   (web-mode-hook . web-mode-setup))
 
-(use-package company-web
-  :after company web-mode
-
-  :commands
-  company-web-html
-
-  :config
-  (defun company-web-setup ()
-    "Set up `company-web'."
-    (make-local-variable 'company-backends)
-    (add-to-list 'company-backends 'company-web-html))
-
-  :hook
-  (web-mode-hook . company-web-setup))
-
 (use-package css-mode
   :mode "\\.css\\'"
   :custom
@@ -5763,18 +5697,6 @@ Open the `eww' buffer in another window."
 
   :commands
   restclient-outline-mode)
-
-(use-package company-restclient
-  :after restclient
-
-  :config
-  (defun company-restclient-setup ()
-    "Set up `company-restclient'."
-    (make-local-variable 'company-backends)
-    (add-to-list 'company-backends 'company-restclient))
-
-  :hook
-  (restclient-mode-hook . company-restclient-setup))
 
 (use-package know-your-http-well
   :defer t
@@ -6361,17 +6283,6 @@ This package sets these explicitly so we have to do the same."
 (use-package go-mode
   :mode "\\.go\\'")
 
-(use-package company-go
-  :after go-mode
-  :config
-  (defun company-go-setup ()
-    "Set up `company-go'."
-    (make-local-variable 'company-backends)
-    (add-to-list 'company-backends 'company-go))
-  :hook
-  (go-mode-hook . company-go-setup)
-  (go-mode-hook . lsp-deferred))
-
 ;; Install on macOS:
 ;; > brew install powershell
 (use-package powershell
@@ -6443,8 +6354,6 @@ This package sets these explicitly so we have to do the same."
     "Set up C# mode."
     (omnisharp-install-server nil)
     (omnisharp-mode)
-    (make-local-variable 'company-backends)
-    (add-to-list 'company-backends #'company-omnisharp)
     (add-hook 'before-save-hook #'omnisharp-code-format-entire-file))
 
   :hook
@@ -6461,6 +6370,25 @@ This package sets these explicitly so we have to do the same."
 ;; > brew install plantuml
 (use-package plantuml-mode
   :mode "\\.puml\\'"
+
+  :preface
+  (defun plantuml-completion-at-point ()
+    "Function used for `completion-at-point-functions' in `plantuml-mode'."
+    (let ((completion-ignore-case t)
+          (bounds (bounds-of-thing-at-point 'symbol))
+          (keywords plantuml-kwdList))
+      (when (and bounds keywords)
+        (list (car bounds)
+              (cdr bounds)
+              keywords
+              :exclusve 'no))))
+
+  (defun plantuml-completion-at-point-setup ()
+    "Set up `completion-at-point' for plantuml-mode."
+    (setq plantuml-output-type "png")
+    (add-hook 'completion-at-point-functions
+              #'plantuml-completion-at-point nil 'local))
+
   :custom
   ;; The server doesn't work right because of encoding problems.
   ;; TODO: File a bug report
@@ -6473,24 +6401,6 @@ This package sets these explicitly so we have to do the same."
 
   (defvar org-plantuml-jar-path)
   (setq org-plantuml-jar-path plantuml-jar-path)
-
-  (defun plantuml-completion-at-point ()
-    "Function used for `completion-at-point-functions' in `plantuml-mode'."
-    (let ((completion-ignore-case t)    ; Not working for company-capf.
-          (bounds (bounds-of-thing-at-point 'symbol))
-          (keywords plantuml-kwdList))
-      (when (and bounds keywords)
-        (list (car bounds)
-              (cdr bounds)
-              keywords
-              :exclusve 'no
-              :company-docsig #'identity))))
-
-  (defun plantuml-completion-at-point-setup ()
-    "Set up `completion-at-point' for plantuml-mode."
-    (setq plantuml-output-type "png")
-    (add-hook 'completion-at-point-functions
-              #'plantuml-completion-at-point nil 'local))
 
   :hook
   (plantuml-mode-hook . plantuml-completion-at-point-setup))
