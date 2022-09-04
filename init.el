@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 
-;; It's an Emacs init file.  It relies on heavily on `use-package' for
-;; organization and delayed loading and `straight' for packaage managment.
+;; It's an Emacs init file.  It relies on `use-package' for organization and
+;; delayed loading and `straight' for packaage managment.
 
 ;;; Code:
 
@@ -150,7 +150,7 @@ If VARS is not specified, use `env-cache-vars'."
                          (directory-files dir t (format "%s-[0-9a-f]\\{32\\}-[0-9a-f]\\{32\\}\\.eln"
                                                         (regexp-opt modules)))))
          (dirs (list (straight--repos-dir repo) (straight--build-dir repo))))
-    (when (yes-or-no-p (format "Delete these files and directories?\n%s\n "
+    (when (yes-or-no-p (format "%s\nDelete these files and directories?"
                                (mapconcat #'identity (append dirs files) "\n")))
       (dolist (dir dirs)
         (delete-directory dir 'recursive 'trash)
@@ -663,7 +663,9 @@ then choose the next key in the Alist `fiat-themes'."
 ;; See https://github.com/doomemacs/themes/issues/733 and
 ;; http://debbugs.gnu.org/cgi/bugreport.cgi?bug=53636
 (defun doom-themes-visual-bell-fn ()
-  "Blink the mode-line red briefly. Set `ring-bell-function' to this to use it."
+  "Blink the mode-line red briefly.
+
+Set `ring-bell-function' to this to use it."
   (let* ((buf (current-buffer))
          (cookies `(,(face-remap-add-relative 'mode-line-active
                                               'doom-themes-visual-bell)
@@ -837,30 +839,35 @@ Inspired by `doom-modeline'.")
                (buffer-modified-p))
       "● "))
 
-  (defvar flycheck-current-errors)
+  ;; (defun mood-line-segment-flymake ()
+  ;;   "Display flymake information in the mode-line (if available)."
+  ;;   (when (and (mood-line-window-active-p) flymake-mode)
+  ;;     (flymake--mode-line-title)))
 
-  (defun mood-line--update-flycheck-segment (&optional status)
-    "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
-    (setq mood-line--flycheck-text
-          (pcase status
-            ('finished (if flycheck-current-errors
-                           (let-alist (flycheck-count-errors flycheck-current-errors)
-                             (let ((sum (+ (or .error 0) (or .warning 0))))
-                               (propertize (concat ;"⚑"
-                                            (number-to-string sum)
-                                            " ")
-                                           'face (if .error
-                                                     'mood-line-status-error
-                                                   'mood-line-status-warning))))
-                         (propertize "✔ " 'face 'mood-line-status-success)))
-            ('running (propertize "⧖ " 'face 'mood-line-status-info))
-            ('errored (propertize "✖ " 'face 'mood-line-status-error))
-            ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
-            ('no-checker ""))))
+  ;; (defvar flycheck-current-errors)
 
-  (defun mood-line-segment-flycheck ()
-    "Display color-coded flycheck information in the mode-line (if available)."
-    (when (mood-line-window-active-p) mood-line--flycheck-text))
+  ;; (defun mood-line--update-flycheck-segment (&optional status)
+  ;;   "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
+  ;;   (setq mood-line--flycheck-text
+  ;;         (pcase status
+  ;;           ('finished (if flycheck-current-errors
+  ;;                          (let-alist (flycheck-count-errors flycheck-current-errors)
+  ;;                            (let ((sum (+ (or .error 0) (or .warning 0))))
+  ;;                              (propertize (concat ;"⚑"
+  ;;                                           (number-to-string sum)
+  ;;                                           " ")
+  ;;                                          'face (if .error
+  ;;                                                    'mood-line-status-error
+  ;;                                                  'mood-line-status-warning))))
+  ;;                        (propertize "✔ " 'face 'mood-line-status-success)))
+  ;;           ('running (propertize "⧖ " 'face 'mood-line-status-info))
+  ;;           ('errored (propertize "✖ " 'face 'mood-line-status-error))
+  ;;           ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
+  ;;           ('no-checker ""))))
+
+  ;; (defun mood-line-segment-flycheck ()
+  ;;   "Display color-coded flycheck information in the mode-line (if available)."
+  ;;   (when (mood-line-window-active-p) mood-line--flycheck-text))
 
   (defun mood-line-segment-misc-info ()
     "Display the current value of `mode-line-misc-info' in the mode-line."
@@ -873,12 +880,14 @@ Inspired by `doom-modeline'.")
                            (concat (string-trim s) " "))))
                      mode-line-misc-info))))
 
-  (defun mood-line-segment-projectile ()
-    "Display the projectile project name."
+  (defun mood-line-segment-project-directory ()
+    "Display the project name."
     (when (and (not (file-remote-p default-directory))
                (mood-line-window-active-p)
-               (fboundp #'projectile-project-name))
-      (propertize (concat " " (projectile-project-name) " ")
+               (project-current))
+      (propertize (concat " " (file-name-nondirectory
+                               (directory-file-name
+                                (project-root (project-current t)))) " ")
                   'face 'font-lock-variable-name-face)))
 
   (defun mood-line-pyvenv-info ()
@@ -993,8 +1002,8 @@ Watches `edebug-active' and sets the mode-line when it changes."
                     ;; Right
                     (format-mode-line
                      '((:eval (mood-line-segment-process))
-                       (:eval (mood-line-segment-projectile))
-                       (:eval (mood-line-segment-flycheck))
+                       (:eval (mood-line-segment-project-directory))
+                       (:eval (mood-line-segment-flymake))
                        (:eval (mood-line-segment-misc-info)))))))))
 
 (defun theme-reset (&rest _)
@@ -1568,7 +1577,8 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
         ("s-;" . persp-switch)
         ("M-s-p" . persp-switch))
   (:map perspective-map
-        ("C-n" . persp-switch-by-number)))
+        ("C-n" . persp-switch-by-number)
+        ("l" . persp-state-load)))
 
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
@@ -1962,8 +1972,23 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (completion-category-overrides '((file (styles partial-completion))))
   (orderless-matching-styles '(orderless-literal orderless-regexp orderless-prefixes)))
 
+;; FIXME `consult-buffer' doesn't work with TRAMP.
 (use-package consult
   :defer 2
+
+  :preface
+  (defun consult-buffer-state-no-tramp ()
+    "Buffer state function that doesn't preview Tramp buffers."
+    (let ((orig-state (consult--buffer-state))
+          (filter (lambda (action cand)
+                    (if (or (eq action 'return)
+                            (let ((buffer (get-buffer cand)))
+                              (and buffer
+                                   (not (file-remote-p (buffer-local-value 'default-directory buffer))))))
+                        cand
+                      nil))))
+      (lambda (action cand)
+        (funcall orig-state action (funcall filter action cand)))))
 
   :init
   ;; Use Consult to select xref locations with preview
@@ -1977,8 +2002,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (consult-async-min-input 2)
 
   :config
-  (autoload 'projectile-project-root "projectile")
-  (setq consult-project-root-function #'projectile-project-root)
+  ;; Don't preview TRAMP buffers.
+  ;; https://github.com/minad/consult/wiki#do-not-preview-exwm-windows-or-tramp-buffers
+  (setq consult--source-buffer
+        (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
 
   (with-eval-after-load 'org
     (bind-key "M-g o" #'consult-org-heading org-mode-map))
@@ -1992,10 +2019,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
   ;; C-x bindings (ctl-x-map)
   ("C-x M-:" . consult-complex-command) ;; orig. repeat-complet-command
-  ("C-x b" . consult-buffer)            ;; orig. switch-to-buffer
-  ("s-b" . consult-buffer)
-  ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
-  ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
+  ;; ("C-x b" . consult-buffer)            ;; orig. switch-to-buffer
+  ;; ("s-b" . consult-buffer)
+  ;; ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+  ;; ("C-x 5 b" . consult-buffer-other-frame) ;; orig. switch-to-buffer-other-frame
 
   ;; Custom M-# bindings for fast register access
   ("M-'" . consult-register-load)
@@ -2426,7 +2453,7 @@ See: https://github.com/mnewt/psync"
 
 (defun os-open-file (&optional file)
   "Open visited FILE in default external program.
-When in dired mode, open file under the cursor.
+When in Dired mode, open file under the cursor.
 
 With a prefix ARG always prompt for command to use."
   (interactive)
@@ -2715,7 +2742,7 @@ ERR and IND are ignored."
  '(help-at-pt-timer-delay 0.2))
 
 (defun describe-peek (sym)
-  "Show help for symbol without changing focus."
+  "Show help for SYM without changing focus."
   (interactive
    (list (or (symbol-at-point)
              (with-demoted-errors "describe-peek: no symbol found around point."
@@ -3307,7 +3334,7 @@ The config is specified in the config file in `~/.mnt/'."
              (buffer-file-name) name dir))))
 
 (defun dired-git-add ()
-  "Run `git add' on the selected files in a dired buffer."
+  "Run `git add' on the selected files in a Dired buffer."
   (interactive)
   (let ((files (dired-get-marked-files)))
     (message "> git add %s" files)
@@ -3361,7 +3388,6 @@ The config is specified in the config file in `~/.mnt/'."
 (bind-keys
  ("M-m l" . git-home-link)
  ("M-m u" . git-home-unlink)
- ("C-x G" . projectile-git-ls-files-dired)
  :map m-file-map
  (";" . git-add-current-file)
  ("d" . diff-buffer-with-file))
@@ -3445,6 +3471,12 @@ Wraps on `fill-column' columns."
 (defun delete-indentation-forward (&optional arg beg end)
   "Like `delete-indentation', but in the opposite direction.
 Bring the line below point up to the current line.
+
+With prefix ARG, join the following line to the current line.
+When BEG and END are non-nil, join all lines in the region they
+define.  Interactively, BEG and END are, respectively, the start
+and end of the region if it is active, else nil.  (The region is
+ignored if prefix ARG is given.)
 
 See another way: http://whattheemacsd.com/key-bindings.el-03.html"
   (interactive (cons current-prefix-arg
@@ -4011,14 +4043,28 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   ("/known_hosts\\'" . ssh-known-hosts-mode)
   ("/authorized_keys2?\\'" . ssh-authorized-keys-mode))
 
-;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
 (use-package tramp
+  ;; TRAMP is updated more regularly than Emacs, so pull it from ELPA.
+  ;; FIXME straight can't seem to load TRAMP correctly. It keeps loading the
+  ;; built-in version, then maybe some of the downloaded version? It causes
+  ;; conflicts for sure. See:
+  ;; https://github.com/radian-software/straight.el/issues/236
+  :straight (:type built-in)
   :preface
-  (defun tramp-cleanup-all ()
-    "Clean up all tramp buffers and connections."
-    (interactive)
-    (tramp-cleanup-all-buffers)
-    (tramp-cleanup-all-connections))
+  ;; (defun tramp-dont-abbreviate-file-name (f operation &rest args)
+  ;;   "Wrap `tramp-file-name-handler' to make `abbreviate-file-name' a no-op."
+  ;;   (message "%S" args)
+  ;;   (if (eq operation 'abbreviate-file-name)
+  ;;       (car args)
+  ;;     (apply f operation args)))
+
+  ;; (advice-add 'tramp-file-name-handler :around #'tramp-dont-abbreviate-file-name)
+
+  ;; (defun tramp-cleanup-all ()
+  ;;   "Clean up all tramp buffers and connections."
+  ;;   (interactive)
+  ;;   (tramp-cleanup-all-buffers)
+  ;;   (tramp-cleanup-all-connections))
 
   (defun tramp-insert-remote-part ()
     "Insert current tramp prefix at point."
@@ -4154,20 +4200,29 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
         ("SPC" . comint-magic-space)))
 
 (use-package native-complete
-  :after shell
-  :config
-  (native-complete-setup-bash))
+  :init
+  (with-eval-after-load 'shell
+    (native-complete-setup-bash)))
 
 (use-package with-editor
-  :commands
-  crontab
-  :config
+  :preface
   (defun crontab ()
     "Run `crontab -e' in an Emacs buffer.
 
 Stolen from https://emacs.stackexchange.com/questions/10077/how-to-edit-crontab-directly-within-emacs-when-i-already-have-emacs-open."
     (interactive)
-    (with-editor-async-shell-command "crontab -e")))
+    (with-editor-async-shell-command "crontab -e"))
+
+  :init
+  (add-hook 'shell-mode-hook  'with-editor-export-editor)
+  (add-hook 'eshell-mode-hook 'with-editor-export-editor)
+  (add-hook 'term-exec-hook   'with-editor-export-editor)
+  (add-hook 'vterm-mode-hook  'with-editor-export-editor)
+
+  (define-key (current-global-map)
+              [remap async-shell-command] 'with-editor-async-shell-command)
+  (define-key (current-global-map)
+              [remap shell-command] 'with-editor-shell-command))
 
 (use-package crontab-mode
   :mode "/crontab\\(\\.X*[[:alnum:]]+\\)?\\'"
@@ -4995,10 +5050,6 @@ and FILE is the cons describing the file."
     ;; Ugh. It's the Emacs Lisp standard.
     (setq-local sentence-end-double-space t))
 
-  :config
-  (add-to-list 'safe-local-variable-values
-               '(flycheck-checkers . (emacs-lisp emacs-lisp-checkdoc)))
-
   :hook
   (emacs-lisp-mode-hook . emacs-lisp-mode-setup)
 
@@ -5209,7 +5260,7 @@ project prefix, and unintern all `ert' tests."
   (interactive "P")
   (require 'ert)
   (require 'projectile)
-  (let* ((default-directory (projectile-project-root))
+  (let* ((default-directory (project-root (project-current t)))
          (all-el-files (split-string (shell-command-to-string "find . -name '*.el'")))
          (el-files (cl-remove-if #'elisp-test-file-p all-el-files))
          (test-files (cl-remove-if-not #'elisp-test-file-p all-el-files))
@@ -5308,8 +5359,9 @@ Interactively, reads the register using `register-read-with-preview'."
         ("C-s-r" . cljr-rename-symbol)))
 
 ;; > brew install borkdude/brew/clj-kondo
-(use-package flycheck-clj-kondo
-  :after clojure)
+;; TODO Add this using `flymake'.
+;; (use-package flycheck-clj-kondo
+;;   :after clojure)
 
 (use-package inf-clojure
   :after clojure
@@ -5836,69 +5888,76 @@ Open the `eww' buffer in another window."
   :hook
   (tree-sitter-after-on-hook . tree-sitter-hl-mode))
 
-(use-package flycheck
-  :custom
-  (flycheck-idle-change-delay 1)
-  (flycheck-mode-line-prefix "")
-  (flycheck-emacs-lisp-load-path 'inherit)
-
-  :config
-  ;; Stolen from spacemacs
-  (define-fringe-bitmap 'my-flycheck-fringe-indicator
-    (vector #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00011100
-            #b00111110
-            #b00111110
-            #b00111110
-            #b00011100
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000
-            #b00000000))
-
-  (flycheck-define-error-level 'error
-    :severity 2
-    :overlay-category 'flycheck-error-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-error)
-
-  (flycheck-define-error-level 'warning
-    :severity 1
-    :overlay-category 'flycheck-warning-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-warning)
-
-  (flycheck-define-error-level 'info
-    :severity 0
-    :overlay-category 'flycheck-info-overlay
-    :fringe-bitmap 'my-flycheck-fringe-indicator
-    :fringe-face 'flycheck-fringe-info)
-
+(use-package flymake
   :hook
-  (prog-mode-hook . flycheck-mode)
-
+  (prog-mode-hook . flymake-mode)
   :bind
-  ("C-c ! !" . flycheck-mode))
+  ("C-c ! !" . flymake-mode)
+  (:map flymake-mode-map
+        ("C-c ! n" . flymake-goto-next-error)
+        ("C-c ! p" . flymake-goto-prev-error)))
 
-(use-package flycheck-package
-  :after flycheck
-  :config
-  (flycheck-package-setup)
-  :bind
-  (:map flycheck-mode-map
-        ("C-c ! C-l" . package-lint-current-buffer)))
+;; (use-package flycheck
+;;   :custom
+;;   (flycheck-idle-change-delay 1)
+;;   (flycheck-mode-line-prefix "")
+;;   (flycheck-emacs-lisp-load-path 'inherit)
 
-(use-package consult-flycheck
-  :bind
-  (:map flycheck-command-map
-        ("!" . consult-flycheck)))
+;;   :config
+;;   ;; Stolen from spacemacs
+;;   (define-fringe-bitmap 'my-flycheck-fringe-indicator
+;;     (vector #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00011100
+;;             #b00111110
+;;             #b00111110
+;;             #b00111110
+;;             #b00011100
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000
+;;             #b00000000))
+
+;;   (flycheck-define-error-level 'error
+;;     :severity 2
+;;     :overlay-category 'flycheck-error-overlay
+;;     :fringe-bitmap 'my-flycheck-fringe-indicator
+;;     :fringe-face 'flycheck-fringe-error)
+
+;;   (flycheck-define-error-level 'warning
+;;     :severity 1
+;;     :overlay-category 'flycheck-warning-overlay
+;;     :fringe-bitmap 'my-flycheck-fringe-indicator
+;;     :fringe-face 'flycheck-fringe-warning)
+
+;;   (flycheck-define-error-level 'info
+;;     :severity 0
+;;     :overlay-category 'flycheck-info-overlay
+;;     :fringe-bitmap 'my-flycheck-fringe-indicator
+;;     :fringe-face 'flycheck-fringe-info)
+
+;;   :hook
+;;   (prog-mode-hook . flycheck-mode)
+
+;;   :bind
+;;   ("C-c ! !" . flycheck-mode))
+
+(use-package package-lint)
+  ;; :bind
+  ;; (:map flymake-mode-map
+  ;;       ("C-c ! C-l" . package-lint-current-buffer))
+  ;; (:map flymake-command-map
+  ;;       ("!" . consult-flymake))
+
+(use-package package-lint-flymake
+  :hook
+  (emacs-lisp-mode-hook . package-lint-flymake-setup))
 
 (use-package lsp-mode
   :custom
@@ -5910,8 +5969,8 @@ Open the `eww' buffer in another window."
   :config
   ;; Support reading large blobs of data from lsp servers.
   (setq read-process-output-max 1048576) ; 1mb
-  (with-eval-after-load 'flycheck
-    (add-to-list 'flycheck-checkers #'lsp))
+  ;; Ensure `flymake' is used instead of `flycheck'.
+  (setq lsp-diagnostics-provider :flymake)
 
   (defun lsp-reset-mode-line-process ()
     "Reset `mode-line-process' manually after lsp screws it up."
@@ -6405,10 +6464,6 @@ This package sets these explicitly so we have to do the same."
   :hook
   (plantuml-mode-hook . plantuml-completion-at-point-setup))
 
-(use-package flycheck-plantuml
-  :hook
-  (plantuml-mode-hook . flycheck-plantuml-setup))
-
 (use-package mermaid-mode
   :mode "\\.mmd\\'")
 
@@ -6601,8 +6656,8 @@ When not in a project directory or a prefix ARG is specified,
 open it in `org-directory'."
     (interactive "P")
     (find-file (expand-file-name "TODO.org"
-                                 (if (and (not arg) (projectile-project-p))
-                                     (projectile-project-root)
+                                 (if (and (not arg) (project-root (project-current t)))
+                                     (project-root (project-current t))
                                    org-directory))))
 
   (defun org-search-org-directory ()
@@ -6622,8 +6677,8 @@ With a prefix ARG, create it in `org-directory'."
     (find-file (expand-file-name "new-note.org"
                                  (cond
                                   (arg org-directory)
-                                  ((projectile-project-p)
-                                   (projectile-project-root))))))
+                                  ((project-root (project-current t))
+                                   (project-root (project-current t)))))))
 
   (defun org-todo-todo ()
     "Create or update Org todo entry to TODO status."
@@ -6769,7 +6824,7 @@ With a prefix ARG, create it in `org-directory'."
 
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
-                                 (calc . t)
+                                 ;; (calc . t)
                                  (clojure . t)
                                  (emacs-lisp . t)
                                  (js . t)
@@ -7361,8 +7416,7 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
 (provide 'init)
 
 ;; Local Variables:
-;; flycheck-checkers: (emacs-lisp emacs-lisp-checkdoc)
-;; eval: (flycheck-mode -1)
+;; eval: (flymake-mode -1)
 ;; End:
 
 ;;; init.el ends here
