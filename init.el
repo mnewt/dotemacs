@@ -2158,6 +2158,7 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
  '(tab-always-indent 'complete))
 
 (use-package corfu
+  :load-path "straight/build/corfu/extensions"
   :custom
   ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
   (corfu-auto t) ;; Enable auto completion
@@ -2170,6 +2171,8 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; (corfu-echo-documentation nil) ;; Disable documentation in the echo area
   ;; (corfu-scroll-margin 5)        ;; Use scroll margin
 
+  (corfu-popupinfo-delay 0)
+
   :preface
   (defun corfu-enable-in-minibuffer ()
     "Enable Corfu in the minibuffer if `completion-at-point' is bound."
@@ -2179,6 +2182,9 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
 
   :init
   (global-corfu-mode)
+
+  (require 'corfu-popupinfo)
+  (corfu-popupinfo-mode)
 
   :hook
   (minibuffer-setup-hook . corfu-enable-in-minibuffer)
@@ -2222,16 +2228,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ("M-+ ^" . cape-tex)
   ("M-+ &" . cape-sgml)
   ("M-+ r" . cape-rfc1345))
-
-(use-package corfu-doc
-  :hook
-  (corfu-mode-hook . corfu-doc-mode)
-  :bind
-  (:map corfu-map
-        ;; This seems backwards but it has the desired effect.
-        ("C-M-p" . corfu-doc-scroll-down)
-        ("C-M-n" . corfu-doc-scroll-up)
-        ("M-d" . corfu-doc-toggle)))
 
 (use-package project
   :bind
@@ -5624,11 +5620,6 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 (use-package docker
   :bind
   ("C-c M-d" . docker))
-
-(use-package docker-tramp
-  :defer 14
-  :config
-  (docker-tramp-add-method))
 
 ;; dw (https://gitlab.com/mnewt/dw)
 (add-to-list 'auto-mode-alist '("DWfile\\'" . sh-mode))
