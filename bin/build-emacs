@@ -28,8 +28,11 @@ DO_BREW_PACKAGES=(
   libvterm
   libxml2
   pkg-config
+  tree-sitter
+  sqlite
 
   # Runtime dependencies
+  coreutils
   texinfo
   ripgrep
   fd

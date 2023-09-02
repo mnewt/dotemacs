@@ -839,10 +839,10 @@ Inspired by `doom-modeline'.")
                (buffer-modified-p))
       "● "))
 
-  ;; (defun mood-line-segment-flymake ()
-  ;;   "Display flymake information in the mode-line (if available)."
-  ;;   (when (and (mood-line-window-active-p) flymake-mode)
-  ;;     (flymake--mode-line-title)))
+  (defun mood-line-segment-flymake ()
+    "Display flymake information in the mode-line (if available)."
+    (when (and (mood-line-window-active-p) (bound-and-true-p flymake-mode))
+      (flymake--mode-line-title)))
 
   ;; (defvar flycheck-current-errors)
 
@@ -1155,7 +1155,7 @@ This sets things up for `window-highlight' and `mode-line'."
   ;; or autoloads. See `lisp-mode' for the default.
   ;; (setq-local outline-minor-faces-regexp ";;;\\(;* [^ \t\n]\\)")
   :hook
-  (emacs-lisp-mode-hook . outline-minor-faces-add-font-lock-keywords))
+  (outline-minor-mode-hook . outline-minor-faces-mode))
 
 (use-package outorg
   :after outline
@@ -2201,15 +2201,15 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-history)
-  ;;(add-to-list 'completion-at-point-functions #'cape-keyword)
-  ;;(add-to-list 'completion-at-point-functions #'cape-tex)
-  ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
-  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
-  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev)
-  (add-to-list 'completion-at-point-functions #'cape-ispell)
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;; (add-to-list 'completion-at-point-functions #'cape-tex)
+  ;; (add-to-list 'completion-at-point-functions #'cape-sgml)
+  ;; (add-to-list 'completion-at-point-functions #'cape-rfc1345)
+  ;; (add-to-list 'completion-at-point-functions #'cape-abbrev)
+  ;; (add-to-list 'completion-at-point-functions #'cape-ispell)
   ;; (add-to-list 'completion-at-point-functions #'cape-dict)
   (add-to-list 'completion-at-point-functions #'cape-symbol)
-  ;;(add-to-list 'completion-at-point-functions #'cape-line)
+  ;; (add-to-list 'completion-at-point-functions #'cape-line)
 
   :bind
   ("M-+ p" . completion-at-point) ;; capf
@@ -3394,13 +3394,13 @@ The config is specified in the config file in `~/.mnt/'."
 ;; General editing related configuration and functionality
 
 ;; Ensure we are always using UTF-8 encoding.
-(set-charset-priority 'unicode)
-(set-terminal-coding-system 'utf-8)
-(set-keyboard-coding-system 'utf-8)
-(set-selection-coding-system 'utf-8)
-(prefer-coding-system 'utf-8)
-(setq default-process-coding-system '(utf-8-unix . utf-8-unix)
-      locale-coding-system 'utf-8)
+;; (set-charset-priority 'unicode)
+;; (set-terminal-coding-system 'utf-8)
+;; (set-keyboard-coding-system 'utf-8)
+;; (set-selection-coding-system 'utf-8)
+;; (prefer-coding-system 'utf-8)
+;; (setq default-process-coding-system '(utf-8-unix . utf-8-unix)
+;;       locale-coding-system 'utf-8)
 
 (setq
  ;; Use the system clipboard
@@ -3554,15 +3554,11 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 ;;   (([remap kill-ring-save] . easy-kill)
 ;;    ([remap mark-sexp] . easy-mark)))
 
-(use-package expand-region
-  :after org
-  :custom
-  (expand-region-fast-keys-enabled nil)
+(use-package expreg
+  :straight (expreg :host github :repo "casouri/expreg")
   :bind
-  ("s-d" . er/expand-region)
-  ("C-=" . er/expand-region)
-  ("s-D" . er/contract-region)
-  ("C-+" . er/contract-region))
+  ("s-d" . expreg-expand)
+  ("s-D" . expreg-contract))
 
 (use-package multiple-cursors
   :bind
@@ -5123,6 +5119,16 @@ If AND-MEM is non-nil, profile memory as well."
   :hook
   ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
+;; TODO Doesn't seem to have an M1 binary. Have to build it?
+;; (use-package parinfer-rust-mode
+;;   :hook
+;;   ((clojure-mode-hook
+;;     emacs-lisp-mode-hook
+;;     hy-mode-hook
+;;     lisp-interaction-mode-hook
+;;     lisp-mode-hook
+;;     scheme-mode-hook) . parinfer-rust-mode))
+
 (use-package parinfer
   :custom
   (parinfer-extensions
@@ -5712,7 +5718,7 @@ Open the `eww' buffer in another window."
      ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
 
   :hook
-  (web-mode-hook . lsp-deferred)
+  (web-mode-hook . eglot-ensure)
   (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
@@ -5720,13 +5726,13 @@ Open the `eww' buffer in another window."
   :custom
   (css-indent-offset tab-width)
   :hook
-  (css-mode-hook . lsp-deferred))
+  (css-mode-hook . eglot-ensure))
 
 ;; disable > gem install sass
 (use-package sass-mode
   :mode "\\(?:s\\(?:[ac]?ss\\)\\)"
   :hook
-  (sass-mode-hook . lsp-deferred))
+  (sass-mode-hook . eglot-ensure))
 
 (use-package emmet-mode
   :custom
@@ -5765,7 +5771,7 @@ Open the `eww' buffer in another window."
   :custom
   (js-indent-level tab-width)
   :hook
-  (js-mode-hook . lsp-deferred))
+  (js-mode-hook . eglot-ensure))
 
 (use-package json-mode
   :mode ("\\.json\\'" "prettierrc\\'"))
@@ -5794,12 +5800,12 @@ Open the `eww' buffer in another window."
         ("s-<return>" . python-shell-send-defun)))
 
 ;; disable > pip install python-language-server
-(use-package lsp-python-ms
-  :after python
-  :config
-  (require 'lsp-python-ms)
-  :hook
-  (python-mode-hook . lsp-deferred))
+;; (use-package lsp-python-ms
+;;   :after python
+;;   :config
+;;   (require 'lsp-python-ms)
+;;   :hook
+;;   (python-mode-hook . eglot-ensure))
 
 (use-package pyvenv
   :after python
@@ -5819,17 +5825,17 @@ Open the `eww' buffer in another window."
   :mode "\\.swift"
   :interpreter "swift"
   :hook
-  (swift-mode-hook . lsp-deferred))
+  (swift-mode-hook . eglot-ensure))
 
-(use-package lsp-sourcekit
-  :config
-  (defun lsp-sourcekit-setup ()
-    (let ((toolchain (concat "/Applications/Xcode.app/Contents/Developer/Toolchains"
-                             "/XcodeDefault.xctoolchain")))
-      (setenv "SOURCEKIT_TOOLCHAIN_PATH" toolchain)
-      (setq lsp-sourcekit-executable (concat toolchain "/usr/bin/sourcekit-lsp"))))
-  :hook
-  (swift-mode-hook . lsp-sourcekit-setup))
+;; (use-package lsp-sourcekit
+;;   :config
+;;   (defun lsp-sourcekit-setup ()
+;;     (let ((toolchain (concat "/Applications/Xcode.app/Contents/Developer/Toolchains"
+;;                              "/XcodeDefault.xctoolchain")))
+;;       (setenv "SOURCEKIT_TOOLCHAIN_PATH" toolchain)
+;;       (setq lsp-sourcekit-executable (concat toolchain "/usr/bin/sourcekit-lsp"))))
+;;   :hook
+;;   (swift-mode-hook . lsp-sourcekit-setup))
 
 
 ;;;; Applescript
@@ -5950,47 +5956,51 @@ Open the `eww' buffer in another window."
   :hook
   (emacs-lisp-mode-hook . package-lint-flymake-setup))
 
-(use-package lsp-mode
-  :custom
-  (lsp-enable-snippet t)
-  (lsp-auto-guess-root t)
-  (lsp-before-save-edits t)
-  (lsp-progress-via-spinner nil)
-
-  :config
-  ;; Support reading large blobs of data from lsp servers.
-  (setq read-process-output-max 1048576) ; 1mb
-  ;; Ensure `flymake' is used instead of `flycheck'.
-  (setq lsp-diagnostics-provider :flymake)
-
-  (defun lsp-reset-mode-line-process ()
-    "Reset `mode-line-process' manually after lsp screws it up."
-    (interactive)
-    (setq mode-line-process nil))
-
+(use-package eglot
   :hook
-  (lsp-after-open-hook . lsp-enable-imenu)
-  (lsp-mode-hook . lsp-enable-which-key-integration)
+  (eglot-mode-hook . eglot-inlay-hints-mode))
 
-  :bind
-  (:map lsp-mode-map
-        ("s-l p" . lsp-reset-mode-line-process)
-        ("C-h ." . lsp-describe-thing-at-point)))
+;; (use-package lsp-mode
+;;   :custom
+;;   (lsp-enable-snippet t)
+;;   (lsp-auto-guess-root t)
+;;   (lsp-before-save-edits t)
+;;   (lsp-progress-via-spinner nil)
 
-(use-package lsp-ui
-  :custom
-  (lsp-ui-doc-position 'top)
-  :hook
-  (lsp-mode-hook . lsp-ui-mode)
-  :bind
-  (:map lsp-ui-mode-map
-        ("M-." . lsp-ui-peek-find-definitions)
-        ("M-?" . lsp-ui-peek-find-references))
-  (:map lsp-ui-peek-mode-map
-        ("<return>" . lsp-ui-peek--goto-xref)
-        ("M-/" . lsp-ui-peek--goto-xref))
-  (:map lsp-command-map
-        ("i" . lsp-ui-imenu)))
+;;   :config
+;;   ;; Support reading large blobs of data from lsp servers.
+;;   (setq read-process-output-max 1048576) ; 1mb
+;;   ;; Ensure `flymake' is used instead of `flycheck'.
+;;   (setq lsp-diagnostics-provider :flymake)
+
+;;   (defun lsp-reset-mode-line-process ()
+;;     "Reset `mode-line-process' manually after lsp screws it up."
+;;     (interactive)
+;;     (setq mode-line-process nil))
+
+;;   :hook
+;;   (lsp-after-open-hook . lsp-enable-imenu)
+;;   (lsp-mode-hook . lsp-enable-which-key-integration)
+
+;;   :bind
+;;   (:map lsp-mode-map
+;;         ("s-l p" . lsp-reset-mode-line-process)
+;;         ("C-h ." . lsp-describe-thing-at-point)))
+
+;; (use-package lsp-ui
+;;   :custom
+;;   (lsp-ui-doc-position 'top)
+;;   :hook
+;;   (lsp-mode-hook . lsp-ui-mode)
+;;   :bind
+;;   (:map lsp-ui-mode-map
+;;         ("M-." . lsp-ui-peek-find-definitions)
+;;         ("M-?" . lsp-ui-peek-find-references))
+;;   (:map lsp-ui-peek-mode-map
+;;         ("<return>" . lsp-ui-peek--goto-xref)
+;;         ("M-/" . lsp-ui-peek--goto-xref))
+;;   (:map lsp-command-map
+;;         ("i" . lsp-ui-imenu)))
 
 ;; (use-package lsp-ivy
 ;;   :commands
@@ -6001,10 +6011,10 @@ Open the `eww' buffer in another window."
 ;;   :bind
 ;;   ("S-l \\'" . lsp-treemacs-symbols))
 
-(use-package consult-lsp
-  :bind
-  (:map lsp-mode-map
-        ([remap xref-find-apropos] . consult-lsp-symbols)))
+;; (use-package consult-lsp
+;;   :bind
+;;   (:map lsp-mode-map
+;;         ([remap xref-find-apropos] . consult-lsp-symbols)))
 
 ;; TODO Make this something worth using. See also the competing
 ;; https://github.com/realgud/realgud, which is an Emacs package to interface
@@ -6198,7 +6208,7 @@ This command defaults to running the previous command."
       (async-shell-command command)))
 
   :hook
-  (sh-mode-hook . lsp-deferred)
+  (sh-mode-hook . eglot-ensure)
   (before-save-hook . maybe-reset-major-mode)
   (after-save-hook . executable-make-buffer-file-executable-if-script-p)
   :bind
@@ -6299,7 +6309,7 @@ This package sets these explicitly so we have to do the same."
 (use-package ruby-mode
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :hook
-  (ruby-mode-hook . lsp-deferred))
+  (ruby-mode-hook . eglot-ensure))
 
 (use-package inf-ruby
   :after ruby-mode
@@ -6318,7 +6328,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (lua-indent-level tab-width)
   :hook
-  (lua-mode-hook . lsp-deferred))
+  (lua-mode-hook . eglot-ensure))
 
 (use-package fennel-mode
   :mode "\\.fnl\\'")
@@ -6328,7 +6338,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (rust-indent-offset tab-width)
   :hook
-  (rust-mode-hook . lsp-deferred))
+  (rust-mode-hook . eglot-ensure))
 
 (use-package go-mode
   :mode "\\.go\\'")
@@ -6339,14 +6349,16 @@ This package sets these explicitly so we have to do the same."
   :mode "\\.ps[dm]?1\\'"
   :custom
   (powershell-indent tab-width)
-  (powershell-continuation-indent tab-width)
-  :hook
-  (powershell-mode-hook . lsp-deferred))
+  (powershell-continuation-indent tab-width))
+  ;; FIXME Is this causing `powershell-mode' to do bad things whenever a file is
+  ;; opened?
+  ;; :hook
+  ;; (powershell-mode-hook . eglot-ensure))
 
 (use-package php-mode
   :mode "\\.php\\'"
   :hook
-  (php-mode-hook . lsp-deferred))
+  (php-mode-hook . eglot-ensure))
 
 (use-package ios-config-mode
   :straight (ios-config-mode :host github :repo "mnewt/IOS-config-mode")
@@ -6356,7 +6368,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (c-basic-offset 4)
   :hook
-  ((c-mode-hook c++-mode-hook java-mode-hook) . lsp-deferred)
+  ((c-mode-hook c++-mode-hook java-mode-hook) . eglot-ensure)
   :bind
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
@@ -6365,7 +6377,7 @@ This package sets these explicitly so we have to do the same."
 (use-package nxml-mode
   :straight (:type built-in)
   :hook
-  (nxml-mode-hook . lsp-deferred))
+  (nxml-mode-hook . eglot-ensure))
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
@@ -6414,58 +6426,53 @@ This package sets these explicitly so we have to do the same."
         ("C-c r" . omnisharp-run-code-action-refactoring)
         ("C-c C-c" . recompile)))
 
-(use-package ahk-mode
-  :mode "\\.ahk\\'")
+;; (use-package ahk-mode
+;;   :mode "\\.ahk\\'")
 
 ;; > brew install plantuml
-(use-package plantuml-mode
-  :mode "\\.puml\\'"
+;; (use-package plantuml-mode
+;;   :mode "\\.puml\\'"
 
-  :preface
-  (defun plantuml-completion-at-point ()
-    "Function used for `completion-at-point-functions' in `plantuml-mode'."
-    (let ((completion-ignore-case t)
-          (bounds (bounds-of-thing-at-point 'symbol))
-          (keywords plantuml-kwdList))
-      (when (and bounds keywords)
-        (list (car bounds)
-              (cdr bounds)
-              keywords
-              :exclusve 'no))))
+;;   :preface
+;;   (defun plantuml-completion-at-point ()
+;;     "Function used for `completion-at-point-functions' in `plantuml-mode'."
+;;     (let ((completion-ignore-case t)
+;;           (bounds (bounds-of-thing-at-point 'symbol))
+;;           (keywords plantuml-kwdList))
+;;       (when (and bounds keywords)
+;;         (list (car bounds)
+;;               (cdr bounds)
+;;               keywords
+;;               :exclusve 'no))))
 
-  (defun plantuml-completion-at-point-setup ()
-    "Set up `completion-at-point' for plantuml-mode."
-    (setq plantuml-output-type "png")
-    (add-hook 'completion-at-point-functions
-              #'plantuml-completion-at-point nil 'local))
+;;   (defun plantuml-completion-at-point-setup ()
+;;     "Set up `completion-at-point' for plantuml-mode."
+;;     (setq plantuml-output-type "png")
+;;     (add-hook 'completion-at-point-functions
+;;               #'plantuml-completion-at-point nil 'local))
 
-  :custom
-  ;; The server doesn't work right because of encoding problems.
-  ;; TODO: File a bug report
-  (plantuml-default-exec-mode 'jar)
-  (plantuml-jar-path
-   (car (file-expand-wildcards "/usr/local/Cellar/plantuml/*/libexec/plantuml.jar")))
-  (plantuml-indent-level tab-width)
-  :config
-  (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
+;;   :custom
+;;   ;; The server doesn't work right because of encoding problems.
+;;   ;; TODO: File a bug report
+;;   (plantuml-default-exec-mode 'jar)
+;;   (plantuml-jar-path
+;;    (car (file-expand-wildcards "/usr/local/Cellar/plantuml/*/libexec/plantuml.jar")))
+;;   (plantuml-indent-level tab-width)
+;;   :config
+;;   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
 
-  (defvar org-plantuml-jar-path)
-  (setq org-plantuml-jar-path plantuml-jar-path)
+;;   (defvar org-plantuml-jar-path)
+;;   (setq org-plantuml-jar-path plantuml-jar-path)
 
-  :hook
-  (plantuml-mode-hook . plantuml-completion-at-point-setup))
+;;   :hook
+;;   (plantuml-mode-hook . plantuml-completion-at-point-setup))
 
-(use-package mermaid-mode
-  :mode "\\.mmd\\'")
+;; (use-package mermaid-mode
+;;   :mode "\\.mmd\\'")
 
-(use-package ob-mermaid
-  :functions
-  org-babel-execute:mermaid)
-
-(use-package nftables-mode
-  :straight (:host github :repo "mnewt/nftables-mode")
-  :mode ("\\.nft\\(?:ables\\)?\\'" "/etc/nftables.conf")
-  :interpreter "nft\\(?:ables\\)?")
+;; (use-package ob-mermaid
+;;   :functions
+;;   org-babel-execute:mermaid)
 
 (use-package gdscript-mode
   :straight (:type git :host github :repo "godotengine/emacs-gdscript-mode")
@@ -6486,7 +6493,7 @@ This package sets these explicitly so we have to do the same."
   ;;                                           ("executeCommand" 'ignore))))
 
   :hook
-  (gdscript-mode-hook . lsp-deferred))
+  (gdscript-mode-hook . eglot-ensure))
 
 (use-package yasnippet-godot-gdscript
   :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
@@ -6820,9 +6827,9 @@ With a prefix ARG, create it in `org-directory'."
                                  (emacs-lisp . t)
                                  (js . t)
                                  (lisp . t)
-                                 (mermaid . t)
+                                 ;; (mermaid . t)
                                  (perl . t)
-                                 (plantuml . t)
+                                 ;; (plantuml . t)
                                  (python . t)
                                  (ruby . t)
                                  (scheme . t)
@@ -6843,22 +6850,6 @@ With a prefix ARG, create it in `org-directory'."
   ;;   :hook
   ;;   (org-mode-hook . org-spacer-setup))
 
-  (defun org-fix-blank-lines ()
-    "Ensure blank lines exist between top level headings.
-
-Adapted from
-https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
-    (interactive)
-    (org-map-entries (lambda ()
-                       (when (>= 3 (org-current-level))
-                         (org-with-wide-buffer
-                          ;; `org-map-entries' narrows the buffer, which prevents us from seeing
-                          ;; newlines before the current heading, so we do this part widened.
-                          (while (not (looking-back "\n\\(?:[[:space:]]+\\)?\n" nil))
-                            ;; Insert blank lines before heading.
-                            (insert "\n")))))
-                     t nil))
-
   (defvar org-odt-convert-processes)
 
   (defun org-mode-setup ()
@@ -6878,8 +6869,6 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
         (setq org-odt-convert-processes
               '(("LibreOffice"
                  "/Applications/LibreOffice.app/Contents/MacOS/soffice --headless --convert-to %f%x --outdir %d %i"))))))
-
-  (add-hook 'before-save-hook #'org-fix-blank-lines 90 'local)
 
   (add-hook 'post-command-hook #'org-link-message 90 'local)
 
@@ -6968,14 +6957,14 @@ https://github.com/alphapapa/unpackaged.el/blob/master/unpackaged.el."
 
 ;; Install:
 ;; disable > brew install tclap
-(use-package notdeft
-  :straight (:host github :repo "hasu/notdeft")
-  :custom
-  (notdeft-directory org-directory)
-  (notdeft-directories `(,org-directory))
-  (notdeft-secondary-extensions nil)
-  :bind
-  ("C-c n s" . notdeft))
+;; (use-package notdeft
+;;   :straight (:host github :repo "hasu/notdeft")
+;;   :custom
+;;   (notdeft-directory org-directory)
+;;   (notdeft-directories `(,org-directory))
+;;   (notdeft-secondary-extensions nil)
+;;   :bind
+;;   ("C-c n s" . notdeft))
 
 (use-package poporg
   :bind
