@@ -16,15 +16,15 @@ prompt_confirm() {
   done
 }
 
-emacs=emacs-plus@29
+emacs="emacs-plus@30"
+options="--with-native-comp"
 destination="$HOME/Applications/Emacs.app"
+dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2"
 
-brew install gcc libgccjit || brew upgrade gcc libgccjit
+brew install $dependencies || brew upgrade $dependencies
 brew tap d12frosted/emacs-plus
 brew uninstall $emacs || true
-brew install $emacs --build-from-source --with-native-comp
-# These are PRs that I don't think will be accepted.
-# brew install d12frosted/emacs-plus/$emacs --with-native-comp --with-c-source --without-compressed-elisp --build-from-source
+brew install $emacs $options
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
 rm "$destination" || true

@@ -4405,7 +4405,7 @@ predicate returns true."
   :commands
   xterm-color-colorize-buffer
   xterm-color-filter
-  :config
+  :preface
   (defun xterm-color-shell-command (&rest _rest)
     "Colorize the output of `shell-command'."
     (dolist (b (buffer-list))
@@ -4442,10 +4442,10 @@ predicate returns true."
     (defun xterm-color-compilation-filter (f proc string)
       (funcall f proc (xterm-color-filter string)))
 
-    ;; Emacs 28 renamed `compilation-filter' to `compilation-filter-hook'.
-    (advice-add (if (boundp 'compilation-filter-hook)
-                    'compilation-filter-hook
-                  'compilation-filter) :around #'xterm-color-compilation-filter))
+    ;; Emacs 28 added `compilation-filter-hook' but this is not the way to adapt
+    ;; `xterm-color' to use it.
+    ;; (add-hook 'compilation-filter-hook #'xterm-color-compilation-filter)
+    (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
 
   (setenv "TERM" "eterm-256color")
 
@@ -5850,7 +5850,7 @@ Open the `eww' buffer in another window."
                `["\\.scpt\\'"
                  "converting text applescript to binary applescript "
                  ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") nil
-                 "converting binary applescript to text applescprit "
+                 "converting binary applescript to text applescript "
                  ,(expand-file-name "applescript-helper" "~/.emacs.d/bin/") ("-d")
                  nil t "FasdUAS"])
   ;; It is necessary to perform an update after changing the above variable.
