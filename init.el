@@ -928,83 +928,60 @@ Watches `edebug-active' and sets the mode-line when it changes."
   ;; https://emacs.stackexchange.com/questions/33288
   (add-hook 'post-command-hook #'narrowed-info)
 
-  (defvar parinfer--mode)
-  (defvar parinfer-lighters)
+  (defun parinfer-rust-mode-info (&optional _mode)
+    "Display an indicator when `parinfer-rust-mode' is enabled."
+    (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
+          (when (bound-and-true-p parinfer-rust-mode)
+            (list (concat "(" (substring parinfer-rust--mode 0 1) ")")))))
 
-  (defun parinfer-mode-info (&optional _mode)
-    "Display an indicator when `parinfer-mode' is enabled."
-    (setf (alist-get 'parinfer-mode mode-line-misc-info)
-          (when (bound-and-true-p parinfer-mode)
-            (list (if (eq 'paren parinfer--mode)
-                      (cdr parinfer-lighters)
-                    (car parinfer-lighters))))))
+  (add-hook 'parinfer-rust-mode-hook #'parinfer-rust-mode-info)
+  ;; This is the only way I've found to update parinfer when changing buffers
+  ;; and windows.
+  (add-hook 'window-state-change-hook #'parinfer-rust-mode-info
 
-  (add-hook 'parinfer-mode-enable-hook #'parinfer-mode-info)
-  (add-hook 'parinfer-mode-disable-hook #'parinfer-mode-info)
-  (add-hook 'parinfer-switch-mode-hook #'parinfer-mode-info)
-  ;; KLUDGE None of the above hooks get called when parinfer is initialized
-  ;; so we have to catch up somehow. I'm sure there's a better way.
-  (add-hook 'window-state-change-hook #'parinfer-mode-info)
+   (defun hs-minor-mode-info ()
+     "Display an indicator when `hs-minor-mode' is enabled."
+     (setf (alist-get 'hs-minor-mode mode-line-misc-info)
+           (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
 
-  ;; (defvar parinfer-rust-lighters
-  ;;   '(("smart" . "s")
-  ;;     ("paren" . ")")
-  ;;     ("indent" . "➠"))
-  ;;   "Mode line indication for `parinfer-rust-mode'.")
+   (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
 
-  ;; (defvar parinfer-rust-enabled)
+   (defun mood-line-segment-major-mode ()
+     "Displays the current major mode in the mode-line."
+     (when (mood-line-window-active-p)
+       (propertize (concat " " (format-mode-line mode-name) " ")
+                   'face (if (mood-line-window-active-p)
+                             'mode-line-emphasis
+                           'mode-line))))
 
-  ;; (defun parinfer-rust-mode-info (&optional _mode)
-  ;;   "Display an indicator when `parinfer-rust-mode' is enabled."
-  ;;   (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
-  ;;         (when parinfer-rust-enabled
-  ;;           (list (assoc-default "smart" parinfer-rust-lighters)))))
+   ;; (defun mood-line--format (left right)
+   ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
+   ;;   (concat
+   ;;    left
+   ;;    " "
+   ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
+   ;;    right))
 
-  ;; (add-hook 'window-state-change-hook #'parinfer-rust-mode-info)
+   (mood-line-mode)
 
-  (defun hs-minor-mode-info ()
-    "Display an indicator when `hs-minor-mode' is enabled."
-    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
-          (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
-
-  (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
-
-  (defun mood-line-segment-major-mode ()
-    "Displays the current major mode in the mode-line."
-    (when (mood-line-window-active-p)
-      (propertize (concat " " (format-mode-line mode-name) " ")
-                  'face (if (mood-line-window-active-p)
-                            'mode-line-emphasis
-                          'mode-line))))
-
-  ;; (defun mood-line--format (left right)
-  ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
-  ;;   (concat
-  ;;    left
-  ;;    " "
-  ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
-  ;;    right))
-
-  (mood-line-mode)
-
-  (setq-default mode-line-format
-                '((:eval
-                   (mood-line--format
-                    ;; Left
-                    (format-mode-line
-                     '((:eval (mood-line-segment-bar))
-                       (:eval (mood-line-segment-hostname))
-                       (:eval (mood-line-segment-buffer-name))
-                       (:eval (mood-line-segment-modified))
-                       (:eval (mood-line-segment-major-mode))
-                       (:eval (mood-line-segment-anzu))
-                       (:eval (mood-line-segment-multiple-cursors))))
-                    ;; Right
-                    (format-mode-line
-                     '((:eval (mood-line-segment-process))
-                       (:eval (mood-line-segment-project-directory))
-                       (:eval (mood-line-segment-flymake))
-                       (:eval (mood-line-segment-misc-info)))))))))
+   (setq-default mode-line-format
+                 '((:eval
+                    (mood-line--format
+                     ;; Left
+                     (format-mode-line
+                      '((:eval (mood-line-segment-bar))
+                        (:eval (mood-line-segment-hostname))
+                        (:eval (mood-line-segment-buffer-name))
+                        (:eval (mood-line-segment-modified))
+                        (:eval (mood-line-segment-major-mode))
+                        (:eval (mood-line-segment-anzu))
+                        (:eval (mood-line-segment-multiple-cursors))))
+                     ;; Right
+                     (format-mode-line
+                      '((:eval (mood-line-segment-process))
+                        (:eval (mood-line-segment-project-directory))
+                        (:eval (mood-line-segment-flymake))
+                        (:eval (mood-line-segment-misc-info))))))))))
 
 (defun theme-reset (&rest _)
   "Remove all current themes before loading a new theme."
@@ -4405,6 +4382,7 @@ predicate returns true."
   :commands
   xterm-color-colorize-buffer
   xterm-color-filter
+
   :preface
   (defun xterm-color-shell-command (&rest _rest)
     "Colorize the output of `shell-command'."
@@ -5119,31 +5097,21 @@ If AND-MEM is non-nil, profile memory as well."
   :hook
   ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
-;; TODO Doesn't seem to have an M1 binary. Have to build it?
-;; (use-package parinfer-rust-mode
-;;   :hook
-;;   ((clojure-mode-hook
-;;     emacs-lisp-mode-hook
-;;     hy-mode-hook
-;;     lisp-interaction-mode-hook
-;;     lisp-mode-hook
-;;     scheme-mode-hook) . parinfer-rust-mode))
+;; TODO Doesn't seem to have an M1 binary. Have to build it manually like this:
+;; > brew install cargo
+;; > cd ~/code
+;; > git clone https://github.com/eraserhd/parinfer-rust.git
+;; > cd ~/code/parinfer-rust
+;; > cargo build --release --features emacs
+;; > mkdir -p ~/.emacs.d/parinfer-rust
+;; > cp target/release/libparinfer_rust.dylib ~/.emacs.d/parinfer-rust/parinfer-rust-darwin.so
 
-(use-package parinfer
-  :custom
-  (parinfer-extensions
-   '(defaults        ; should be included.
-      pretty-parens  ; different paren styles for different modes.
-      smart-tab      ; C-b & C-f jump positions and smart shift with tab & S-tab.
-      smart-yank))   ; Yank behavior depends on mode.
-
-  :config
-  (parinfer-strategy-add 'default 'newline-and-indent)
-  (parinfer-strategy-add 'instantly
-    '(parinfer-smart-tab:dwim-right
-      parinfer-smart-tab:dwim-right-or-complete
-      parinfer-smart-tab:dwim-left))
-  (setq parinfer-lighters '("➠" ")"))
+(use-package parinfer-rust-mode
+  :preface
+  (defun parinfer-rust-install-library ()
+    "Build the library using `cargo' and put it in place."
+    (interactive)
+    (compile "~/.emacs.d/bin/install-parinfer-rust-library"))
 
   :hook
   ((clojure-mode-hook
@@ -5151,20 +5119,44 @@ If AND-MEM is non-nil, profile memory as well."
     hy-mode-hook
     lisp-interaction-mode-hook
     lisp-mode-hook
-    scheme-mode-hook) . parinfer-mode)
-  :bind
-  (:map parinfer-mode-map
-        ("<tab>" . parinfer-smart-tab:dwim-right-or-complete)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)
-        ("C-," . parinfer-toggle-mode)
-        ;; Don't interfere with smartparens quote handling
-        ("\"" . nil)
-        ("RET" . sp-newline)
-        ("<return>" . sp-newline))
-  (:map parinfer-region-mode-map
-        ("C-i" . indent-for-tab-command)
-        ("<tab>" . parinfer-smart-tab:dwim-right)
-        ("S-<tab>" . parinfer-smart-tab:dwim-left)))
+    scheme-mode-hook) . parinfer-rust-mode))
+
+;; (use-package parinfer
+;;   :custom
+;;   (parinfer-extensions
+;;    '(defaults        ; should be included.
+;;       pretty-parens  ; different paren styles for different modes.
+;;       smart-tab      ; C-b & C-f jump positions and smart shift with tab & S-tab.
+;;       smart-yank))   ; Yank behavior depends on mode.
+
+;;   :config
+;;   (parinfer-strategy-add 'default 'newline-and-indent)
+;;   (parinfer-strategy-add 'instantly
+;;     '(parinfer-smart-tab:dwim-right
+;;       parinfer-smart-tab:dwim-right-or-complete
+;;       parinfer-smart-tab:dwim-left))
+;;   (setq parinfer-lighters '("➠" ")"))
+
+;;   :hook
+;;   ((clojure-mode-hook
+;;     emacs-lisp-mode-hook
+;;     hy-mode-hook
+;;     lisp-interaction-mode-hook
+;;     lisp-mode-hook
+;;     scheme-mode-hook) . parinfer-mode)
+;;   :bind
+;;   (:map parinfer-mode-map
+;;         ("<tab>" . parinfer-smart-tab:dwim-right-or-complete)
+;;         ("S-<tab>" . parinfer-smart-tab:dwim-left)
+;;         ("C-," . parinfer-toggle-mode)
+;;         ;; Don't interfere with smartparens quote handling
+;;         ("\"" . nil)
+;;         ("RET" . sp-newline)
+;;         ("<return>" . sp-newline))
+;;   (:map parinfer-region-mode-map
+;;         ("C-i" . indent-for-tab-command)
+;;         ("<tab>" . parinfer-smart-tab:dwim-right)
+;;         ("S-<tab>" . parinfer-smart-tab:dwim-left)))
 
 (defun advice-functions-on-symbol (symbol)
   "Return a list of functions advising SYMBOL."
@@ -6043,9 +6035,7 @@ Open the `eww' buffer in another window."
   :defer 11
   :config
   (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" "2")
-                       (rubocop "rubocop" "--format" "emacs" file)
                        (swift-format "xcrun" "swift-format")
-                       (shfmt  "shfmt" "-i" "2" "-ci")
                        (xmllint "xmllint" "--format" "-")
                        (zprint "zprint" "{:style :community :map {:comma? false}}")))
     (add-to-list 'apheleia-formatters formatter))
@@ -6053,51 +6043,10 @@ Open the `eww' buffer in another window."
   (dolist (mode '((clojure-mode . zprint)
                   (clojurec-mode . zprint)
                   (clojurescript-mode . zprint)
-                  (graphql-mode . prettier)
                   (lua-mode . lua-fmt)
-                  (markdown-mode . prettier)
                   (nxml-mode . xmllint)
-                  (ruby-mode . rubocop)
-                  (sh-mode . shfmt)
-                  (swift-mode . swift-format)
-                  (web-mode . prettier)))
+                  (swift-mode . swift-format)))
     (add-to-list 'apheleia-mode-alist mode))
-
-  ;; FIXME This is a naive work in progress. Problems include:
-  ;; - Inadvertently trims newlines/whitespace.
-  ;; - Doesn't work if the region doesn't parse.
-  ;; - Visibly moves point around
-  ;; - It's async so if the formatter command takes a long time you could edit
-  ;;   it and then lose your edits
-  ;; See https://github.com/raxod502/apheleia/issues/11
-  (defun apheleia-format-region (start end &optional callback)
-    "Format from START to END with `apheleia'."
-    (interactive "r")
-    (when-let ((command (apheleia--get-formatter-command
-                         (if current-prefix-arg
-                             'prompt
-                           'interactive)))
-               (cur-buffer (current-buffer))
-               (formatted-buffer (get-buffer-create " *apheleia-formatted*")))
-      (with-current-buffer formatted-buffer
-        (erase-buffer)
-        (insert-buffer-substring-no-properties cur-buffer start end)
-        (apheleia-format-buffer
-         command
-         (lambda ()
-           (with-current-buffer cur-buffer
-             (delete-region start end)
-             (insert-buffer-substring-no-properties formatted-buffer)
-             (when callback (funcall callback))))))))
-
-  (defun apheleia-format-defun ()
-    "Format the defun with `apheleia'."
-    (interactive)
-    (let ((pos (point))
-          (start (progn (beginning-of-defun) (point)))
-          (end (progn (end-of-defun) (point))))
-      (apheleia-format-region start end
-                              (lambda () (goto-char pos)))))
 
   (apheleia-global-mode))
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Build and install parinfer-rust library.
+
+cd ~/code
+[[ -d parifer-rust ]] || git clone https://github.com/eraserhd/parinfer-rust.git
+cd ~/code/parinfer-rust
+git pull
+brew install rust
+cargo build --release --features emacs
+mkdir -vp ~/.emacs.d/parinfer-rust
+cp -v target/release/libparinfer_rust.dylib ~/.emacs.d/parinfer-rust/parinfer-rust-darwin.so
