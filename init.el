@@ -929,17 +929,19 @@ Watches `edebug-active' and sets the mode-line when it changes."
                             'mode-line-emphasis
                           'mode-line))))
 
-   ;; (defun mood-line--format (left right)
-   ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
-   ;;   (concat
-   ;;    left
-   ;;    " "
-   ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
-   ;;    right))
+  ;; (defun mood-line--format (left right)
+  ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
+  ;;   (concat
+  ;;    left
+  ;;    " "
+  ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
+  ;;    right))
 
   :config
+  (mood-line-mode)
+
   (setq-default mode-line-format
-                '((:eval
+                 '((:eval)
                    (mood-line--format
                     ;; Left
                     (format-mode-line
@@ -955,9 +957,7 @@ Watches `edebug-active' and sets the mode-line when it changes."
                      '((:eval (mood-line-segment-process))
                        (:eval (mood-line-segment-project-directory))
                        (:eval (mood-line-segment-flymake))
-                       (:eval (mood-line-segment-misc-info))))))))
-
-  (mood-line-mode)
+                       (:eval (mood-line-segment-misc-info)))))))
 
   :hook
   (hs-minor-mode-hook . hs-minor-mode-info)
