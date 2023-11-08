@@ -938,8 +938,6 @@ Watches `edebug-active' and sets the mode-line when it changes."
    ;;    right))
 
   :config
-  (mood-line-mode)
-
   (setq-default mode-line-format
                 '((:eval
                    (mood-line--format
@@ -958,6 +956,8 @@ Watches `edebug-active' and sets the mode-line when it changes."
                        (:eval (mood-line-segment-project-directory))
                        (:eval (mood-line-segment-flymake))
                        (:eval (mood-line-segment-misc-info))))))))
+
+  (mood-line-mode)
 
   :hook
   (hs-minor-mode-hook . hs-minor-mode-info)
