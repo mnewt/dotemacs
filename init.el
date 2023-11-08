@@ -455,6 +455,20 @@ higher level up to the top level form."
       ;; Show keystrokes right away.
       echo-keystrokes 0.01)
 
+(defun some-font (font-list)
+  "Return a 'Font-Size' combination from FONT-LIST.
+
+The first one which is available in the current environment is
+returned."
+  (cl-some (lambda (font-pitch)
+             (string-match "\\`\\([^-]+\\)" font-pitch)
+             (when (member (substring font-pitch
+                                      (match-beginning 1)
+                                      (match-end 1))
+                           (font-family-list))
+               font-pitch))
+           font-list))
+
 ;; GUI Configuration
 (when window-system
   (setq
@@ -476,20 +490,6 @@ higher level up to the top level form."
     (eval-when-compile
       (defvar text-scale-mode-step))
     (setq text-scale-mode-step 1.1))
-
-  (defun some-font (font-list)
-    "Return a 'Font-Size' combination from FONT-LIST.
-
-The first one which is available in the current environment is
-returned."
-    (cl-some (lambda (font-pitch)
-               (string-match "\\`\\([^-]+\\)" font-pitch)
-               (when (member (substring font-pitch
-                                        (match-beginning 1)
-                                        (match-end 1))
-                             (font-family-list))
-                 font-pitch))
-             font-list))
 
   ;; Set default fonts.
   (defvar m-fixed-pitch-font
@@ -565,7 +565,7 @@ See `get' and `theme-attribute'."
 
 Example usage
 
-  (theme-attribute 'default :background)
+  (theme-attribute \='default :background)
 
 Note that unlike `face-attribute', which gets the *current*
 attribute value as displayed on the screen, this function gets
@@ -735,7 +735,7 @@ Stolen from solarized."
 
 (use-package mood-line
   :demand t
-  :config
+  :preface
   (defvar mood-line-selected-window (frame-selected-window)
     "Selected window.")
 
@@ -745,12 +745,6 @@ This is used to determine whether the current window is active."
     (unless (minibuffer-window-active-p (frame-selected-window))
       (setq mood-line-selected-window (frame-selected-window))
       (force-mode-line-update)))
-
-  ;; Executes after a window (not a buffer) has been created, deleted, or moved.
-  (add-hook 'window-configuration-change-hook #'mood-line--set-selected-window)
-
-  ;; Executes after the `buffer-list' changes.
-  (add-hook 'buffer-list-update-hook #'mood-line--set-selected-window)
 
   (defun mood-line-window-active-p ()
     "Return whether the current window is active."
@@ -824,10 +818,6 @@ Inspired by `doom-modeline'.")
                  (concat " " (shorten-file-name (format-mode-line "%b")) " ")
                  'face 'mode-line-buffer-id)))
 
-  (add-hook 'buffer-list-update-hook #'mood-line--refresh-buffer-name)
-  (add-hook 'window-configuration-change-hook #'mood-line--refresh-buffer-name)
-  (add-hook 'after-set-visited-file-name-hook #'mood-line--refresh-buffer-name)
-
   (defun mood-line-segment-buffer-name ()
     "Displays the name of the current buffer in the mode-line."
     mood-line-buffer-name)
@@ -842,7 +832,7 @@ Inspired by `doom-modeline'.")
   (defun mood-line-segment-flymake ()
     "Display flymake information in the mode-line (if available)."
     (when (and (mood-line-window-active-p) (bound-and-true-p flymake-mode))
-      (flymake--mode-line-title)))
+      (list (flymake--mode-line-counters) " ")))
 
   ;; (defvar flycheck-current-errors)
 
@@ -897,14 +887,10 @@ Inspired by `doom-modeline'.")
             (list (when pyvenv-virtual-env
                     (concat "pyvenv:" pyvenv-virtual-env-name))))))
 
-  (add-hook 'post-command-hook #'mood-line-pyvenv-info)
-
   (defun outline-minor-mode-info ()
     "Display an indicator when `outline-minor-mode' is enabled."
     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
           (list (when (bound-and-true-p outline-minor-mode) "Ⓞ"))))
-
-  (add-hook 'outline-minor-mode-hook #'outline-minor-mode-info)
 
   (defun edebug-mode-info (_symbol newval _operation _where)
     "Display an indicator when `edebug' is active.
@@ -920,39 +906,28 @@ Watches `edebug-active' and sets the mode-line when it changes."
 
   (defun narrowed-info (&optional _start _end)
     "Display an indicator when the buffer is narrowed."
-    (setf (alist-get 'buffer-narrowed mode-line-misc-info)
-          (when (setq buffer-narrowed (buffer-narrowed-p))
+    (when (buffer-narrowed-p)
+      (setf (alist-get 'buffer-narrowed mode-line-misc-info)
             (list "n"))))
-
-  ;; npostavs suggests hooking `post-command-hook'.
-  ;; https://emacs.stackexchange.com/questions/33288
-  (add-hook 'post-command-hook #'narrowed-info)
 
   (defun parinfer-rust-mode-info (&optional _mode)
     "Display an indicator when `parinfer-rust-mode' is enabled."
-    (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
-          (when (bound-and-true-p parinfer-rust-mode)
+    (when (bound-and-true-p parinfer-rust-mode)
+      (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
             (list (concat "(" (substring parinfer-rust--mode 0 1) ")")))))
 
-  (add-hook 'parinfer-rust-mode-hook #'parinfer-rust-mode-info)
-  ;; This is the only way I've found to update parinfer when changing buffers
-  ;; and windows.
-  (add-hook 'window-state-change-hook #'parinfer-rust-mode-info
+  (defun hs-minor-mode-info ()
+    "Display an indicator when `hs-minor-mode' is enabled."
+    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
+          (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
 
-   (defun hs-minor-mode-info ()
-     "Display an indicator when `hs-minor-mode' is enabled."
-     (setf (alist-get 'hs-minor-mode mode-line-misc-info)
-           (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
-
-   (add-hook 'hs-minor-mode-hook #'hs-minor-mode-info)
-
-   (defun mood-line-segment-major-mode ()
-     "Displays the current major mode in the mode-line."
-     (when (mood-line-window-active-p)
-       (propertize (concat " " (format-mode-line mode-name) " ")
-                   'face (if (mood-line-window-active-p)
-                             'mode-line-emphasis
-                           'mode-line))))
+  (defun mood-line-segment-major-mode ()
+    "Displays the current major mode in the mode-line."
+    (when (mood-line-window-active-p)
+      (propertize (concat " " (format-mode-line mode-name) " ")
+                  'face (if (mood-line-window-active-p)
+                            'mode-line-emphasis
+                          'mode-line))))
 
    ;; (defun mood-line--format (left right)
    ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
@@ -962,26 +937,46 @@ Watches `edebug-active' and sets the mode-line when it changes."
    ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
    ;;    right))
 
-   (mood-line-mode)
+  :config
+  (mood-line-mode)
 
-   (setq-default mode-line-format
-                 '((:eval
-                    (mood-line--format
-                     ;; Left
-                     (format-mode-line
-                      '((:eval (mood-line-segment-bar))
-                        (:eval (mood-line-segment-hostname))
-                        (:eval (mood-line-segment-buffer-name))
-                        (:eval (mood-line-segment-modified))
-                        (:eval (mood-line-segment-major-mode))
-                        (:eval (mood-line-segment-anzu))
-                        (:eval (mood-line-segment-multiple-cursors))))
-                     ;; Right
-                     (format-mode-line
-                      '((:eval (mood-line-segment-process))
-                        (:eval (mood-line-segment-project-directory))
-                        (:eval (mood-line-segment-flymake))
-                        (:eval (mood-line-segment-misc-info))))))))))
+  (setq-default mode-line-format
+                '((:eval
+                   (mood-line--format
+                    ;; Left
+                    (format-mode-line
+                     '((:eval (mood-line-segment-bar))
+                       (:eval (mood-line-segment-hostname))
+                       (:eval (mood-line-segment-buffer-name))
+                       (:eval (mood-line-segment-modified))
+                       (:eval (mood-line-segment-major-mode))
+                       (:eval (mood-line-segment-anzu))
+                       (:eval (mood-line-segment-multiple-cursors))))
+                    ;; Right
+                    (format-mode-line
+                     '((:eval (mood-line-segment-process))
+                       (:eval (mood-line-segment-project-directory))
+                       (:eval (mood-line-segment-flymake))
+                       (:eval (mood-line-segment-misc-info))))))))
+
+  :hook
+  (hs-minor-mode-hook . hs-minor-mode-info)
+  (parinfer-rust-mode-hook . parinfer-rust-mode-info)
+  ;; This is the only way I've found to update parinfer when changing buffers
+  ;; and windows.
+  (window-state-change-hook . parinfer-rust-mode-info)
+  ;; npostavs suggests hooking `post-command-hook'.
+  ;; https://emacs.stackexchange.com/questions/33288
+  (post-command-hook . narrowed-info)
+  (outline-minor-mode-hook . outline-minor-mode-info)
+  (post-command-hook . mood-line-pyvenv-info)
+  (buffer-list-update-hook . mood-line--refresh-buffer-name)
+  (window-configuration-change-hook . mood-line--refresh-buffer-name)
+  (after-set-visited-file-name-hook . mood-line--refresh-buffer-name)
+  ;; Executes after a window (not a buffer) has been created, deleted, or moved.
+  (window-configuration-change-hook . mood-line--set-selected-window)
+  ;; Executes after the `buffer-list' changes.
+  (buffer-list-update-hook . mood-line--set-selected-window))
 
 (defun theme-reset (&rest _)
   "Remove all current themes before loading a new theme."
@@ -1211,7 +1206,7 @@ string or file extension, or are named *-mode."
                                              auto-mode-alist
                                              magic-fallback-mode-alist)))))
 
-(defun scratch-buffer (arg)
+(defun scratch-buffer (&optional arg)
   "Create or go to a scratch buffer.
 
 If ARG is provided then create a new buffer regardless of whether
@@ -1382,7 +1377,7 @@ return them in the Emacs format."
     URL format string.
 
 Example\:
-'((\"SER\" \"https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sys_id=SER%s\"))")
+\='((\"SER\" \"https://example.service-now.com/nav_to.do?uri=u_task_service_request.do?sys_id=SER%s\"))")
 
   (defun bug-reference-dispatch-url-github-or-gitlab (_type ref)
     "With Bug TYPE and REF, return a complete URL.
@@ -1483,7 +1478,7 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 (use-package perspective
   :preface
   (defun persp-names-reverse ()
-    "Like `persp-names' with 'created but latest is last."
+    "Like `persp-names' with \='created but latest is last."
     (mapcar #'persp-name
             (sort (hash-table-values (perspectives-hash))
                   (lambda (a b)
@@ -2494,7 +2489,7 @@ With a prefix ARG always prompt for command to use."
                          "f90" "f95" "f03" "f08" "s" "rs" "active" "hs"
                          "pyc" "java"))
   (dired-rainbow-define executable "#8cc4ff"
-                        ("com" "exe" "msi"))
+                        ("com" "exe" "msi" "dylib" "so"))
   (dired-rainbow-define compressed "#51d88a"
                         ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar"
                          "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar" "rar"))
@@ -2594,16 +2589,13 @@ With a prefix ARG always prompt for command to use."
   :after dired
   :commands
   dired-rsync-backup
-  :config
+  :preface
   (defun dired-rsync--set-mode-line-misc-info (&optional _err _ind)
     "Put `dired-rsync-modeline-status' in `mode-line-misc-info'.
 
 ERR and IND are ignored."
     (setf (alist-get 'dired-rsync mode-line-misc-info)
           (list dired-rsync-modeline-status)))
-
-  (advice-add #'dired-rsync--update-modeline
-              :after #'dired-rsync--set-mode-line-misc-info)
 
   (defun dired-rsync-backup--add-version (file)
     "Return FILE modified with a version string."
@@ -2627,9 +2619,13 @@ ERR and IND are ignored."
                                               dest)
                           ;; If backing up a single file, create a file at the
                           ;; destination.
-                          (car sfiles)))
-           extension file)
-      (dired-rsync (dired-rsync-backup--add-version backup-name)))))
+                          (car sfiles))))
+           ;; extension file)
+      (dired-rsync (dired-rsync-backup--add-version backup-name))))
+
+  :config
+  (advice-add #'dired-rsync--update-modeline
+              :after #'dired-rsync--set-mode-line-misc-info))
 
 (use-package disk-usage
   :after dired
@@ -2718,7 +2714,7 @@ ERR and IND are ignored."
   "Show help for SYM without changing focus."
   (interactive
    (list (or (symbol-at-point)
-             (with-demoted-errors "describe-peek: no symbol found around point."
+             (with-demoted-errors "describe-peek error: %S"
                (save-excursion (backward-up-list)
                                (forward-char)
                                (symbol-at-point))))))
@@ -4128,7 +4124,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   "History for the `ssh-choose-host' command.")
 
 (defun ssh-choose-host (&optional prompt)
-  "Make a list of recent ssh hosts and interactively choose one with optional PROMPT."
+  "List of recent ssh hosts and PROMPT to choose one."
   (completing-read (or prompt "SSH to Host: ") (list-hosts) nil nil nil ssh-choose-host-history))
 
 (use-package shell
@@ -4249,7 +4245,7 @@ Stolen from https://emacs.stackexchange.com/questions/10077/how-to-edit-crontab-
 Works on file, `dired', `shell', `eshell', and `vterm' buffers.
 
 A sudo enabled buffer is opened and the non-sudo buffer is left
-intact.  `vterm' is an exception--for that we just type 'sudo -i'
+intact.  `vterm' is an exception--for that we just type `sudo -i'
 into the terminal and hope for the best."
   (interactive)
   (let* ((position (point))
@@ -4916,7 +4912,7 @@ https://debbugs.gnu.org/cgi/bugreport.cgi?bug=27612."
     "Add features to listings in `eshell/ls' output.
 
 The features are:
-1. Add decoration like 'ls -F':
+1. Add decoration like `ls -F':
  * Mark directories with a `/'
  * Mark execurables with a `*'
 
@@ -5097,19 +5093,13 @@ If AND-MEM is non-nil, profile memory as well."
   :hook
   ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
-;; TODO Doesn't seem to have an M1 binary. Have to build it manually like this:
-;; > brew install cargo
-;; > cd ~/code
-;; > git clone https://github.com/eraserhd/parinfer-rust.git
-;; > cd ~/code/parinfer-rust
-;; > cargo build --release --features emacs
-;; > mkdir -p ~/.emacs.d/parinfer-rust
-;; > cp target/release/libparinfer_rust.dylib ~/.emacs.d/parinfer-rust/parinfer-rust-darwin.so
-
 (use-package parinfer-rust-mode
   :preface
   (defun parinfer-rust-install-library ()
-    "Build the library using `cargo' and put it in place."
+    "Build the library using `cargo' and put it in place.
+This is necessary because
+https://github.com/justinbarclay/parinfer-rust-mode doesn't
+maintain an Apple ARM binary."
     (interactive)
     (compile "~/.emacs.d/bin/install-parinfer-rust-library"))
 
@@ -5337,10 +5327,10 @@ Interactively, reads the register using `register-read-with-preview'."
   (clojure-mode-hook . subword-mode))
 
 (use-package clojure-mode-extra-font-locking
-  :after clojure)
+  :after clojure-mode)
 
 (use-package clj-refactor
-  :after clojure
+  :after clojure-mode
   :config
   (defun clj-refactor-setup ()
     "Set up `clj-refactor-mode'."
@@ -5352,36 +5342,16 @@ Interactively, reads the register using `register-read-with-preview'."
   (:map clojure-mode-map
         ("C-s-r" . cljr-rename-symbol)))
 
-;; > brew install borkdude/brew/clj-kondo
-;; TODO Add this using `flymake'.
-;; (use-package flycheck-clj-kondo
-;;   :after clojure)
-
 (use-package inf-clojure
-  :after clojure
-  :commands
-  inf-clojure
-  inf-clojure-connect
-  inf-clojure-minor-mode
-  :config
-  (defun inf-clojure-start-lumo ()
-    "Start lumo as a subprocess and then connect to it over TCP.
-This is preferable to starting it directly because lumo has lots
-of problems in that context."
-    (interactive)
-    (add-hook 'clojure-mode-hook #'inf-clojure-minor-mode)
-    (inf-clojure-minor-mode)
-    (shell-command "pkill -f 'lumo -d -n 2000'")
-    (async-shell-command "lumo -d -n 2000")
-    (run-with-idle-timer 2 nil (lambda () (inf-clojure-connect "localhost" 2000))))
+  :after clojure-mode
 
-  (defvar inf-clojure-minor-mode-map)
-  (bind-keys :map inf-clojure-minor-mode-map
+  :bind
+  (:map inf-clojure-minor-mode-map
              ("s-<return>" . inf-clojure-eval-last-sexp)
              ("C-c C-k" . inf-clojure-eval-buffer)))
 
 (use-package cider
-  :after clojure
+  :after clojure-mode
   :custom
   ;; Never prompt when looking up a symbol.
   (cider-prompt-for-symbol nil)
@@ -5392,7 +5362,7 @@ of problems in that context."
   cider--find-var
   cider--find-var-other-window
 
-  :config
+  :preface
   (defun cider-find-var-other-window (&optional arg _var _line)
     "Find the var in the other window."
     (interactive "P")
@@ -5430,14 +5400,15 @@ of problems in that context."
       (setq cider-stacktrace-frames-background-color
             (cider-scale-background-color))))
 
-  (advice-add #'load-theme :after #'cider-stacktrace-adapt-to-theme)
-
   (defun cider-pprint-register (register)
     "Eval REGISTER as clojure code and pretty print the result.
 
 https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-ginger-tea."
     (interactive (list (register-read-with-preview "Eval register: ")))
     (cider--pprint-eval-form (get-register register)))
+
+  :config
+  (advice-add #'load-theme :after #'cider-stacktrace-adapt-to-theme)
 
   :bind
   (:map cider-mode-map
@@ -5455,11 +5426,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 
 (use-package scheme
   :mode ("\\.scheme\\'" . scheme-mode)
+
   :commands
   scheme-syntax-propertize-sexp-comment
-  :config
-  (eval-when-compile (defvar font-lock-beg) (defvar font-lock-end))
 
+  :preface
   (defun scheme-region-extend-function ()
     (when (not (get-text-property (point) 'font-lock-multiline))
       (let* ((heredoc nil)
@@ -5867,15 +5838,15 @@ Open the `eww' buffer in another window."
 ;;         ("C-;" . nil)
 ;;         ("C-M-i" . nil)))
 
-(use-package tree-sitter
-  :defer 20)
+;; (use-package tree-sitter
+;;   :defer 20)
 
-(use-package tree-sitter-langs
-  :after tree-sitter
-  :config
-  (global-tree-sitter-mode)
-  :hook
-  (tree-sitter-after-on-hook . tree-sitter-hl-mode))
+;; (use-package tree-sitter-langs
+;;   :after tree-sitter
+;;   :config
+;;   (global-tree-sitter-mode)
+;;   :hook
+;;   (tree-sitter-after-on-hook . tree-sitter-hl-mode))
 
 (use-package flymake
   :hook
@@ -5884,65 +5855,13 @@ Open the `eww' buffer in another window."
   ("C-c ! !" . flymake-mode)
   (:map flymake-mode-map
         ("C-c ! n" . flymake-goto-next-error)
-        ("C-c ! p" . flymake-goto-prev-error)))
+        ("C-c ! p" . flymake-goto-prev-error)
+        ("C-c ! l" . flymake-show-buffer-diagnostics)))
 
-;; (use-package flycheck
-;;   :custom
-;;   (flycheck-idle-change-delay 1)
-;;   (flycheck-mode-line-prefix "")
-;;   (flycheck-emacs-lisp-load-path 'inherit)
-
-;;   :config
-;;   ;; Stolen from spacemacs
-;;   (define-fringe-bitmap 'my-flycheck-fringe-indicator
-;;     (vector #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00011100
-;;             #b00111110
-;;             #b00111110
-;;             #b00111110
-;;             #b00011100
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000
-;;             #b00000000))
-
-;;   (flycheck-define-error-level 'error
-;;     :severity 2
-;;     :overlay-category 'flycheck-error-overlay
-;;     :fringe-bitmap 'my-flycheck-fringe-indicator
-;;     :fringe-face 'flycheck-fringe-error)
-
-;;   (flycheck-define-error-level 'warning
-;;     :severity 1
-;;     :overlay-category 'flycheck-warning-overlay
-;;     :fringe-bitmap 'my-flycheck-fringe-indicator
-;;     :fringe-face 'flycheck-fringe-warning)
-
-;;   (flycheck-define-error-level 'info
-;;     :severity 0
-;;     :overlay-category 'flycheck-info-overlay
-;;     :fringe-bitmap 'my-flycheck-fringe-indicator
-;;     :fringe-face 'flycheck-fringe-info)
-
-;;   :hook
-;;   (prog-mode-hook . flycheck-mode)
-
-;;   :bind
-;;   ("C-c ! !" . flycheck-mode))
-
-(use-package package-lint)
-  ;; :bind
-  ;; (:map flymake-mode-map
-  ;;       ("C-c ! C-l" . package-lint-current-buffer))
-  ;; (:map flymake-command-map
-  ;;       ("!" . consult-flymake))
+(use-package package-lint
+  :bind
+  (:map flymake-mode-map
+        ("C-c ! C-l" . package-lint-current-buffer)))
 
 (use-package package-lint-flymake
   :hook
@@ -6742,7 +6661,7 @@ With a prefix ARG, create it in `org-directory'."
     (interactive)
     (org-overview)
     (org-reveal)
-    (org-show-subtree))
+    (org-fold-show-subtree))
 
   ;; TODO Redo this to not be specific to `org-mode' and capture 'link and
   ;; 'bug-reference-url overlays instead. Actually, we should be able to re-use
@@ -7346,6 +7265,7 @@ With a prefix ARG, create it in `org-directory'."
 
 ;; Local Variables:
 ;; eval: (flymake-mode -1)
+;; byte-compile-warnings: (not free-vars unresolved)
 ;; End:
 
 ;;; init.el ends here

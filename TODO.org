@@ -1,10 +1,12 @@
 #+TITLE: TODO
 
+* TODO Add native Emacs 29.1 =tree-sitter= support
+
+* TODO 
+
 * TODO Add mode-line `-f` for `auto-revert-tail-mode`.
 
 * TODO Try Corfu
-
-* TODO Company in text-mode changes capitalization when accepting a completion. It should leave it alone.
 
 * TODO =consult-line= should start on the next matching line, in order
 

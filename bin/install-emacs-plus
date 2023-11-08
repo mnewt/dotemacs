@@ -19,7 +19,7 @@ prompt_confirm() {
 emacs="emacs-plus@30"
 options="--with-native-comp"
 destination="$HOME/Applications/Emacs.app"
-dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2"
+dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2 tree-sitter"
 
 brew install $dependencies || brew upgrade $dependencies
 brew tap d12frosted/emacs-plus
