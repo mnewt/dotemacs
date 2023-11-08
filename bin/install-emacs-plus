@@ -21,6 +21,7 @@ options="--with-native-comp"
 destination="$HOME/Applications/Emacs.app"
 dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2 tree-sitter"
 
+install-parinfer-rust-library
 brew install $dependencies || brew upgrade $dependencies
 brew tap d12frosted/emacs-plus
 brew uninstall $emacs || true

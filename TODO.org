@@ -2,8 +2,6 @@
 
 * TODO Add native Emacs 29.1 =tree-sitter= support
 
-* TODO 
-
 * TODO Add mode-line `-f` for `auto-revert-tail-mode`.
 
 * TODO Try Corfu
