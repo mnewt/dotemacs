@@ -123,12 +123,15 @@ If VARS is not specified, use `env-cache-vars'."
 
 (defvar bootstrap-version)
 (let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 5))
+       (expand-file-name
+        "straight/repos/straight.el/bootstrap.el"
+        (or (bound-and-true-p straight-base-dir)
+            user-emacs-directory)))
+      (bootstrap-version 7))
   (unless (file-exists-p bootstrap-file)
     (with-current-buffer
         (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
          'silent 'inhibit-cookies)
       (goto-char (point-max))
       (eval-print-last-sexp)))
@@ -274,9 +277,9 @@ higher level up to the top level form."
          ns-right-alternate-modifier 'none
          ;; Never open files from OS in a new frame.
          ns-pop-up-frames nil))
-         ;; Mitsuharu Yamamoto's Emacs Mac uses the `mac-*' prefix.
-         ;; mac-option-modifier 'meta
-         ;; mac-command-modifier 'super))
+  ;; Mitsuharu Yamamoto's Emacs Mac uses the `mac-*' prefix.
+  ;; mac-option-modifier 'meta
+  ;; mac-command-modifier 'super))
   (windows-nt
    (setq w32-pass-lwindow-to-system nil
          w32-lwindow-modifier 'super
@@ -681,13 +684,6 @@ Set `ring-bell-function' to this to use it."
 (setq ring-bell-function #'doom-themes-visual-bell-fn
       visible-bell t)
 
-(use-package modus-themes
-  :demand t
-  :custom
-  (modus-themes-slanted-constructs t)
-  (modus-themes-bold-constructs t)
-  (modus-themes-intense-paren-match 'intense))
-
 (defun color-blend (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
 COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
@@ -700,6 +696,18 @@ Stolen from solarized."
                       (+ (* alpha it) (* other (- 1 alpha))))
                     (color-name-to-rgb color1)
                     (color-name-to-rgb color2))))
+
+(use-package modus-themes
+  :demand t
+  :custom
+  (modus-themes-slanted-constructs t)
+  (modus-themes-bold-constructs t)
+  (modus-themes-intense-paren-match 'intense))
+;; :config
+;; (set-face-background 'mode-line-buffer-id
+;;                      (color-blend (theme-face-attribute 'mode-line :background)
+;;                                   (theme-face-attribute 'highlight :background)
+;;                                   0.5)))
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
@@ -735,6 +743,19 @@ Stolen from solarized."
 
 (use-package mood-line
   :demand t
+  :custom
+  (mood-line-format
+   (mood-line-defformat
+    :left
+    (((or (mood-line-segment-buffer-status) " ") . " ")
+     ((mood-line-segment-buffer-name)            . "  ")
+     ((mood-line-segment-multiple-cursors)       . "  "))
+    :right
+    (((mood-line-segment-vc)         . "  ")
+     ((mood-line-segment-major-mode) . "  ")
+     ((mood-line-segment-misc-info)  . "  ")
+     ((mood-line-segment-checker)    . "  ")
+     ((mood-line-segment-process)    . "  "))))
   :preface
   (defvar mood-line-selected-window (frame-selected-window)
     "Selected window.")
@@ -792,7 +813,7 @@ Inspired by `powerline''s `pl/make-xpm'."
                               (if (eq idx len) "\"};" "\",\n")))))
             'xpm t :ascent 'center))))))
 
-  (defvar mood-line-height 22
+  (defvar mood-line-height 24
     "The height of the mode-line in pixels.")
 
   (defun mood-line--refresh-bar ()
@@ -859,16 +880,16 @@ Inspired by `doom-modeline'.")
   ;;   "Display color-coded flycheck information in the mode-line (if available)."
   ;;   (when (mood-line-window-active-p) mood-line--flycheck-text))
 
-  (defun mood-line-segment-misc-info ()
-    "Display the current value of `mode-line-misc-info' in the mode-line."
-    (when (mood-line-window-active-p)
-      (apply #'concat
-             (mapcar (lambda (e)
-                       (let ((s (format-mode-line (cadr e))))
-                         (if (string-blank-p s)
-                             ""
-                           (concat (string-trim s) " "))))
-                     mode-line-misc-info))))
+  ;; (defun mood-line-segment-misc-info ()
+  ;;   "Display the current value of `mode-line-misc-info' in the mode-line."
+  ;;   (when (mood-line-window-active-p)
+  ;;     (apply #'concat
+  ;;            (mapcar (lambda (e)
+  ;;                      (let ((s (format-mode-line (cadr e))))
+  ;;                        (if (string-blank-p s)
+  ;;                            ""
+  ;;                          (concat (string-trim s) " "))))
+  ;;                    mode-line-misc-info))))
 
   (defun mood-line-segment-project-directory ()
     "Display the project name."
@@ -890,7 +911,7 @@ Inspired by `doom-modeline'.")
   (defun outline-minor-mode-info ()
     "Display an indicator when `outline-minor-mode' is enabled."
     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
-          (list (when (bound-and-true-p outline-minor-mode) "Ⓞ"))))
+          (list (when (bound-and-true-p outline-minor-mode) "o"))))
 
   (defun edebug-mode-info (_symbol newval _operation _where)
     "Display an indicator when `edebug' is active.
@@ -901,20 +922,16 @@ Watches `edebug-active' and sets the mode-line when it changes."
 
   (add-variable-watcher 'edebug-active #'edebug-mode-info)
 
-  (defvar buffer-narrowed nil
-    "Non-nil if the buffer is currently narrowed.")
-
   (defun narrowed-info (&optional _start _end)
     "Display an indicator when the buffer is narrowed."
-    (when (buffer-narrowed-p)
-      (setf (alist-get 'buffer-narrowed mode-line-misc-info)
-            (list "n"))))
+    (setf (alist-get 'buffer-narrowed mode-line-misc-info)
+          (list (when (buffer-narrowed-p) "n"))))
 
   (defun parinfer-rust-mode-info (&optional _mode)
     "Display an indicator when `parinfer-rust-mode' is enabled."
     (when (bound-and-true-p parinfer-rust-mode)
       (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
-            (list (concat "(" (substring parinfer-rust--mode 0 1) ")")))))
+            (list (concat "(" (substring parinfer-rust--mode 0 1) ") ")))))
 
   (defun hs-minor-mode-info ()
     "Display an indicator when `hs-minor-mode' is enabled."
@@ -938,45 +955,44 @@ Watches `edebug-active' and sets the mode-line when it changes."
   ;;    right))
 
   :config
-  (mood-line-mode)
+  (mood-line-mode))
 
-  (setq-default mode-line-format
-                 '((:eval)
-                   (mood-line--format
-                    ;; Left
-                    (format-mode-line
-                     '((:eval (mood-line-segment-bar))
-                       (:eval (mood-line-segment-hostname))
-                       (:eval (mood-line-segment-buffer-name))
-                       (:eval (mood-line-segment-modified))
-                       (:eval (mood-line-segment-major-mode))
-                       (:eval (mood-line-segment-anzu))
-                       (:eval (mood-line-segment-multiple-cursors))))
-                    ;; Right
-                    (format-mode-line
-                     '((:eval (mood-line-segment-process))
-                       (:eval (mood-line-segment-project-directory))
-                       (:eval (mood-line-segment-flymake))
-                       (:eval (mood-line-segment-misc-info)))))))
+;; (setq-default mode-line-format
+;;               '((:eval
+;;                  (mood-line--format
+;;                   ;; Left
+;;                   (format-mode-line
+;;                    '((:eval (mood-line-segment-bar))
+;;                      (:eval (mood-line-segment-hostname))
+;;                      (:eval (mood-line-segment-buffer-name))
+;;                      (:eval (mood-line-segment-modified))
+;;                      (:eval (mood-line-segment-major-mode))
+;;                      (:eval (mood-line-segment-multiple-cursors))))
+;;                   ;; Right
+;;                   (format-mode-line
+;;                    '((:eval (mood-line-segment-process))
+;;                      (:eval (mood-line-segment-project-directory))
+;;                      (:eval (mood-line-segment-flymake))
+;;                      (:eval (mood-line-segment-misc-info))))))))
 
-  :hook
-  (hs-minor-mode-hook . hs-minor-mode-info)
-  (parinfer-rust-mode-hook . parinfer-rust-mode-info)
-  ;; This is the only way I've found to update parinfer when changing buffers
-  ;; and windows.
-  (window-state-change-hook . parinfer-rust-mode-info)
-  ;; npostavs suggests hooking `post-command-hook'.
-  ;; https://emacs.stackexchange.com/questions/33288
-  (post-command-hook . narrowed-info)
-  (outline-minor-mode-hook . outline-minor-mode-info)
-  (post-command-hook . mood-line-pyvenv-info)
-  (buffer-list-update-hook . mood-line--refresh-buffer-name)
-  (window-configuration-change-hook . mood-line--refresh-buffer-name)
-  (after-set-visited-file-name-hook . mood-line--refresh-buffer-name)
-  ;; Executes after a window (not a buffer) has been created, deleted, or moved.
-  (window-configuration-change-hook . mood-line--set-selected-window)
-  ;; Executes after the `buffer-list' changes.
-  (buffer-list-update-hook . mood-line--set-selected-window))
+;; :hook
+;; (hs-minor-mode-hook . hs-minor-mode-info)
+;; (parinfer-rust-mode-hook . parinfer-rust-mode-info)
+;; ;; This is the only way I've found to update parinfer when changing buffers
+;; ;; and windows.
+;; (window-state-change-hook . parinfer-rust-mode-info)
+;; ;; npostavs suggests hooking `post-command-hook'.
+;; ;; https://emacs.stackexchange.com/questions/33288
+;; (post-command-hook . narrowed-info)
+;; (outline-minor-mode-hook . outline-minor-mode-info)
+;; (post-command-hook . mood-line-pyvenv-info)
+;; (buffer-list-update-hook . mood-line--refresh-buffer-name)
+;; (window-configuration-change-hook . mood-line--refresh-buffer-name)
+;; (after-set-visited-file-name-hook . mood-line--refresh-buffer-name)
+;; ;; Executes after a window (not a buffer) has been created, deleted, or moved.
+;; (window-configuration-change-hook . mood-line--set-selected-window)
+;; ;; Executes after the `buffer-list' changes.
+;; (buffer-list-update-hook . mood-line--set-selected-window))
 
 (defun theme-reset (&rest _)
   "Remove all current themes before loading a new theme."
@@ -1657,7 +1673,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
        (add-hook ',mode-hook
                  (lambda ()
                    (define-key ,mode-map
-                     [remap beginning-of-buffer] ',fname))))))
+                               [remap beginning-of-buffer] ',fname))))))
 
 (defmacro specialize-end-of-buffer (mode &rest forms)
   "Define a special version of `end-of-buffer' in MODE.
@@ -1684,7 +1700,7 @@ https://fuco1.github.io/2017-05-06-Enhanced-beginning--and-end-of-buffer-in-spec
        (add-hook ',mode-hook
                  (lambda ()
                    (define-key ,mode-map
-                     [remap end-of-buffer] ',fname))))))
+                               [remap end-of-buffer] ',fname))))))
 
 (defvar dired-mode-map)
 (specialize-beginning-of-buffer dired
@@ -2620,7 +2636,7 @@ ERR and IND are ignored."
                           ;; If backing up a single file, create a file at the
                           ;; destination.
                           (car sfiles))))
-           ;; extension file)
+      ;; extension file)
       (dired-rsync (dired-rsync-backup--add-version backup-name))))
 
   :config
@@ -2801,7 +2817,7 @@ See `elisp-get-fnsym-args-string'."
 
   :hook
   (eldoc-box-hover-mode . eldoc-box-elisp-full-docstring-mode))
-  ;; (eldoc-mode-hook . eldoc-box-hover-mode))
+;; (eldoc-mode-hook . eldoc-box-hover-mode))
 
 (use-package which-key
   :defer 19
@@ -3527,6 +3543,49 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 ;;   (([remap kill-ring-save] . easy-kill)
 ;;    ([remap mark-sexp] . easy-mark)))
 
+;; TODO Make this useful.
+;; (use-package treesit
+;;   :preface
+;;   (defun treesit-install-all-language-grammars ()
+;;     "Install all language grammars."
+;;     (interactive)
+;;     (view-buffer-other-window "*Messages*")
+;;     (mapc #'treesit-install-language-grammar
+;;           (mapcar #'car treesit-language-source-alist)))
+
+;;   :config
+;;   (setq treesit-language-source-alist
+;;         '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+;;           (cmake "https://github.com/uyha/tree-sitter-cmake")
+;;           (css "https://github.com/tree-sitter/tree-sitter-css")
+;;           (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+;;           (go "https://github.com/tree-sitter/tree-sitter-go")
+;;           (html "https://github.com/tree-sitter/tree-sitter-html")
+;;           (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+;;           (json "https://github.com/tree-sitter/tree-sitter-json")
+;;           (make "https://github.com/alemuller/tree-sitter-make")
+;;           (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+;;           (python "https://github.com/tree-sitter/tree-sitter-python")
+;;           (toml "https://github.com/tree-sitter/tree-sitter-toml")
+;;           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+;;           (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+;;           (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+
+;;   (setq treesit-load-name-override-list
+;;         '((js "libtree-sitter-js" "tree_sitter_javascript")))
+
+;;   (setq major-mode-remap-alist
+;;         '((yaml-mode . yaml-ts-mode)
+;;           (bash-mode . bash-ts-mode)
+;;           (js2-mode . js-ts-mode)
+;;           (typescript-mode . typescript-ts-mode)
+;;           (json-mode . json-ts-mode)
+;;           (css-mode . css-ts-mode)
+;;           (python-mode . python-ts-mode))))
+
+;; TODO
+;; (use-package combobulate)
+
 (use-package expreg
   :straight (expreg :host github :repo "casouri/expreg")
   :bind
@@ -3942,19 +4001,22 @@ See https://github.com/Fuco1/smartparens/issues/80."
   :custom
   (comint-buffer-maximum-size 20000)
   (comint-prompt-read-only t)
-  (comint-terminfo-terminal "eterm-256color")
-  :config
+  (comint-terminfo-terminal "xterm-256color")
+
+  :preface
   (defun comint-setup ()
     "Set up `comint-mode'."
     ;; Remove the echo of input after pressing RET in `shell-mode'. Not sure why
     ;; this is needed. Is it a zsh thing?
     (setq comint-process-echoes t))
+
   :hook
   (comint-mode-hook . comint-setup))
 
 (use-package ssh-agency
   :defer 5
-  :config
+
+  :preface
   (defun ssh-agency-list-keys ()
     "List the currently loaded ssh-agent keys."
     (interactive)
@@ -3974,6 +4036,7 @@ added as they are used."
         (ssh-agency-find-agent)
         (ssh-agency-start-agent)))
 
+  :config
   (ssh-agency-ensure-without-keys))
 
 (use-package ssh
@@ -4397,31 +4460,34 @@ predicate returns true."
     (setq font-lock-function (lambda (_) nil))
     (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))
 
+  (defun xterm-color-compilation-filter (f proc string)
+    (funcall f proc (xterm-color-filter string)))
+
+  :config
   (setq comint-output-filter-functions
         (remove 'ansi-color-process-output comint-output-filter-functions))
 
   (advice-add #'shell-command :after #'xterm-color-shell-command)
   (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
 
-  (with-eval-after-load 'esh-mode
-    (defvar eshell-preoutput-filter-functions)
-    (defvar eshell-output-filter-functions)
-    (add-to-list 'eshell-preoutput-filter-functions #'xterm-color-filter)
-    (setq eshell-output-filter-functions
-          (remove 'eshell-handle-ansi-color eshell-output-filter-functions)))
+  ;; (with-eval-after-load 'esh-mode
+  ;;   (add-hook 'eshell-before-prompt-hook
+  ;;             (lambda ()
+  ;;               (setq xterm-color-preserve-properties t)))
+  ;;   (add-to-list 'eshell-preoutput-filter-functions #'xterm-color-filter)
+  ;;   (setq eshell-output-filter-functions
+  ;;         (remove 'eshell-handle-ansi-color eshell-output-filter-functions)))
 
   (with-eval-after-load 'compile
     (defvar compilation-environment)
     (add-to-list 'compilation-environment "TERM=xterm-256color")
-    (defun xterm-color-compilation-filter (f proc string)
-      (funcall f proc (xterm-color-filter string)))
 
     ;; Emacs 28 added `compilation-filter-hook' but this is not the way to adapt
     ;; `xterm-color' to use it.
     ;; (add-hook 'compilation-filter-hook #'xterm-color-compilation-filter)
     (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
 
-  (setenv "TERM" "eterm-256color")
+  (setenv "TERM" "xterm-256color")
 
   :hook
   (shell-mode-hook . xterm-color-shell-setup))
@@ -4489,6 +4555,7 @@ See https://github.com/mnewt/fpw."
 
 ;;;; Eshell
 
+;; TODO: Un-break this eshell config in Emacs 30
 (use-package eshell
   :defer 29
   :custom
@@ -4498,22 +4565,14 @@ See https://github.com/mnewt/fpw."
   (eshell-error-if-no-glob t)
   (eshell-hist-ignoredups t)
   (eshell-save-history-on-exit t)
-  (eshell-prompt-function 'm-eshell-prompt-function)
-  (eshell-prompt-regexp "^(#?) ")
+  ;; (eshell-prompt-function 'm-eshell-prompt-function)
+  ;; (eshell-prompt-regexp "^(#?) ")
   (eshell-highlight-prompt nil)
   (eshell-ls-clutter-regexp
    (regexp-opt '(".cache" ".DS_Store" ".Trash" ".lock" "_history" "-history"
                  ".tmp" "~" "desktop.ini" "Icon\r" "Thumbs.db" "$RECYCLE_BIN"
                  "lost+found")))
   (eshell-history-size 10000)
-
-  :commands
-  eshell
-  eshell-previous-prompt
-  eshell-next-prompt
-  eshell-ls-applicable
-  eshell/cd
-  eshell/pwd
 
   :config
   (defun eshell-prompt-housekeeping ()
@@ -4678,23 +4737,43 @@ because I dynamically rename the buffer according to
     "Face for the directory in the prompt."
     :group 'eshell)
 
-  (defun m-eshell-prompt-function ()
+  ;; This function has to override `eshell-emit-prompt' because that
+  ;; function is hard-coded to overwrite 'rear-nonsticky text
+  ;; properties. Hopefully this changes in the future. See:
+
+  ;; https://github.com/emacs-mirror/emacs/blame/a61cc138edeee269e8cf62c13058d5258310d7bc/lisp/eshell/em-prompt.el#L138.
+  (defun m-eshell-emit-prompt ()
     "Produce a highlighted prompt for Eshell."
-    (mapconcat
-     (lambda (el)
-       (when el
-         (propertize (concat " " (car el) " ")
-                     'read-only t
-                     'font-lock-face (cdr el)
-                     'front-sticky '(font-lock-face read-only)
-                     'rear-nonsticky '(font-lock-face read-only))))
-     `(,(unless (eshell-exit-success-p)
-          `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
-       (,(abbreviate-file-name (eshell/pwd)) eshell-prompt-directory)
-       (,(if (or (zerop (user-uid)) (string-match-p "sudo:" default-directory))
-             "\n(#)" "\n()")
-        eshell-prompt-sigil))
-     ""))
+    (when (boundp 'ansi-color-context-region)
+      (setq ansi-color-context-region nil))
+    (run-hooks 'eshell-before-prompt-hook)
+    (set-marker eshell-last-output-end (point))
+    (let ((prompt
+           (mapconcat
+            (lambda (el)
+              (when el
+                (let ((text (car el))
+                      (face (cdr el)))
+                  (propertize (concat " " text " ")
+                              ;; FIXME In Emacs 30 you can't set 'read-only because
+                              ;; `eshell-emit-prompt' overwrites'rear-nonsticky, causing
+                              ;; the 'read-only property to carry forward past the prompt.
+                              'read-only t
+                              'field 'prompt
+                              'font-lock-face face
+                              'front-sticky '(read-only field font-lock-face)
+                              'rear-nonsticky '(read-only field font-lock-face)))))
+            `(,(unless (eshell-exit-success-p)
+                 `(,(number-to-string eshell-last-command-status) eshell-prompt-error))
+              (,(abbreviate-file-name (eshell/pwd)) eshell-prompt-directory)
+              (,(if (or (zerop (user-uid)) (string-match-p "sudo:" default-directory))
+                    "\n(#)" "\n()")
+               eshell-prompt-sigil))
+            "")))
+      (eshell-interactive-filter nil prompt))
+    (run-hooks 'eshell-after-prompt-hook))
+
+  (advice-add 'eshell-emit-prompt :override #'m-eshell-emit-prompt)
 
   (defun tramp-colon-prefix-expand (path)
     "Expand a colon prefix in PATH with the TRAMP remove prefix.
@@ -4935,7 +5014,10 @@ and FILE is the cons describing the file."
       (concat (propertize name
                           'keymap eshell-ls-file-keymap
                           'mouse-face 'highlight
-                          'file-name (expand-file-name (substring-no-properties (car file)) default-directory))
+                          'file-name (expand-file-name
+                                      (substring-no-properties name)
+                                      default-directory)
+                          'rear-nonsticky '(keymap mouse-face file-name))
               (when (and suffix (not (string-suffix-p suffix name)))
                 (propertize suffix 'face 'shadow)))))
 
@@ -4982,10 +5064,11 @@ and FILE is the cons describing the file."
   (eshell-mode-hook . esh-help-setup))
 
 ;; Fish-like autosuggestions.
-(use-package esh-autosuggest
-  :after eshell
-  :hook
-  (eshell-mode-hook . esh-autosuggest-mode))
+;; FIXME Doesn't work in Emacs 30.
+;; (use-package esh-autosuggest
+;;   :after eshell
+;;   :hook
+;;   (eshell-mode-hook . esh-autosuggest-mode))
 
 ;; capf for commands inside `shell' and `eshell'.
 (use-package pcmpl-args
@@ -5347,8 +5430,8 @@ Interactively, reads the register using `register-read-with-preview'."
 
   :bind
   (:map inf-clojure-minor-mode-map
-             ("s-<return>" . inf-clojure-eval-last-sexp)
-             ("C-c C-k" . inf-clojure-eval-buffer)))
+        ("s-<return>" . inf-clojure-eval-last-sexp)
+        ("C-c C-k" . inf-clojure-eval-buffer)))
 
 (use-package cider
   :after clojure-mode
@@ -6218,10 +6301,10 @@ This package sets these explicitly so we have to do the same."
   :custom
   (powershell-indent tab-width)
   (powershell-continuation-indent tab-width))
-  ;; FIXME Is this causing `powershell-mode' to do bad things whenever a file is
-  ;; opened?
-  ;; :hook
-  ;; (powershell-mode-hook . eglot-ensure))
+;; FIXME Is this causing `powershell-mode' to do bad things whenever a file is
+;; opened?
+;; :hook
+;; (powershell-mode-hook . eglot-ensure))
 
 (use-package php-mode
   :mode "\\.php\\'"
@@ -7264,7 +7347,6 @@ With a prefix ARG, create it in `org-directory'."
 (provide 'init)
 
 ;; Local Variables:
-;; eval: (flymake-mode -1)
 ;; byte-compile-warnings: (not free-vars unresolved)
 ;; End:
 

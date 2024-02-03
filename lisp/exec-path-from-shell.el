@@ -5,7 +5,7 @@
 ;; Author: Steve Purcell <steve@sanityinc.com>
 ;; Keywords: unix, environment
 ;; URL: https://github.com/purcell/exec-path-from-shell
-;; Package-Version: 0
+;; Package-Version: 2.1
 ;; Package-Requires: ((emacs "24.1") (cl-lib "0.6"))
 
 ;; This file is not part of GNU Emacs.
@@ -137,7 +137,7 @@ The default value denotes an interactive login shell."
 
 (defun exec-path-from-shell--standard-shell-p (shell)
   "Return non-nil iff SHELL supports the standard ${VAR-default} syntax."
-  (not (string-match "\\(fish\\|t?csh\\)$" shell)))
+  (not (string-match "\\(fish\\|nu\\|t?csh\\)$" shell)))
 
 (defmacro exec-path-from-shell--warn-duration (&rest body)
   "Evaluate BODY and warn if execution duration exceeds a time limit.
