@@ -290,6 +290,8 @@ higher level up to the top level form."
 ;; them elsewhere.
 (when (file-directory-p "~/.emacs.d/emacs")
   (setq source-directory "~/.emacs.d/emacs"))
+(when (file-directory-p "~/Library/Caches/Homebrew/emacs-plus@30--git")
+  (setq source-directory "~/Library/Caches/Homebrew/emacs-plus@30--git"))
 
 
 ;;;; Bindings
@@ -3371,8 +3373,6 @@ The config is specified in the config file in `~/.mnt/'."
   (dired-mode-hook . diff-hl-dired-mode))
 
 (bind-keys
- ("M-m l" . git-home-link)
- ("M-m u" . git-home-unlink)
  :map m-file-map
  (";" . git-add-current-file)
  ("d" . diff-buffer-with-file))
@@ -6297,7 +6297,7 @@ This package sets these explicitly so we have to do the same."
 ;; Install on macOS:
 ;; > brew install powershell
 (use-package powershell
-  :mode "\\.ps[dm]?1\\'"
+  :mode ("\\.ps[dm]?1\\'" . powershell-mode)
   :custom
   (powershell-indent tab-width)
   (powershell-continuation-indent tab-width))
