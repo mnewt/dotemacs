@@ -2,7 +2,7 @@
 # Build and install parinfer-rust library.
 
 cd ~/code
-[[ -d parifer-rust ]] || git clone https://github.com/eraserhd/parinfer-rust.git
+[[ -d parinfer-rust ]] || git clone https://github.com/eraserhd/parinfer-rust.git
 cd ~/code/parinfer-rust
 git pull
 brew install rust

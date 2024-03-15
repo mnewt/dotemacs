@@ -392,7 +392,7 @@ higher level up to the top level form."
   (find-file-hook . save-place-find-file-hook))
 
 (use-package recentf
-  :defer 7
+  :defer 1
   :custom
   (recentf-max-saved-items 100)
   (recentf-max-menu-items 15)
@@ -2190,16 +2190,16 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   ;; Add `completion-at-point-functions', used by `completion-at-point'.
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
   (add-to-list 'completion-at-point-functions #'cape-history)
   (add-to-list 'completion-at-point-functions #'cape-keyword)
-  ;; (add-to-list 'completion-at-point-functions #'cape-tex)
-  ;; (add-to-list 'completion-at-point-functions #'cape-sgml)
-  ;; (add-to-list 'completion-at-point-functions #'cape-rfc1345)
-  ;; (add-to-list 'completion-at-point-functions #'cape-abbrev)
-  ;; (add-to-list 'completion-at-point-functions #'cape-ispell)
-  ;; (add-to-list 'completion-at-point-functions #'cape-dict)
-  (add-to-list 'completion-at-point-functions #'cape-symbol)
-  ;; (add-to-list 'completion-at-point-functions #'cape-line)
+  ;;(add-to-list 'completion-at-point-functions #'cape-tex)
+  ;;(add-to-list 'completion-at-point-functions #'cape-sgml)
+  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345)
+  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev)
+  ;;(add-to-list 'completion-at-point-functions #'cape-dict)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-symbol)
+  ;;(add-to-list 'completion-at-point-functions #'cape-line)
 
   :bind
   ("M-+ p" . completion-at-point) ;; capf
@@ -3544,44 +3544,47 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 ;;    ([remap mark-sexp] . easy-mark)))
 
 ;; TODO Make this useful.
-;; (use-package treesit
-;;   :preface
-;;   (defun treesit-install-all-language-grammars ()
-;;     "Install all language grammars."
-;;     (interactive)
-;;     (view-buffer-other-window "*Messages*")
-;;     (mapc #'treesit-install-language-grammar
-;;           (mapcar #'car treesit-language-source-alist)))
+(use-package treesit
+  :straight (:type built-in)
+  :preface
+  (defun treesit-install-all-language-grammars ()
+    "Install all language grammars."
+    (interactive)
+    (view-buffer-other-window "*Messages*")
+    (mapc #'treesit-install-language-grammar
+          (mapcar #'car treesit-language-source-alist)))
 
-;;   :config
-;;   (setq treesit-language-source-alist
-;;         '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-;;           (cmake "https://github.com/uyha/tree-sitter-cmake")
-;;           (css "https://github.com/tree-sitter/tree-sitter-css")
-;;           (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-;;           (go "https://github.com/tree-sitter/tree-sitter-go")
-;;           (html "https://github.com/tree-sitter/tree-sitter-html")
-;;           (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-;;           (json "https://github.com/tree-sitter/tree-sitter-json")
-;;           (make "https://github.com/alemuller/tree-sitter-make")
-;;           (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-;;           (python "https://github.com/tree-sitter/tree-sitter-python")
-;;           (toml "https://github.com/tree-sitter/tree-sitter-toml")
-;;           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-;;           (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-;;           (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+  :config
+  (setq treesit-language-source-alist
+        '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+          (cmake "https://github.com/uyha/tree-sitter-cmake")
+          (css "https://github.com/tree-sitter/tree-sitter-css")
+          (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+          (go "https://github.com/tree-sitter/tree-sitter-go")
+          (html "https://github.com/tree-sitter/tree-sitter-html")
+          (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+          (json "https://github.com/tree-sitter/tree-sitter-json")
+          (make "https://github.com/alemuller/tree-sitter-make")
+          (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+          (python "https://github.com/tree-sitter/tree-sitter-python")
+          (rust "https://github.com/tree-sitter/tree-sitter-rust")
+          (toml "https://github.com/tree-sitter/tree-sitter-toml")
+          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
 
-;;   (setq treesit-load-name-override-list
-;;         '((js "libtree-sitter-js" "tree_sitter_javascript")))
+  (setq treesit-load-name-override-list
+        '((js "libtree-sitter-js" "tree_sitter_javascript")))
 
-;;   (setq major-mode-remap-alist
-;;         '((yaml-mode . yaml-ts-mode)
-;;           (bash-mode . bash-ts-mode)
-;;           (js2-mode . js-ts-mode)
-;;           (typescript-mode . typescript-ts-mode)
-;;           (json-mode . json-ts-mode)
-;;           (css-mode . css-ts-mode)
-;;           (python-mode . python-ts-mode))))
+  (setq major-mode-remap-alist
+        '((yaml-mode . yaml-ts-mode)
+          (sh-mode . bash-ts.mode)
+          (bash-mode . bash-ts-mode)
+          (js2-mode . js-ts-mode)
+          (typescript-mode . typescript-ts-mode)
+          (json-mode . json-ts-mode)
+          (css-mode . css-ts-mode)
+          (python-mode . python-ts-mode))))
 
 ;; TODO
 ;; (use-package combobulate)
@@ -3661,7 +3664,7 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
   sp-forward-sexp
   sp-backward-sexp
 
-  :config
+  :preface
   (defun sp-add-space-after-sexp-insertion (id action _context)
     "Add space after sexp insertion.
 ID, ACTION, CONTEXT."
@@ -3804,6 +3807,7 @@ See https://github.com/Fuco1/smartparens/issues/80."
     (forward-line -1)
     (indent-according-to-mode))
 
+  :config
   (require 'smartparens-config)
 
   (sp-with-modes '(c-mode c++-mode caddyfile-mode csharp-mode css-mode
