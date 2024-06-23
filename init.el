@@ -461,7 +461,7 @@ higher level up to the top level form."
       echo-keystrokes 0.01)
 
 (defun some-font (font-list)
-  "Return a 'Font-Size' combination from FONT-LIST.
+  "Return a `Font-Size' combination from FONT-LIST.
 
 The first one which is available in the current environment is
 returned."
@@ -1324,7 +1324,7 @@ See `scratch-buffer'."
                   ;; Check if it's find-file that supports wildcards arg
                   (memq ffap-file-finder '(find-file find-alternate-file)))
              (funcall ffap-file-finder (expand-file-name filename) t))
-            ((or (not ffap-newfile-prompt)
+            ((or (run-hook-with-args-until-success 'find-file-not-found-functions)
                  (file-exists-p filename)
                  (y-or-n-p "File does not exist, create buffer? "))
              (funcall ffap-file-finder
@@ -3578,7 +3578,7 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 
   (setq major-mode-remap-alist
         '((yaml-mode . yaml-ts-mode)
-          (sh-mode . bash-ts.mode)
+          (sh-mode . bash-ts-mode)
           (bash-mode . bash-ts-mode)
           (js2-mode . js-ts-mode)
           (typescript-mode . typescript-ts-mode)
@@ -4397,8 +4397,9 @@ predicate returns true."
   (vterm-always-compile-module t)
   (vterm-buffer-name-string "*VTerm %s*")
   (vterm-kill-buffer-on-exit nil)
+  (vterm-max-scrollback 100000)
 
-  :config
+  :preface
   ;; TODO Make these functions using macro?  And eshell analogs.
   (defun vterm-create-in-background ()
     "Create a new VTerm buffer but don't display it."
@@ -4427,6 +4428,15 @@ predicate returns true."
     (interactive)
     (switch-to-buffer-by-mode 'vterm-mode))
 
+  (defun vterm-enable-dirtrack ()
+    "Enable `vterm' directory tracking.
+
+It does this by simply pasting the relevant code in the session."
+    (interactive)
+    (vterm-insert " vterm_prompt_end(){ vterm_printf \"51;A$(whoami)@$(hostname):$(pwd)\" }
+    PS1=$PS1'\\[$(vterm_prompt_end)\\]'
+    "))
+
   :bind
   ("s-t" . vterm-switch-to-buffer)
   ("C-c t" . vterm-switch-to-buffer)
@@ -4436,8 +4446,8 @@ predicate returns true."
         ;; Override the normal `clipboard-yank-and-indent'.
         ("s-v" . vterm-yank)
         ;; Provide consistency with `eshell', `shell-mode'.
-        ("M-p" . vterm-send-up)
-        ("M-n" . vterm-send-down)
+        ;; ("M-p" . vterm--self-insert)
+        ;; ("M-n" . vterm--self-insert)
         ;; macOS binding for undo.
         ("s-z" . vterm-undo)))
 
@@ -4524,13 +4534,13 @@ predicate returns true."
 (defun fpw (command)
   "Run `fpw' command as COMMAND.
 
-Copy the result to the `kill-ring'.  Call with a prefix argument
-to modify the args.
+    Copy the result to the `kill-ring'.  Call with a prefix argument
+    to modify the args.
 
-Create a buffer named *Fun Password Generator* but only pop it
-open when a prefix arg is specified.
+    Create a buffer named *Fun Password Generator* but only pop it
+    open when a prefix arg is specified.
 
-See https://github.com/mnewt/fpw."
+    See https://github.com/mnewt/fpw."
   (interactive
    (list (let ((command (concat "fpw " fpw-args)))
            (if current-prefix-arg
@@ -4578,7 +4588,7 @@ See https://github.com/mnewt/fpw."
                  "lost+found")))
   (eshell-history-size 10000)
 
-  :config
+  :preface
   (defun eshell-prompt-housekeeping ()
     "Housekeeping for Eshell prompt."
     (setq xterm-color-preserve-properties t)
@@ -4614,7 +4624,7 @@ See https://github.com/mnewt/fpw."
 
   (defun eshell-vertical-create-send (cmd &optional name)
     "Create an eshell buffer named NAME and run CMD in it.
-Split the window vertically."
+    Split the window vertically."
     (split-window-vertically)
     (eshell-create-send cmd name))
 
@@ -4777,15 +4787,13 @@ because I dynamically rename the buffer according to
       (eshell-interactive-filter nil prompt))
     (run-hooks 'eshell-after-prompt-hook))
 
-  (advice-add 'eshell-emit-prompt :override #'m-eshell-emit-prompt)
-
   (defun tramp-colon-prefix-expand (path)
     "Expand a colon prefix in PATH with the TRAMP remove prefix.
 
 Examples:
-  > cd /etc -> /etc
-  > cd :/etc -> /sshx:host:/etc
-  > cd : -> /sshx:host:/home/user"
+> cd /etc -> /etc
+> cd :/etc -> /sshx:host:/etc
+> cd : -> /sshx:host:/home/user"
     (if (file-remote-p default-directory)
         (cond
          ((string-prefix-p ":" path)
@@ -4799,12 +4807,6 @@ Examples:
     (when (looking-back "\\_<:" nil)
       (delete-char -1)
       (insert (tramp-colon-prefix-expand (concat ":" (thing-at-point 'filename))))))
-
-  ;; Advise `eshell/*' functions to work with `:' prefix path syntax.
-  (seq-doseq (c '(cd cp mv rm e ee d do))
-    (advice-add (intern (concat "eshell/" (symbol-name c)))
-                :filter-args
-                (lambda (args) (mapcar #'tramp-colon-prefix-expand args))))
 
   (defun eshell/really-clear ()
     "Call `eshell/clear' with an argument to really clear the buffer.
@@ -4947,8 +4949,6 @@ https://debbugs.gnu.org/cgi/bugreport.cgi?bug=27612."
     ;; Set up `corfu' in non-auto mode.
     (setq-local corfu-auto nil)
     (corfu-mode)
-
-    (defvar eshell-mode-map)
     (bind-keys
      :map eshell-mode-map
      ("C-a" . eshell-maybe-bol)
@@ -5021,11 +5021,9 @@ and FILE is the cons describing the file."
                           'file-name (expand-file-name
                                       (substring-no-properties name)
                                       default-directory)
-                          'rear-nonsticky '(keymap mouse-face file-name))
+                          'rear-nonsnticky '(keymap mouse-face file-name))
               (when (and suffix (not (string-suffix-p suffix name)))
                 (propertize suffix 'face 'shadow)))))
-
-  (advice-add 'eshell-ls-decorated-name :around #'eshell-ls-decorated-name-improved)
 
   (defun ibuffer-show-eshell-buffers ()
     "Open an `ibuffer' window and display all Eshell buffers."
@@ -5033,6 +5031,16 @@ and FILE is the cons describing the file."
     (require 'ibuffer)
     (ibuffer nil "Eshell Buffers" '((mode . eshell-mode)) nil t nil
              '(((name 64 64 :left) " " (process 0 -1 :right)))))
+
+  :config
+  (advice-add 'eshell-ls-decorated-name :around #'eshell-ls-decorated-name-improved)
+  (advice-add 'eshell-emit-prompt :override #'m-eshell-emit-prompt)
+
+  ;; Advise `eshell/*' functions to work with `:' prefix path syntax.
+  (seq-doseq (c '(cd cp mv rm e ee d do))
+    (advice-add (intern (concat "eshell/" (symbol-name c)))
+                :filter-args
+                (lambda (args) (mapcar #'tramp-colon-prefix-expand args))))
 
   :hook
   (eshell-mode-hook . eshell/init)
@@ -5078,10 +5086,10 @@ and FILE is the cons describing the file."
 (use-package pcmpl-args
   :defer 11)
 
-(use-package eshell-bookmark
-  :after eshell
-  :hook
-  (eshell-mode-hook . eshell-bookmark-setup))
+;; (use-package eshell-bookmark
+;;   :after eshell
+;;   :hook
+;;   (eshell-mode-hook . eshell-bookmark-setup))
 
 (use-package eshell-syntax-highlighting
   :after eshell
@@ -5176,9 +5184,9 @@ If AND-MEM is non-nil, profile memory as well."
   (:map prog-mode-map
         ("C-c x" . re-builder)))
 
-(use-package pcre2el
-  :hook
-  ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
+;; (use-package pcre2el
+;;   :hook
+;;   ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
 (use-package parinfer-rust-mode
   :preface
@@ -5564,11 +5572,11 @@ https://lambdaisland.com/blog/2019-12-20-advent-of-parens-20-life-hacks-emacs-gi
 
   (defun scheme-syntax-propertize (beg end)
     (goto-char beg)
-    (scheme-syntax-propertize-sexp-comment (point) end)
+    (scheme-syntax-propertize-sexp-comment end)
     (funcall
      (syntax-propertize-rules
       ("\\(#\\);"
-       (1 (prog1 "< cn" (scheme-syntax-propertize-sexp-comment (point) end))))
+       (1 (prog1 "< cn" (scheme-syntax-propertize-sexp-comment end))))
       ("\\(#\\)>"
        (1 (prog1 "< cn" (scheme-syntax-propertize-foreign (point) end))))
       ("\\(#\\)<[<#]\\(.*\\)$"
@@ -5768,7 +5776,7 @@ Open the `eww' buffer in another window."
      ("html" . (ac-source-words-in-buffer ac-source-abbrev))))
 
   :hook
-  (web-mode-hook . eglot-ensure)
+  (web-mode-hook . eglot-maybe-ensure)
   (web-mode-hook . web-mode-setup))
 
 (use-package css-mode
@@ -5776,13 +5784,13 @@ Open the `eww' buffer in another window."
   :custom
   (css-indent-offset tab-width)
   :hook
-  (css-mode-hook . eglot-ensure))
+  (css-mode-hook . eglot-maybe-ensure))
 
 ;; disable > gem install sass
-(use-package sass-mode
-  :mode "\\(?:s\\(?:[ac]?ss\\)\\)"
-  :hook
-  (sass-mode-hook . eglot-ensure))
+;; (use-package sass-mode
+;;   :mode "\\(?:s\\(?:[ac]?ss\\)\\)"
+;;   :hook
+;;   (sass-mode-hook . eglot-maybe-ensure))
 
 (use-package emmet-mode
   :custom
@@ -5821,7 +5829,7 @@ Open the `eww' buffer in another window."
   :custom
   (js-indent-level tab-width)
   :hook
-  (js-mode-hook . eglot-ensure))
+  (js-mode-hook . eglot-maybe-ensure))
 
 (use-package json-mode
   :mode ("\\.json\\'" "prettierrc\\'"))
@@ -5855,7 +5863,7 @@ Open the `eww' buffer in another window."
 ;;   :config
 ;;   (require 'lsp-python-ms)
 ;;   :hook
-;;   (python-mode-hook . eglot-ensure))
+;;   (python-mode-hook . eglot-maybe-ensure))
 
 (use-package pyvenv
   :after python
@@ -5875,7 +5883,7 @@ Open the `eww' buffer in another window."
   :mode "\\.swift"
   :interpreter "swift"
   :hook
-  (swift-mode-hook . eglot-ensure))
+  (swift-mode-hook . eglot-maybe-ensure))
 
 ;; (use-package lsp-sourcekit
 ;;   :config
@@ -5955,6 +5963,11 @@ Open the `eww' buffer in another window."
   (emacs-lisp-mode-hook . package-lint-flymake-setup))
 
 (use-package eglot
+  :preface
+  (defun eglot-maybe-ensure ()
+    "Conditionally invoke `eglot-maybe-ensure'."
+    (unless (file-remote-p (buffer-file-name))
+      (eglot-ensure)))
   :hook
   (eglot-mode-hook . eglot-inlay-hints-mode))
 
@@ -6163,7 +6176,7 @@ This command defaults to running the previous command."
       (async-shell-command command)))
 
   :hook
-  (sh-mode-hook . eglot-ensure)
+  (sh-mode-hook . eglot-maybe-ensure)
   (before-save-hook . maybe-reset-major-mode)
   (after-save-hook . executable-make-buffer-file-executable-if-script-p)
   :bind
@@ -6264,7 +6277,7 @@ This package sets these explicitly so we have to do the same."
 (use-package ruby-mode
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :hook
-  (ruby-mode-hook . eglot-ensure))
+  (ruby-mode-hook . eglot-maybe-ensure))
 
 (use-package inf-ruby
   :after ruby-mode
@@ -6283,7 +6296,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (lua-indent-level tab-width)
   :hook
-  (lua-mode-hook . eglot-ensure))
+  (lua-mode-hook . eglot-maybe-ensure))
 
 (use-package fennel-mode
   :mode "\\.fnl\\'")
@@ -6293,7 +6306,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (rust-indent-offset tab-width)
   :hook
-  (rust-mode-hook . eglot-ensure))
+  (rust-mode-hook . eglot-maybe-ensure))
 
 (use-package go-mode
   :mode "\\.go\\'")
@@ -6308,12 +6321,26 @@ This package sets these explicitly so we have to do the same."
 ;; FIXME Is this causing `powershell-mode' to do bad things whenever a file is
 ;; opened?
 ;; :hook
-;; (powershell-mode-hook . eglot-ensure))
+;; (powershell-mode-hook . eglot-maybe-ensure))
 
 (use-package php-mode
   :mode "\\.php\\'"
+  :preface
+  (defun php-mode-setup ()
+    "Set up `php-mode'."
+    (outline-minor-mode -1))
   :hook
-  (php-mode-hook . eglot-ensure))
+  (php-mode-hook . eglot-maybe-ensure)
+  (php-mode-hook . php-mode-setup))
+
+(use-package tcl
+  :preface
+  (defun tcl-mode-setup ()
+    "Set up `tcl-mode'."
+    (outline-minor-mode -1))
+  :hook
+  (tcl-mode-hook . tcl-mode-setup))
+
 
 (use-package ios-config-mode
   :straight (ios-config-mode :host github :repo "mnewt/IOS-config-mode")
@@ -6323,7 +6350,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (c-basic-offset 4)
   :hook
-  ((c-mode-hook c++-mode-hook java-mode-hook) . eglot-ensure)
+  ((c-mode-hook c++-mode-hook java-mode-hook) . eglot-maybe-ensure)
   :bind
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
@@ -6332,7 +6359,7 @@ This package sets these explicitly so we have to do the same."
 (use-package nxml-mode
   :straight (:type built-in)
   :hook
-  (nxml-mode-hook . eglot-ensure))
+  (nxml-mode-hook . eglot-maybe-ensure))
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
@@ -6448,7 +6475,7 @@ This package sets these explicitly so we have to do the same."
   ;;                                           ("executeCommand" 'ignore))))
 
   :hook
-  (gdscript-mode-hook . eglot-ensure))
+  (gdscript-mode-hook . eglot-maybe-ensure))
 
 (use-package yasnippet-godot-gdscript
   :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
