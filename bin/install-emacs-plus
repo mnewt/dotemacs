@@ -18,7 +18,7 @@ prompt_confirm() {
 
 emacs="emacs-plus@30"
 options="--with-native-comp"
-destination="$HOME/Applications/Emacs.app"
+destination="/Applications"
 dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2 tree-sitter"
 
 install-parinfer-rust-library
@@ -28,9 +28,9 @@ brew uninstall $emacs || true
 brew install $emacs $options
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
-rm "$destination" || true
+rm "$destination/Emacs.app" || true
 # Copied from the `homebrew-emacs-plus` install instructions.
-osascript -e 'tell application "Finder" to make alias file to posix file "/opt/homebrew/opt/emacs-plus@30/Emacs.app" at POSIX file "/Applications" with properties {name:"Emacs.app"}'
+osascript -e "tell application \"Finder\" to make alias file to posix file \"$(brew --prefix $emacs)/Emacs.app\" at POSIX file \"$destination\" with properties {name:\"Emacs.app\"}"
 # ln -s "$(brew --prefix $emacs)/Emacs.app" "$destination"
 prompt_confirm "Remove $HOME/.emacs.d/{eln-cache,straight}?" &&
   rm -rf $HOME/.emacs.d/{eln-cache,straight}

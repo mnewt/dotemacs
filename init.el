@@ -2347,7 +2347,7 @@ Tries to find a file at point."
     expr))
 
 (use-package x509-mode
-  :straight (x509-mode :host github :repo "mnewt/x509-mode"))
+  :commands x509-dwim)
 
 (defun unison-sync (command)
   "Run a Unison sync of files using COMMAND."
@@ -2526,7 +2526,7 @@ With a prefix ARG always prompt for command to use."
   (dired-rainbow-define vc "#6cb2eb"
                         ("git" "gitignore" "gitattributes" "gitmodules"))
   (dired-rainbow-define config "#5040e2"
-                        ("cfg" "conf"))
+                        ("config" "cfg" "conf"))
   (dired-rainbow-define certificate "#6cb2eb"
                         ("cer" "crt" "pfx" "p7b" "csr" "req" "key"))
   (dired-rainbow-define junk "#7F7D7D"
@@ -2575,8 +2575,13 @@ With a prefix ARG always prompt for command to use."
       (message "Opening %s..." file)
       (os-open-file file)))
 
+  (defun dired-set-buffer-name-as-filename ()
+    "Set the buffer name to be the filename with path."
+    (rename-buffer default-directory))
+
   :hook
   (dired-mode-hook . dired-hide-details-mode)
+  (dired-after-readin-hook . dired-set-buffer-name-as-filename)
   :bind
   ("C-x M-s" . psync-maybe)
   ("C-c o" . os-open-file)
@@ -5899,6 +5904,7 @@ Open the `eww' buffer in another window."
 ;;;; Applescript
 
 (use-package apples-mode
+  :defer 10
   :mode "\\.\\(applescri\\|sc\\)pt\\'"
   :interpreter "osascript"
   :preface
@@ -6196,7 +6202,7 @@ This command defaults to running the previous command."
   ;; godot
   "\\.\\(tres\\|tscn\\|import\\|godot\\)\\'")
 
-;; display nfo files in all their glory
+;; Display nfo files in all their glory.
 ;; https://github.com/wasamasa/dotemacs/blob/master/init.org#display-nfo-files-with-appropriate-code-page)
 (add-to-list 'auto-coding-alist '("\\.nfo\\'" . ibm437))
 
@@ -6213,14 +6219,14 @@ This command defaults to running the previous command."
   :mode
   ("\\.\\(?:automount\\|link\\|mount\\|net\\(?:dev\\|work\\)\\|path\\|s\\(?:ervice\\|lice\\|ocket\\)\\|t\\(?:arget\\|imer\\)\\)\\'" . systemd-mode))
 
-(use-package daemons
-  :commands
-  daemons)
+;; (use-package daemons
+;;   :commands
+;;   daemons)
 
 ;; DNS
 (use-package dns-mode
   :mode "\\.rpz\\'"
-  :config
+  :preface
   (defun dns-insert-timestamp ()
     "Insert DNS timestamp."
     (interactive)
@@ -6317,11 +6323,9 @@ This package sets these explicitly so we have to do the same."
   :mode ("\\.ps[dm]?1\\'" . powershell-mode)
   :custom
   (powershell-indent tab-width)
-  (powershell-continuation-indent tab-width))
-;; FIXME Is this causing `powershell-mode' to do bad things whenever a file is
-;; opened?
-;; :hook
-;; (powershell-mode-hook . eglot-maybe-ensure))
+  (powershell-continuation-indent tab-width)
+  :hook
+  (powershell-mode-hook . eglot-maybe-ensure))
 
 (use-package php-mode
   :mode "\\.php\\'"
@@ -6334,13 +6338,13 @@ This package sets these explicitly so we have to do the same."
   (php-mode-hook . php-mode-setup))
 
 (use-package tcl
+  :mode "\\.tcl\\'"
   :preface
   (defun tcl-mode-setup ()
     "Set up `tcl-mode'."
     (outline-minor-mode -1))
   :hook
   (tcl-mode-hook . tcl-mode-setup))
-
 
 (use-package ios-config-mode
   :straight (ios-config-mode :host github :repo "mnewt/IOS-config-mode")
@@ -6350,7 +6354,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (c-basic-offset 4)
   :hook
-  ((c-mode-hook c++-mode-hook java-mode-hook) . eglot-maybe-ensure)
+  ((c-mode-hook c++-mode-hook objc-mode-hook java-mode-hook) . eglot-maybe-ensure)
   :bind
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
