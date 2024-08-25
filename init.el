@@ -743,221 +743,233 @@ Stolen from solarized."
 ;;                 (substring output (- (length output) (length ellipsis) max-length)))
 ;;       output)))
 
-(use-package mood-line
-  :demand t
+;; Be sure to run `nerd-icons-install-fonts'.
+(use-package nerd-icons)
+
+(use-package doom-modeline
   :custom
-  (mood-line-format
-   (mood-line-defformat
-    :left
-    (((or (mood-line-segment-buffer-status) " ") . " ")
-     ((mood-line-segment-buffer-name)            . "  ")
-     ((mood-line-segment-multiple-cursors)       . "  "))
-    :right
-    (((mood-line-segment-vc)         . "  ")
-     ((mood-line-segment-major-mode) . "  ")
-     ((mood-line-segment-misc-info)  . "  ")
-     ((mood-line-segment-checker)    . "  ")
-     ((mood-line-segment-process)    . "  "))))
-  :preface
-  (defvar mood-line-selected-window (frame-selected-window)
-    "Selected window.")
-
-  (defun mood-line--set-selected-window ()
-    "Set the variable `fiat-selected-window' appropriately.
-This is used to determine whether the current window is active."
-    (unless (minibuffer-window-active-p (frame-selected-window))
-      (setq mood-line-selected-window (frame-selected-window))
-      (force-mode-line-update)))
-
-  (defun mood-line-window-active-p ()
-    "Return whether the current window is active."
-    (eq mood-line-selected-window (selected-window)))
-
-  (defun mood-line-segment-hostname ()
-    "Return the remote hostname for the current buffer.
-Return nil if the buffer is local."
-    (when (file-remote-p default-directory)
-      (let* ((dissected (tramp-dissect-file-name default-directory)))
-        (concat
-         (when-let* ((user (tramp-file-name-user dissected))
-                     (face (if (string= user "root") 'error 'warning)))
-           (propertize (concat " " user " ") 'face face))
-         (propertize (concat " " (tramp-file-name-host dissected) " ")
-                     'face 'highlight)))))
-
-  (defun mood-line--make-xpm (face width height)
-    "Create an XPM bitmap via FACE, WIDTH and HEIGHT.
-
-Inspired by `powerline''s `pl/make-xpm'."
-    (when (and (display-graphic-p)
-               (image-type-available-p 'xpm))
-      (propertize
-       " " 'display
-       (let ((data (make-list height (make-list width 1)))
-             (color (or (face-background face nil t) "None")))
-         (ignore-errors
-           (create-image
-            (concat
-             (format
-              "/* XPM */\nstatic char * percent[] = {\n\"%i %i 2 1\",\n\". c %s\",\n\"  c %s\","
-              (length (car data)) (length data) color color)
-             (apply #'concat
-                    (cl-loop with idx = 0
-                             with len = (length data)
-                             for dl in data
-                             do (cl-incf idx)
-                             collect
-                             (concat
-                              "\""
-                              (cl-loop for d in dl
-                                       if (= d 0) collect (string-to-char " ")
-                                       else collect (string-to-char "."))
-                              (if (eq idx len) "\"};" "\",\n")))))
-            'xpm t :ascent 'center))))))
-
-  (defvar mood-line-height 24
-    "The height of the mode-line in pixels.")
-
-  (defun mood-line--refresh-bar ()
-    "Refresh the bar."
-    (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 mood-line-height)))
-
-  (defvar mood-line-bar (mood-line--refresh-bar)
-    "A bar to increase the height of the mode-line.
-
-Inspired by `doom-modeline'.")
-
-  (defun mood-line-segment-bar ()
-    "Display a bar."
-    mood-line-bar)
-
-  (defvar-local mood-line-buffer-name nil
-    "The buffer name as displayed in `mood-line'.")
-
-  (defun mood-line--refresh-buffer-name (&rest _)
-    "Refresh the buffer name."
-    (setq-local mood-line-buffer-name
-                (propertize
-                 (concat " " (shorten-file-name (format-mode-line "%b")) " ")
-                 'face 'mode-line-buffer-id)))
-
-  (defun mood-line-segment-buffer-name ()
-    "Displays the name of the current buffer in the mode-line."
-    mood-line-buffer-name)
-
-  (defun mood-line-segment-modified ()
-    "Displays a color-coded buffer modification/read-only indicator in the mode-line."
-    (when (and buffer-file-name
-               (not (string-match-p "\\*.*\\*" (buffer-name)))
-               (buffer-modified-p))
-      "● "))
-
-  (defun mood-line-segment-flymake ()
-    "Display flymake information in the mode-line (if available)."
-    (when (and (mood-line-window-active-p) (bound-and-true-p flymake-mode))
-      (list (flymake--mode-line-counters) " ")))
-
-  ;; (defvar flycheck-current-errors)
-
-  ;; (defun mood-line--update-flycheck-segment (&optional status)
-  ;;   "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
-  ;;   (setq mood-line--flycheck-text
-  ;;         (pcase status
-  ;;           ('finished (if flycheck-current-errors
-  ;;                          (let-alist (flycheck-count-errors flycheck-current-errors)
-  ;;                            (let ((sum (+ (or .error 0) (or .warning 0))))
-  ;;                              (propertize (concat ;"⚑"
-  ;;                                           (number-to-string sum)
-  ;;                                           " ")
-  ;;                                          'face (if .error
-  ;;                                                    'mood-line-status-error
-  ;;                                                  'mood-line-status-warning))))
-  ;;                        (propertize "✔ " 'face 'mood-line-status-success)))
-  ;;           ('running (propertize "⧖ " 'face 'mood-line-status-info))
-  ;;           ('errored (propertize "✖ " 'face 'mood-line-status-error))
-  ;;           ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
-  ;;           ('no-checker ""))))
-
-  ;; (defun mood-line-segment-flycheck ()
-  ;;   "Display color-coded flycheck information in the mode-line (if available)."
-  ;;   (when (mood-line-window-active-p) mood-line--flycheck-text))
-
-  ;; (defun mood-line-segment-misc-info ()
-  ;;   "Display the current value of `mode-line-misc-info' in the mode-line."
-  ;;   (when (mood-line-window-active-p)
-  ;;     (apply #'concat
-  ;;            (mapcar (lambda (e)
-  ;;                      (let ((s (format-mode-line (cadr e))))
-  ;;                        (if (string-blank-p s)
-  ;;                            ""
-  ;;                          (concat (string-trim s) " "))))
-  ;;                    mode-line-misc-info))))
-
-  (defun mood-line-segment-project-directory ()
-    "Display the project name."
-    (when (and (not (file-remote-p default-directory))
-               (mood-line-window-active-p)
-               (project-current))
-      (propertize (concat " " (file-name-nondirectory
-                               (directory-file-name
-                                (project-root (project-current t)))) " ")
-                  'face 'font-lock-variable-name-face)))
-
-  (defun mood-line-pyvenv-info ()
-    "When inside a Python venv project, display its name."
-    (when (boundp 'pyvenv-virtual-env)
-      (setf (alist-get 'pyvenv mode-line-misc-info)
-            (list (when pyvenv-virtual-env
-                    (concat "pyvenv:" pyvenv-virtual-env-name))))))
-
-  (defun outline-minor-mode-info ()
-    "Display an indicator when `outline-minor-mode' is enabled."
-    (setf (alist-get 'outline-minor-mode mode-line-misc-info)
-          (list (when (bound-and-true-p outline-minor-mode) "o"))))
-
-  (defun edebug-mode-info (_symbol newval _operation _where)
-    "Display an indicator when `edebug' is active.
-
-Watches `edebug-active' and sets the mode-line when it changes."
-    (setf (alist-get 'edebug-mode mode-line-misc-info)
-          (list (when newval "ED"))))
-
-  (add-variable-watcher 'edebug-active #'edebug-mode-info)
-
-  (defun narrowed-info (&optional _start _end)
-    "Display an indicator when the buffer is narrowed."
-    (setf (alist-get 'buffer-narrowed mode-line-misc-info)
-          (list (when (buffer-narrowed-p) "n"))))
-
-  (defun parinfer-rust-mode-info (&optional _mode)
-    "Display an indicator when `parinfer-rust-mode' is enabled."
-    (when (bound-and-true-p parinfer-rust-mode)
-      (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
-            (list (concat "(" (substring parinfer-rust--mode 0 1) ") ")))))
-
-  (defun hs-minor-mode-info ()
-    "Display an indicator when `hs-minor-mode' is enabled."
-    (setf (alist-get 'hs-minor-mode mode-line-misc-info)
-          (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
-
-  (defun mood-line-segment-major-mode ()
-    "Displays the current major mode in the mode-line."
-    (when (mood-line-window-active-p)
-      (propertize (concat " " (format-mode-line mode-name) " ")
-                  'face (if (mood-line-window-active-p)
-                            'mode-line-emphasis
-                          'mode-line))))
-
-  ;; (defun mood-line--format (left right)
-  ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
-  ;;   (concat
-  ;;    left
-  ;;    " "
-  ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
-  ;;    right))
-
+  (doom-modeline-height 28)
+  (doom-modeline-buffer-encoding nil)
+  (doom-modeline-buffer-state-icon t)
   :config
-  (mood-line-mode))
+  (line-number-mode -1)
+  :hook (after-init . doom-modeline-mode))
+
+;; (use-package mood-line
+;;   :demand t
+;;   :custom
+;;   (mood-line-format
+;;    (mood-line-defformat
+;;     :left
+;;     (((or (mood-line-segment-buffer-status) " ") . " ")
+;;      ((mood-line-segment-buffer-name)            . "  ")
+;;      ((mood-line-segment-multiple-cursors)       . "  "))
+;;     :right
+;;     (((mood-line-segment-vc)         . "  ")
+;;      ((mood-line-segment-major-mode) . "  ")
+;;      ((mood-line-segment-misc-info)  . "  ")
+;;      ((mood-line-segment-checker)    . "  ")
+;;      ((mood-line-segment-process)    . "  "))))
+;;   :preface
+;;   (defvar mood-line-selected-window (frame-selected-window)
+;;     "Selected window.")
+
+;;   (defun mood-line--set-selected-window ()
+;;     "Set the variable `fiat-selected-window' appropriately.
+;; This is used to determine whether the current window is active."
+;;     (unless (minibuffer-window-active-p (frame-selected-window))
+;;       (setq mood-line-selected-window (frame-selected-window))
+;;       (force-mode-line-update)))
+
+;;   (defun mood-line-window-active-p ()
+;;     "Return whether the current window is active."
+;;     (eq mood-line-selected-window (selected-window)))
+
+;;   (defun mood-line-segment-hostname ()
+;;     "Return the remote hostname for the current buffer.
+;; Return nil if the buffer is local."
+;;     (when (file-remote-p default-directory)
+;;       (let* ((dissected (tramp-dissect-file-name default-directory)))
+;;         (concat
+;;          (when-let* ((user (tramp-file-name-user dissected))
+;;                      (face (if (string= user "root") 'error 'warning)))
+;;            (propertize (concat " " user " ") 'face face))
+;;          (propertize (concat " " (tramp-file-name-host dissected) " ")
+;;                      'face 'highlight)))))
+
+;;   (defun mood-line--make-xpm (face width height)
+;;     "Create an XPM bitmap via FACE, WIDTH and HEIGHT.
+
+;; Inspired by `powerline''s `pl/make-xpm'."
+;;     (when (and (display-graphic-p)
+;;                (image-type-available-p 'xpm))
+;;       (propertize
+;;        " " 'display
+;;        (let ((data (make-list height (make-list width 1)))
+;;              (color (or (face-background face nil t) "None")))
+;;          (ignore-errors
+;;            (create-image
+;;             (concat
+;;              (format
+;;               "/* XPM */\nstatic char * percent[] = {\n\"%i %i 2 1\",\n\". c %s\",\n\"  c %s\","
+;;               (length (car data)) (length data) color color)
+;;              (apply #'concat
+;;                     (cl-loop with idx = 0
+;;                              with len = (length data)
+;;                              for dl in data
+;;                              do (cl-incf idx)
+;;                              collect
+;;                              (concat
+;;                               "\""
+;;                               (cl-loop for d in dl
+;;                                        if (= d 0) collect (string-to-char " ")
+;;                                        else collect (string-to-char "."))
+;;                               (if (eq idx len) "\"};" "\",\n")))))
+;;             'xpm t :ascent 'center))))))
+
+;;   (defvar mood-line-height 24
+;;     "The height of the mode-line in pixels.")
+
+;;   (defun mood-line--refresh-bar ()
+;;     "Refresh the bar."
+;;     (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 mood-line-height)))
+
+;;   (defvar mood-line-bar (mood-line--refresh-bar)
+;;     "A bar to increase the height of the mode-line.
+
+;; Inspired by `doom-modeline'.")
+
+;;   (defun mood-line-segment-bar ()
+;;     "Display a bar."
+;;     mood-line-bar)
+
+;;   (defvar-local mood-line-buffer-name nil
+;;     "The buffer name as displayed in `mood-line'.")
+
+;;   (defun mood-line--refresh-buffer-name (&rest _)
+;;     "Refresh the buffer name."
+;;     (setq-local mood-line-buffer-name
+;;                 (propertize
+;;                  (concat " " (shorten-file-name (format-mode-line "%b")) " ")
+;;                  'face 'mode-line-buffer-id)))
+
+;;   (defun mood-line-segment-buffer-name ()
+;;     "Displays the name of the current buffer in the mode-line."
+;;     mood-line-buffer-name)
+
+;;   (defun mood-line-segment-modified ()
+;;     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
+;;     (when (and buffer-file-name
+;;                (not (string-match-p "\\*.*\\*" (buffer-name)))
+;;                (buffer-modified-p))
+;;       "● "))
+
+;;   (defun mood-line-segment-flymake ()
+;;     "Display flymake information in the mode-line (if available)."
+;;     (when (and (mood-line-window-active-p) (bound-and-true-p flymake-mode))
+;;       (list (flymake--mode-line-counters) " ")))
+
+;;   ;; (defvar flycheck-current-errors)
+
+;;   ;; (defun mood-line--update-flycheck-segment (&optional status)
+;;   ;;   "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
+;;   ;;   (setq mood-line--flycheck-text
+;;   ;;         (pcase status
+;;   ;;           ('finished (if flycheck-current-errors
+;;   ;;                          (let-alist (flycheck-count-errors flycheck-current-errors)
+;;   ;;                            (let ((sum (+ (or .error 0) (or .warning 0))))
+;;   ;;                              (propertize (concat ;"⚑"
+;;   ;;                                           (number-to-string sum)
+;;   ;;                                           " ")
+;;   ;;                                          'face (if .error
+;;   ;;                                                    'mood-line-status-error
+;;   ;;                                                  'mood-line-status-warning))))
+;;   ;;                        (propertize "✔ " 'face 'mood-line-status-success)))
+;;   ;;           ('running (propertize "⧖ " 'face 'mood-line-status-info))
+;;   ;;           ('errored (propertize "✖ " 'face 'mood-line-status-error))
+;;   ;;           ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
+;;   ;;           ('no-checker ""))))
+
+;;   ;; (defun mood-line-segment-flycheck ()
+;;   ;;   "Display color-coded flycheck information in the mode-line (if available)."
+;;   ;;   (when (mood-line-window-active-p) mood-line--flycheck-text))
+
+;;   ;; (defun mood-line-segment-misc-info ()
+;;   ;;   "Display the current value of `mode-line-misc-info' in the mode-line."
+;;   ;;   (when (mood-line-window-active-p)
+;;   ;;     (apply #'concat
+;;   ;;            (mapcar (lambda (e)
+;;   ;;                      (let ((s (format-mode-line (cadr e))))
+;;   ;;                        (if (string-blank-p s)
+;;   ;;                            ""
+;;   ;;                          (concat (string-trim s) " "))))
+;;   ;;                    mode-line-misc-info))))
+
+;;   (defun mood-line-segment-project-directory ()
+;;     "Display the project name."
+;;     (when (and (not (file-remote-p default-directory))
+;;                (mood-line-window-active-p)
+;;                (project-current))
+;;       (propertize (concat " " (file-name-nondirectory
+;;                                (directory-file-name
+;;                                 (project-root (project-current t)))) " ")
+;;                   'face 'font-lock-variable-name-face)))
+
+;;   (defun mood-line-pyvenv-info ()
+;;     "When inside a Python venv project, display its name."
+;;     (when (boundp 'pyvenv-virtual-env)
+;;       (setf (alist-get 'pyvenv mode-line-misc-info)
+;;             (list (when pyvenv-virtual-env
+;;                     (concat "pyvenv:" pyvenv-virtual-env-name))))))
+
+;;   (defun outline-minor-mode-info ()
+;;     "Display an indicator when `outline-minor-mode' is enabled."
+;;     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
+;;           (list (when (bound-and-true-p outline-minor-mode) "o"))))
+
+;;   (defun edebug-mode-info (_symbol newval _operation _where)
+;;     "Display an indicator when `edebug' is active.
+
+;; Watches `edebug-active' and sets the mode-line when it changes."
+;;     (setf (alist-get 'edebug-mode mode-line-misc-info)
+;;           (list (when newval "ED"))))
+
+;;   (add-variable-watcher 'edebug-active #'edebug-mode-info)
+
+;;   (defun narrowed-info (&optional _start _end)
+;;     "Display an indicator when the buffer is narrowed."
+;;     (setf (alist-get 'buffer-narrowed mode-line-misc-info)
+;;           (list (when (buffer-narrowed-p) "n"))))
+
+;;   (defun parinfer-rust-mode-info (&optional _mode)
+;;     "Display an indicator when `parinfer-rust-mode' is enabled."
+;;     (when (bound-and-true-p parinfer-rust-mode)
+;;       (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
+;;             (list (concat "(" (substring parinfer-rust--mode 0 1) ") ")))))
+
+;;   (defun hs-minor-mode-info ()
+;;     "Display an indicator when `hs-minor-mode' is enabled."
+;;     (setf (alist-get 'hs-minor-mode mode-line-misc-info)
+;;           (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
+
+;;   (defun mood-line-segment-major-mode ()
+;;     "Displays the current major mode in the mode-line."
+;;     (when (mood-line-window-active-p)
+;;       (propertize (concat " " (format-mode-line mode-name) " ")
+;;                   'face (if (mood-line-window-active-p)
+;;                             'mode-line-emphasis
+;;                           'mode-line))))
+
+;;   ;; (defun mood-line--format (left right)
+;;   ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
+;;   ;;   (concat
+;;   ;;    left
+;;   ;;    " "
+;;   ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
+;;   ;;    right))
+
+;;   :config
+;;   (mood-line-mode))
 
 ;; (setq-default mode-line-format
 ;;               '((:eval
@@ -5971,7 +5983,7 @@ Open the `eww' buffer in another window."
 (use-package eglot
   :preface
   (defun eglot-maybe-ensure ()
-    "Conditionally invoke `eglot-maybe-ensure'."
+    "Conditionally invoke `eglot-ensure'."
     (unless (file-remote-p (buffer-file-name))
       (eglot-ensure)))
   :hook
@@ -6055,70 +6067,87 @@ Open the `eww' buffer in another window."
 ;; > gem install rubocop
 ;; > brew install shfmt
 ;; > brew install zprint
-(use-package apheleia
-  :straight (apheleia :host github :repo "raxod502/apheleia")
-  :defer 11
-  :config
-  (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" "2")
-                       (swift-format "xcrun" "swift-format")
-                       (xmllint "xmllint" "--format" "-")
-                       (zprint "zprint" "{:style :community :map {:comma? false}}")))
-    (add-to-list 'apheleia-formatters formatter))
+;; (use-package apheleia
+;;   :straight (apheleia :host github :repo "raxod502/apheleia")
+;;   :defer 11
+;;   :config
+;;   (dolist (formatter `((lua-fmt "luafmt" "--stdin" "--indent-count" "2")
+;;                        (swift-format "xcrun" "swift-format")
+;;                        (xmllint "xmllint" "--format" "-")
+;;                        (zprint "zprint" "{:style :community :map {:comma? false}}")))
+;;     (add-to-list 'apheleia-formatters formatter))
 
-  (dolist (mode '((clojure-mode . zprint)
-                  (clojurec-mode . zprint)
-                  (clojurescript-mode . zprint)
-                  (lua-mode . lua-fmt)
-                  (nxml-mode . xmllint)
-                  (swift-mode . swift-format)))
-    (add-to-list 'apheleia-mode-alist mode))
+;;   (dolist (mode '((clojure-mode . zprint)
+;;                   (clojurec-mode . zprint)
+;;                   (clojurescript-mode . zprint)
+;;                   (lua-mode . lua-fmt)
+;;                   (nxml-mode . xmllint)
+;;                   (swift-mode . swift-format)))
+;;     (add-to-list 'apheleia-mode-alist mode))
 
-  (apheleia-global-mode))
+;;   (apheleia-global-mode))
 
-(defun indent-buffer ()
-  "Indent the buffer."
-  (interactive)
-  (indent-region (point-min) (point-max)))
+;; (defun indent-buffer ()
+;;   "Indent the buffer."
+;;   (interactive)
+;;   (indent-region (point-min) (point-max)))
 
-(defun format-buffer-or-region (&optional beg end thing)
-  "Format the buffer or region, if one is active.
+;; (defun format-buffer-or-region (&optional beg end thing)
+;;   "Format the buffer or region, if one is active.
 
-BEG is the beginning of the region.
+;; BEG is the beginning of the region.
 
-END is the end of the region.
+;; END is the end of the region.
 
-THING is used to indicate to the user what was just formatted.
+;; THING is used to indicate to the user what was just formatted.
 
-Prefix ARG is passed to `fill-paragraph'."
-  (interactive)
-  (save-excursion
-    (if (use-region-p)
-        (setq thing (or thing "region"))
-      (setq thing (or thing "buffer"))
-      (push-mark (or beg (point-min)))
-      (push-mark (or end (point-max)) nil t))
-    (save-mark-and-excursion
-      (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg)))
-    (save-mark-and-excursion
-      (call-interactively #'crux-cleanup-buffer-or-region))
-    (indent-region (region-beginning) (region-end))
-    (message "Formatted the %s." thing)))
+;; Prefix ARG is passed to `fill-paragraph'."
+;;   (interactive)
+;;   (save-excursion
+;;     (if (use-region-p)
+;;         (setq thing (or thing "region"))
+;;       (setq thing (or thing "buffer"))
+;;       (push-mark (or beg (point-min)))
+;;       (push-mark (or end (point-max)) nil t))
+;;     (save-mark-and-excursion
+;;       (when (sp-point-in-string-or-comment) (fill-paragraph current-prefix-arg)))
+;;     (save-mark-and-excursion
+;;       (call-interactively #'crux-cleanup-buffer-or-region))
+;;     (indent-region (region-beginning) (region-end))
+;;     (message "Formatted the %s." thing)))
 
-(defun format-defun-or-region ()
-  "Format the current defun or region, if one is active."
-  (interactive)
-  (save-excursion
-    (unless (use-region-p) (mark-defun))
-    (format-buffer-or-region (region-beginning) (region-end) 'defun)))
+;; (defun format-defun-or-region ()
+;;   "Format the current defun or region, if one is active."
+;;   (interactive)
+;;   (save-excursion
+;;     (unless (use-region-p) (mark-defun))
+;;     (format-buffer-or-region (region-beginning) (region-end) 'defun)))
 
-(defun format-line ()
-  "Reformat the current line."
-  (interactive)
-  (format-buffer-or-region (line-beginning-position) (line-end-position) 'line))
+;; (defun format-line ()
+;;   "Reformat the current line."
+;;   (interactive)
+;;   (format-buffer-or-region (line-beginning-position) (line-end-position) 'line))
 
-(bind-keys
- ("C-M-\\" . format-buffer-or-region)
- ("C-\\" . format-defun-or-region))
+;; (bind-keys
+;;  ("C-M-\\" . format-buffer-or-region)
+;;  ("C-\\" . format-defun-or-region))
+
+(use-package format-all
+  :preface
+  (defun format-region-or-defun ()
+    "Format the current defun or region, if one is active."
+    (interactive)
+    (save-excursion
+      (unless (use-region-p) (mark-defun))
+      (format-all-region (region-beginning) (region-end) 'defun)))
+
+  :hook
+  (format-all-mode . format-all-ensure-formatter)
+  (prog-mode . format-all-mode)
+
+  :bind
+  ("C-M-\\" . format-all-region-or-buffer)
+  ("C-\\" . format-region-or-defun))
 
 (defun maybe-reset-major-mode ()
   "Reset the buffer's `major-mode' if a different mode seems like a better fit.
