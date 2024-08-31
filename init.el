@@ -753,7 +753,7 @@ Stolen from solarized."
   (doom-modeline-buffer-state-icon t)
   :config
   (line-number-mode -1)
-  :hook (after-init . doom-modeline-mode))
+  :hook (after-init-hook . doom-modeline-mode))
 
 ;; (use-package mood-line
 ;;   :demand t
@@ -3583,6 +3583,7 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
           (json "https://github.com/tree-sitter/tree-sitter-json")
           (make "https://github.com/alemuller/tree-sitter-make")
           (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+          (php "https://github.com/tree-sitter/tree-sitter-php" "master" "php/src")
           (python "https://github.com/tree-sitter/tree-sitter-python")
           (rust "https://github.com/tree-sitter/tree-sitter-rust")
           (toml "https://github.com/tree-sitter/tree-sitter-toml")
@@ -3829,8 +3830,8 @@ See https://github.com/Fuco1/smartparens/issues/80."
 
   (sp-with-modes '(c-mode c++-mode caddyfile-mode csharp-mode css-mode
                           graphql-mode java-mode javascript-mode js-mode
-                          js2-mode json-mode lua-mode objc-mode swift-mode
-                          web-mode)
+                          js2-mode json-mode lua-mode objc-mode php-mode
+                          swift-mode web-mode)
     (sp-local-pair "{" nil
                    :post-handlers
                    '((sp-create-newline-and-enter-sexp "RET" newline-and-indent)))
