@@ -660,6 +660,31 @@ then choose the next key in the Alist `fiat-themes'."
   :config
   (window-highlight-mode))
 
+(defun color-blend (color1 color2 alpha)
+  "Blends COLOR1 onto COLOR2 with ALPHA.
+COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
+triplet strings (e.g. \"#ff12ec\").
+Alpha should be a float between 0 and 1.
+
+Stolen from solarized."
+  (apply #'color-rgb-to-hex
+         (-zip-with (lambda (it other)
+                      (+ (* alpha it) (* other (- 1 alpha))))
+                    (color-name-to-rgb color1)
+                    (color-name-to-rgb color2))))
+
+;; (use-package doom-themes
+;;   :config
+;;   ;; Global settings (defaults)
+;;   (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+;;         doom-themes-enable-italic t) ; if nil, italics is universally disabled
+
+;;   ;; Enable flashing mode-line on errors
+;;   (doom-themes-visual-bell-config)
+;;   ;; Corrects (and improves) org-mode's native fontification.
+;;   (doom-themes-org-config))
+
+;; If not using `doom-themes'.
 (defface doom-themes-visual-bell '((t (:background "#FF3366" :foreground "#FFFFFF")))
   "Face to use for the mode-line when `doom-themes-visual-bell-config' is used."
   :group 'doom-themes)
@@ -686,30 +711,17 @@ Set `ring-bell-function' to this to use it."
 (setq ring-bell-function #'doom-themes-visual-bell-fn
       visible-bell t)
 
-(defun color-blend (color1 color2 alpha)
-  "Blends COLOR1 onto COLOR2 with ALPHA.
-COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
-triplet strings (e.g. \"#ff12ec\").
-Alpha should be a float between 0 and 1.
-
-Stolen from solarized."
-  (apply #'color-rgb-to-hex
-         (-zip-with (lambda (it other)
-                      (+ (* alpha it) (* other (- 1 alpha))))
-                    (color-name-to-rgb color1)
-                    (color-name-to-rgb color2))))
-
 (use-package modus-themes
   :demand t
   :custom
   (modus-themes-slanted-constructs t)
   (modus-themes-bold-constructs t)
   (modus-themes-intense-paren-match 'intense))
-;; :config
-;; (set-face-background 'mode-line-buffer-id
-;;                      (color-blend (theme-face-attribute 'mode-line :background)
-;;                                   (theme-face-attribute 'highlight :background)
-;;                                   0.5)))
+  ;; :config
+  ;; (set-face-background 'mode-line-buffer-id
+  ;;                      (color-blend (theme-face-attribute 'mode-line :background)
+  ;;                                   (theme-face-attribute 'highlight :background)
+  ;;                                   0.5)))
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
@@ -746,6 +758,7 @@ Stolen from solarized."
 ;; Be sure to run `nerd-icons-install-fonts'.
 (use-package nerd-icons)
 
+;; TODO Add mood-line customizations to `mode-line-misc-info'.
 (use-package doom-modeline
   :custom
   (doom-modeline-height 28)
@@ -753,7 +766,8 @@ Stolen from solarized."
   (doom-modeline-buffer-state-icon t)
   :config
   (line-number-mode -1)
-  :hook (after-init-hook . doom-modeline-mode))
+  :hook
+  (after-init-hook . doom-modeline-mode))
 
 ;; (use-package mood-line
 ;;   :demand t
@@ -2795,48 +2809,6 @@ ERR and IND are ignored."
   :config
   (global-eldoc-mode))
 
-(use-package eldoc-box
-  :after eldoc
-
-  :custom
-  (eldoc-box-clear-with-C-g t)
-
-  :config
-  ;; Display the message using up to 90% of the frame height.
-  (custom-set-variables '(eldoc-echo-area-use-multiline-p 0.9))
-
-  ;; Customize `eldoc' setup for Emacs Lisp to display docstrings in addition to
-  ;; the usual signature.  Inspired by `lsp-ui-doc'. This only makes sense if
-  ;; also using `eldoc-box-hover-mode'.
-  (with-eval-after-load 'elisp-mode
-    (defun elisp--fnsym-add-docstring (f sym &optional index)
-      "Add the docstring for SYM to `eldoc'.
-See `elisp-get-fnsym-args-string'."
-      (when-let ((string (funcall f sym index))
-                 (doc (propertize (documentation sym t) 'face 'font-lock-doc-face)))
-        (concat string "\n" doc)))
-
-    (defun elisp--var-full-docstring (f sym)
-      "Modify `elisp-get-var-docstring' to return the full docstring."
-      (cl-letf (((symbol-function #'elisp--docstring-first-line)
-                 (lambda (doc) doc)))
-        (when-let ((doc (funcall f sym)))
-          (propertize doc 'face 'font-lock-doc-face))))
-
-    (define-minor-mode eldoc-box-elisp-full-docstring-mode
-      "Minor mode to show the full docstring using `eldoc-box'."
-      :global t
-      :group 'help
-      (if eldoc-box-elisp-full-docstring-mode
-          (progn
-            (advice-add #'elisp-get-fnsym-args-string :around #'elisp--fnsym-add-docstring)
-            (advice-add #'elisp-get-var-docstring :around #'elisp--var-full-docstring))
-        (advice-remove #'elisp-get-fnsym-args-string #'elisp--fnsym-add-docstring)
-        (advice-remove #'elisp-get-var-docstring #'elisp--var-full-docstring))))
-
-  :hook
-  (eldoc-box-hover-mode . eldoc-box-elisp-full-docstring-mode))
-;; (eldoc-mode-hook . eldoc-box-hover-mode))
 
 (use-package which-key
   :defer 19
@@ -2947,95 +2919,6 @@ Include PREFIX in prompt if given."
   :hook
   (Info-selection-hook . info-colors-fontify-node))
 
-;; TODO Fix `eg.el'.
-;; > pip install eg
-;; (use-package eg.el
-;;   :straight (eg.el :host github :repo "mnewt/eg.el")
-;;   :bind
-;;   ("C-h C-e" . eg))
-
-;; (use-package tldr
-;;   :bind
-;;   ("C-h t" . tldr))
-
-;; (use-package consult-dash
-;;   :straight (consult-dash :host github :repo "canatella/consult-dash")
-
-;;   :preface
-;;   (defcustom dash-docs-docset-modes
-;;     '((emacs-lisp-mode . "Emacs Lisp")
-;;       (lisp-interaction-mode . "Emacs Lisp")
-;;       (clojure-mode . "Clojure")
-;;       (clojurescript-mode . "ClojureScript")
-;;       (js-mode . "JavaScript")
-;;       (csharp-mode . "Unity 3D"))
-;;     "Alist mapping major modes to docsets.
-;; If the current major mode is in this list, scope the search to
-;; the corresponding docset."
-;;     :type 'list
-;;     :group 'dash-docs)
-
-;;   (defvar dash-docs-docset-modes)
-
-;;   (defun consult-dash-with-docset (docset &optional initial)
-;;     "Query dash DOCSET.
-;; INITIAL will be used as the initial input, if given."
-;;     (interactive (list (assoc-default major-mode dash-docs-docset-modes)))
-;;     (when docset
-;;       (setq initial (concat docset " " initial)))
-;;     (consult-dash initial))
-
-;;   (defun dash-docs-update-docsets-var (&rest _)
-;;     "Update `dash-docs-common-docsets' variable."
-;;     (setq dash-docs-common-docsets (dash-docs-installed-docsets))
-;;     (dash-docs-reset-connections))
-
-;;   (defun dash-docs-update-all-docsets ()
-;;     "Update all official and unofficial docsets."
-;;     (interactive)
-;;     (pop-to-buffer (get-buffer-create "*dash-docs updates*"))
-;;     (erase-buffer)
-;;     (insert "Updating Dash Docs\n==================\n\n")
-;;     (let ((official-docsets (dash-docs-official-docsets))
-;;           (unofficial-docsets (mapcar 'car (dash-docs-unofficial-docsets))))
-;;       (dolist (d (mapcar (lambda (s) (replace-regexp-in-string " " "_" s))
-;;                          (dash-docs-installed-docsets)))
-;;         (insert (propertize (concat"  " d ": ") 'face 'bold))
-;;         (cond
-;;          ((member d official-docsets)
-;;           (progn (insert "Updating official docset...\n")
-;;                  (dash-docs-install-docset d)))
-;;          ((member d unofficial-docsets)
-;;           (progn (insert "Updating unofficial docset...\n")
-;;                  (dash-docs-install-user-docset d)))
-;;          (t (insert "Skipping manually installed docset...\n")))))
-;;     (dash-docs-update-docsets-var)
-;;     (insert "\n\ndone."))
-
-;;   :custom
-;;   (dash-docs-browser-func #'eww-other-window)
-;;   (dash-docs-enable-debugging nil)
-;;   (dash-docs-docsets-path "~/.config/docsets")
-
-;;   :config
-;;   (make-directory dash-docs-docsets-path t)
-
-;;   (advice-add 'dash-docs--install-docset :after #'dash-docs-update-docsets-var)
-
-;;   (setq dash-docs-common-docsets (dash-docs-installed-docsets))
-
-;;   :bind
-;;   ("M-s-l" . counsel-dash)
-;;   ("C-h C-d" . counsel-dash)
-;;   ("M-s-." . counsel-dash-at-point))
-
-;; (use-package devdocs-lookup
-;;   :straight (devdocs-lookup :host github :repo "skeeto/devdocs-lookup")
-;;   :config
-;;   (devdocs-setup)
-;;   :bind
-;;   ("C-h M-l" . devdocs-lookup))
-
 (use-package atomic-chrome
   :defer 16
   :custom
@@ -3071,10 +2954,6 @@ Include PREFIX in prompt if given."
 ;;              (split-string (apply oldfun r) "[+x]")))))
 ;;   :commands
 ;;   gif-screencast)
-
-;; SICP in Info Format.
-;; (use-package sicp
-;;   :defer t)
 
 (bind-keys
  ("C-h C-i" . elisp-index-search)
@@ -3266,24 +3145,6 @@ Include PREFIX in prompt if given."
   (async-shell-command (mapconcat #'identity (append ipcalc-command (list cidr)) " ")
                        "*ipcalc*"))
 
-(use-package wttrin
-  :custom
-  (wttrin-default-cities '("Albany CA"
-                           "San Francisco CA"
-                           "Austin TX"
-                           "Eugene OR"
-                           "Truckee CA"
-                           "Moon"))
-  (wttrin-default-accept-language '("Accept-Language" . "en-US"))
-  :config
-  (defun advice-delete-other-windows (&rest _)
-    "Advice that will delete other windows."
-    (delete-other-windows))
-
-  (advice-add 'wttrin :before #'advice-delete-other-windows)
-  :bind
-  ("C-c M-w" . wttrin))
-
 
 ;;;;; mnt
 
@@ -3455,8 +3316,6 @@ Wraps on `fill-column' columns."
 (use-package so-long
   :if (>= emacs-major-version 27)
   :defer 11
-  :custom
-  (so-long-threshold 500)
   :config
   (global-so-long-mode))
 
@@ -4213,7 +4072,7 @@ If prefix arg is non-nil, read ssh arguments from the minibuffer."
   (completing-read (or prompt "SSH to Host: ") (list-hosts) nil nil nil ssh-choose-host-history))
 
 (use-package shell
-  :config
+  :preface
   (defun comint-delchar-or-eof-or-kill-buffer (arg)
     "`C-d' on an empty line in the shell terminates the process, accepts ARG.
 
@@ -4490,10 +4349,18 @@ It does this by simply pasting the relevant code in the session."
     ;; Prevent font-locking from being re-enabled in this buffer
     (make-local-variable 'font-lock-function)
     (setq font-lock-function (lambda (_) nil))
-    (add-hook 'comint-preoutput-filter-functions 'xterm-color-filter nil t))
+    (add-hook 'comint-preoutput-filter-functions #'xterm-color-filter nil t))
 
   (defun xterm-color-compilation-filter (f proc string)
     (funcall f proc (xterm-color-filter string)))
+
+  (defun xterm-color-colorize-region (&optional use-overlays)
+    "Like `xterm-color-colorize-buffer' but for a region."
+    (interactive "P")
+    (insert
+     (xterm-color-filter (delete-and-extract-region compilation-filter-start (point))))
+    (when (and xterm-color-render use-overlays)
+      (xterm-color--convert-text-properties-to-overlays compilation-filter-start (point))))
 
   :config
   (setq comint-output-filter-functions
@@ -4502,36 +4369,20 @@ It does this by simply pasting the relevant code in the session."
   (advice-add #'shell-command :after #'xterm-color-shell-command)
   (advice-add #'shell-command-on-region :after #'xterm-color-shell-command)
 
-  ;; (with-eval-after-load 'esh-mode
-  ;;   (add-hook 'eshell-before-prompt-hook
-  ;;             (lambda ()
-  ;;               (setq xterm-color-preserve-properties t)))
-  ;;   (add-to-list 'eshell-preoutput-filter-functions #'xterm-color-filter)
-  ;;   (setq eshell-output-filter-functions
-  ;;         (remove 'eshell-handle-ansi-color eshell-output-filter-functions)))
-
   (with-eval-after-load 'compile
     (defvar compilation-environment)
     (add-to-list 'compilation-environment "TERM=xterm-256color")
 
     ;; Emacs 28 added `compilation-filter-hook' but this is not the way to adapt
-    ;; `xterm-color' to use it.
-    ;; (add-hook 'compilation-filter-hook #'xterm-color-compilation-filter)
+    ;; `xterm-color' to use it. This jumbles up the output somehow.
+    ;; (add-hook 'compilation-filter-hook #'xterm-color-colorize-region))
     (advice-add 'compilation-filter :around #'xterm-color-compilation-filter))
 
   (setenv "TERM" "xterm-256color")
 
   :hook
-  (shell-mode-hook . xterm-color-shell-setup))
-
-(use-package piper
-  :straight (piper :host gitlab :repo "howardabrams/emacs-piper")
-  :init
-  (bind-prefix piper-map "C-c |" "Piper commands")
-  :bind
-  ("C-c | |" . piper)
-  ("C-c | o" . piper-other)
-  ("C-c | r" . piper-remote))
+  (shell-mode-hook . xterm-color-shell-setup)
+  (shell-command-mode-hook . xterm-color-shell-setup))
 
 (defun copy-buffer-file-name ()
   "Copy variable `buffer-file-name' to the kill ring."
