@@ -243,8 +243,8 @@ higher level up to the top level form."
 (defun update ()
   "Run update scripts for the computer and Emacs."
   (interactive)
-  (update-emacs-packages)
-  (update-system-packages))
+  (update-system-packages)
+  (update-emacs-packages))
 
 
 ;;;; Third Party Libraries
@@ -2209,7 +2209,10 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (:map corfu-map
         ;; Remove bindings for C-p and C-n while `corfu' is active.
         ([remap previous-line] . nil)
-        ([remap next-line] . nil)))
+        ([remap next-line] . nil)
+        ;; Don't complete on RET.
+        ("RET" . nil)
+        ("M-RET" . corfu-insert)))
 
 (use-package cape
   :init
