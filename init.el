@@ -1050,17 +1050,17 @@ This sets things up for `window-highlight' and `mode-line'."
       (set-face-attribute 'org-document-title nil :height 1.5)
       (set-face-attribute 'org-level-1 nil :height 1.4)
       (set-face-attribute 'org-level-2 nil :height 1.2)
-      (set-face-attribute 'org-level-3 nil :height 1.1))
-    (with-eval-after-load 'outline
-      (set-face-attribute 'outline-1 nil :height 1.4)
-      (set-face-attribute 'outline-2 nil :height 1.2)
-      (set-face-attribute 'outline-3 nil :height 1.1))
-    (with-eval-after-load 'eldoc-box
-      (set-face-background
-       'eldoc-box-body
-       (color-blend active-bg (theme-face-attribute 'default :foreground) 0.8))))
-  (with-eval-after-load 'mood-line
-    (mood-line--refresh-bar)))
+      (set-face-attribute 'org-level-3 nil :height 1.1))))
+    ;; (with-eval-after-load 'outline
+    ;;   (set-face-attribute 'outline-1 nil :height 1.4)
+    ;;   (set-face-attribute 'outline-2 nil :height 1.2)
+    ;;   (set-face-attribute 'outline-3 nil :height 1.1))))
+    ;; (with-eval-after-load 'eldoc-box
+    ;;   (set-face-background
+    ;;    'eldoc-box-body
+    ;;    (color-blend active-bg (theme-face-attribute 'default :foreground) 0.8))))
+  ;; (with-eval-after-load 'mood-line
+  ;;   (mood-line--refresh-bar)))
 
 (advice-add #'load-theme :before #'theme-reset)
 (advice-add #'load-theme :after #'theme-customize-faces)
@@ -1554,14 +1554,19 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
     (persp-switch "main"))
 
   :config
-  ;; Create `persp-switch-to-X' and key bindings.
+  (defun persp-switch-to-number ()
+    "Switch a perspective by number.
+
+Use the number in the invoking key sequence to switch to the
+corresponding perspetive.
+
+For example, `H-1' will switch to the first perspective, `H-2' to the second."
+    (interactive)
+    (persp-switch-by-number
+     (string-to-number (substring (key-description (this-command-keys)) -1))))
+
   (dolist (n (number-sequence 1 9))
-    (let ((f (intern (format "persp-switch-to-%d" n))))
-      (eval `(defun ,f ()
-               ,(format "Switch to perspective number %d." n)
-               (interactive)
-               (persp-switch-by-number ,n)))
-      (bind-key (format "H-%d" n) f persp-mode-map)))
+    (bind-key (format "H-%d" n) #'persp-switch-to-number persp-mode-map))
 
   :custom
   ;; The old prefix, "C-x x", is used by Emacs starting with 28.
@@ -4893,7 +4898,7 @@ and FILE is the cons describing the file."
                           'file-name (expand-file-name
                                       (substring-no-properties name)
                                       default-directory)
-                          'rear-nonsnticky '(keymap mouse-face file-name))
+                          'rear-nonsticky '(keymap mouse-face file-name))
               (when (and suffix (not (string-suffix-p suffix name)))
                 (propertize suffix 'face 'shadow)))))
 
