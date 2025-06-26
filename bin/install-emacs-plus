@@ -16,8 +16,8 @@ prompt_confirm() {
   done
 }
 
-emacs="emacs-plus@30"
-options="--with-native-comp"
+emacs="emacs-plus@31"
+options=""
 destination="/Applications"
 dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2 tree-sitter"
 

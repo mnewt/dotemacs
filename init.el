@@ -180,13 +180,13 @@ If VARS is not specified, use `env-cache-vars'."
         use-package-compute-statistics t
         debug-on-error t))
 
-(use-package benchmark-init
-  :if init-file-debug
-  :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
-  :demand t
-  :hook
-  ;; To disable collection of benchmark data after init is done.
-  (emacs-startup-hook . benchmark-init/deactivate))
+;; (use-package benchmark-init
+;;   :if init-file-debug
+;;   :straight (benchmark-init :host github :repo "kekeimiku/benchmark-init-el")
+;;   :demand t
+;;   :hook
+;;   ;; To disable collection of benchmark data after init is done.
+;;   (emacs-startup-hook . benchmark-init/deactivate))
 
 ;;;;; Additional Package Management Configuration
 
@@ -660,7 +660,7 @@ then choose the next key in the Alist `fiat-themes'."
   :config
   (window-highlight-mode))
 
-(defun color-blend (color1 color2 alpha)
+(defun color-blend-hex (color1 color2 alpha)
   "Blends COLOR1 onto COLOR2 with ALPHA.
 COLOR1 and COLOR2 should be color names (e.g. \"white\") or RGB
 triplet strings (e.g. \"#ff12ec\").
@@ -717,11 +717,6 @@ Set `ring-bell-function' to this to use it."
   (modus-themes-slanted-constructs t)
   (modus-themes-bold-constructs t)
   (modus-themes-intense-paren-match 'intense))
-  ;; :config
-  ;; (set-face-background 'mode-line-buffer-id
-  ;;                      (color-blend (theme-face-attribute 'mode-line :background)
-  ;;                                   (theme-face-attribute 'highlight :background)
-  ;;                                   0.5)))
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
@@ -1033,9 +1028,9 @@ This sets things up for `window-highlight' and `mode-line'."
   (let* ((active-bg (or (theme-face-attribute 'default :background)
                         (if (eq (frame-parameter nil 'background-mode) 'light)
                             "#FFF" "#000")))
-         (inactive-bg (color-blend active-bg
-                                   (theme-face-attribute 'default :foreground)
-                                   0.95)))
+         (inactive-bg (color-blend-hex active-bg
+                                       (theme-face-attribute 'default :foreground)
+                                       0.95)))
     ;; cursor
     (set-face-background 'cursor "magenta")
     ;; mode-line
@@ -1058,7 +1053,7 @@ This sets things up for `window-highlight' and `mode-line'."
     ;; (with-eval-after-load 'eldoc-box
     ;;   (set-face-background
     ;;    'eldoc-box-body
-    ;;    (color-blend active-bg (theme-face-attribute 'default :foreground) 0.8))))
+    ;;    (color-blend-hex active-bg (theme-face-attribute 'default :foreground) 0.8))))
   ;; (with-eval-after-load 'mood-line
   ;;   (mood-line--refresh-bar)))
 
@@ -1604,7 +1599,6 @@ For example, `H-1' will switch to the first perspective, `H-2' to the second."
 ;; Create friendly names for buffers with the same name
 (setq uniquify-buffer-name-style 'forward
       uniquify-separator "/"
-      uniquify-after-kill-buffer-p t
       uniquify-ignore-buffers-re "^\\*")
 
 ;; scratch
@@ -2416,7 +2410,7 @@ It is always buffer local.")
 
 See: https://github.com/mnewt/psync"
   (interactive)
-  (when-let ((default-directory (and (not (file-remote-p default-directory))
+  (when-let* ((default-directory (and (not (file-remote-p default-directory))
                                      (locate-dominating-file default-directory
                                                              "psync_config"))))
     (setq psync-directory default-directory)
@@ -2463,7 +2457,7 @@ See: https://github.com/mnewt/psync"
   (setq delete-by-moving-to-trash t)
   (osx-trash-setup))
 
-(defun reveal-file (&optional _file)
+(defun os-reveal-file (&optional _file)
   "Reveal FILE using the operating system's GUI file browser."
   (interactive)
   (cl-case system-type
@@ -2495,7 +2489,7 @@ With a prefix ARG always prompt for command to use."
   (shell-command-to-string (format "printf %%s \"$(brew --prefix %s)\"" package)))
 
 (bind-keys
- ("C-c O" . reveal-file))
+ ("C-c o" . os-reveal-file))
 
 
 ;;;; Dired
@@ -2503,6 +2497,8 @@ With a prefix ARG always prompt for command to use."
 (use-package dired-rainbow
   :defer 4
   :config
+  ;; FIXME Would be nice if flymake didn't complain about these macros being
+  ;; malformed functions.
   (dired-rainbow-define-chmod directory "#0074d9" "d.*")
   (dired-rainbow-define html "#eb5286"
                         ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht"
@@ -2534,7 +2530,7 @@ With a prefix ARG always prompt for command to use."
   (dired-rainbow-define interpreted "#38c172"
                         ("clj" "cljc" "cljs" "cljx" "edn" "fnl" "gd" "hy"
                          "ipynb" "js" "jsx" "lua" "msql" "mysql" "pgsql" "pl"
-                         "ps1" "py" "scala" "sql" "r" "rb" "t"))
+                         "ps1" "py" "scala" "sql" "r" "rb" "t" "vbs"))
   (dired-rainbow-define compiled "#6cb2eb"
                         ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                          "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
@@ -2895,9 +2891,9 @@ Include PREFIX in prompt if given."
   (Man-notify-method 'aggressive)
   :config
   (set-face-attribute 'Man-overstrike nil
-                      :inherit font-lock-type-face :weight 'bold :height 1.1)
+                      :inherit 'font-lock-type-face :weight 'bold :height 1.1)
   (set-face-attribute 'Man-underline nil
-                      :inherit font-lock-keyword-face :underline t)
+                      :inherit 'font-lock-keyword-face :underline t)
   :bind
   ("C-h C-m" . man))
 
@@ -4446,7 +4442,6 @@ It does this by simply pasting the relevant code in the session."
 
 ;;;; Eshell
 
-;; TODO: Un-break this eshell config in Emacs 30
 (use-package eshell
   :defer 29
   :custom
@@ -4492,30 +4487,12 @@ It does this by simply pasting the relevant code in the session."
         (eshell)
         (message (number-to-string arg)))))
 
-  (defun eshell-create-send (cmd &optional name)
-    "Create an eshell buffer named NAME and run CMD in it."
-    (let ((eshell-buffer-name (or name cmd)))
-      (eshell))
-    (insert cmd)
-    (eshell-queue-input))
-
-  (defun eshell-vertical-create-send (cmd &optional name)
-    "Create an eshell buffer named NAME and run CMD in it.
-    Split the window vertically."
-    (split-window-vertically)
-    (eshell-create-send cmd name))
-
-  (defun eshell-create-in-background ()
-    "Create a new Eshell buffer but don't display it."
-    (let ((eshell-buffer-name (generate-new-buffer "*Eshell*")))
-      (save-window-excursion (eshell))))
-
   (defun eshell-get-or-create ()
     "Get or create an Eshell buffer."
     (interactive)
     (or (unless current-prefix-arg
           (car (filter-buffers-by-mode 'eshell-mode)))
-        (eshell-create-in-background)))
+        (save-window-excursion (eshell))))
 
   (defun eshell-switch-to-buffer ()
     "Switch to the most recent Eshell buffer or create a new one.)))
@@ -5132,7 +5109,7 @@ maintain an Apple ARM binary."
   (let (symbols)
     (mapatoms
      (lambda (symbol)
-       (when-let ((advices (advice-functions-on-symbol symbol)))
+       (when-let* ((advices (advice-functions-on-symbol symbol)))
          (push (cons symbol advices) symbols))))
     symbols))
 
@@ -6864,6 +6841,14 @@ With a prefix ARG, create it in `org-directory'."
   :straight (:host github :repo "shankar2k/math-at-point")
   :bind
   ("C-c C-=" . math-at-point))
+
+(use-package copilot-chat
+  :straight (:host github :repo "chep/copilot-chat.el" :files ("*.el"))
+  :after (request org markdown-mode))
+
+(use-package copilot
+  :straight (:host github :repo "copilot-emacs/copilot.el" :files ("*.el"))
+  :ensure t)
 
 
 ;;;; Hydra
