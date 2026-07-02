@@ -17,21 +17,48 @@ prompt_confirm() {
 }
 
 emacs="emacs-plus@31"
-options=""
+options="--with-c9rgreen-sonoma-icon"
 destination="/Applications"
 dependencies="gcc libgccjit jq gnutls librsvg libxml2 little-cms2 tree-sitter"
 
-install-parinfer-rust-library
+# Uninstall previous versions.
+formulae="$(brew list --formula --full-name | grep -E '(^|/)emacs-plus(@|$)' || true)"
+if [[ -z "${formulae}" ]]; then
+  echo "No emacs-plus formulae are installed."
+else
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    echo ""
+    echo "📦 Target: $f"
+    echo "  (Installed versions: $(brew list --versions "$f" || echo 'unknown'))"
+    echo "  Unpinning (if pinned)…"
+    brew unpin "$f" >/dev/null 2>&1 || true
+
+    echo "  Uninstalling ALL versions…"
+    brew uninstall --force --ignore-dependencies "$f"
+
+    echo "  Cleaning up cellar/cache for this formula…"
+    brew cleanup -s "$f" || true
+  done <<< "$formulae"
+fi
+
 brew install $dependencies || brew upgrade $dependencies
 brew tap d12frosted/emacs-plus
-brew uninstall $emacs || true
 brew install $emacs $options
+
 # If it's not a symlink, it's best that this error out and we can figure it out
 # manually.
 rm "$destination/Emacs.app" || true
+
 # Copied from the `homebrew-emacs-plus` install instructions.
 osascript -e "tell application \"Finder\" to make alias file to posix file \"$(brew --prefix $emacs)/Emacs.app\" at POSIX file \"$destination\" with properties {name:\"Emacs.app\"}"
 # ln -s "$(brew --prefix $emacs)/Emacs.app" "$destination"
+
+# Tell Emacs where to find source (this is picked up in init.el).
+mkdir -p "$HOME/.emacs.d/var"
+echo "$(brew --cache)/$emacs--git" >"$HOME/.emacs.d/var/source-directory"
+
+# Optionally delete native comp cache and packages.
 prompt_confirm "Remove $HOME/.emacs.d/{eln-cache,straight}?" &&
   rm -rf $HOME/.emacs.d/{eln-cache,straight}
 

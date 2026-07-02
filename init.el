@@ -286,12 +286,10 @@ higher level up to the top level form."
          w32-pass-rwindow-to-system nil
          w32-rwindow-modifier 'super)))
 
-;; If Emacs was built using Homebrew and the sources are gone, then try to find
-;; them elsewhere.
-(when (file-directory-p "~/.emacs.d/emacs")
-  (setq source-directory "~/.emacs.d/emacs"))
-(when (file-directory-p "~/Library/Caches/Homebrew/emacs-plus@30--git")
-  (setq source-directory "~/Library/Caches/Homebrew/emacs-plus@30--git"))
+;; Set `source-directory' (file generated at build time).
+(let ((f "~/.emacs.d/var/source-directory"))
+  (when (file-exists-p f)
+    (setq source-directory (string-trim (f-read-text f)))))
 
 
 ;;;; Bindings
@@ -717,6 +715,8 @@ Set `ring-bell-function' to this to use it."
   (modus-themes-slanted-constructs t)
   (modus-themes-bold-constructs t)
   (modus-themes-intense-paren-match 'intense))
+  ;; :config
+  ;; (setq modus-themes-common-palette-overrides modus-themes-preset-overrides-intense))
 
 (defun shorten-file-name (file-name &optional max-length)
   "Shorten FILE-NAME to no more than MAX-LENGTH characters."
@@ -764,259 +764,6 @@ Set `ring-bell-function' to this to use it."
   :hook
   (after-init-hook . doom-modeline-mode))
 
-;; (use-package mood-line
-;;   :demand t
-;;   :custom
-;;   (mood-line-format
-;;    (mood-line-defformat
-;;     :left
-;;     (((or (mood-line-segment-buffer-status) " ") . " ")
-;;      ((mood-line-segment-buffer-name)            . "  ")
-;;      ((mood-line-segment-multiple-cursors)       . "  "))
-;;     :right
-;;     (((mood-line-segment-vc)         . "  ")
-;;      ((mood-line-segment-major-mode) . "  ")
-;;      ((mood-line-segment-misc-info)  . "  ")
-;;      ((mood-line-segment-checker)    . "  ")
-;;      ((mood-line-segment-process)    . "  "))))
-;;   :preface
-;;   (defvar mood-line-selected-window (frame-selected-window)
-;;     "Selected window.")
-
-;;   (defun mood-line--set-selected-window ()
-;;     "Set the variable `fiat-selected-window' appropriately.
-;; This is used to determine whether the current window is active."
-;;     (unless (minibuffer-window-active-p (frame-selected-window))
-;;       (setq mood-line-selected-window (frame-selected-window))
-;;       (force-mode-line-update)))
-
-;;   (defun mood-line-window-active-p ()
-;;     "Return whether the current window is active."
-;;     (eq mood-line-selected-window (selected-window)))
-
-;;   (defun mood-line-segment-hostname ()
-;;     "Return the remote hostname for the current buffer.
-;; Return nil if the buffer is local."
-;;     (when (file-remote-p default-directory)
-;;       (let* ((dissected (tramp-dissect-file-name default-directory)))
-;;         (concat
-;;          (when-let* ((user (tramp-file-name-user dissected))
-;;                      (face (if (string= user "root") 'error 'warning)))
-;;            (propertize (concat " " user " ") 'face face))
-;;          (propertize (concat " " (tramp-file-name-host dissected) " ")
-;;                      'face 'highlight)))))
-
-;;   (defun mood-line--make-xpm (face width height)
-;;     "Create an XPM bitmap via FACE, WIDTH and HEIGHT.
-
-;; Inspired by `powerline''s `pl/make-xpm'."
-;;     (when (and (display-graphic-p)
-;;                (image-type-available-p 'xpm))
-;;       (propertize
-;;        " " 'display
-;;        (let ((data (make-list height (make-list width 1)))
-;;              (color (or (face-background face nil t) "None")))
-;;          (ignore-errors
-;;            (create-image
-;;             (concat
-;;              (format
-;;               "/* XPM */\nstatic char * percent[] = {\n\"%i %i 2 1\",\n\". c %s\",\n\"  c %s\","
-;;               (length (car data)) (length data) color color)
-;;              (apply #'concat
-;;                     (cl-loop with idx = 0
-;;                              with len = (length data)
-;;                              for dl in data
-;;                              do (cl-incf idx)
-;;                              collect
-;;                              (concat
-;;                               "\""
-;;                               (cl-loop for d in dl
-;;                                        if (= d 0) collect (string-to-char " ")
-;;                                        else collect (string-to-char "."))
-;;                               (if (eq idx len) "\"};" "\",\n")))))
-;;             'xpm t :ascent 'center))))))
-
-;;   (defvar mood-line-height 24
-;;     "The height of the mode-line in pixels.")
-
-;;   (defun mood-line--refresh-bar ()
-;;     "Refresh the bar."
-;;     (setq mood-line-bar (mood-line--make-xpm 'mode-line 1 mood-line-height)))
-
-;;   (defvar mood-line-bar (mood-line--refresh-bar)
-;;     "A bar to increase the height of the mode-line.
-
-;; Inspired by `doom-modeline'.")
-
-;;   (defun mood-line-segment-bar ()
-;;     "Display a bar."
-;;     mood-line-bar)
-
-;;   (defvar-local mood-line-buffer-name nil
-;;     "The buffer name as displayed in `mood-line'.")
-
-;;   (defun mood-line--refresh-buffer-name (&rest _)
-;;     "Refresh the buffer name."
-;;     (setq-local mood-line-buffer-name
-;;                 (propertize
-;;                  (concat " " (shorten-file-name (format-mode-line "%b")) " ")
-;;                  'face 'mode-line-buffer-id)))
-
-;;   (defun mood-line-segment-buffer-name ()
-;;     "Displays the name of the current buffer in the mode-line."
-;;     mood-line-buffer-name)
-
-;;   (defun mood-line-segment-modified ()
-;;     "Displays a color-coded buffer modification/read-only indicator in the mode-line."
-;;     (when (and buffer-file-name
-;;                (not (string-match-p "\\*.*\\*" (buffer-name)))
-;;                (buffer-modified-p))
-;;       "● "))
-
-;;   (defun mood-line-segment-flymake ()
-;;     "Display flymake information in the mode-line (if available)."
-;;     (when (and (mood-line-window-active-p) (bound-and-true-p flymake-mode))
-;;       (list (flymake--mode-line-counters) " ")))
-
-;;   ;; (defvar flycheck-current-errors)
-
-;;   ;; (defun mood-line--update-flycheck-segment (&optional status)
-;;   ;;   "Update `mood-line--flycheck-text' against the reported flycheck STATUS."
-;;   ;;   (setq mood-line--flycheck-text
-;;   ;;         (pcase status
-;;   ;;           ('finished (if flycheck-current-errors
-;;   ;;                          (let-alist (flycheck-count-errors flycheck-current-errors)
-;;   ;;                            (let ((sum (+ (or .error 0) (or .warning 0))))
-;;   ;;                              (propertize (concat ;"⚑"
-;;   ;;                                           (number-to-string sum)
-;;   ;;                                           " ")
-;;   ;;                                          'face (if .error
-;;   ;;                                                    'mood-line-status-error
-;;   ;;                                                  'mood-line-status-warning))))
-;;   ;;                        (propertize "✔ " 'face 'mood-line-status-success)))
-;;   ;;           ('running (propertize "⧖ " 'face 'mood-line-status-info))
-;;   ;;           ('errored (propertize "✖ " 'face 'mood-line-status-error))
-;;   ;;           ('interrupted (propertize "❙❙ " 'face 'mood-line-status-neutral))
-;;   ;;           ('no-checker ""))))
-
-;;   ;; (defun mood-line-segment-flycheck ()
-;;   ;;   "Display color-coded flycheck information in the mode-line (if available)."
-;;   ;;   (when (mood-line-window-active-p) mood-line--flycheck-text))
-
-;;   ;; (defun mood-line-segment-misc-info ()
-;;   ;;   "Display the current value of `mode-line-misc-info' in the mode-line."
-;;   ;;   (when (mood-line-window-active-p)
-;;   ;;     (apply #'concat
-;;   ;;            (mapcar (lambda (e)
-;;   ;;                      (let ((s (format-mode-line (cadr e))))
-;;   ;;                        (if (string-blank-p s)
-;;   ;;                            ""
-;;   ;;                          (concat (string-trim s) " "))))
-;;   ;;                    mode-line-misc-info))))
-
-;;   (defun mood-line-segment-project-directory ()
-;;     "Display the project name."
-;;     (when (and (not (file-remote-p default-directory))
-;;                (mood-line-window-active-p)
-;;                (project-current))
-;;       (propertize (concat " " (file-name-nondirectory
-;;                                (directory-file-name
-;;                                 (project-root (project-current t)))) " ")
-;;                   'face 'font-lock-variable-name-face)))
-
-;;   (defun mood-line-pyvenv-info ()
-;;     "When inside a Python venv project, display its name."
-;;     (when (boundp 'pyvenv-virtual-env)
-;;       (setf (alist-get 'pyvenv mode-line-misc-info)
-;;             (list (when pyvenv-virtual-env
-;;                     (concat "pyvenv:" pyvenv-virtual-env-name))))))
-
-;;   (defun outline-minor-mode-info ()
-;;     "Display an indicator when `outline-minor-mode' is enabled."
-;;     (setf (alist-get 'outline-minor-mode mode-line-misc-info)
-;;           (list (when (bound-and-true-p outline-minor-mode) "o"))))
-
-;;   (defun edebug-mode-info (_symbol newval _operation _where)
-;;     "Display an indicator when `edebug' is active.
-
-;; Watches `edebug-active' and sets the mode-line when it changes."
-;;     (setf (alist-get 'edebug-mode mode-line-misc-info)
-;;           (list (when newval "ED"))))
-
-;;   (add-variable-watcher 'edebug-active #'edebug-mode-info)
-
-;;   (defun narrowed-info (&optional _start _end)
-;;     "Display an indicator when the buffer is narrowed."
-;;     (setf (alist-get 'buffer-narrowed mode-line-misc-info)
-;;           (list (when (buffer-narrowed-p) "n"))))
-
-;;   (defun parinfer-rust-mode-info (&optional _mode)
-;;     "Display an indicator when `parinfer-rust-mode' is enabled."
-;;     (when (bound-and-true-p parinfer-rust-mode)
-;;       (setf (alist-get 'parinfer-rust-mode mode-line-misc-info)
-;;             (list (concat "(" (substring parinfer-rust--mode 0 1) ") ")))))
-
-;;   (defun hs-minor-mode-info ()
-;;     "Display an indicator when `hs-minor-mode' is enabled."
-;;     (setf (alist-get 'hs-minor-mode mode-line-misc-info)
-;;           (list (when (bound-and-true-p hs-minor-mode) '"hs"))))
-
-;;   (defun mood-line-segment-major-mode ()
-;;     "Displays the current major mode in the mode-line."
-;;     (when (mood-line-window-active-p)
-;;       (propertize (concat " " (format-mode-line mode-name) " ")
-;;                   'face (if (mood-line-window-active-p)
-;;                             'mode-line-emphasis
-;;                           'mode-line))))
-
-;;   ;; (defun mood-line--format (left right)
-;;   ;;   "Return a string of `window-width' length containing LEFT and RIGHT, aligned respectively."
-;;   ;;   (concat
-;;   ;;    left
-;;   ;;    " "
-;;   ;;    (propertize " " 'display `((space :align-to (- right ,(1- (length right))))))
-;;   ;;    right))
-
-;;   :config
-;;   (mood-line-mode))
-
-;; (setq-default mode-line-format
-;;               '((:eval
-;;                  (mood-line--format
-;;                   ;; Left
-;;                   (format-mode-line
-;;                    '((:eval (mood-line-segment-bar))
-;;                      (:eval (mood-line-segment-hostname))
-;;                      (:eval (mood-line-segment-buffer-name))
-;;                      (:eval (mood-line-segment-modified))
-;;                      (:eval (mood-line-segment-major-mode))
-;;                      (:eval (mood-line-segment-multiple-cursors))))
-;;                   ;; Right
-;;                   (format-mode-line
-;;                    '((:eval (mood-line-segment-process))
-;;                      (:eval (mood-line-segment-project-directory))
-;;                      (:eval (mood-line-segment-flymake))
-;;                      (:eval (mood-line-segment-misc-info))))))))
-
-;; :hook
-;; (hs-minor-mode-hook . hs-minor-mode-info)
-;; (parinfer-rust-mode-hook . parinfer-rust-mode-info)
-;; ;; This is the only way I've found to update parinfer when changing buffers
-;; ;; and windows.
-;; (window-state-change-hook . parinfer-rust-mode-info)
-;; ;; npostavs suggests hooking `post-command-hook'.
-;; ;; https://emacs.stackexchange.com/questions/33288
-;; (post-command-hook . narrowed-info)
-;; (outline-minor-mode-hook . outline-minor-mode-info)
-;; (post-command-hook . mood-line-pyvenv-info)
-;; (buffer-list-update-hook . mood-line--refresh-buffer-name)
-;; (window-configuration-change-hook . mood-line--refresh-buffer-name)
-;; (after-set-visited-file-name-hook . mood-line--refresh-buffer-name)
-;; ;; Executes after a window (not a buffer) has been created, deleted, or moved.
-;; (window-configuration-change-hook . mood-line--set-selected-window)
-;; ;; Executes after the `buffer-list' changes.
-;; (buffer-list-update-hook . mood-line--set-selected-window))
-
 (defun theme-reset (&rest _)
   "Remove all current themes before loading a new theme."
   (mapc #'disable-theme custom-enabled-themes))
@@ -1035,6 +782,7 @@ This sets things up for `window-highlight' and `mode-line'."
     (set-face-background 'cursor "magenta")
     ;; mode-line
     (set-face-attribute 'mode-line nil :box nil)
+    (set-face-attribute 'mode-line-active nil :box nil)
     (set-face-attribute 'mode-line-inactive nil :box nil)
     (with-eval-after-load 'window-highlight
       (set-face-background 'default inactive-bg)
@@ -1491,28 +1239,10 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 
   :config
   (winum-mode)
-
-  :bind
-  ("s-1" . winum-select-window-1)
-  ("C-c 1" . winum-select-window-1)
-  ("s-2" . winum-select-window-2)
-  ("C-c 2" . winum-select-window-2)
-  ("s-3" . winum-select-window-3)
-  ("C-c 3" . winum-select-window-3)
-  ("s-4" . winum-select-window-4)
-  ("C-c 4" . winum-select-window-4)
-  ("s-5" . winum-select-window-5)
-  ("C-c 5" . winum-select-window-5)
-  ("s-6" . winum-select-window-6)
-  ("C-c 6" . winum-select-window-6)
-  ("s-7" . winum-select-window-7)
-  ("C-c 7" . winum-select-window-7)
-  ("s-8" . winum-select-window-8)
-  ("C-c 8" . winum-select-window-8)
-  ("s-9" . winum-select-window-9)
-  ("C-c 9" . winum-select-window-9)
-  ("s-0" . winum-select-window-0)
-  ("C-c 0" . winum-select-window-0))
+  ;; Switch a window by number.
+  ;; For example, `H-1' will switch to the first window, `H-2' to the second.
+  (dolist (n (number-sequence 1 9))
+    (bind-key (format "H-%d" n) (intern (format "winum-select-window-%d" n)) winum-keymap)))
 
 (use-package perspective
   :preface
@@ -1548,6 +1278,11 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
     (interactive)
     (persp-switch "main"))
 
+  (defun persp-switch-to-work ()
+    "Switch to the Work perspective."
+    (interactive)
+    (persp-switch "work"))
+
   :config
   (defun persp-switch-to-number ()
     "Switch a perspective by number.
@@ -1555,13 +1290,13 @@ Idea stolen from https://github.com/arnested/bug-reference-github."
 Use the number in the invoking key sequence to switch to the
 corresponding perspetive.
 
-For example, `H-1' will switch to the first perspective, `H-2' to the second."
+For example, `s-1' will switch to the first perspective, `s-2' to the second."
     (interactive)
     (persp-switch-by-number
      (string-to-number (substring (key-description (this-command-keys)) -1))))
 
   (dolist (n (number-sequence 1 9))
-    (bind-key (format "H-%d" n) #'persp-switch-to-number persp-mode-map))
+    (bind-key (format "s-%d" n) #'persp-switch-to-number persp-mode-map))
 
   :custom
   ;; The old prefix, "C-x x", is used by Emacs starting with 28.
@@ -1590,6 +1325,7 @@ For example, `H-1' will switch to the first perspective, `H-2' to the second."
         ("C-s-]" . persp-next)
         ("s-o" . persp-switch-to-org)
         ("s-m" . persp-switch-to-main)
+        ("s-i" . persp-switch-to-work)
         ("s-;" . persp-switch)
         ("M-s-p" . persp-switch))
   (:map perspective-map
@@ -2017,11 +1753,6 @@ https://github.com/typester/emacs/blob/master/lisp/progmodes/which-func.el."
   (consult-async-min-input 2)
 
   :config
-  ;; Don't preview TRAMP buffers.
-  ;; https://github.com/minad/consult/wiki#do-not-preview-exwm-windows-or-tramp-buffers
-  (setq consult--source-buffer
-        (plist-put consult--source-buffer :state #'consult-buffer-state-no-tramp))
-
   (with-eval-after-load 'org
     (bind-key "M-g o" #'consult-org-heading org-mode-map))
 
@@ -2529,8 +2260,8 @@ With a prefix ARG always prompt for command to use."
                         ("awk" "bash" "bat" "fish" "sed" "sh" "zsh" "vim"))
   (dired-rainbow-define interpreted "#38c172"
                         ("clj" "cljc" "cljs" "cljx" "edn" "fnl" "gd" "hy"
-                         "ipynb" "js" "jsx" "lua" "msql" "mysql" "pgsql" "pl"
-                         "ps1" "py" "scala" "sql" "r" "rb" "t" "vbs"))
+                         "ipynb" "js" "jsx" "lua" "msql" "mysql" "pgsql" "php"
+                         "pl" "ps1" "py" "scala" "sql" "r" "rb" "t" "vbs"))
   (dired-rainbow-define compiled "#6cb2eb"
                         ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp"
                          "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn"
@@ -2749,7 +2480,7 @@ ERR and IND are ignored."
 (setq disabled-command-function nil)
 
 ;; Change yes/no prompts to y/n
-(defalias 'yes-or-no-p 'y-or-n-p)
+;; (defalias 'yes-or-no-p 'y-or-n-p)
 
 ;; Customize `simple'.
 (custom-set-variables
@@ -2810,6 +2541,8 @@ ERR and IND are ignored."
 
 (use-package eldoc
   :defer 20
+  :custom
+  (eldoc-help-at-pt t)
   :config
   (global-eldoc-mode))
 
@@ -3426,46 +3159,9 @@ Adapted from http://whattheemacsd.com/my-misc.el-02.html."
 ;; TODO Make this useful.
 (use-package treesit
   :straight (:type built-in)
-  :preface
-  (defun treesit-install-all-language-grammars ()
-    "Install all language grammars."
-    (interactive)
-    (view-buffer-other-window "*Messages*")
-    (mapc #'treesit-install-language-grammar
-          (mapcar #'car treesit-language-source-alist)))
-
-  :config
-  (setq treesit-language-source-alist
-        '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-          (cmake "https://github.com/uyha/tree-sitter-cmake")
-          (css "https://github.com/tree-sitter/tree-sitter-css")
-          (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-          (go "https://github.com/tree-sitter/tree-sitter-go")
-          (html "https://github.com/tree-sitter/tree-sitter-html")
-          (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-          (json "https://github.com/tree-sitter/tree-sitter-json")
-          (make "https://github.com/alemuller/tree-sitter-make")
-          (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-          (php "https://github.com/tree-sitter/tree-sitter-php" "master" "php/src")
-          (python "https://github.com/tree-sitter/tree-sitter-python")
-          (rust "https://github.com/tree-sitter/tree-sitter-rust")
-          (toml "https://github.com/tree-sitter/tree-sitter-toml")
-          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-          (yaml "https://github.com/ikatyang/tree-sitter-yaml")))
-
-  (setq treesit-load-name-override-list
-        '((js "libtree-sitter-js" "tree_sitter_javascript")))
-
-  (setq major-mode-remap-alist
-        '((yaml-mode . yaml-ts-mode)
-          (sh-mode . bash-ts-mode)
-          (bash-mode . bash-ts-mode)
-          (js2-mode . js-ts-mode)
-          (typescript-mode . typescript-ts-mode)
-          (json-mode . json-ts-mode)
-          (css-mode . css-ts-mode)
-          (python-mode . python-ts-mode))))
+  :custom
+  (treesit-auto-install-grammar 'always)
+  (treesit-enabled-modes t))
 
 ;; TODO
 ;; (use-package combobulate)
@@ -3842,9 +3538,9 @@ See https://github.com/Fuco1/smartparens/issues/80."
   ("C-M-;" . evilnc-comment-or-uncomment-paragraphs)
   ("C-s-;" . evilnc-quick-comment-or-uncomment-to-the-line))
 
-(use-package ws-butler
-  :hook
-  (prog-mode-hook . ws-butler-mode))
+;; (use-package ws-butler
+;;   :hook
+;;   (prog-mode-hook . ws-butler-mode))
 
 (defun clipboard-yank-and-indent ()
   "Yank and then indent the newly formed region according to mode."
@@ -5043,15 +4739,8 @@ If AND-MEM is non-nil, profile memory as well."
 ;;   ((emacs-lisp-mode-hook lisp-interaction-mode-hook reb-mode-hook) . rxt-mode))
 
 (use-package parinfer-rust-mode
-  :preface
-  (defun parinfer-rust-install-library ()
-    "Build the library using `cargo' and put it in place.
-This is necessary because
-https://github.com/justinbarclay/parinfer-rust-mode doesn't
-maintain an Apple ARM binary."
-    (interactive)
-    (compile "~/.emacs.d/bin/install-parinfer-rust-library"))
-
+  :custom
+  (parinfer-rust-auto-download t)
   :hook
   ((clojure-mode-hook
     emacs-lisp-mode-hook
@@ -5818,69 +5507,7 @@ Open the `eww' buffer in another window."
   (emacs-lisp-mode-hook . package-lint-flymake-setup))
 
 (use-package eglot
-  :preface
-  (defun eglot-maybe-ensure ()
-    "Conditionally invoke `eglot-ensure'."
-    (unless (file-remote-p (buffer-file-name))
-      (eglot-ensure)))
-  :hook
   (eglot-mode-hook . eglot-inlay-hints-mode))
-
-;; (use-package lsp-mode
-;;   :custom
-;;   (lsp-enable-snippet t)
-;;   (lsp-auto-guess-root t)
-;;   (lsp-before-save-edits t)
-;;   (lsp-progress-via-spinner nil)
-
-;;   :config
-;;   ;; Support reading large blobs of data from lsp servers.
-;;   (setq read-process-output-max 1048576) ; 1mb
-;;   ;; Ensure `flymake' is used instead of `flycheck'.
-;;   (setq lsp-diagnostics-provider :flymake)
-
-;;   (defun lsp-reset-mode-line-process ()
-;;     "Reset `mode-line-process' manually after lsp screws it up."
-;;     (interactive)
-;;     (setq mode-line-process nil))
-
-;;   :hook
-;;   (lsp-after-open-hook . lsp-enable-imenu)
-;;   (lsp-mode-hook . lsp-enable-which-key-integration)
-
-;;   :bind
-;;   (:map lsp-mode-map
-;;         ("s-l p" . lsp-reset-mode-line-process)
-;;         ("C-h ." . lsp-describe-thing-at-point)))
-
-;; (use-package lsp-ui
-;;   :custom
-;;   (lsp-ui-doc-position 'top)
-;;   :hook
-;;   (lsp-mode-hook . lsp-ui-mode)
-;;   :bind
-;;   (:map lsp-ui-mode-map
-;;         ("M-." . lsp-ui-peek-find-definitions)
-;;         ("M-?" . lsp-ui-peek-find-references))
-;;   (:map lsp-ui-peek-mode-map
-;;         ("<return>" . lsp-ui-peek--goto-xref)
-;;         ("M-/" . lsp-ui-peek--goto-xref))
-;;   (:map lsp-command-map
-;;         ("i" . lsp-ui-imenu)))
-
-;; (use-package lsp-ivy
-;;   :commands
-;;   lsp-ivy-workspace-symbol
-;;   lsp-ivy-global-workspace-symbol)
-
-;; (use-package lsp-treemacs
-;;   :bind
-;;   ("S-l \\'" . lsp-treemacs-symbols))
-
-;; (use-package consult-lsp
-;;   :bind
-;;   (:map lsp-mode-map
-;;         ([remap xref-find-apropos] . consult-lsp-symbols)))
 
 ;; TODO Make this something worth using. See also the competing
 ;; https://github.com/realgud/realgud, which is an Emacs package to interface
@@ -6149,7 +5776,7 @@ This package sets these explicitly so we have to do the same."
 (use-package ruby-mode
   :mode "\\(?:\\.rb\\|ru\\|rake\\|thor\\|jbuilder\\|gemspec\\|podspec\\|/\\(?:Gem\\|Rake\\|Cap\\|Thor\\|Vagrant\\|Guard\\|Pod\\)file\\)\\'"
   :hook
-  (ruby-mode-hook . eglot-maybe-ensure))
+  (ruby-mode-hook . eglot-ensure))
 
 (use-package inf-ruby
   :after ruby-mode
@@ -6168,7 +5795,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (lua-indent-level tab-width)
   :hook
-  (lua-mode-hook . eglot-maybe-ensure))
+  (lua-mode-hook . eglot-ensure))
 
 (use-package fennel-mode
   :mode "\\.fnl\\'")
@@ -6178,7 +5805,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (rust-indent-offset tab-width)
   :hook
-  (rust-mode-hook . eglot-maybe-ensure))
+  (rust-mode-hook . eglot-ensure))
 
 (use-package go-mode
   :mode "\\.go\\'")
@@ -6191,7 +5818,7 @@ This package sets these explicitly so we have to do the same."
   (powershell-indent tab-width)
   (powershell-continuation-indent tab-width)
   :hook
-  (powershell-mode-hook . eglot-maybe-ensure))
+  (powershell-mode-hook . eglot-ensure))
 
 (use-package php-mode
   :mode "\\.php\\'"
@@ -6200,7 +5827,7 @@ This package sets these explicitly so we have to do the same."
     "Set up `php-mode'."
     (outline-minor-mode -1))
   :hook
-  (php-mode-hook . eglot-maybe-ensure)
+  (php-mode-hook . eglot-ensure)
   (php-mode-hook . php-mode-setup))
 
 (use-package tcl
@@ -6220,7 +5847,7 @@ This package sets these explicitly so we have to do the same."
   :custom
   (c-basic-offset 4)
   :hook
-  ((c-mode-hook c++-mode-hook objc-mode-hook java-mode-hook) . eglot-maybe-ensure)
+  ((c-mode-hook c++-mode-hook objc-mode-hook java-mode-hook) . eglot-ensure)
   :bind
   (:map c-mode-map
         ("<" . c-electric-lt-gt)
@@ -6229,7 +5856,7 @@ This package sets these explicitly so we have to do the same."
 (use-package nxml-mode
   :straight (:type built-in)
   :hook
-  (nxml-mode-hook . eglot-maybe-ensure))
+  (nxml-mode-hook . eglot-ensure))
 
 (use-package csharp-mode
   :mode "\\.cs\\'"
@@ -6345,7 +5972,7 @@ This package sets these explicitly so we have to do the same."
   ;;                                           ("executeCommand" 'ignore))))
 
   :hook
-  (gdscript-mode-hook . eglot-maybe-ensure))
+  (gdscript-mode-hook . eglot-ensure))
 
 (use-package yasnippet-godot-gdscript
   :straight (:type git :host github :repo "francogarcia/yasnippet-godot-gdscript")
@@ -6358,6 +5985,10 @@ This package sets these explicitly so we have to do the same."
 
 (use-package vimrc-mode
   :mode "\\.vim\\(rc\\)?\\'")
+
+(use-package monkeyc-mode
+  :straight (monkeyc-mode :host github :repo "4lick/monkeyc-mode")
+  :mode "\\.mc\\'")
 
 
 ;;;; Multiple Major Modes
@@ -6726,7 +6357,7 @@ With a prefix ARG, create it in `org-directory'."
 
   :hook
   (org-mode-hook . org-mode-setup)
-  (org-babel-after-execute-hook . org-redisplay-inline-images)
+  (org-babel-after-execute-hook . org-link-preview-refresh)
 
   :bind
   ("C-c l" . org-store-link)
@@ -6822,11 +6453,6 @@ With a prefix ARG, create it in `org-directory'."
   :bind
   ("C-c C-'" . poporg-dwim))
 
-(use-package orglink
-  :defer 15
-  :hook
-  (prog-mode-hook . orglink-mode))
-
 ;; `ov' is an implicit dependency of `ox-clip'.
 (use-package ov)
 
@@ -6849,6 +6475,21 @@ With a prefix ARG, create it in `org-directory'."
 (use-package copilot
   :straight (:host github :repo "copilot-emacs/copilot.el" :files ("*.el"))
   :ensure t)
+
+(use-package codex-cli
+  :ensure t
+  :bind (("C-c C-c s" . codex-cli-start)
+         ("C-c C-c c" . codex-cli-toggle)
+         ("C-c C-c q" . codex-cli-stop)
+         ("C-c C-c Q" . codex-cli-restart)
+         ("C-c C-c p" . codex-cli-send-prompt)
+         ("C-c C-c r" . codex-cli-send-region)
+         ("C-c C-c f" . codex-cli-send-file)
+         ("C-c C-c b" . codex-cli-copy-last-block))
+  :init
+  (setq codex-cli-executable "codex"
+        codex-cli-terminal-backend 'vterm
+        codex-cli-width 90))
 
 
 ;;;; Hydra
